@@ -7,6 +7,7 @@ import 'package:keel_ui/src/core/services/app_window_arguments.dart';
 import 'package:keel_ui/src/core/services/legacy_json_migration.dart';
 import 'package:keel_ui/src/core/services/local_database.dart';
 import 'package:keel_ui/src/core/ui/app_theme.dart';
+import 'package:keel_ui/src/integrations/assistant_mcp/assistant_mcp_server.dart';
 import 'package:keel_ui/src/modules/agents/model/file_edit.dart';
 import 'package:keel_ui/src/modules/agents/model/file_editor_window_arguments.dart';
 import 'package:keel_ui/src/modules/agents/ui/screen/agents_screen.dart';
@@ -20,6 +21,7 @@ Future<void> main(List<String> rawArgs) async {
   await LocalDatabase.ensureInitialized();
   await migrateLegacyJsonIfNeeded();
   await seedKeelAi();
+  await AssistantMcpServer.start();
 
   final windowController = await WindowController.fromCurrentEngine();
   final json = AppWindowArguments.decode(windowController.arguments);

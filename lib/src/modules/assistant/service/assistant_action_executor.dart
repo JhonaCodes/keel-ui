@@ -18,16 +18,16 @@ List<AssistantActionResult> executeAssistantActions(
   return [
     for (final action in actions)
       switch (action) {
-        CreateSkillAction() => _executeSkill(action),
-        CreateRuleAction() => _executeRule(action),
-        CreateAgentAction() => _executeAgent(action),
-        CreateWorkflowAction() => _executeWorkflow(action),
-        CreateStationAction() => _executeStation(action),
+        CreateSkillAction() => executeSkillAction(action),
+        CreateRuleAction() => executeRuleAction(action),
+        CreateAgentAction() => executeAgentAction(action),
+        CreateWorkflowAction() => executeWorkflowAction(action),
+        CreateStationAction() => executeStationAction(action),
       },
   ];
 }
 
-AssistantActionResult _executeSkill(CreateSkillAction action) {
+AssistantActionResult executeSkillAction(CreateSkillAction action) {
   final viewmodel = SkillsService.instance.notifier;
   if (viewmodel.data.skills.any((skill) => skill.name == action.name)) {
     return AssistantActionResult(
@@ -47,7 +47,7 @@ AssistantActionResult _executeSkill(CreateSkillAction action) {
   );
 }
 
-AssistantActionResult _executeRule(CreateRuleAction action) {
+AssistantActionResult executeRuleAction(CreateRuleAction action) {
   final viewmodel = RulesService.instance.notifier;
   if (viewmodel.data.rules.any((rule) => rule.name == action.name)) {
     return AssistantActionResult(
@@ -67,7 +67,7 @@ AssistantActionResult _executeRule(CreateRuleAction action) {
   );
 }
 
-AssistantActionResult _executeAgent(CreateAgentAction action) {
+AssistantActionResult executeAgentAction(CreateAgentAction action) {
   if (action.handle == kKeelAiHandle) {
     return AssistantActionResult(
       action: action,
@@ -134,7 +134,7 @@ AssistantActionResult _executeAgent(CreateAgentAction action) {
   );
 }
 
-AssistantActionResult _executeWorkflow(CreateWorkflowAction action) {
+AssistantActionResult executeWorkflowAction(CreateWorkflowAction action) {
   final viewmodel = WorkflowsService.instance.notifier;
   if (viewmodel.data.workflows.any(
     (workflow) => workflow.name == action.name,
@@ -166,7 +166,7 @@ AssistantActionResult _executeWorkflow(CreateWorkflowAction action) {
   );
 }
 
-AssistantActionResult _executeStation(CreateStationAction action) {
+AssistantActionResult executeStationAction(CreateStationAction action) {
   final profiles = AgentProfilesService.instance.notifier.data.profiles;
   final workflows = WorkflowsService.instance.notifier.data.workflows;
 

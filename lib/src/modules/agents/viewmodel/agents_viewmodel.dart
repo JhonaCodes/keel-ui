@@ -6,6 +6,7 @@ import 'package:logger_rs/logger_rs.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
 
 import 'package:keel_ui/src/core/services/claude_cli_service.dart';
+import 'package:keel_ui/src/integrations/assistant_mcp/assistant_mcp_server.dart';
 import 'package:keel_ui/src/modules/agents/model/agent.dart';
 import 'package:keel_ui/src/modules/agents/model/agent_icon_colors.dart';
 import 'package:keel_ui/src/modules/agents/model/agent_tool_activity.dart';
@@ -325,6 +326,10 @@ class AgentsViewModel extends ViewModel<AgentsState> {
         Platform.environment['HOME'] ?? Directory.current.path;
     final pendingFileBeforeContent = <String, String?>{};
     final assistantTextBuffer = StringBuffer();
+    final isKeelAi = _isKeelAi(target.profileId);
+    final mcpConfig = isKeelAi
+        ? AssistantMcpServer.mcpConfigFor(agentId)
+        : null;
 
     final events = _claude.run(
       prompt: promptForModel,
@@ -332,14 +337,18 @@ class AgentsViewModel extends ViewModel<AgentsState> {
       model: target.model,
       fullFileSystemAccess: target.fullFileSystemAccess,
       effort: target.effort,
-      extraAllowedTools:
-          SettingsService.instance.notifier.data.extraAllowedTools,
+      extraAllowedTools: [
+        ...SettingsService.instance.notifier.data.extraAllowedTools,
+        if (mcpConfig != null) ...kKeelAiMcpToolNames,
+      ],
       workingDirectory: workingDirectory,
       additionalSystemPrompt: _resolveProfileSystemPrompt(target.profileId),
+      mcpConfig: mcpConfig,
       onProcessStarted: (process) => _runningProcesses[agentId] = process,
     );
 
     var wasStopped = false;
+    var calledAnyKeelAiTool = false;
     await for (final event in events) {
       if (_stoppedAgentIds.remove(agentId)) {
         wasStopped = true;
@@ -368,6 +377,7 @@ class AgentsViewModel extends ViewModel<AgentsState> {
           pendingFileBeforeContent.clear();
 
         case ClaudeToolUse(name: final name, input: final input):
+          if (kKeelAiMcpToolNames.contains(name)) calledAnyKeelAiTool = true;
           _setCurrentActivity(
             agentId,
             AgentToolActivity.fromToolUse(name, input),
@@ -453,7 +463,7 @@ class AgentsViewModel extends ViewModel<AgentsState> {
     // this agent still looked busy.
     _setStreaming(agentId, false);
 
-    if (_isKeelAi(target.profileId)) {
+    if (isKeelAi) {
       // target.messages was captured before this turn's user message was
       // appended, so it's exactly the prior history — combined with
       // `trimmed`, this covers both "creá una estación" as the direct
@@ -470,11 +480,25 @@ class AgentsViewModel extends ViewModel<AgentsState> {
         agentId,
         recentUserTexts: recentUserTexts,
         assistantText: assistantTextBuffer.toString(),
-        allowRetry: !isAutoRetry && !wasStopped,
+        // A retry only makes sense when NEITHER path fired: no block in the
+        // text AND no real tool call either. If a tool ran, the live trace
+        // from `appendSystemNote` already told the user what happened, even
+        // if the model's own prose is otherwise empty or vague.
+        allowRetry: !isAutoRetry && !wasStopped && !calledAnyKeelAiTool,
       );
     }
 
     await _persist();
+  }
+
+  /// Appends a system-authored trace line to [agentId]'s thread. Used by
+  /// live MCP tool handlers so a create/update action is visible in the
+  /// thread the moment it happens, not summarized after the turn ends.
+  void appendSystemNote(String agentId, String text) {
+    _appendMessage(
+      agentId,
+      ChatMessage(role: ChatRole.system, text: text, timestamp: DateTime.now()),
+    );
   }
 
   bool _isKeelAi(String? profileId) {
@@ -526,8 +550,8 @@ class AgentsViewModel extends ViewModel<AgentsState> {
     );
   }
 
-  /// Resolves [profileId]'s registered skills and rules to their saved
-  /// content and concatenates both for injection into the agent's system
+  /// Concatenates [profileId]'s own `systemPrompt` with the content of its
+  /// registered skills and rules, for injection into the agent's system
   /// prompt. Selection is static — decided when the profile was
   /// configured, never inferred by the model at runtime.
   String? _resolveProfileSystemPrompt(String? profileId) {
@@ -543,6 +567,9 @@ class AgentsViewModel extends ViewModel<AgentsState> {
     final skills = SkillsService.instance.notifier.data.skills;
     final rules = RulesService.instance.notifier.data.rules;
     final buffer = StringBuffer();
+    if (profile.systemPrompt.isNotEmpty) {
+      buffer.writeln(profile.systemPrompt);
+    }
     for (final skillName in profile.skills) {
       final skillIndex = skills.indexWhere((skill) => skill.name == skillName);
       if (skillIndex == -1) continue;

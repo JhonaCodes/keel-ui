@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:reactive_notifier/reactive_notifier.dart';
 
 import 'package:keel_ui/src/core/ui/form_panel.dart';
+import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
+import 'package:keel_ui/src/modules/agent_profiles/viewmodel/agent_profiles_viewmodel.dart';
 import 'package:keel_ui/src/modules/agents/model/agent_icon_colors.dart';
 import 'package:keel_ui/src/modules/workflows/model/workflow.dart';
 import 'package:keel_ui/src/modules/workflows/viewmodel/workflows_viewmodel.dart';
@@ -279,7 +282,7 @@ class _WorkflowStepEditor extends StatefulWidget {
 
 class _WorkflowStepEditorState extends State<_WorkflowStepEditor> {
   late final _titleController = TextEditingController(text: widget.step.title);
-  late final _roleController = TextEditingController(text: widget.step.role);
+  late String _role = widget.step.role;
   late final _instructionController = TextEditingController(
     text: widget.step.instruction,
   );
@@ -287,7 +290,6 @@ class _WorkflowStepEditorState extends State<_WorkflowStepEditor> {
   @override
   void dispose() {
     _titleController.dispose();
-    _roleController.dispose();
     _instructionController.dispose();
     super.dispose();
   }
@@ -296,10 +298,15 @@ class _WorkflowStepEditorState extends State<_WorkflowStepEditor> {
     widget.onChanged(
       widget.step.copyWith(
         title: _titleController.text,
-        role: _roleController.text,
+        role: _role,
         instruction: _instructionController.text,
       ),
     );
+  }
+
+  void _onRoleChanged(String role) {
+    setState(() => _role = role);
+    _notify();
   }
 
   @override
@@ -355,10 +362,10 @@ class _WorkflowStepEditorState extends State<_WorkflowStepEditor> {
             const SizedBox(height: 10),
             Align(
               alignment: Alignment.centerLeft,
-              child: _RolePill(
-                controller: _roleController,
+              child: _RoleDropdown(
+                value: _role,
                 color: color,
-                onChanged: (_) => _notify(),
+                onChanged: _onRoleChanged,
               ),
             ),
             const SizedBox(height: 8),
@@ -379,55 +386,100 @@ class _WorkflowStepEditorState extends State<_WorkflowStepEditor> {
   }
 }
 
-/// A role shown as a colored pill instead of a plain field — the value is
-/// still free text, only how it's presented and edited changes.
-class _RolePill extends StatelessWidget {
-  const _RolePill({
-    required this.controller,
+/// A step's role must match an actual registered agent's role at runtime —
+/// see `WorkflowStep.role`'s doc comment — so this is a closed pick from the
+/// roles currently registered on `AgentProfile`s, not free text: a typo here
+/// ("Analizer" vs "Analista") is exactly what used to silently produce
+/// "sin agente para X" when the field ran on independently-typed strings.
+/// Closed while editing means opening the dropdown and choosing one (the
+/// current value shows checked); collapsed it reads as plain text, same as
+/// any other Material dropdown field.
+class _RoleDropdown extends StatelessWidget {
+  const _RoleDropdown({
+    required this.value,
     required this.color,
     required this.onChanged,
   });
 
-  final TextEditingController controller;
+  final String value;
   final Color color;
   final ValueChanged<String> onChanged;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      constraints: const BoxConstraints(maxWidth: 280),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 11,
-            height: 11,
-            decoration: BoxDecoration(
-              color: color,
-              borderRadius: BorderRadius.circular(3),
+    return ReactiveViewModelBuilder<AgentProfilesViewModel, AgentProfilesState>(
+      viewmodel: AgentProfilesService.instance.notifier,
+      build: (state, viewmodel, keep) {
+        final registeredRoles = <String>{
+          for (final profile in state.profiles)
+            if (profile.role.trim().isNotEmpty) profile.role,
+        };
+        // Keeps a stale/legacy value selectable (never silently dropped by
+        // opening the editor) without letting new selections drift away
+        // from an actual registered agent's role.
+        final options = {
+          ...registeredRoles,
+          if (value.trim().isNotEmpty) value,
+        }.toList()..sort();
+
+        if (options.isEmpty) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 6),
+            child: Text(
+              'Registra un agente con un rol para poder asignarlo a un paso.',
+              style: TextStyle(fontSize: 11),
             ),
+          );
+        }
+
+        return Container(
+          constraints: const BoxConstraints(maxWidth: 280),
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          decoration: BoxDecoration(
+            border: Border.all(
+              color: Theme.of(context).colorScheme.outlineVariant,
+            ),
+            borderRadius: BorderRadius.circular(999),
           ),
-          const SizedBox(width: 8),
-          Flexible(
-            child: TextField(
-              controller: controller,
-              onChanged: onChanged,
-              style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-              decoration: const InputDecoration(
-                isDense: true,
-                isCollapsed: true,
-                border: InputBorder.none,
-                hintText: 'Rol',
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 11,
+                height: 11,
+                decoration: BoxDecoration(
+                  color: color,
+                  borderRadius: BorderRadius.circular(3),
+                ),
               ),
-            ),
+              const SizedBox(width: 8),
+              Flexible(
+                child: DropdownButtonFormField<String>(
+                  initialValue: value.trim().isEmpty ? null : value,
+                  isDense: true,
+                  hint: const Text(
+                    'Rol',
+                    style: TextStyle(fontFamily: 'monospace', fontSize: 12),
+                  ),
+                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                  decoration: const InputDecoration(
+                    isDense: true,
+                    isCollapsed: true,
+                    border: InputBorder.none,
+                  ),
+                  items: [
+                    for (final role in options)
+                      DropdownMenuItem(value: role, child: Text(role)),
+                  ],
+                  onChanged: (role) {
+                    if (role != null) onChanged(role);
+                  },
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }

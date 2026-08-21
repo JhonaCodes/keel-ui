@@ -106,6 +106,7 @@ class ClaudeCliService {
     List<String> extraAllowedTools = const [],
     String? sessionId,
     String? additionalSystemPrompt,
+    String? mcpConfig,
     void Function(Process process)? onProcessStarted,
   }) async* {
     final allowedTools = [...kAlwaysAllowedTools, ...extraAllowedTools];
@@ -128,6 +129,7 @@ class ClaudeCliService {
       allowedTools.join(','),
       '--append-system-prompt',
       systemPrompt,
+      if (mcpConfig != null) ...['--mcp-config', mcpConfig, '--strict-mcp-config'],
       if (fullFileSystemAccess) ...['--add-dir', '/'],
       if (sessionId != null) ...['--resume', sessionId],
     ];

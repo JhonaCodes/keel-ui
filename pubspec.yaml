@@ -49,6 +49,8 @@ dependencies:
   flutter_highlight: ^0.7.0
   highlight: ^0.7.0
   flutter_local_db: ^1.5.1
+  dart_mcp: ^0.5.2
+  stream_channel: ^2.1.4
 
 dev_dependencies:
   flutter_test:

@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 
+import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
+import 'package:keel_ui/src/modules/stations/model/member_tuning.dart';
 import 'package:keel_ui/src/modules/stations/model/station_task.dart';
 
 final RegExp _stationNameFormat = RegExp(r'^[a-z0-9_-]{1,24}$');
@@ -40,6 +42,12 @@ class Station {
   /// turno reciben el MAPA de cada una (raíz, tamaño, carpetas, portada),
   /// nunca los documentos enteros: los abren ellos cuando les hacen falta.
   final List<String> knowledgeBaseNames;
+
+  /// Con qué motor corre cada miembro ACÁ, por id de perfil. El agente es
+  /// global; el modelo con el que trabaja es una decisión de esta estación,
+  /// donde se sabe qué tan cara es la tarea. Lo que no está en el mapa corre
+  /// con lo que dice su perfil.
+  final Map<String, MemberTuning> memberTuning;
   final String? activeWorkflowId;
   final List<StationTask> tasks;
   final String? activeTaskId;
@@ -55,10 +63,16 @@ class Station {
     this.workflowIds = const [],
     this.ruleNames = const [],
     this.knowledgeBaseNames = const [],
+    this.memberTuning = const {},
     this.activeWorkflowId,
     this.tasks = const [],
     this.activeTaskId,
   });
+
+  /// [member] tal como corre en esta estación: su identidad entera, con el
+  /// motor que se le fijó acá si es que se le fijó alguno.
+  AgentProfile tuned(AgentProfile member) =>
+      memberTuning[member.id]?.applyTo(member) ?? member;
 
   StationTask? get activeTask {
     final id = activeTaskId;
@@ -77,6 +91,7 @@ class Station {
     List<String>? workflowIds,
     List<String>? ruleNames,
     List<String>? knowledgeBaseNames,
+    Map<String, MemberTuning>? memberTuning,
     String? activeWorkflowId,
     bool clearActiveWorkflow = false,
     List<StationTask>? tasks,
@@ -92,6 +107,7 @@ class Station {
       workflowIds: workflowIds ?? this.workflowIds,
       ruleNames: ruleNames ?? this.ruleNames,
       knowledgeBaseNames: knowledgeBaseNames ?? this.knowledgeBaseNames,
+      memberTuning: memberTuning ?? this.memberTuning,
       activeWorkflowId: clearActiveWorkflow
           ? null
           : (activeWorkflowId ?? this.activeWorkflowId),
@@ -112,6 +128,9 @@ class Station {
     'workflowIds': workflowIds,
     'ruleNames': ruleNames,
     'knowledgeBaseNames': knowledgeBaseNames,
+    'memberTuning': {
+      for (final entry in memberTuning.entries) entry.key: entry.value.toJson(),
+    },
     'activeWorkflowId': activeWorkflowId,
     'tasks': tasks.map((task) => task.toJson()).toList(),
     'activeTaskId': activeTaskId,
@@ -129,6 +148,7 @@ class Station {
       ruleNames: (json['ruleNames'] as List?)?.cast<String>() ?? const [],
       knowledgeBaseNames:
           (json['knowledgeBaseNames'] as List?)?.cast<String>() ?? const [],
+      memberTuning: _memberTuningFromJson(json['memberTuning']),
       activeWorkflowId: json['activeWorkflowId'] as String?,
       tasks: (json['tasks'] as List? ?? const [])
           .map((entry) => StationTask.fromJson(entry as Map<String, dynamic>))
@@ -151,6 +171,7 @@ class Station {
           listEquals(workflowIds, other.workflowIds) &&
           listEquals(ruleNames, other.ruleNames) &&
           listEquals(knowledgeBaseNames, other.knowledgeBaseNames) &&
+          mapEquals(memberTuning, other.memberTuning) &&
           activeWorkflowId == other.activeWorkflowId &&
           listEquals(tasks, other.tasks) &&
           activeTaskId == other.activeTaskId &&
@@ -166,6 +187,10 @@ class Station {
     Object.hashAll(workflowIds),
     Object.hashAll(ruleNames),
     Object.hashAll(knowledgeBaseNames),
+    Object.hashAll([
+      for (final entry in memberTuning.entries)
+        Object.hash(entry.key, entry.value),
+    ]),
     activeWorkflowId,
     Object.hashAll(tasks),
     activeTaskId,
@@ -177,6 +202,21 @@ class Station {
       'Station(id: $id, name: $name, members: ${profileIds.length}, '
       'workflows: ${workflowIds.length}, tasks: ${tasks.length}, '
       'activeTask: $activeTaskId)';
+}
+
+/// Los ajustes de motor guardados, tolerando el registro viejo: una estación
+/// escrita antes de que esto existiera simplemente no trae la clave.
+Map<String, MemberTuning> _memberTuningFromJson(Object? value) {
+  if (value is! Map) return const {};
+  final tuning = <String, MemberTuning>{};
+  for (final entry in value.entries) {
+    final config = entry.value;
+    if (config is! Map) continue;
+    tuning[entry.key as String] = MemberTuning.fromJson(
+      config.cast<String, dynamic>(),
+    );
+  }
+  return tuning;
 }
 
 class StationsState {

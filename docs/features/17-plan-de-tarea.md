@@ -30,8 +30,22 @@ turno solo puede tocar el plan de la tarea en la que corre.
 
 | Tool | Cuándo |
 |---|---|
-| `set_task_plan(items)` | En el paso que planifica. Puntos concretos y verificables, no las etapas del workflow. |
+| `set_task_plan(items)` | Cuando la tarea no tiene plan. Puntos concretos y verificables, no las etapas del workflow. |
 | `complete_plan_items(items)` | Al cerrar el turno, con el texto exacto (o el id) de lo que ese paso resolvió. |
+
+**El turno lleva el plan escrito, no solo las tools.** Nombrarlas no
+alcanzaba, por dos motivos que se vieron en uso:
+
+- `complete_plan_items` pide "el texto exacto" de puntos que el agente nunca
+  había visto — no había forma de leer el plan.
+- "si tu paso es planificar" era una interpretación, y el paso 1 de `tdd` se
+  llama **Charter**: el planificador no se dio por aludido y la tarea corrió
+  entera sin plan.
+
+Ahora el turno trae el plan renderizado con su estado (`[x]` / `[ ]`), y la
+regla es mecánica: **si la tarea no tiene plan, lo escribe quien esté
+hablando, sea cual sea su paso**. Un turno de consulta ve el plan como
+contexto pero no lo escribe ni lo marca — contesta y se va.
 
 `complete_plan_items` acepta **texto o id**: el modelo tiene los dos a la
 vista, y exigir el id convertiría un acierto en un fallo silencioso. Lo que
@@ -41,7 +55,31 @@ turno siguiente en vez de descubrirse cuando el plan no avanza.
 Un agente **codex** no recibe el plan — misma limitación que ya tiene con
 tools y MCPs externos.
 
-## En la UI
+## En la UI — dos vistas, no una
+
+**En el hilo** queda escrito lo que se acordó, para leerlo entero:
+
+```
+🤖 PLAN DE TRABAJO · 6 puntos
+   ○  Función pura de agregación con expected/variance
+   ○  Test RED que falla contra el oráculo declarado
+   …
+```
+
+y cada vez que un paso cierra puntos, su acuse:
+
+```
+🤖 PLAN · 3 de 6
+   ✓  Test RED que falla contra el oráculo declarado
+```
+
+Replanificar no pisa lo anterior: escribe otro bloque, marcado como
+`PLAN REPLANIFICADO`, y la conversación conserva las dos versiones. El
+acuse por paso existe para que "dice que lo hizo pero no lo tildó" se vea en
+el momento y no tres turnos después.
+
+**En el sidebar** vive el plan VIVO, que es la otra pregunta: qué falta
+ahora.
 
 Debajo de la tarea abierta, en el sidebar. Solo la abierta: con cuatro
 tareas en la estación, cuatro planes desplegados convierten la columna en

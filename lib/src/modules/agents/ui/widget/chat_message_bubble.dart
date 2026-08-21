@@ -107,6 +107,10 @@ class _ChatMessageBubbleContent extends StatelessWidget {
           child: InfoLabel(
             text: message.text,
             typeInfoLabel: TypeInfoLabel.neutral,
+            // Estas notas van de una línea (una mención que no llegó) a doce
+            // (el plan de la tarea). Con el icono centrado, un bloque largo lo
+            // deja flotando en el medio, lejos del renglón que encabeza.
+            crossAxisAlignment: CrossAxisAlignment.start,
             leftIcon: Icon(
               Icons.smart_toy_outlined,
               size: 14,

@@ -22,9 +22,7 @@ Future<void> _writeEntity(
 ) async {
   final file = File('${catalogDir.path}/$category/${_fileNameFor(name)}');
   await file.create(recursive: true);
-  await file.writeAsString(
-    const JsonEncoder.withIndent('  ').convert(json),
-  );
+  await file.writeAsString(const JsonEncoder.withIndent('  ').convert(json));
 }
 
 /// Serializes the live catalog into `<mirror>/catalog/…`, everything BY
@@ -156,6 +154,9 @@ Future<int> _writeCatalog(Directory mirror) async {
           .toList(),
       'ruleNames': station.ruleNames,
       'knowledgeBaseNames': station.knowledgeBaseNames,
+      // Con qué motor corre cada miembro acá, por handle: es configuración de
+      // la estación, así que viaja con ella o se pierde en el import.
+      'memberEngines': _engineMirror(station, profiles),
       'activeWorkflowName': station.activeWorkflowId == null
           ? null
           : workflowNameOf(station.activeWorkflowId!),
@@ -164,6 +165,43 @@ Future<int> _writeCatalog(Directory mirror) async {
   }
 
   return written;
+}
+
+/// Los ajustes de motor de [station] rekeyados por handle. Un ajuste de un
+/// perfil que ya no existe no se escribe: el mirror es portable y un id
+/// suelto no significa nada del otro lado.
+Map<String, dynamic> _engineMirror(
+  Station station,
+  List<AgentProfile> profiles,
+) {
+  final mirror = <String, dynamic>{};
+  for (final entry in station.memberTuning.entries) {
+    final handle = profiles
+        .where((profile) => profile.id == entry.key)
+        .firstOrNull
+        ?.name;
+    if (handle == null) continue;
+    mirror[handle] = entry.value.toJson();
+  }
+  return mirror;
+}
+
+/// Los ajustes de motor de un archivo de estación, por handle. Un mirror
+/// escrito antes de que esto existiera simplemente no trae la clave.
+List<MapEntry<String, MemberTuning>> _readEngines(Object? value) {
+  if (value is! Map) return const [];
+  final engines = <MapEntry<String, MemberTuning>>[];
+  for (final entry in value.entries) {
+    final config = entry.value;
+    if (config is! Map) continue;
+    engines.add(
+      MapEntry(
+        entry.key as String,
+        MemberTuning.fromJson(config.cast<String, dynamic>()),
+      ),
+    );
+  }
+  return engines;
 }
 
 List<Map<String, dynamic>> _readCategory(Directory mirror, String category) {
@@ -229,7 +267,10 @@ Future<String> _readAndMergeCatalog(Directory mirror) async {
         .where((rule) => rule.name == name)
         .firstOrNull;
     final error = existing == null
-        ? rules.createRule(name: name, content: json['content'] as String? ?? '')
+        ? rules.createRule(
+            name: name,
+            content: json['content'] as String? ?? '',
+          )
         : rules.updateRule(
             existing.id,
             name: name,
@@ -241,9 +282,7 @@ Future<String> _readAndMergeCatalog(Directory mirror) async {
   final tools = ToolsService.instance.notifier;
   for (final json in _readCategory(mirror, 'tools')) {
     final name = json['name'] as String;
-    final runtime = ToolRuntime.tryFromAlias(
-      json['runtime'] as String? ?? '',
-    );
+    final runtime = ToolRuntime.tryFromAlias(json['runtime'] as String? ?? '');
     if (runtime == null) {
       problems.add('tool $name: runtime inválido');
       continue;
@@ -329,8 +368,7 @@ Future<String> _readAndMergeCatalog(Directory mirror) async {
             args: (json['args'] as List?)?.cast<String>() ?? const [],
             env: (json['env'] as Map?)?.cast<String, String>() ?? const {},
             secretEnv:
-                (json['secretEnv'] as Map?)?.cast<String, String>() ??
-                const {},
+                (json['secretEnv'] as Map?)?.cast<String, String>() ?? const {},
             url: json['url'] as String? ?? '',
             headers:
                 (json['headers'] as Map?)?.cast<String, String>() ?? const {},
@@ -343,8 +381,7 @@ Future<String> _readAndMergeCatalog(Directory mirror) async {
             args: (json['args'] as List?)?.cast<String>() ?? const [],
             env: (json['env'] as Map?)?.cast<String, String>() ?? const {},
             secretEnv:
-                (json['secretEnv'] as Map?)?.cast<String, String>() ??
-                const {},
+                (json['secretEnv'] as Map?)?.cast<String, String>() ?? const {},
             url: json['url'] as String? ?? '',
             headers:
                 (json['headers'] as Map?)?.cast<String, String>() ?? const {},
@@ -484,6 +521,31 @@ Future<String> _readAndMergeCatalog(Directory mirror) async {
             knowledgeBaseNames: knowledgeBaseNames,
           );
     track(error, existed: existing != null, label: 'estación $name');
+    if (error != null) continue;
+
+    // Los ajustes de motor van después de crear/actualizar: se guardan por
+    // id de perfil, que de este lado es otro.
+    final stationId =
+        existing?.id ??
+        stations.data.stations
+            .where((station) => station.name == name)
+            .firstOrNull
+            ?.id;
+    if (stationId == null) continue;
+    for (final entry in _readEngines(json['memberEngines'])) {
+      final profileId = liveProfiles
+          .where((profile) => profile.name == entry.key)
+          .firstOrNull
+          ?.id;
+      if (profileId == null) continue;
+      stations.setMemberTuning(
+        stationId,
+        profileId,
+        provider: entry.value.provider,
+        model: entry.value.model,
+        effort: entry.value.effort,
+      );
+    }
   }
 
   final parts = [

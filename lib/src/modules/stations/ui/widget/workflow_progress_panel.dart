@@ -1,13 +1,18 @@
 import 'package:flutter/material.dart';
 
 import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
+import 'package:keel_ui/src/modules/agents/model/agent_model_option.dart';
+import 'package:keel_ui/src/modules/agents/model/agent_provider.dart';
+import 'package:keel_ui/src/modules/agents/model/effort_level.dart';
 import 'package:keel_ui/src/modules/rules/ui/screen/rule_form_screen.dart';
 import 'package:keel_ui/src/modules/knowledge/ui/screen/knowledge_base_form_screen.dart';
 import 'package:keel_ui/src/modules/knowledge/viewmodel/knowledge_viewmodel.dart';
 import 'package:keel_ui/src/modules/rules/viewmodel/rules_viewmodel.dart';
+import 'package:keel_ui/src/modules/workflows/viewmodel/workflows_viewmodel.dart';
 import 'package:keel_ui/src/modules/stations/model/member_color.dart';
 import 'package:keel_ui/src/modules/stations/model/station.dart';
 import 'package:keel_ui/src/modules/stations/model/station_task.dart';
+import 'package:keel_ui/src/modules/stations/ui/widget/member_engine_panel.dart';
 import 'package:keel_ui/src/modules/stations/viewmodel/stations_viewmodel.dart';
 import 'package:keel_ui/src/modules/workflows/model/workflow.dart';
 
@@ -32,6 +37,107 @@ class WorkflowProgressPanel extends StatelessWidget {
 
   AgentProfile? _ownerOf(WorkflowStep step) =>
       memberForRole(members, step.role);
+
+  /// El dueño del paso con el motor que le toca en esta estación.
+  AgentProfile? _engineOf(WorkflowStep step) {
+    final owner = _ownerOf(step);
+    return owner == null ? null : station.tuned(owner);
+  }
+
+  /// Cambia proveedor, modelo o esfuerzo del dueño del paso, solo acá.
+  ///
+  /// El ajuste es del MIEMBRO en esta estación, no del paso: si `flutter-expert`
+  /// tiene tres pasos, los tres pasan a correr con lo que se elija. Que sea por
+  /// miembro y no por paso es a propósito — el mismo agente pensando distinto
+  /// según el paso es una diferencia que nadie puede sostener en la cabeza.
+  Future<void> _tuneEngine(BuildContext context, WorkflowStep step) async {
+    final owner = _ownerOf(step);
+    if (owner == null) return;
+    await openMemberEnginePanel(context, station: station, member: owner);
+  }
+
+  /// Cambia a quién le toca el paso [stepIndex], eligiendo entre los
+  /// puestos que esta estación sí tiene.
+  ///
+  /// Esto edita el WORKFLOW, que es compartido: si `tdd` lo usan cuatro
+  /// estaciones, el cambio vale para las cuatro. Es lo correcto cuando el
+  /// paso nombra un agente puntual —eso lo ata a un stack— y se arregla
+  /// poniéndole el puesto; por eso el diálogo lo dice antes de aplicar.
+  Future<void> _assignStepRole(BuildContext context, int stepIndex) async {
+    final flow = workflow;
+    if (flow == null) return;
+
+    final roles = <String>{
+      for (final member in members)
+        if (member.role.trim().isNotEmpty) member.role.trim(),
+    }.toList()..sort();
+
+    if (roles.isEmpty) {
+      return;
+    }
+
+    final usadas = StationsService.instance.notifier.data.stations
+        .where((entry) => entry.workflowIds.contains(flow.id))
+        .length;
+
+    final picked = await showDialog<String>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: Text('Quién hace "${flow.steps[stepIndex].title}"'),
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
+            child: Text(
+              usadas > 1
+                  ? 'El paso pide el rol "${flow.steps[stepIndex].role}". '
+                        'Elegí uno de los puestos de esta estación. El '
+                        'workflow "${flow.name}" lo usan $usadas estaciones: '
+                        'el cambio vale para todas, y en cada una lo toma su '
+                        'propio miembro con ese rol.'
+                  : 'El paso pide el rol "${flow.steps[stepIndex].role}". '
+                        'Elegí uno de los puestos de esta estación.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ),
+          for (final role in roles)
+            SimpleDialogOption(
+              onPressed: () => Navigator.of(context).pop(role),
+              child: Text(
+                '$role  —  ${members.where((m) => m.role.trim() == role).map((m) => '@${m.name}').join(', ')}',
+              ),
+            ),
+        ],
+      ),
+    );
+    if (picked == null) return;
+
+    final steps = [
+      for (var i = 0; i < flow.steps.length; i++)
+        if (i == stepIndex)
+          WorkflowStep(
+            id: flow.steps[i].id,
+            title: flow.steps[i].title,
+            role: picked,
+            instruction: flow.steps[i].instruction,
+          )
+        else
+          flow.steps[i],
+    ];
+    WorkflowsService.instance.notifier.updateWorkflow(
+      flow.id,
+      name: flow.name,
+      whenToApply: flow.whenToApply,
+      steps: steps,
+    );
+  }
+
+  /// Los puestos que esta estación sí puede cubrir. Un paso huérfano sin
+  /// esta lista es un callejón: decir "sin agente para X" no dice qué poner
+  /// en su lugar, y el rol correcto está a la vista de nadie.
+  List<String> get _availableRoles => [
+    for (final member in members)
+      if (member.role.trim().isNotEmpty) '${member.role} (@${member.name})',
+  ];
 
   /// Picks a registered rule and attaches it to the station, or jumps
   /// straight to registering a new one when the catalog is empty.
@@ -167,10 +273,20 @@ class WorkflowProgressPanel extends StatelessWidget {
               isLast: index == flow.steps.length - 1,
               state: _stateOf(index),
               owner: _ownerOf(flow.steps[index]),
+              // El motor con el que ese miembro corre ACÁ, que puede no ser
+              // el de su ficha. Es lo que se va a ejecutar, así que es lo
+              // que se muestra.
+              engine: _engineOf(flow.steps[index]),
+              isTuned: station.memberTuning.containsKey(
+                _ownerOf(flow.steps[index])?.id,
+              ),
               ownerIndex: members.indexWhere(
                 (m) => m.id == _ownerOf(flow.steps[index])?.id,
               ),
               consulted: _consultedIn(index),
+              availableRoles: _availableRoles,
+              onAssign: () => _assignStepRole(context, index),
+              onTuneEngine: () => _tuneEngine(context, flow.steps[index]),
             ),
         ],
         _GroupHead(label: 'Reglas', onAdd: () => _addRule(context)),
@@ -186,11 +302,8 @@ class WorkflowProgressPanel extends StatelessWidget {
           _BulletRow(
             label: baseName,
             filled: true,
-            onRemove: () =>
-                StationsService.instance.notifier.removeKnowledgeBase(
-                  station.id,
-                  baseName,
-                ),
+            onRemove: () => StationsService.instance.notifier
+                .removeKnowledgeBase(station.id, baseName),
           ),
       ],
     );
@@ -242,15 +355,30 @@ class _StepRow extends StatelessWidget {
     required this.isLast,
     required this.state,
     required this.owner,
+    required this.engine,
+    required this.isTuned,
     required this.ownerIndex,
     required this.consulted,
+    required this.availableRoles,
+    required this.onAssign,
+    required this.onTuneEngine,
   });
 
   final WorkflowStep step;
+  final List<String> availableRoles;
+  final VoidCallback onAssign;
+  final VoidCallback onTuneEngine;
   final int index;
   final bool isLast;
   final _StepState state;
   final AgentProfile? owner;
+
+  /// [owner] con el motor de esta estación aplicado. Null cuando el paso está
+  /// huérfano.
+  final AgentProfile? engine;
+
+  /// Si ese motor es un ajuste de esta estación y no el de su ficha.
+  final bool isTuned;
   final int ownerIndex;
   final String? consulted;
 
@@ -357,20 +485,40 @@ class _StepRow extends StatelessWidget {
                         ),
                         const SizedBox(width: 6),
                         Expanded(
-                          child: Text(
-                            owner?.name ?? 'sin agente para "${step.role}"',
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontFamily: 'monospace',
-                              fontSize: 11,
-                              color: owner == null
-                                  ? scheme.error
-                                  : scheme.outline,
+                          child: InkWell(
+                            onTap: onAssign,
+                            child: Tooltip(
+                              message: owner != null
+                                  ? '${owner!.role} — el paso pide '
+                                        '"${step.role}". Click para cambiarlo.'
+                                  : 'Ningún miembro de esta estación tiene el '
+                                        'rol "${step.role}".\n'
+                                        'Puestos disponibles acá:\n'
+                                        '${availableRoles.isEmpty ? '(la estación no tiene miembros)' : availableRoles.join('\n')}\n'
+                                        'Click para elegir uno.',
+                              waitDuration: const Duration(milliseconds: 400),
+                              child: Text(
+                                owner?.name ?? 'sin agente para "${step.role}"',
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontFamily: 'monospace',
+                                  fontSize: 11,
+                                  color: owner == null
+                                      ? scheme.error
+                                      : scheme.outline,
+                                ),
+                              ),
                             ),
                           ),
                         ),
                       ],
                     ),
+                    if (engine != null)
+                      _EngineLine(
+                        engine: engine!,
+                        isTuned: isTuned,
+                        onTap: onTuneEngine,
+                      ),
                     if (consulted != null)
                       Padding(
                         padding: const EdgeInsets.only(top: 4),
@@ -388,6 +536,75 @@ class _StepRow extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Con qué motor corre el dueño del paso: modelo, esfuerzo y —cuando es un
+/// ajuste de esta estación— un punto que lo marca.
+///
+/// Va a la vista y no detrás de un tooltip porque es la línea que explica el
+/// costo: un paso en Opus vale varias veces uno en Sonnet, y eso no se nota
+/// hasta que llega la factura.
+class _EngineLine extends StatelessWidget {
+  const _EngineLine({
+    required this.engine,
+    required this.isTuned,
+    required this.onTap,
+  });
+
+  final AgentProfile engine;
+  final bool isTuned;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    // Codex resuelve el esfuerzo en su propia config: nombrarlo acá sería
+    // decir que se aplica algo que el turno nunca manda.
+    final texto = engine.provider == AgentProvider.codex
+        ? modelLabelFor(engine.provider, engine.model)
+        : '${modelLabelFor(engine.provider, engine.model)} · '
+              '${effortLabel(engine.effort)}';
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 3, left: 21),
+      child: InkWell(
+        onTap: onTap,
+        child: Tooltip(
+          message: isTuned
+              ? 'Motor fijado para esta estación. Click para cambiarlo.'
+              : 'El motor de su ficha, igual que en todas partes. Click para '
+                    'cambiarlo solo acá.',
+          waitDuration: const Duration(milliseconds: 400),
+          child: Row(
+            children: [
+              if (isTuned) ...[
+                Container(
+                  width: 5,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: scheme.primary,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 5),
+              ],
+              Flexible(
+                child: Text(
+                  texto,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontFamily: 'monospace',
+                    color: isTuned ? scheme.primary : scheme.outlineVariant,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

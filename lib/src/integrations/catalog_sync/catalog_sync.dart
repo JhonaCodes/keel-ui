@@ -18,6 +18,8 @@ import 'package:keel_ui/src/modules/mcp_servers/viewmodel/mcp_servers_viewmodel.
 import 'package:keel_ui/src/modules/rules/viewmodel/rules_viewmodel.dart';
 import 'package:keel_ui/src/modules/settings/viewmodel/settings_viewmodel.dart';
 import 'package:keel_ui/src/modules/skills/viewmodel/skills_viewmodel.dart';
+import 'package:keel_ui/src/modules/stations/model/member_tuning.dart';
+import 'package:keel_ui/src/modules/stations/model/station.dart';
 import 'package:keel_ui/src/modules/stations/viewmodel/stations_viewmodel.dart';
 import 'package:keel_ui/src/modules/tools/model/tool.dart';
 import 'package:keel_ui/src/modules/tools/viewmodel/tools_viewmodel.dart';

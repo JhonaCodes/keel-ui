@@ -22,6 +22,7 @@ import 'package:keel_ui/src/modules/rules/viewmodel/rules_viewmodel.dart';
 import 'package:keel_ui/src/modules/secrets/viewmodel/secrets_viewmodel.dart';
 import 'package:keel_ui/src/modules/settings/viewmodel/settings_viewmodel.dart';
 import 'package:keel_ui/src/modules/skills/viewmodel/skills_viewmodel.dart';
+import 'package:keel_ui/src/modules/stations/model/member_tuning.dart';
 import 'package:keel_ui/src/modules/stations/model/station.dart';
 import 'package:keel_ui/src/modules/stations/model/station_task.dart';
 import 'package:keel_ui/src/modules/stations/model/task_live_turn.dart';
@@ -42,20 +43,25 @@ final RegExp _mentionPattern = RegExp(r'@([a-z0-9_-]{1,16})');
 /// decision, not a guess about prose.
 const _agentDeclarationKeys = {'handle', 'rol', 'proposito', 'instrucciones'};
 
-/// El plan de la tarea es lo que el usuario mira para saber qué falta. Un
-/// plan que solo vive como mensaje del hilo deja de ser consultable a los
-/// diez turnos: por eso hay tools, y por eso el turno las nombra.
-const _planPrompt =
-    'PLAN DE LA TAREA: esta tarea tiene un plan visible para el usuario, con '
-    'sus puntos y cuáles están cumplidos.\n'
-    '- Si tu paso es planificar, escribilo con `set_task_plan`: puntos '
-    'concretos y verificables, no las etapas del workflow (esas ya se ven '
-    'aparte). Si el plan cambia a mitad de camino, volvé a llamarla — lo que '
-    'ya estaba hecho y sigue igual se conserva marcado.\n'
-    '- Al cerrar tu turno, marcá con `complete_plan_items` los puntos que '
-    'efectivamente resolviste, con su texto exacto. Solo esos: el usuario lee '
-    'esto para saber qué queda, y marcar de más lo deja ciego.\n'
-    '- Si no hay plan todavía y tu paso no es planificar, no lo inventes.';
+/// Un canal es una conversación, no una cinta de producción. Sin esta
+/// distinción cada mensaje entra como orden de trabajo: el usuario pregunta
+/// "¿cuál es la siguiente tarea?" y el agente sale a correr comandos, abrir
+/// tickets y tocar archivos, porque todo lo demás que lleva en el turno —sus
+/// skills de proceso, las reglas de la estación— habla de ejecutar.
+const _askVsWorkPrompt =
+    'PREGUNTA O PEDIDO: un mensaje del usuario en el canal puede ser un '
+    'PEDIDO DE TRABAJO o una PREGUNTA. Distinguilos antes de mover un dedo.\n'
+    '- Es una PREGUNTA cuando quiere saber algo: en qué va la tarea, qué '
+    'sigue, qué decidiste, qué dice un documento, por qué hiciste algo. '
+    'Contestá con lo que ya sabés, o leyendo lo mínimo para responder. NO '
+    'corras comandos, no modifiques archivos, no abras ni cierres nada, no '
+    'empieces el trabajo del paso siguiente. Una respuesta de dos líneas es '
+    'una respuesta completa si eso alcanza.\n'
+    '- Es un PEDIDO DE TRABAJO cuando te dice qué hacer o te da el material '
+    'para hacerlo. Ahí sí ejecutás lo que corresponde a tu paso.\n'
+    'Ante la duda, preguntá qué quiere antes de ejecutar: una pregunta '
+    'contestada de más cuesta un turno; trabajo que nadie pidió cuesta el '
+    'turno, el dinero y deshacer lo que tocaste.';
 
 /// Nothing an agent does may be invisible. The CLI can spawn subagents of its
 /// own, which run outside the channel, cost money, and answer to nobody the
@@ -295,16 +301,52 @@ class StationsViewModel extends ViewModel<StationsState> {
     unawaited(_persist());
   }
 
+  /// Fija con qué motor corre [profileId] **en esta estación**: proveedor,
+  /// modelo y esfuerzo. Cada campo en null vuelve a lo que diga el perfil,
+  /// y un ajuste que ya no cambia nada se borra en vez de quedar guardado
+  /// como un override vacío que la UI marcaría igual.
+  void setMemberTuning(
+    String stationId,
+    String profileId, {
+    AgentProvider? provider,
+    String? model,
+    String? effort,
+  }) {
+    final tuning = MemberTuning(
+      provider: provider,
+      model: model,
+      effort: effort,
+    );
+    _updateStation(stationId, (station) {
+      final tunings = Map<String, MemberTuning>.from(station.memberTuning);
+      if (tuning.isEmpty) {
+        tunings.remove(profileId);
+      } else {
+        tunings[profileId] = tuning;
+      }
+      return station.copyWith(memberTuning: tunings);
+    });
+    unawaited(_persist());
+  }
+
+  void clearMemberTuning(String stationId, String profileId) =>
+      setMemberTuning(stationId, profileId);
+
   // ── plan de trabajo de una tarea ────────────────────────────────────
 
   /// Fija el plan de la tarea. Reemplaza el anterior, pero **conserva el
   /// estado de los puntos cuyo texto no cambió**: replanificar a mitad de
   /// camino no puede desmarcar lo que ya se hizo.
+  ///
+  /// Deja además el plan escrito en el hilo. El sidebar muestra el plan VIVO
+  /// —qué falta ahora, en dos palabras por punto— y el hilo, el plan tal como
+  /// se acordó en ese momento: si a los diez turnos cambió, la conversación
+  /// conserva las dos versiones y se ve qué se replanificó.
   void setTaskPlan(String stationId, String taskId, List<String> items) {
+    final anterior = planOf(stationId, taskId);
+
     _updateTask(stationId, taskId, (task) {
-      final anteriores = {
-        for (final item in task.plan) item.text.trim(): item,
-      };
+      final anteriores = {for (final item in task.plan) item.text.trim(): item};
       return task.copyWith(
         plan: [
           for (final text in items)
@@ -314,6 +356,29 @@ class StationsViewModel extends ViewModel<StationsState> {
         ],
       );
     });
+
+    final plan = planOf(stationId, taskId);
+    if (plan.isNotEmpty) {
+      final buffer = StringBuffer(
+        anterior.isEmpty
+            ? 'PLAN DE TRABAJO · ${plan.length} puntos'
+            : 'PLAN REPLANIFICADO · ${plan.length} puntos '
+                  '(antes ${anterior.length})',
+      );
+      for (final item in plan) {
+        buffer.write('\n${item.done ? '✓' : '○'}  ${item.text}');
+      }
+      _appendMessage(
+        stationId,
+        taskId,
+        ChatMessage(
+          role: ChatRole.system,
+          text: buffer.toString(),
+          timestamp: DateTime.now(),
+        ),
+      );
+    }
+
     unawaited(_persist());
   }
 
@@ -346,6 +411,32 @@ class StationsViewModel extends ViewModel<StationsState> {
     ];
 
     _updateTask(stationId, taskId, (current) => current.copyWith(plan: plan));
+
+    // El avance también se cuenta en el hilo, y no como un número suelto: si
+    // el paso dice que hizo algo y acá no aparece tildado, la diferencia se
+    // ve en el momento y no tres turnos después.
+    final marcados = plan.where(
+      (item) =>
+          item.done &&
+          (buscados.contains(item.id) || buscados.contains(item.text.trim())),
+    );
+    if (marcados.isNotEmpty) {
+      final buffer = StringBuffer('PLAN · ${plan.doneCount} de ${plan.length}');
+      for (final item in marcados) {
+        buffer.write('\n✓  ${item.text}');
+      }
+      _appendMessage(
+        stationId,
+        taskId,
+        ChatMessage(
+          role: ChatRole.system,
+          text: buffer.toString(),
+          timestamp: DateTime.now(),
+          authorProfileId: byProfileId,
+        ),
+      );
+    }
+
     unawaited(_persist());
     return buscados.difference(encontrados).toList();
   }
@@ -390,9 +481,8 @@ class StationsViewModel extends ViewModel<StationsState> {
     _updateTask(
       stationId,
       taskId,
-      (task) => task.copyWith(
-        title: limpio.isEmpty ? kDefaultTaskTitle : limpio,
-      ),
+      (task) =>
+          task.copyWith(title: limpio.isEmpty ? kDefaultTaskTitle : limpio),
     );
     unawaited(_persist());
   }
@@ -998,8 +1088,14 @@ class StationsViewModel extends ViewModel<StationsState> {
     // config — the loopback server runs in the main isolate, and the CLI
     // subprocess reaches it over 127.0.0.1 regardless of which isolate
     // spawned it.
+    // El agente es global, pero con qué motor corre es decisión de ESTA
+    // estación: mismo `@flutter-expert` en Sonnet acá y en Opus allá. Se
+    // resuelve una sola vez y de acá en más manda `engine` — incluido el
+    // proveedor, porque cambiarlo cambia qué superficie tiene el turno.
+    final engine = station.tuned(member);
+
     // Codex has no per-turn tools/MCP surface — those stay empty for it.
-    final isCodex = member.provider == AgentProvider.codex;
+    final isCodex = engine.provider == AgentProvider.codex;
     final memberTools = isCodex
         ? const <Tool>[]
         : ToolsService.instance.notifier.toolsByNames(member.tools);
@@ -1011,9 +1107,7 @@ class StationsViewModel extends ViewModel<StationsState> {
           );
     final externalServers = isCodex
         ? const <McpServerConfig>[]
-        : McpServersService.instance.notifier.serversByNames(
-            member.mcpServers,
-          );
+        : McpServersService.instance.notifier.serversByNames(member.mcpServers);
     final externalSecretValues = SecretsService.instance.notifier.valuesFor([
       for (final server in externalServers) ...server.secretNames,
     ]);
@@ -1037,9 +1131,9 @@ class StationsViewModel extends ViewModel<StationsState> {
       TaskRunSpec(
         prompt: instruction,
         workingDirectory: station.workingDirectory,
-        model: member.model,
+        model: engine.model,
         fullFileSystemAccess: false,
-        effort: member.effort,
+        effort: engine.effort,
         extraAllowedTools: [
           ...SettingsService.instance.notifier.data.extraAllowedTools,
           if (planEntry != null) ...kTaskPlanMcpToolNames,
@@ -1054,11 +1148,12 @@ class StationsViewModel extends ViewModel<StationsState> {
           station,
           member,
           task: _taskById(station, taskId),
+          isConsult: consultOfProfileId != null,
         ),
         mcpConfig: mcpServers.isEmpty
             ? null
             : jsonEncode({'mcpServers': mcpServers}),
-        provider: member.provider.alias,
+        provider: engine.provider.alias,
       ),
     );
     _runningTasks[taskId] = run;
@@ -1371,7 +1466,24 @@ class StationsViewModel extends ViewModel<StationsState> {
       if (!asked.add(handle)) continue;
 
       final target = members.where((m) => m.name == handle).firstOrNull;
-      if (target == null) continue;
+      if (target == null) {
+        // Descartarla en silencio es lo que hace que el que mencionó quede
+        // esperando una respuesta que no va a llegar, y que el canal discuta
+        // si ese compañero existe. Queda dicho, una vez por handle.
+        _appendMessage(
+          stationId,
+          taskId,
+          ChatMessage(
+            role: ChatRole.system,
+            text:
+                '@$handle no es miembro de esta estación, así que esa '
+                'mención no llegó a nadie. Miembros: '
+                '${members.map((m) => '@${m.name}').join(', ')}.',
+            timestamp: DateTime.now(),
+          ),
+        );
+        continue;
+      }
 
       // One consult per pair per turn — see [_consultedPairs].
       final pair = '$turnId:${asker.id}>${target.id}';
@@ -1431,7 +1543,61 @@ class StationsViewModel extends ViewModel<StationsState> {
   String _consultPrompt(AgentProfile asker, String text) {
     return '@${asker.name} (${asker.role}) te consultó en el canal:\n\n$text\n\n'
         'Respondé la consulta desde tu especialidad. Si para responder tenés '
-        'que corregir algo en tu área, podés hacerlo.';
+        'que corregir algo en tu área, podés hacerlo.\n'
+        'Esto es una CONSULTA dentro del paso de @${asker.name}, no tu paso. '
+        'Si lo que te está pasando es el trabajo que te toca a vos más '
+        'adelante, no lo hagas todavía: decilo en una línea y esperá a que el '
+        'workflow te dé la palabra. Hacerlo acá deja el tablero marcando el '
+        'paso de él mientras ya se hizo el tuyo, y nadie sabe dónde está la '
+        'tarea.';
+  }
+
+  /// El estado real del plan, dentro del turno.
+  ///
+  /// Nombrar las tools no alcanzaba: `complete_plan_items` pide "el texto
+  /// exacto" de puntos que el agente nunca vio, y decidir si escribir el plan
+  /// quedaba en manos de que el modelo leyera su paso como "planificar" —el
+  /// paso 1 de tdd se llama "Charter" y nadie lo llamó así—. Las dos son
+  /// decisiones que la app puede tomar por él.
+  String _planSection(StationTask? task, {required bool isConsult}) {
+    final plan = task?.plan ?? const <TaskPlanItem>[];
+
+    if (plan.isEmpty) {
+      // Un consultado no planifica la tarea de otro: contesta y se va.
+      if (isConsult) return '';
+      return 'PLAN DE LA TAREA: esta tarea todavía no tiene plan, y el plan '
+          'es lo que el usuario mira para saber qué falta. ANTES que nada en '
+          'este turno, escribilo con `set_task_plan`: entre 3 y 8 puntos '
+          'concretos y verificables que haya que cumplir para darla por '
+          'terminada — no las etapas del workflow, que ya se ven aparte. No '
+          'importa cómo se llame tu paso: si no hay plan, lo escribís vos. '
+          'Después seguí con tu trabajo normal.';
+    }
+
+    final buffer = StringBuffer();
+    buffer.writeln(
+      'PLAN DE LA TAREA (${plan.doneCount} de ${plan.length} cumplidos), que '
+      'es lo que el usuario mira para saber qué falta:',
+    );
+    for (final item in plan) {
+      buffer.writeln('${item.done ? '[x]' : '[ ]'} ${item.text}');
+    }
+
+    if (isConsult) {
+      buffer.writeln(
+        'Va como contexto: el plan lo marca quien está ejecutando el paso.',
+      );
+      return buffer.toString().trim();
+    }
+
+    buffer.writeln(
+      'Al cerrar tu turno marcá con `complete_plan_items` los puntos que '
+      'efectivamente resolviste, copiando su texto tal cual está acá arriba. '
+      'Solo esos: marcar de más deja al usuario ciego. Si el plan quedó viejo, '
+      'reescribilo entero con `set_task_plan` — lo hecho que no cambie de '
+      'texto se conserva marcado.',
+    );
+    return buffer.toString().trim();
   }
 
   String _consultAnswerPrompt(AgentProfile target, String answer) {
@@ -1446,6 +1612,7 @@ class StationsViewModel extends ViewModel<StationsState> {
     Station station,
     AgentProfile member, {
     StationTask? task,
+    required bool isConsult,
   }) {
     final buffer = StringBuffer();
 
@@ -1487,10 +1654,12 @@ class StationsViewModel extends ViewModel<StationsState> {
       buffer.writeln(rule.content);
     }
 
-    final saber = KnowledgeService.instance.notifier.briefFor(<String>{
-      ...station.knowledgeBaseNames,
-      ...member.knowledgeBaseNames,
-    }.toList());
+    final saber = KnowledgeService.instance.notifier.briefFor(
+      <String>{
+        ...station.knowledgeBaseNames,
+        ...member.knowledgeBaseNames,
+      }.toList(),
+    );
     if (saber.isNotEmpty) {
       buffer.writeln();
       buffer.writeln(saber);
@@ -1502,6 +1671,11 @@ class StationsViewModel extends ViewModel<StationsState> {
     ).where((m) => m.id != member.id).toList();
     if (companions.isNotEmpty) {
       buffer.writeln();
+      buffer.writeln(
+        'SOS @${member.name} (${member.role}). Los mensajes del hilo vienen '
+        'firmados con el handle de quien los escribió: si no dice @${member.name}, '
+        'no lo dijiste vos. No discutas identidades — leé la firma.',
+      );
       buffer.writeln(
         'Estás trabajando en la estación "${station.name}"'
         '${station.purpose.isEmpty ? '' : ' — ${station.purpose}'}. '
@@ -1533,10 +1707,30 @@ class StationsViewModel extends ViewModel<StationsState> {
         'contexto necesario — no pegues todo tu razonamiento ni el historial: '
         'cada palabra de más se paga en el turno del otro.',
       );
+      buffer.writeln(
+        'Tampoco menciones a quien le toca el paso siguiente para pasarle el '
+        'trabajo: el workflow le da la palabra solo cuando vos terminás. Si '
+        'lo mencionás, lo que hace corre COMO CONSULTA TUYA, adentro de tu '
+        'paso, y el tablero queda marcando tu paso mientras ya se hizo el de '
+        'él. Terminá diciendo qué dejás listo y cerrá el turno.',
+      );
+      buffer.writeln(
+        'Esa lista de compañeros es completa. Mencionar un handle que no '
+        'está en ella no dispara nada: no le llega a nadie y no vas a '
+        'recibir respuesta, así que no esperes una ni la reclames. Si te '
+        'falta un especialista que la estación no tiene, declaralo con el '
+        'bloque `agente` en vez de nombrarlo como si ya estuviera.',
+      );
     }
 
     buffer.writeln();
-    buffer.writeln(_planPrompt);
+    buffer.writeln(_askVsWorkPrompt);
+
+    final plan = _planSection(task, isConsult: isConsult);
+    if (plan.isNotEmpty) {
+      buffer.writeln();
+      buffer.writeln(plan);
+    }
 
     buffer.writeln();
     buffer.writeln(_noBackgroundWorkPrompt);
@@ -1565,10 +1759,7 @@ class StationsViewModel extends ViewModel<StationsState> {
   /// extras. Extras are per-task by design — the station is untouched.
   List<AgentProfile> membersOf(Station station, {StationTask? task}) {
     final profiles = AgentProfilesService.instance.notifier.data.profiles;
-    final ids = <String>{
-      ...station.profileIds,
-      ...?task?.extraProfileIds,
-    };
+    final ids = <String>{...station.profileIds, ...?task?.extraProfileIds};
     return ids
         .map((id) => profiles.where((p) => p.id == id).firstOrNull)
         .whereType<AgentProfile>()

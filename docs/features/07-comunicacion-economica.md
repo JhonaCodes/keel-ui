@@ -25,6 +25,21 @@
 - Fix de leak: `_consultedPairs` (keyed por turnId, que nunca se repite) se
   purga cuando no queda ninguna tarea corriendo.
 
+## Mencionar no es entregar el trabajo
+
+Un paso que termina diciendo "corresponde ahora a @flutter-expert tomar el
+RED" no está cerrando: está **abriendo una consulta**. El mencionado corre
+ahí mismo, dentro del paso del que lo nombró, y hace el trabajo del paso
+siguiente sin que el workflow avance — el tablero marca "paso 1 de 7,
+Charter" mientras el RED ya está escrito, y no hay forma de saber dónde está
+la tarea.
+
+El turno lo dice explícitamente: al de más adelante no se lo menciona para
+pasarle trabajo; el workflow le da la palabra cuando el paso termina. Y el
+prompt de consulta lo dice del otro lado — "esto es una consulta dentro del
+paso de otro, no tu paso; si es el trabajo que te toca después, decilo en
+una línea y esperá".
+
 ## Ledger de costos (lo que se ve, se controla)
 
 - `StationTask.costUsd` + `costByProfileId`: acumulados de cada

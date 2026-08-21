@@ -1,0 +1,49 @@
+import 'dart:async';
+
+import 'package:logger_rs/logger_rs.dart';
+import 'package:reactive_notifier/reactive_notifier.dart';
+
+import 'package:keel_ui/src/modules/settings/model/app_settings.dart';
+import 'package:keel_ui/src/modules/settings/repository/settings_repository.dart';
+
+class SettingsViewModel extends ViewModel<AppSettings> {
+  SettingsViewModel() : super(const AppSettings());
+
+  SettingsRepository get _repository => SettingsRepository();
+
+  @override
+  void init() {
+    updateSilently(const AppSettings());
+    unawaited(_loadPersistedSettings());
+  }
+
+  Future<void> _loadPersistedSettings() async {
+    try {
+      final settings = await _repository.load();
+      updateState(settings);
+    } catch (error) {
+      Log.e('Failed to load persisted settings', error: error);
+    }
+  }
+
+  void setChatFontScale(double scale) {
+    updateState(data.copyWith(chatFontScale: scale));
+    unawaited(_repository.save(data));
+  }
+
+  void setExtraToolEnabled(String tool, bool enabled) {
+    final tools = {...data.extraAllowedTools};
+    if (enabled) {
+      tools.add(tool);
+    } else {
+      tools.remove(tool);
+    }
+    updateState(data.copyWith(extraAllowedTools: tools.toList()));
+    unawaited(_repository.save(data));
+  }
+}
+
+mixin SettingsService {
+  static final ReactiveNotifier<SettingsViewModel> instance =
+      ReactiveNotifier<SettingsViewModel>(() => SettingsViewModel());
+}

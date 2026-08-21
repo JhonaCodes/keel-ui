@@ -1,0 +1,484 @@
+import 'package:flutter/material.dart';
+import 'package:reactive_notifier/reactive_notifier.dart';
+
+import 'package:keel_ui/src/modules/agents/model/agent.dart';
+import 'package:keel_ui/src/modules/agents/ui/widget/agent_status_icon.dart';
+import 'package:keel_ui/src/modules/agents/ui/widget/use_agent_panel.dart';
+import 'package:keel_ui/src/modules/agents/viewmodel/agents_viewmodel.dart';
+import 'package:keel_ui/src/modules/stations/model/station.dart';
+import 'package:keel_ui/src/modules/stations/model/station_task.dart';
+import 'package:keel_ui/src/modules/stations/viewmodel/stations_viewmodel.dart';
+import 'package:keel_ui/src/modules/workflows/model/workflow.dart';
+import 'package:keel_ui/src/modules/workflows/viewmodel/workflows_viewmodel.dart';
+
+/// The channel list: stations, and under the selected one, its tasks. The
+/// station is the durable thing; tasks are opened, run and closed inside it.
+class StationsSidebar extends StatelessWidget {
+  const StationsSidebar({
+    super.key,
+    required this.state,
+    required this.stationFocused,
+    required this.onSelectStation,
+    required this.onSelectAgent,
+    required this.onNewStation,
+    required this.onManageStations,
+  });
+
+  final StationsState state;
+  final bool stationFocused;
+  final ValueChanged<String> onSelectStation;
+  final ValueChanged<String> onSelectAgent;
+  final VoidCallback onNewStation;
+  final VoidCallback onManageStations;
+
+  @override
+  Widget build(BuildContext context) {
+    // Subscribed, not read off the singleton: the workflow catalogue loads
+    // asynchronously, and the task counters need to appear when it lands.
+    return ReactiveViewModelBuilder<WorkflowsViewModel, WorkflowsState>(
+      viewmodel: WorkflowsService.instance.notifier,
+      build: (workflowsState, viewmodel, keep) => _SidebarList(
+        state: state,
+        stationFocused: stationFocused,
+        onSelectStation: onSelectStation,
+        onSelectAgent: onSelectAgent,
+        onNewStation: onNewStation,
+        onManageStations: onManageStations,
+      ),
+    );
+  }
+}
+
+class _SidebarList extends StatelessWidget {
+  const _SidebarList({
+    required this.state,
+    required this.stationFocused,
+    required this.onSelectStation,
+    required this.onSelectAgent,
+    required this.onNewStation,
+    required this.onManageStations,
+  });
+
+  final StationsState state;
+  final bool stationFocused;
+  final ValueChanged<String> onSelectStation;
+  final ValueChanged<String> onSelectAgent;
+  final VoidCallback onNewStation;
+  final VoidCallback onManageStations;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return Container(
+      width: 210,
+      color: scheme.surfaceContainerLow,
+      child: ListView(
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        children: [
+          _GroupHead(
+            label: 'Estaciones',
+            onAdd: onNewStation,
+            onManage: onManageStations,
+          ),
+          if (state.stations.isEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 2, 14, 8),
+              child: Text(
+                'Ninguna todavía. Creá una para que varios agentes trabajen '
+                'juntos con un workflow.',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ),
+          for (final station in state.stations) ...[
+            _StationRow(
+              station: station,
+              selected: stationFocused && state.selectedStationId == station.id,
+              onTap: () => onSelectStation(station.id),
+            ),
+            if (state.selectedStationId == station.id) ...[
+              for (final task in station.tasks)
+                _TaskRow(
+                  task: task,
+                  stationId: station.id,
+                  totalSteps: StationsService.instance.notifier.stepCountFor(
+                    station,
+                  ),
+                  selected: station.activeTaskId == task.id,
+                ),
+              _NewTaskButton(
+                onPressed: () =>
+                    StationsService.instance.notifier.createTask(station.id),
+              ),
+            ],
+          ],
+          _LooseAgentsHead(onAdd: () => openUseAgentPanel(context)),
+          ReactiveViewModelBuilder<AgentsViewModel, AgentsState>(
+            viewmodel: AgentsService.instance.notifier,
+            build: (state, viewmodel, keep) {
+              if (state.agents.isEmpty) {
+                return Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 2, 14, 8),
+                  child: Text(
+                    'Ninguno abierto. Usá un agente registrado para hablarle '
+                    'directo, sin estación.',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                );
+              }
+              return Column(
+                children: [
+                  for (final agent in state.agents)
+                    _LooseAgentRow(
+                      agent: agent,
+                      selected:
+                          !stationFocused && state.selectedAgentId == agent.id,
+                      onTap: () => onSelectAgent(agent.id),
+                    ),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The loose-agents heading. Its `+` opens a registered agent as a 1:1 chat —
+/// the same affordance the stations heading has for stations.
+class _LooseAgentsHead extends StatelessWidget {
+  const _LooseAgentsHead({required this.onAdd});
+
+  final VoidCallback onAdd;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 22, 6, 4),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              'AGENTES SUELTOS',
+              style: TextStyle(
+                fontFamily: 'monospace',
+                fontSize: 10,
+                letterSpacing: 1.2,
+                color: Theme.of(context).colorScheme.outline,
+              ),
+            ),
+          ),
+          IconButton(
+            tooltip: 'Usar un agente registrado',
+            icon: const Icon(Icons.add, size: 15),
+            constraints: const BoxConstraints.tightFor(width: 26, height: 26),
+            padding: EdgeInsets.zero,
+            onPressed: onAdd,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A 1:1 chat with a registered agent, outside any station.
+class _LooseAgentRow extends StatelessWidget {
+  const _LooseAgentRow({
+    required this.agent,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final Agent agent;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          color: selected ? scheme.surfaceContainerHighest : null,
+          border: Border(
+            left: BorderSide(
+              width: 2,
+              color: selected ? agent.iconColor : Colors.transparent,
+            ),
+          ),
+        ),
+        padding: const EdgeInsets.fromLTRB(12, 5, 14, 5),
+        child: Row(
+          children: [
+            AgentStatusIcon(
+              color: agent.iconColor,
+              selected: selected,
+              isWorking: agent.isStreaming,
+              contextRatio: agent.contextUsageRatio,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                agent.name,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _GroupHead extends StatelessWidget {
+  const _GroupHead({
+    required this.label,
+    required this.onAdd,
+    required this.onManage,
+  });
+
+  final String label;
+  final VoidCallback onAdd;
+  final VoidCallback onManage;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 0, 6, 6),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              label.toUpperCase(),
+              style: TextStyle(
+                fontFamily: 'monospace',
+                fontSize: 10,
+                letterSpacing: 1.2,
+                color: scheme.outline,
+              ),
+            ),
+          ),
+          IconButton(
+            tooltip: 'Administrar estaciones',
+            icon: const Icon(Icons.tune, size: 15),
+            constraints: const BoxConstraints.tightFor(width: 28, height: 28),
+            padding: EdgeInsets.zero,
+            onPressed: onManage,
+          ),
+          IconButton(
+            tooltip: 'Nueva estación',
+            icon: const Icon(Icons.add, size: 17),
+            constraints: const BoxConstraints.tightFor(width: 28, height: 28),
+            padding: EdgeInsets.zero,
+            onPressed: onAdd,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StationRow extends StatelessWidget {
+  const _StationRow({
+    required this.station,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final Station station;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          color: selected ? scheme.surfaceContainerHighest : null,
+          border: Border(
+            left: BorderSide(
+              width: 2,
+              color: selected ? scheme.primary : Colors.transparent,
+            ),
+          ),
+        ),
+        padding: const EdgeInsets.fromLTRB(12, 5, 14, 5),
+        child: Row(
+          children: [
+            Text(
+              '#',
+              style: TextStyle(
+                fontFamily: 'monospace',
+                fontSize: 13,
+                color: selected ? scheme.primary : scheme.outline,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                station.name,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TaskRow extends StatelessWidget {
+  const _TaskRow({
+    required this.task,
+    required this.stationId,
+    required this.totalSteps,
+    required this.selected,
+  });
+
+  final StationTask task;
+  final String stationId;
+  final int totalSteps;
+  final bool selected;
+
+  Future<void> _confirmAndClose(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Cerrar tarea'),
+        content: Text(
+          'Se borra el hilo de "${task.title}" y el contexto que los agentes '
+          'acumularon en ella. La estación queda igual, con sus agentes, '
+          'reglas y documentos.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Cerrar tarea'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed ?? false) {
+      StationsService.instance.notifier.closeTask(stationId, task.id);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    final trailing = switch (task.status) {
+      StationTaskStatus.finished => Icon(
+        Icons.check,
+        size: 13,
+        color: scheme.tertiary,
+      ),
+      StationTaskStatus.failed => Icon(
+        Icons.remove_circle_outline,
+        size: 13,
+        color: scheme.error,
+      ),
+      StationTaskStatus.running => Text(
+        totalSteps == 0
+            ? '···'
+            : '${(task.currentStepIndex + 1).clamp(1, totalSteps)}/$totalSteps',
+        style: TextStyle(
+          fontFamily: 'monospace',
+          fontSize: 10,
+          color: scheme.primary,
+        ),
+      ),
+    };
+
+    return InkWell(
+      onTap: () =>
+          StationsService.instance.notifier.selectTask(stationId, task.id),
+      child: Container(
+        color: selected ? scheme.primary.withValues(alpha: 0.07) : null,
+        padding: const EdgeInsets.fromLTRB(30, 4, 6, 4),
+        child: Row(
+          children: [
+            Icon(
+              Icons.circle,
+              size: 6,
+              color: selected ? scheme.primary : scheme.outlineVariant,
+            ),
+            const SizedBox(width: 7),
+            Expanded(
+              child: Text(
+                task.title,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: selected ? scheme.onSurface : scheme.outline,
+                ),
+              ),
+            ),
+            const SizedBox(width: 4),
+            trailing,
+            IconButton(
+              tooltip: 'Cerrar tarea',
+              icon: const Icon(Icons.close, size: 13),
+              constraints: const BoxConstraints.tightFor(width: 24, height: 24),
+              padding: EdgeInsets.zero,
+              onPressed: () => _confirmAndClose(context),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Opens another task in the same station. Deliberately a real button: the
+/// composer alone can only ever continue the task that is already open, so
+/// without this there is no way to start a second one.
+class _NewTaskButton extends StatelessWidget {
+  const _NewTaskButton({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return InkWell(
+      onTap: onPressed,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(30, 6, 14, 10),
+        child: Row(
+          children: [
+            Icon(Icons.add, size: 14, color: scheme.primary),
+            const SizedBox(width: 6),
+            Text(
+              'Nueva tarea',
+              style: TextStyle(
+                fontSize: 12,
+                color: scheme.primary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

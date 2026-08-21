@@ -9,14 +9,20 @@ import 'package:dart_mcp/server.dart';
 import 'package:logger_rs/logger_rs.dart';
 import 'package:stream_channel/stream_channel.dart';
 
+import 'package:keel_ui/src/integrations/catalog_sync/catalog_sync.dart';
 import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
+import 'package:keel_ui/src/modules/knowledge/viewmodel/knowledge_viewmodel.dart';
 import 'package:keel_ui/src/modules/agent_profiles/viewmodel/agent_profiles_viewmodel.dart';
 import 'package:keel_ui/src/modules/agents/viewmodel/agents_viewmodel.dart';
 import 'package:keel_ui/src/modules/assistant/model/assistant_action.dart';
 import 'package:keel_ui/src/modules/assistant/service/assistant_action_executor.dart';
+import 'package:keel_ui/src/modules/mcp_servers/model/mcp_server_config.dart';
+import 'package:keel_ui/src/modules/mcp_servers/viewmodel/mcp_servers_viewmodel.dart';
 import 'package:keel_ui/src/modules/rules/viewmodel/rules_viewmodel.dart';
+import 'package:keel_ui/src/modules/secrets/viewmodel/secrets_viewmodel.dart';
 import 'package:keel_ui/src/modules/skills/viewmodel/skills_viewmodel.dart';
 import 'package:keel_ui/src/modules/stations/viewmodel/stations_viewmodel.dart';
+import 'package:keel_ui/src/modules/tools/viewmodel/tools_viewmodel.dart';
 import 'package:keel_ui/src/modules/workflows/model/workflow.dart';
 import 'package:keel_ui/src/modules/workflows/viewmodel/workflows_viewmodel.dart';
 import 'package:keel_ui/src/shared/shared.dart';
@@ -31,11 +37,20 @@ part 'src/keelai_mcp_server_impl.dart';
 const kKeelAiMcpToolNames = [
   'mcp__keelai-actions__create_skill',
   'mcp__keelai-actions__create_rule',
+  'mcp__keelai-actions__create_tool',
+  'mcp__keelai-actions__request_secret',
+  'mcp__keelai-actions__list_secret_names',
+  'mcp__keelai-actions__register_mcp_server',
+  'mcp__keelai-actions__delete_mcp_server',
+  'mcp__keelai-actions__export_catalog',
+  'mcp__keelai-actions__refresh_catalog',
+  'mcp__keelai-actions__update_knowledge',
   'mcp__keelai-actions__create_or_update_agent',
   'mcp__keelai-actions__create_workflow',
   'mcp__keelai-actions__create_station',
   'mcp__keelai-actions__delete_skill',
   'mcp__keelai-actions__delete_rule',
+  'mcp__keelai-actions__delete_tool',
   'mcp__keelai-actions__delete_agent',
   'mcp__keelai-actions__delete_workflow',
   'mcp__keelai-actions__delete_station',
@@ -88,23 +103,22 @@ class AssistantMcpServer {
     });
   }
 
-  /// The `--mcp-config` JSON for [agentId]'s turn, or null before [start]
-  /// has run. [agentId] travels in the URL path (not a header) so each
-  /// tool call can be attributed to the exact conversation it belongs to.
-  static String? mcpConfigFor(String agentId) {
+  /// The `mcpServers` config entry (key `keelai-actions`) for [agentId]'s
+  /// turn, or null before [start] has run. Returned as an entry rather than
+  /// a whole `--mcp-config` JSON so the caller can combine it with other
+  /// local servers (e.g. the user-tools one) in a single config. [agentId]
+  /// travels in the URL path (not a header) so each tool call can be
+  /// attributed to the exact conversation it belongs to.
+  static Map<String, dynamic>? mcpServerEntryFor(String agentId) {
     final server = _server;
     final token = _token;
     if (server == null || token == null) return null;
 
-    return jsonEncode({
-      'mcpServers': {
-        'keelai-actions': {
-          'type': 'http',
-          'url': 'http://127.0.0.1:${server.port}/mcp/$agentId',
-          'headers': {'Authorization': 'Bearer $token'},
-        },
-      },
-    });
+    return {
+      'type': 'http',
+      'url': 'http://127.0.0.1:${server.port}/mcp/$agentId',
+      'headers': {'Authorization': 'Bearer $token'},
+    };
   }
 
   static Future<void> _handleRequest(HttpRequest request) async {

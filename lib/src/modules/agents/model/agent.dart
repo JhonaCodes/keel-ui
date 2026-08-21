@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
 
 import 'package:keel_ui/src/modules/agents/model/agent_icon_colors.dart';
+import 'package:keel_ui/src/modules/agents/model/agent_provider.dart';
 import 'package:keel_ui/src/modules/agents/model/agent_tool_activity.dart';
 import 'package:keel_ui/src/modules/agents/model/chat_message.dart';
 import 'package:keel_ui/src/modules/agents/model/effort_level.dart';
@@ -12,6 +13,7 @@ class Agent {
   final String id;
   final String name;
   final String model;
+  final AgentProvider provider;
   final DateTime createdAt;
   final String? sessionId;
   final List<ChatMessage> messages;
@@ -34,6 +36,7 @@ class Agent {
     required this.createdAt,
     required this.iconColor,
     required this.effort,
+    this.provider = AgentProvider.claude,
     this.sessionId,
     this.messages = const [],
     this.isStreaming = false,
@@ -78,6 +81,7 @@ class Agent {
       id: id,
       name: name,
       model: model ?? this.model,
+      provider: provider,
       createdAt: createdAt,
       sessionId: sessionId ?? this.sessionId,
       messages: messages ?? this.messages,
@@ -107,6 +111,7 @@ class Agent {
     'id': id,
     'name': name,
     'model': model,
+    'provider': provider.alias,
     'createdAt': createdAt.toIso8601String(),
     'sessionId': sessionId,
     'messages': messages.map((message) => message.toJson()).toList(),
@@ -123,6 +128,9 @@ class Agent {
       id: json['id'] as String,
       name: json['name'] as String,
       model: json['model'] as String,
+      provider: json['provider'] == null
+          ? AgentProvider.claude
+          : AgentProvider.fromAlias(json['provider'] as String),
       createdAt: DateTime.parse(json['createdAt'] as String),
       sessionId: json['sessionId'] as String?,
       messages: (json['messages'] as List)
@@ -147,6 +155,7 @@ class Agent {
           id == other.id &&
           name == other.name &&
           model == other.model &&
+          provider == other.provider &&
           createdAt == other.createdAt &&
           sessionId == other.sessionId &&
           listEquals(messages, other.messages) &&
@@ -167,6 +176,7 @@ class Agent {
     id,
     name,
     model,
+    provider,
     createdAt,
     sessionId,
     Object.hashAll(messages),
@@ -184,7 +194,8 @@ class Agent {
 
   @override
   String toString() =>
-      'Agent(id: $id, name: $name, model: $model, createdAt: $createdAt, '
+      'Agent(id: $id, name: $name, model: $model, '
+      'provider: ${provider.alias}, createdAt: $createdAt, '
       'sessionId: $sessionId, messages: ${messages.length}, isStreaming: $isStreaming, '
       'fullFileSystemAccess: $fullFileSystemAccess, iconColor: $iconColor, '
       'effort: $effort, currentActivity: $currentActivity, '

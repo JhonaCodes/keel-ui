@@ -6,6 +6,15 @@ class PermissionRequest {
 
   bool get isSandboxRestriction => message.contains('allowed working director');
 
+  Map<String, dynamic> toJson() => {'toolName': toolName, 'message': message};
+
+  factory PermissionRequest.fromJson(Map<String, dynamic> json) {
+    return PermissionRequest(
+      toolName: json['toolName'] as String,
+      message: json['message'] as String,
+    );
+  }
+
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||

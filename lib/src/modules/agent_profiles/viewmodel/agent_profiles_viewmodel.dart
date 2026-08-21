@@ -5,6 +5,7 @@ import 'package:reactive_notifier/reactive_notifier.dart';
 
 import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
 import 'package:keel_ui/src/modules/agent_profiles/repository/agent_profiles_repository.dart';
+import 'package:keel_ui/src/modules/agents/model/agent_provider.dart';
 import 'package:keel_ui/src/shared/shared.dart';
 
 class AgentProfilesViewModel extends ViewModel<AgentProfilesState> {
@@ -54,6 +55,10 @@ class AgentProfilesViewModel extends ViewModel<AgentProfilesState> {
     required List<String> rules,
     required String model,
     required String effort,
+    List<String> tools = const [],
+    List<String> mcpServers = const [],
+    bool canManageSystem = false,
+    AgentProvider provider = AgentProvider.claude,
     String? createdByProfileId,
   }) {
     final error = _validateName(name);
@@ -66,6 +71,10 @@ class AgentProfilesViewModel extends ViewModel<AgentProfilesState> {
       systemPrompt: systemPrompt.trim(),
       skills: skills,
       rules: rules,
+      tools: tools,
+      mcpServers: mcpServers,
+      canManageSystem: canManageSystem,
+      provider: provider,
       model: model,
       effort: effort,
       createdAt: DateTime.now(),
@@ -88,6 +97,10 @@ class AgentProfilesViewModel extends ViewModel<AgentProfilesState> {
     required List<String> rules,
     required String model,
     required String effort,
+    List<String>? tools,
+    List<String>? mcpServers,
+    bool? canManageSystem,
+    AgentProvider? provider,
   }) {
     final error = _validateName(name, excludingId: id);
     if (error != null) return error;
@@ -101,6 +114,10 @@ class AgentProfilesViewModel extends ViewModel<AgentProfilesState> {
                   systemPrompt: systemPrompt.trim(),
                   skills: skills,
                   rules: rules,
+                  tools: tools,
+                  mcpServers: mcpServers,
+                  canManageSystem: canManageSystem,
+                  provider: provider,
                   model: model,
                   effort: effort,
                 )

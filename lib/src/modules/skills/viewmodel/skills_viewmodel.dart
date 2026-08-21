@@ -43,9 +43,18 @@ class SkillsViewModel extends ViewModel<SkillsState> {
     }
   }
 
+  /// Every skill flagged global, injected into all agents without
+  /// assignment.
+  List<Skill> get globalSkills =>
+      data.skills.where((skill) => skill.isGlobal).toList();
+
   /// Registers a new skill. Returns a user-facing error message on failure
   /// (invalid or duplicate name), or null on success.
-  String? createSkill({required String name, required String content}) {
+  String? createSkill({
+    required String name,
+    required String content,
+    bool isGlobal = false,
+  }) {
     final error = _validateName(name);
     if (error != null) return error;
 
@@ -53,6 +62,7 @@ class SkillsViewModel extends ViewModel<SkillsState> {
       id: generateUuidV4(),
       name: name,
       content: content.trim(),
+      isGlobal: isGlobal,
       createdAt: DateTime.now(),
     );
     final skills = [...data.skills, skill];
@@ -67,6 +77,7 @@ class SkillsViewModel extends ViewModel<SkillsState> {
     String id, {
     required String name,
     required String content,
+    bool? isGlobal,
   }) {
     final error = _validateName(name, excludingId: id);
     if (error != null) return error;
@@ -74,13 +85,34 @@ class SkillsViewModel extends ViewModel<SkillsState> {
     final skills = data.skills
         .map(
           (skill) => skill.id == id
-              ? skill.copyWith(name: name, content: content.trim())
+              ? skill.copyWith(
+                  name: name,
+                  content: content.trim(),
+                  isGlobal: isGlobal,
+                )
               : skill,
         )
         .toList();
     updateState(data.copyWith(skills: skills));
     unawaited(_repository.save(skills));
     return null;
+  }
+
+  /// Keeps an app-owned skill's content in sync with the code on every
+  /// launch — mirror of `syncReservedProfilePrompt` on the profiles VM. The
+  /// system map that Keel AI carries is compiled knowledge: letting it drift
+  /// as editable data meant every feature shipped after the first seed was
+  /// invisible to existing installs. No-op when content already matches, so
+  /// callers run it unconditionally at startup. Callers must `await ready`
+  /// first.
+  Future<void> syncReservedSkillContent(String name, String content) async {
+    final index = data.skills.indexWhere((skill) => skill.name == name);
+    if (index == -1 || data.skills[index].content == content.trim()) return;
+
+    final skills = [...data.skills];
+    skills[index] = skills[index].copyWith(content: content.trim());
+    updateState(data.copyWith(skills: skills));
+    await _repository.save(skills);
   }
 
   void deleteSkill(String id) {

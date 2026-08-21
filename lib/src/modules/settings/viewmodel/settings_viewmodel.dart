@@ -26,6 +26,16 @@ class SettingsViewModel extends ViewModel<AppSettings> {
     }
   }
 
+  void setCatalogRepoUrl(String url) {
+    updateState(data.copyWith(catalogRepoUrl: url.trim()));
+    unawaited(_repository.save(data));
+  }
+
+  void setKnowledgeRepoUrl(String url) {
+    updateState(data.copyWith(knowledgeRepoUrl: url.trim()));
+    unawaited(_repository.save(data));
+  }
+
   void setChatFontScale(double scale) {
     updateState(data.copyWith(chatFontScale: scale));
     unawaited(_repository.save(data));

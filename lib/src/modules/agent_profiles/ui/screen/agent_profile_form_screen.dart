@@ -4,10 +4,13 @@ import 'package:keel_ui/src/core/ui/form_panel.dart';
 import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
 import 'package:keel_ui/src/modules/agent_profiles/viewmodel/agent_profiles_viewmodel.dart';
 import 'package:keel_ui/src/modules/agent_profiles/ui/widget/role_field.dart';
+import 'package:keel_ui/src/modules/agents/model/agent_provider.dart';
 import 'package:keel_ui/src/modules/agents/model/claude_model_option.dart';
+import 'package:keel_ui/src/modules/mcp_servers/ui/widget/mcp_server_multi_select.dart';
 import 'package:keel_ui/src/modules/agents/model/effort_level.dart';
 import 'package:keel_ui/src/modules/rules/ui/widget/rule_multi_select.dart';
 import 'package:keel_ui/src/modules/skills/ui/widget/skill_multi_select.dart';
+import 'package:keel_ui/src/modules/tools/ui/widget/tool_multi_select.dart';
 
 Future<void> openAgentProfileFormScreen(
   BuildContext context, {
@@ -40,6 +43,11 @@ class _AgentProfileFormScreenState extends State<AgentProfileFormScreen> {
   );
   late List<String> _skills = [...?widget.initial?.skills];
   late List<String> _rules = [...?widget.initial?.rules];
+  late List<String> _tools = [...?widget.initial?.tools];
+  late List<String> _mcpServers = [...?widget.initial?.mcpServers];
+  late bool _canManageSystem = widget.initial?.canManageSystem ?? false;
+  late AgentProvider _provider =
+      widget.initial?.provider ?? AgentProvider.claude;
   late String _model = widget.initial?.model ?? kDefaultClaudeModelAlias;
   late String _effort = widget.initial?.effort ?? kDefaultEffortAlias;
   String? _nameError;
@@ -77,6 +85,10 @@ class _AgentProfileFormScreenState extends State<AgentProfileFormScreen> {
             systemPrompt: _systemPromptController.text,
             skills: _skills,
             rules: _rules,
+            tools: _tools,
+            mcpServers: _mcpServers,
+            canManageSystem: _canManageSystem,
+            provider: _provider,
             model: _model,
             effort: _effort,
           )
@@ -87,6 +99,10 @@ class _AgentProfileFormScreenState extends State<AgentProfileFormScreen> {
             systemPrompt: _systemPromptController.text,
             skills: _skills,
             rules: _rules,
+            tools: _tools,
+            mcpServers: _mcpServers,
+            canManageSystem: _canManageSystem,
+            provider: _provider,
             model: _model,
             effort: _effort,
           );
@@ -161,6 +177,53 @@ class _AgentProfileFormScreenState extends State<AgentProfileFormScreen> {
                 RuleMultiSelect(
                   selectedNames: _rules,
                   onChanged: (rules) => setState(() => _rules = rules),
+                ),
+                const SizedBox(height: 16),
+                ToolMultiSelect(
+                  selectedNames: _tools,
+                  onChanged: (tools) => setState(() => _tools = tools),
+                ),
+                const SizedBox(height: 16),
+                McpServerMultiSelect(
+                  selectedNames: _mcpServers,
+                  onChanged: (servers) =>
+                      setState(() => _mcpServers = servers),
+                ),
+                const SizedBox(height: 16),
+                SwitchListTile(
+                  title: const Text('Puede administrar el sistema'),
+                  subtitle: const Text(
+                    'Agente constructor: recibe las mismas tools de creación '
+                    'que Keel AI (skills, reglas, tools, agentes, workflows, '
+                    'estaciones) en sus chats 1:1.',
+                  ),
+                  contentPadding: EdgeInsets.zero,
+                  value: _canManageSystem,
+                  onChanged: (value) =>
+                      setState(() => _canManageSystem = value),
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<AgentProvider>(
+                  initialValue: _provider,
+                  decoration: const InputDecoration(
+                    labelText:
+                        'Proveedor (codex: sin tools/MCPs/esfuerzo; usa el '
+                        'modelo de su propia config)',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.all(Radius.circular(16)),
+                    ),
+                  ),
+                  items: [
+                    for (final provider in AgentProvider.values)
+                      DropdownMenuItem(
+                        value: provider,
+                        child: Text(provider.label),
+                      ),
+                  ],
+                  onChanged: (value) {
+                    if (value == null) return;
+                    setState(() => _provider = value);
+                  },
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(

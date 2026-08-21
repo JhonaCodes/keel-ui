@@ -34,6 +34,15 @@ class AgentToolActivity {
     );
   }
 
+  Map<String, dynamic> toJson() => {'kind': kind.name, 'label': label};
+
+  factory AgentToolActivity.fromJson(Map<String, dynamic> json) {
+    return AgentToolActivity(
+      kind: AgentToolKind.values.byName(json['kind'] as String),
+      label: json['label'] as String,
+    );
+  }
+
   static AgentToolKind _kindFor(String toolName) => switch (toolName) {
     'Bash' => AgentToolKind.bash,
     'Read' => AgentToolKind.read,

@@ -3,7 +3,7 @@ import 'package:multiselect_field/multiselect_field.dart';
 
 import 'package:keel_ui/src/modules/agents/model/agent.dart';
 import 'package:keel_ui/src/modules/agents/model/claude_model_option.dart';
-import 'package:keel_ui/src/modules/agents/viewmodel/agents_viewmodel.dart';
+import 'package:keel_ui/src/modules/agents/service/chat_actions.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/chat_message_bubble.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/agent_activity_indicator.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/agent_status_icon.dart';
@@ -11,6 +11,7 @@ import 'package:keel_ui/src/modules/agents/ui/widget/context_usage_ring.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/effort_level_selector.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/fade_in_entrance.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/permission_request_banner.dart';
+import 'package:keel_ui/src/modules/agents/ui/widget/provider_badge.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/reasoning_panel.dart';
 import 'package:keel_ui/src/shared/shared.dart';
 
@@ -20,9 +21,15 @@ class ChatView extends StatefulWidget {
     required this.agent,
     this.controller,
     this.emptyState,
+    this.actions = const LocalChatActions(),
   });
 
   final Agent agent;
+
+  /// Where the user's intents actually execute. The default talks to this
+  /// engine's [AgentsService] singleton; the dedicated assistant window
+  /// swaps in an RPC bridge because its engine's singletons are empty.
+  final ChatActions actions;
 
   /// Lets a caller that also wants to fill the composer from outside (e.g.
   /// the Assistant panel's example prompts) own the controller instead of
@@ -54,7 +61,7 @@ class _ChatViewState extends State<ChatView> {
   void _send() {
     final text = _controller.text;
     if (text.trim().isEmpty || widget.agent.isStreaming) return;
-    AgentsService.instance.notifier.sendMessage(widget.agent.id, text);
+    widget.actions.sendMessage(widget.agent.id, text);
     _controller.clear();
   }
 
@@ -79,7 +86,7 @@ class _ChatViewState extends State<ChatView> {
     );
 
     if (confirmed ?? false) {
-      AgentsService.instance.notifier.deleteAgent(agent.id);
+      widget.actions.deleteAgent(agent.id);
     }
   }
 
@@ -87,17 +94,14 @@ class _ChatViewState extends State<ChatView> {
     if (selected.isEmpty) return;
     final model = selected.first.key;
     if (model == null) return;
-    AgentsService.instance.notifier.setAgentModel(widget.agent.id, model);
+    widget.actions.setAgentModel(widget.agent.id, model);
   }
 
   Future<void> _toggleFullFileSystemAccess() async {
     final agent = widget.agent;
 
     if (agent.fullFileSystemAccess) {
-      AgentsService.instance.notifier.setAgentFullFileSystemAccess(
-        agent.id,
-        false,
-      );
+      widget.actions.setAgentFullFileSystemAccess(agent.id, false);
       return;
     }
 
@@ -122,10 +126,7 @@ class _ChatViewState extends State<ChatView> {
     );
 
     if (confirmed ?? false) {
-      AgentsService.instance.notifier.setAgentFullFileSystemAccess(
-        agent.id,
-        true,
-      );
+      widget.actions.setAgentFullFileSystemAccess(agent.id, true);
     }
   }
 
@@ -149,6 +150,8 @@ class _ChatViewState extends State<ChatView> {
               ),
               const SizedBox(width: 8),
               Text(agent.name, style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(width: 6),
+              ProviderBadge(provider: agent.provider),
               const SizedBox(width: 8),
               MultiSelectField<String>.chip(
                 label: 'Modelo',
@@ -166,14 +169,13 @@ class _ChatViewState extends State<ChatView> {
               const SizedBox(width: 4),
               EffortLevelSelector(
                 effort: agent.effort,
-                onChanged: (effort) => AgentsService.instance.notifier
-                    .setAgentEffort(agent.id, effort),
+                onChanged: (effort) =>
+                    widget.actions.setAgentEffort(agent.id, effort),
               ),
               const SizedBox(width: 4),
               ContextUsageRing(
                 ratio: agent.contextUsageRatio,
-                onCompact: () =>
-                    AgentsService.instance.notifier.requestCompact(agent.id),
+                onCompact: () => widget.actions.requestCompact(agent.id),
               ),
               const Spacer(),
               IconButton(
@@ -206,7 +208,7 @@ class _ChatViewState extends State<ChatView> {
               child: PermissionRequestBanner(
                 request: agent.pendingPermission!,
                 busy: agent.isStreaming,
-                onRespond: (grant) => AgentsService.instance.notifier
+                onRespond: (grant) => widget.actions
                     .respondToPermissionRequest(agent.id, grant: grant),
               ),
             ),
@@ -228,6 +230,7 @@ class _ChatViewState extends State<ChatView> {
                         child: ChatMessageBubble(
                           message: message,
                           agentId: agent.id,
+                          actions: widget.actions,
                         ),
                       );
                     },
@@ -307,7 +310,7 @@ class _ChatViewState extends State<ChatView> {
               IconButton.filled(
                 tooltip: agent.isStreaming ? 'Detener' : null,
                 onPressed: agent.isStreaming
-                    ? () => AgentsService.instance.notifier.stopAgent(agent.id)
+                    ? () => widget.actions.stopAgent(agent.id)
                     : _send,
                 icon: Icon(agent.isStreaming ? Icons.stop_circle : Icons.send),
               ),

@@ -5,11 +5,12 @@ import 'package:keel_ui/src/modules/agents/model/effort_level.dart';
 import 'package:keel_ui/src/modules/skills/viewmodel/skills_viewmodel.dart';
 import 'package:keel_ui/src/shared/shared.dart';
 
-/// The one skill Keel AI is always seeded with — the domain map. Kept as an
-/// ordinary, editable `Skill` (not baked into the system prompt like the
-/// action grammar below) on purpose: what each catalog means and holds is
-/// exactly the kind of thing that drifts as the app grows, and a skill can
-/// be updated from the Skills screen without a code change.
+/// The one skill Keel AI is always seeded with — the domain map. Lives as a
+/// `Skill` so it travels through the same injection pipeline as everything
+/// else, but its CONTENT is app-owned and force-synced on every launch
+/// (see [seedKeelAi]): the map must always describe the app as shipped,
+/// never drift as stale data. Manual edits to it are overwritten at the
+/// next start.
 const kKeelAiSkillName = 'keelai-mapa-del-sistema';
 
 const kKeelAiSkillContent = '''
@@ -26,6 +27,17 @@ Mapa de lo que existe en esta app y cómo se relaciona:
   normas de estilo/proceso más que para conocimiento de dominio. Un agente
   puede tener reglas propias, y una estación puede sumar reglas que aplican a
   todos sus miembros por igual.
+- **Integraciones MCP externas**: servidores MCP (gmail, drive, github, …)
+  registrados a nivel app y asignados POR AGENTE en su perfil — la
+  configuración de cada agente dice qué integraciones lleva. Las
+  credenciales van por secrets (referencia por nombre), nunca en texto.
+- **Tools**: scripts deterministas registrados (bash, python o dart) que un
+  agente ejecuta como tool MCP real durante su turno, en vez de hacer ese
+  trabajo "a mano" (parsear un excel a csv, convertir formatos, calcular).
+  Cada tool tiene nombre, descripción (lo que el agente lee para decidir
+  usarla), runtime, código y timeout; recibe los argumentos de la llamada
+  como argv y devuelve stdout/stderr/exit code. Se asignan por agente igual
+  que las skills — solo los agentes que las tienen asignadas las ven.
 - **Workflows**: nombre, "cuándo se aplica" (texto libre) y una lista
   ordenada de pasos. Cada paso tiene título, un ROL a buscar (no un agente
   específico, así el mismo workflow sirve en varias estaciones) e instrucción.
@@ -37,6 +49,29 @@ Mapa de lo que existe en esta app y cómo se relaciona:
   que los miembros toman la palabra dentro de una tarea.
 - **Agentes sueltos**: un agente sin estación, para chat 1:1 directo. No hay
   nada más que agregarle a ese caso — ya está completo tal como es.
+- **Proveedores**: cada agente corre sobre un CLI local — claude (default)
+  o codex. El badge junto al nombre lo muestra. Los agentes codex no
+  reciben tools deterministas ni MCPs (limitación actual).
+- **Agentes constructores**: un perfil marcado como "puede administrar el
+  sistema" recibe en sus chats 1:1 las mismas tools de creación que vos
+  (`mcp__keelai-actions__*`). Sirven para delegar armado de skills/
+  estaciones a un especialista que entrevista al usuario.
+- **API de trabajos programados**: HTTP local (puerto y token en
+  Configuración) para que un scheduler externo abra tareas en una estación:
+  POST /stations/<nombre>/tasks {"prompt": "…"}. El scheduling vive fuera
+  de la app.
+- **Conocimiento**: sección con documentación markdown descargada de un
+  repo git que el usuario configura. Vive local en
+  Application Support/knowledge/repo — los agentes pueden LEER esos
+  archivos con sus herramientas. `update_knowledge` la actualiza.
+- **Sugerencias de skills**: el sistema detecta (de forma determinista,
+  sin ningún modelo) pedidos que el usuario repite y le propone convertirlos
+  en skill GLOBAL desde la pantalla de Skills. Si te piden redactar el
+  contenido de una de esas sugerencias, hacelo y crearla con
+  `create_skill(global: true)`.
+- **Vos mismo (Keel AI)**: tu chat vive en una VENTANA propia del sistema
+  operativo; mientras conversás, la app principal se actualiza en vivo con
+  cada cosa que creás.
 
 Límite conocido: hoy no hay forma de sumar documentos a una estación desde
 una conversación — eso sigue siendo manual desde el formulario de la
@@ -53,16 +88,46 @@ estación.
 /// Mirrors the tags/keys that parser recognizes — if it changes, this prompt
 /// must change with it.
 const kKeelAiSystemPrompt = '''
-Para crear, actualizar o eliminar cosas en esta app (skills, reglas,
-agentes, workflows, estaciones) tenés tools reales disponibles en tu lista
-de tools, con el prefijo `mcp__keelai-actions__`: `create_skill`,
-`create_rule`, `create_or_update_agent`, `create_workflow`,
-`create_station`, `delete_skill`, `delete_rule`, `delete_agent`,
-`delete_workflow`, `delete_station`. Ese es el mecanismo — llamalas
-directamente, con los argumentos que corresponda. Cada llamada ejecuta la
-acción real ahí mismo (crea/actualiza/elimina el registro, lo guarda) y el
-usuario ve una línea confirmando qué pasó en el momento en que la tool
-corre, no al final de tu respuesta.
+Para crear, actualizar o eliminar cosas en esta app (skills, reglas, tools
+ejecutables, agentes, workflows, estaciones) tenés tools reales disponibles
+en tu lista de tools, con el prefijo `mcp__keelai-actions__`: `create_skill`,
+`create_rule`, `create_tool`, `create_or_update_agent`, `create_workflow`,
+`create_station`, `delete_skill`, `delete_rule`, `delete_tool`,
+`delete_agent`, `delete_workflow`, `delete_station`. Ese es el mecanismo —
+llamalas directamente, con los argumentos que corresponda. Cada llamada
+ejecuta la acción real ahí mismo (crea/actualiza/elimina el registro, lo
+guarda) y el usuario ve una línea confirmando qué pasó en el momento en que
+la tool corre, no al final de tu respuesta.
+
+CATÁLOGO PORTABLE: `export_catalog` sube todo el catálogo al repo git que
+el usuario configuró (sin secrets ni rutas) y `refresh_catalog` lo trae y
+fusiona por nombre. Si no hay repo configurado, decile al usuario que lo
+cargue en Configuración → Sincronización.
+
+MCPs EXTERNOS: `register_mcp_server` registra integraciones (gmail, drive,
+github…) y `create_or_update_agent` las asigna con `mcp_server_names`
+(aditivo). Las credenciales de un MCP van SIEMPRE como referencia a un
+secret (`secret_env`), nunca como valor literal.
+
+SECRETS: si un trabajo necesita una clave/credencial (API key, token),
+usá `request_secret(name, why)` — queda PENDIENTE y el usuario carga el
+VALOR en la pantalla de Secrets. NUNCA pidas un valor por chat; si el
+usuario te pega una credencial, decile que la cargue en esa pantalla y no
+la repitas. `list_secret_names` te dice qué secrets existen (nombres, nunca
+valores). Una tool declara los secrets que necesita con `secret_names` en
+`create_tool` y los recibe como variables de entorno al ejecutarse.
+
+`create_tool` registra un script determinista (runtime `bash`, `python` o
+`dart`) que después un agente ejecuta como tool MCP real en su propio turno.
+La regla de diseño: todo trabajo que un script puede hacer determinista
+(parsear un excel a csv, convertir formatos, validar archivos, calcular) NO
+lo debe hacer un modelo a mano — se registra como tool y se le asigna al
+agente que la necesita con `create_or_update_agent` (`tool_names`, aditivo
+como skills/reglas). El script recibe los argumentos de cada llamada como
+argv posicionales y reporta por stdout/stderr; escribí la `description`
+diciendo qué hace, cuándo usarla y qué significa cada argumento, porque eso
+es lo único que el agente ve para decidir llamarla. Crear la tool NO basta:
+un agente solo la ve si la tiene asignada.
 
 Por eso: si el usuario te pide crear, registrar, armar, configurar o
 eliminar algo, tu respuesta es llamar la tool correspondiente. No respondas
@@ -78,15 +143,36 @@ referenciar agentes y workflows que recién estás creando en la misma
 respuesta); para eliminar, el orden no importa, cada `delete_*` es
 independiente.
 
+CÓMO ARMAR UNA ESTACIÓN COMPLETA (tu caso de uso central): cuando el usuario
+pida una estación de trabajo, entrevistalo de a UNA pregunta por vez hasta
+cubrir, en este orden: (1) propósito de la estación; (2) carpeta de trabajo
+— verificá con tus herramientas de lectura que la ruta exista antes de
+usarla, nunca la inventes; (3) miembros: qué roles hacen falta y qué
+skills/reglas/tools lleva cada uno; (4) workflow: pasos ordenados con su rol;
+(5) tools deterministas que el trabajo necesite (creálas con `create_tool`);
+(6) reglas de la estación. Cuando tengas todo, ejecutá TODAS las creaciones
+en orden de dependencia en una sola respuesta y confirmá el resultado. No
+pidas datos que ya te dieron.
+
 `create_or_update_agent` sirve tanto para crear un agente nuevo como para
 actualizar uno que ya existe: si el `handle` ya existe, sus `skill_names`/
 `rule_names` se AGREGAN a lo que el agente ya tenía (nunca se reemplazan), y
-`role`/`instructions` solo se pisan si los mandás. Así se resuelve "creá
+`role`/`instructions` solo se pisan si los mandás. `provider: "codex"` crea
+un agente que corre sobre el CLI codex en vez de claude (sin tools/MCPs/
+esfuerzo; usa el modelo de su propia config) — solo si el usuario lo pide.
+`system_builder: true`
+crea un agente CONSTRUCTOR (recibe estas mismas tools de creación en sus
+chats 1:1) — usalo solo cuando el usuario pida explícitamente un agente que
+cree cosas en el sistema, y dale instrucciones de entrevistar de a una
+pregunta por vez, como hacés vos. Así se resuelve "creá
 esta skill y asignásela al agente que ya está" en una sola llamada. El
 handle `keelai` está reservado — `create_or_update_agent` lo rechaza y
 `delete_agent` no puede eliminarlo. `create_skill`/`create_rule`/
 `create_workflow` son idempotentes por nombre: si ya existe, se reusa, no es
-un error. Cada `delete_*` busca por nombre/handle y avisa si no encuentra
+un error. `create_skill` acepta `global: true` para una skill GLOBAL que
+reciben TODOS los agentes en cada turno sin asignarla — usalo para normas o
+conocimiento que aplica a todo el sistema, no para especialidades de un
+agente. Cada `delete_*` busca por nombre/handle y avisa si no encuentra
 nada con ese nombre — no hace falta confirmar antes de eliminar si el
 usuario ya lo pidió explícitamente, pero si pide "eliminar todo" sin más
 contexto y hay varios elementos, está bien confirmar cuáles antes de
@@ -103,6 +189,7 @@ ejecuta apenas termina tu turno. Usalo SOLO si de verdad no ves las tools
 ```skill
 nombre: nombre-de-la-skill
 contenido: (el contenido completo)
+global: no
 ```
 
 ```regla
@@ -117,7 +204,13 @@ proposito: para qué sirve
 instrucciones: (su system prompt)
 skills: skill-uno, skill-dos
 reglas: regla-uno
+tools: tool-uno
 ```
+
+Nota: NO existe bloque de resguardo para CREAR una tool ejecutable — el
+parser de bloques colapsa líneas en blanco e indentación y eso corrompe
+código. Crear tools va siempre por la tool MCP `create_tool`; el campo
+`tools:` de un bloque `agente` solo ASIGNA tools que ya existen.
 
 ```workflow
 nombre: nombre-del-workflow
@@ -162,15 +255,13 @@ redactes esa confirmación.
 ''';
 
 /// Ensures the reserved profile and its knowledge skill exist, AND keeps
-/// the profile's `systemPrompt` in sync with [kKeelAiSystemPrompt] on every
-/// launch. Only the prompt is force-synced — [kKeelAiSkillContent] seeds
-/// once and is left alone after that, since the skill is meant to be
-/// user-editable (see its doc comment), while the prompt is app-owned
-/// mechanism a user has no reason to want stale. Safe to call on every app
-/// start. Must be awaited AFTER `AgentProfilesService`/`SkillsService`'s own
-/// persisted catalogs have loaded (see `ready` on each ViewModel), or an
-/// empty in-flight list would look like "doesn't exist yet" and create a
-/// duplicate.
+/// BOTH the profile's `systemPrompt` and the map skill's content in sync
+/// with the compiled constants on every launch — Keel AI's knowledge of the
+/// system ships with the code, it never drifts as stale data. Safe to call
+/// on every app start. Must be awaited AFTER `AgentProfilesService`/
+/// `SkillsService`'s own persisted catalogs have loaded (see `ready` on
+/// each ViewModel), or an empty in-flight list would look like "doesn't
+/// exist yet" and create a duplicate.
 Future<void> seedKeelAi() async {
   final profiles = AgentProfilesService.instance.notifier;
   final skills = SkillsService.instance.notifier;
@@ -179,6 +270,11 @@ Future<void> seedKeelAi() async {
 
   if (!skills.data.skills.any((skill) => skill.name == kKeelAiSkillName)) {
     skills.createSkill(name: kKeelAiSkillName, content: kKeelAiSkillContent);
+  } else {
+    await skills.syncReservedSkillContent(
+      kKeelAiSkillName,
+      kKeelAiSkillContent,
+    );
   }
 
   final existing = profiles.data.profiles

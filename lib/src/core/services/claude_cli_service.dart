@@ -115,72 +115,101 @@ class ClaudeCliService {
         ? _appendedSystemPrompt
         : '$_appendedSystemPrompt\n\n$additionalSystemPrompt';
 
-    final arguments = [
-      '-p',
-      prompt,
-      '--output-format',
-      'stream-json',
-      '--verbose',
-      '--model',
-      model,
-      '--effort',
-      effort,
-      '--allowedTools',
-      allowedTools.join(','),
-      '--append-system-prompt',
-      systemPrompt,
-      if (mcpConfig != null) ...['--mcp-config', mcpConfig, '--strict-mcp-config'],
-      if (fullFileSystemAccess) ...['--add-dir', '/'],
-      if (sessionId != null) ...['--resume', sessionId],
-    ];
+    // The MCP config travels as a FILE, never inline: the JSON may embed
+    // resolved secret values (external MCP servers' env), and an inline
+    // argument is world-readable via `ps`. The temp dir from createTemp is
+    // 0700, so only this user can read it; removed after the turn.
+    Directory? mcpConfigDir;
+    String? mcpConfigPath;
+    if (mcpConfig != null) {
+      mcpConfigDir = await Directory.systemTemp.createTemp('keel_mcpcfg_');
+      final file = File('${mcpConfigDir.path}/mcp.json');
+      await file.writeAsString(mcpConfig);
+      mcpConfigPath = file.path;
+    }
 
-    Process process;
     try {
-      process = await Process.start(
-        'claude',
-        arguments,
-        workingDirectory: workingDirectory,
-        runInShell: true,
-      );
-    } catch (error) {
-      Log.e('Failed to start claude CLI', error: error);
-      yield ClaudeFailure('No se pudo iniciar claude: $error');
-      return;
-    }
-    onProcessStarted?.call(process);
+      final arguments = [
+        '-p',
+        prompt,
+        '--output-format',
+        'stream-json',
+        '--verbose',
+        '--model',
+        model,
+        '--effort',
+        effort,
+        '--allowedTools',
+        allowedTools.join(','),
+        '--append-system-prompt',
+        systemPrompt,
+        if (mcpConfigPath != null) ...[
+          '--mcp-config',
+          mcpConfigPath,
+          '--strict-mcp-config',
+        ],
+        if (fullFileSystemAccess) ...['--add-dir', '/'],
+        if (sessionId != null) ...['--resume', sessionId],
+      ];
 
-    final stderrBuffer = StringBuffer();
-    final stderrDone = process.stderr
-        .transform(utf8.decoder)
-        .forEach(stderrBuffer.write);
-
-    final lines = process.stdout
-        .transform(utf8.decoder)
-        .transform(const LineSplitter());
-
-    await for (final line in lines) {
-      if (line.trim().isEmpty) continue;
-
-      Map<String, dynamic> event;
+      Process process;
       try {
-        event = jsonDecode(line) as Map<String, dynamic>;
+        process = await Process.start(
+          'claude',
+          arguments,
+          workingDirectory: workingDirectory,
+          runInShell: true,
+        );
       } catch (error) {
-        Log.w('Unparseable claude output line: $line');
-        continue;
+        Log.e('Failed to start claude CLI', error: error);
+        yield ClaudeFailure('No se pudo iniciar claude: $error');
+        return;
+      }
+      onProcessStarted?.call(process);
+
+      final stderrBuffer = StringBuffer();
+      final stderrDone = process.stderr
+          .transform(utf8.decoder)
+          .forEach(stderrBuffer.write);
+
+      final lines = process.stdout
+          .transform(utf8.decoder)
+          .transform(const LineSplitter());
+
+      await for (final line in lines) {
+        if (line.trim().isEmpty) continue;
+
+        Map<String, dynamic> event;
+        try {
+          event = jsonDecode(line) as Map<String, dynamic>;
+        } catch (error) {
+          Log.w('Unparseable claude output line: $line');
+          continue;
+        }
+
+        for (final parsed in _parseEvent(event)) {
+          yield parsed;
+        }
       }
 
-      for (final parsed in _parseEvent(event)) {
-        yield parsed;
+      await stderrDone;
+      final exitCode = await process.exitCode;
+      if (exitCode != 0) {
+        final stderrText = stderrBuffer.toString().trim();
+        yield ClaudeFailure(
+          stderrText.isEmpty
+              ? 'claude terminó con código $exitCode'
+              : stderrText,
+        );
       }
-    }
-
-    await stderrDone;
-    final exitCode = await process.exitCode;
-    if (exitCode != 0) {
-      final stderrText = stderrBuffer.toString().trim();
-      yield ClaudeFailure(
-        stderrText.isEmpty ? 'claude terminó con código $exitCode' : stderrText,
-      );
+    } finally {
+      if (mcpConfigDir != null) {
+        try {
+          await mcpConfigDir.delete(recursive: true);
+        } catch (error) {
+          Log.w('Could not clean up ${mcpConfigDir.path}: $error');
+        }
+      }
     }
   }
 

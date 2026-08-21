@@ -1,0 +1,76 @@
+# F1 — Ventana del asistente (Keel AI)
+
+## Qué es
+
+El chat con Keel AI vive en una VENTANA OS dedicada (reemplaza al panel
+lateral, que se eliminó). Mientras conversás ahí, la app principal se
+modifica en vivo: el MCP `keelai-actions` muta los ViewModels del engine
+principal, y sus pantallas ya son reactivas a esos ViewModels.
+
+## Arquitectura — cliente de presentación tonto
+
+La ventana corre OTRO engine Flutter cuyos singletons están vacíos. No tiene
+`AgentsViewModel`, no abre LocalDatabase, no arranca MCPs. Renderiza
+snapshots que main le empuja y devuelve intenciones por method channel.
+
+### Protocolo
+
+- **sub→main** (canal existente `keel_ui/agent_bridge`, handler en main):
+  métodos con prefijo `assistant.` — `attach`, `sendMessage`, `stop`,
+  `deleteMessage` (timestamp en µs epoch), `setModel`, `setEffort`,
+  `requestCompact`, `respondPermission`, `setFullFileSystemAccess`,
+  `deleteAgent`, `newSession`, `selectSession`. Payload = un String JSON.
+  Los métodos que cambian la sesión RETORNAN el estado nuevo.
+- **main→sub**: el `WindowController` registrado (F0) + `invokeMethod` con
+  `assistantState` (snapshot) y `assistantFocus`. La sub registra su handler
+  con `WindowController.fromCurrentEngine()` ANTES de hacer `attach`.
+
+### Estado wire
+
+`AssistantWindowState{seq, activeAgentId, agent, sessions}` con
+`AssistantAgentSnapshot` (modelo wire propio, NO `Agent.toJson` que es
+persistencia): incluye transitorios (isStreaming, liveReasoning,
+currentActivity, pendingPermission). **fileEdits se omiten** (única fuente
+sin cota; keelai actúa por MCP, no por edits) y sobre ~1MB se recortan los
+mensajes más viejos (solo en el wire; el hilo real queda intacto).
+
+`seq` es monotónico y lo emite solo main; la sub descarta `seq <=` al último
+aplicado — pushes y retornos RPC pueden competir sin corromper nada porque
+todo snapshot es completo e idempotente.
+
+### Piezas
+
+- `assistant/service/assistant_window_bridge.dart` — lado MAIN (singleton
+  plano, no RN: nada de este engine lo renderiza). Listener sobre
+  `AgentsService` filtrado por sesiones keelai, comparación profunda para no
+  pushear sin cambios, debounce 30ms, detach automático cuando el push no
+  encuentra ventana.
+- `assistant/viewmodel/assistant_window_viewmodel.dart` — lado SUB: réplica
+  pasiva `ViewModel<AssistantWindowState>`; `connect()` con retry/backoff
+  (hot-restart de main deja una ventana sin handler); aplica pushes y
+  retornos con guard de seq.
+- `agents/service/chat_actions.dart` — puerto `ChatActions` con
+  `LocalChatActions` (default: singleton del engine; los callers existentes
+  no cambian) y `assistant/service/bridge_chat_actions.dart` (RPC).
+  `ChatView` y `ChatMessageBubble` ya no tocan el singleton directamente.
+- `assistant/ui/screen/assistant_window.dart` — MaterialApp propio con
+  `buildAppTheme()`, menú de sesiones + nueva conversación, y el MISMO
+  `ChatView` con `actions: BridgeChatActions()`.
+- `PermissionRequest` y `AgentToolActivity` ganaron toJson/fromJson (wire).
+
+## Flujos
+
+- **Abrir**: ✨ del rail → `AssistantWindowBridge.instance.open()` (resuelve
+  la sesión keelai en el tap handler — nunca en build), abre o enfoca la
+  ventana única y empuja `assistantFocus`.
+- **Permisos**: el banner viaja en el snapshot; `respondPermission` corre la
+  lógica real en main (incluida la continuación automática).
+- **Eliminar sesión**: main borra y resuelve/crea la siguiente — la ventana
+  nunca queda mostrando un agente fantasma.
+
+## Límites conocidos
+
+- Los fileEdits no se renderizan en esta ventana (por diseño).
+- Cerrar la app principal cierra el proceso entero (las sub-ventanas mueren
+  con él).
+- Una sola ventana de asistente a la vez (registro por businessId).

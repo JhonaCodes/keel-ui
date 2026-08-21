@@ -5,11 +5,11 @@ import 'package:reactive_notifier/reactive_notifier.dart';
 import 'package:keel_ui/src/core/ui/app_theme.dart';
 import 'package:keel_ui/src/modules/agents/model/chat_message.dart';
 import 'package:keel_ui/src/modules/agents/model/file_edit.dart';
+import 'package:keel_ui/src/modules/agents/service/chat_actions.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/bubble_width.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/chat_message_body.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/inline_file_editor.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/reasoning_panel.dart';
-import 'package:keel_ui/src/modules/agents/viewmodel/agents_viewmodel.dart';
 import 'package:keel_ui/src/modules/settings/model/app_settings.dart';
 import 'package:keel_ui/src/modules/settings/viewmodel/settings_viewmodel.dart';
 import 'package:keel_ui/src/shared/shared.dart';
@@ -19,10 +19,12 @@ class ChatMessageBubble extends StatelessWidget {
     super.key,
     required this.message,
     required this.agentId,
+    this.actions = const LocalChatActions(),
   });
 
   final ChatMessage message;
   final String agentId;
+  final ChatActions actions;
 
   @override
   Widget build(BuildContext context) {
@@ -31,6 +33,7 @@ class ChatMessageBubble extends StatelessWidget {
       build: (settings, viewmodel, keep) => _ChatMessageBubbleContent(
         message: message,
         agentId: agentId,
+        actions: actions,
         fontScale: settings.chatFontScale,
       ),
     );
@@ -41,11 +44,13 @@ class _ChatMessageBubbleContent extends StatelessWidget {
   const _ChatMessageBubbleContent({
     required this.message,
     required this.agentId,
+    required this.actions,
     required this.fontScale,
   });
 
   final ChatMessage message;
   final String agentId;
+  final ChatActions actions;
   final double fontScale;
 
   @override
@@ -123,10 +128,7 @@ class _ChatMessageBubbleContent extends StatelessWidget {
       child: LayoutBuilder(
         builder: (context, constraints) {
           return _HoverDeleteOverlay(
-            onDelete: () => AgentsService.instance.notifier.deleteMessage(
-              agentId,
-              message.timestamp,
-            ),
+            onDelete: () => actions.deleteMessage(agentId, message.timestamp),
             child: Container(
               margin: const EdgeInsets.symmetric(vertical: 6),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -155,7 +157,7 @@ class _ChatMessageBubbleContent extends StatelessWidget {
                             required lineNumber,
                             required lineContent,
                             required question,
-                          }) => AgentsService.instance.notifier.askAboutLine(
+                          }) => actions.askAboutLine(
                             agentId,
                             filePath: filePath,
                             lineNumber: lineNumber,
@@ -167,15 +169,14 @@ class _ChatMessageBubbleContent extends StatelessWidget {
                             required filePath,
                             required beforeContent,
                             required afterContent,
-                          }) async =>
-                              AgentsService.instance.notifier.recordManualEdit(
-                                agentId,
-                                FileEdit(
-                                  path: filePath,
-                                  beforeContent: beforeContent,
-                                  afterContent: afterContent,
-                                ),
-                              ),
+                          }) async => actions.recordManualEdit(
+                            agentId,
+                            FileEdit(
+                              path: filePath,
+                              beforeContent: beforeContent,
+                              afterContent: afterContent,
+                            ),
+                          ),
                     ),
                 ],
               ),

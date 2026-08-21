@@ -8,7 +8,32 @@ Future<CallToolResult> dispatchKeelAiTool(
   String agentId,
   CallToolRequest request,
 ) async {
-  final (ok, message) = _runKeelAiTool(request);
+  // The sync tools are genuinely async (git over the network) — handled
+  // before the synchronous switch.
+  if (request.name == 'update_knowledge') {
+    final message = await KnowledgeService.instance.notifier.update();
+    AgentsService.instance.notifier.appendSystemNote(agentId, message);
+    return CallToolResult(
+      content: [
+        TextContent(text: jsonEncode({'ok': true, 'message': message})),
+      ],
+    );
+  }
+
+  if (request.name == 'export_catalog' || request.name == 'refresh_catalog') {
+    final sync = CatalogSyncService.instance.notifier;
+    final message = request.name == 'export_catalog'
+        ? await sync.exportCatalog()
+        : await sync.refreshCatalog();
+    AgentsService.instance.notifier.appendSystemNote(agentId, message);
+    return CallToolResult(
+      content: [
+        TextContent(text: jsonEncode({'ok': true, 'message': message})),
+      ],
+    );
+  }
+
+  final (ok, message) = _runKeelAiTool(agentId, request);
   AgentsService.instance.notifier.appendSystemNote(agentId, message);
   return CallToolResult(
     content: [TextContent(text: jsonEncode({'ok': ok, 'message': message}))],
@@ -16,7 +41,7 @@ Future<CallToolResult> dispatchKeelAiTool(
   );
 }
 
-(bool, String) _runKeelAiTool(CallToolRequest request) {
+(bool, String) _runKeelAiTool(String agentId, CallToolRequest request) {
   final arguments = request.arguments ?? const <String, Object?>{};
   switch (request.name) {
     case 'create_skill':
@@ -24,6 +49,7 @@ Future<CallToolResult> dispatchKeelAiTool(
         CreateSkillAction(
           name: arguments['name'] as String,
           content: arguments['content'] as String,
+          isGlobal: arguments['global'] as bool? ?? false,
         ),
       );
       return (result.ok, result.message);
@@ -37,6 +63,107 @@ Future<CallToolResult> dispatchKeelAiTool(
       );
       return (result.ok, result.message);
 
+    case 'create_tool':
+      final result = executeToolAction(
+        CreateToolAction(
+          name: arguments['name'] as String,
+          description: arguments['description'] as String,
+          runtimeAlias: arguments['runtime'] as String,
+          code: arguments['code'] as String,
+          timeoutSeconds: (arguments['timeout_seconds'] as num?)?.toInt(),
+          secretNames: _stringList(arguments['secret_names']),
+        ),
+      );
+      return (result.ok, result.message);
+
+    case 'request_secret':
+      final requesterProfileId = AgentsService.instance.notifier.data.agents
+          .where((agent) => agent.id == agentId)
+          .firstOrNull
+          ?.profileId;
+      final message = SecretsService.instance.notifier.requestSecret(
+        name: arguments['name'] as String,
+        why: arguments['why'] as String,
+        requestedByProfileId: requesterProfileId,
+      );
+      return (true, message);
+
+    case 'register_mcp_server':
+      final name = arguments['name'] as String;
+      final transport = McpTransport.tryFromAlias(
+        arguments['transport'] as String,
+      );
+      if (transport == null) {
+        return (false, 'Transporte inválido — usá "stdio" o "http".');
+      }
+      final viewmodel = McpServersService.instance.notifier;
+      final existing = viewmodel.data.servers
+          .where((server) => server.name == name)
+          .firstOrNull;
+      final env = (arguments['env'] as Map?)?.cast<String, String>() ?? {};
+      final secretEnv =
+          (arguments['secret_env'] as Map?)?.cast<String, String>() ?? {};
+      final args = _stringList(arguments['args']);
+      final command = arguments['command'] as String? ?? '';
+      final url = arguments['url'] as String? ?? '';
+      final headers =
+          (arguments['headers'] as Map?)?.cast<String, String>() ?? {};
+      final error = existing == null
+          ? viewmodel.createServer(
+              name: name,
+              transport: transport,
+              command: command,
+              args: args,
+              env: env,
+              secretEnv: secretEnv,
+              url: url,
+              headers: headers,
+            )
+          : viewmodel.updateServer(
+              existing.id,
+              name: name,
+              transport: transport,
+              command: command,
+              args: args,
+              env: env,
+              secretEnv: secretEnv,
+              url: url,
+              headers: headers,
+            );
+      if (error != null) return (false, error);
+      final pendingSecrets = SecretsService.instance.notifier.pendingOf(
+        secretEnv.values.toList(),
+      );
+      final suffix = pendingSecrets.isEmpty
+          ? ''
+          : ' Ojo: secrets pendientes de valor: ${pendingSecrets.join(', ')}.';
+      return (
+        true,
+        existing == null
+            ? 'Registré el MCP "$name".$suffix'
+            : 'Actualicé el MCP "$name".$suffix',
+      );
+
+    case 'delete_mcp_server':
+      return _deleteByName(
+        name: arguments['name'] as String,
+        items: McpServersService.instance.notifier.data.servers,
+        idOf: (server) => server.id,
+        nameOf: (server) => server.name,
+        delete: McpServersService.instance.notifier.deleteServer,
+        label: 'integración MCP',
+      );
+
+    case 'list_secret_names':
+      final secrets = SecretsService.instance.notifier.data.secrets;
+      if (secrets.isEmpty) return (true, 'No hay secrets registrados.');
+      final lines = [
+        for (final secret in secrets)
+          '- ${secret.name}'
+              '${secret.isPending ? ' (PENDIENTE de valor)' : ''}',
+      ];
+      return (true, 'Secrets registrados:\n${lines.join('\n')}');
+
     case 'create_or_update_agent':
       final result = executeAgentAction(
         CreateAgentAction(
@@ -46,6 +173,10 @@ Future<CallToolResult> dispatchKeelAiTool(
           instructions: arguments['instructions'] as String?,
           skillNames: _stringList(arguments['skill_names']),
           ruleNames: _stringList(arguments['rule_names']),
+          toolNames: _stringList(arguments['tool_names']),
+          mcpServerNames: _stringList(arguments['mcp_server_names']),
+          providerAlias: arguments['provider'] as String?,
+          systemBuilder: arguments['system_builder'] as bool?,
         ),
       );
       return (result.ok, result.message);
@@ -91,6 +222,16 @@ Future<CallToolResult> dispatchKeelAiTool(
         nameOf: (rule) => rule.name,
         delete: RulesService.instance.notifier.deleteRule,
         label: 'regla',
+      );
+
+    case 'delete_tool':
+      return _deleteByName(
+        name: arguments['name'] as String,
+        items: ToolsService.instance.notifier.data.tools,
+        idOf: (tool) => tool.id,
+        nameOf: (tool) => tool.name,
+        delete: ToolsService.instance.notifier.deleteTool,
+        label: 'tool',
       );
 
     case 'delete_workflow':

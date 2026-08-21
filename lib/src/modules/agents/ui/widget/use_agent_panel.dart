@@ -33,6 +33,7 @@ class _UseAgentPanelState extends State<UseAgentPanel> {
       model: profile.model,
       fullFileSystemAccess: _fullFileSystemAccess,
       effort: profile.effort,
+      provider: profile.provider,
       profileId: profile.id,
     );
     Navigator.of(context).pop();
@@ -125,6 +126,7 @@ class _ProfileRow extends StatelessWidget {
       subtitle: Text(
         [
           if (profile.role.isNotEmpty) profile.role,
+          profile.provider.label,
           claudeModelLabel(profile.model),
           effortLabel(profile.effort),
         ].join(' · '),

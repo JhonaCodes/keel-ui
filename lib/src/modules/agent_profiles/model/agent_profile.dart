@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 
+import 'package:keel_ui/src/modules/agents/model/agent_provider.dart';
+
 final RegExp _agentProfileNameFormat = RegExp(r'^[a-z0-9_-]{1,16}$');
 
 /// The handle reserved for the built-in system assistant, seeded once at
@@ -34,6 +36,24 @@ class AgentProfile {
   final String systemPrompt;
   final List<String> skills;
   final List<String> rules;
+
+  /// Names of registered executable tools this profile's agents can call as
+  /// real MCP tools during their turns — see `user_tools_mcp_server.dart`.
+  final List<String> tools;
+
+  /// Names of registered external MCP servers (gmail, drive, …) this
+  /// profile's agents get wired into their turns — see F5.
+  final List<String> mcpServers;
+
+  /// A "builder" profile: its 1:1 agents receive the same `keelai-actions`
+  /// MCP that Keel AI has, so they can create skills/rules/tools/agents/
+  /// workflows/stations themselves. Off by default — creation power is an
+  /// explicit grant, never ambient.
+  final bool canManageSystem;
+
+  /// Which local CLI drives this profile's agents (claude by default).
+  /// Codex agents don't receive tools/MCPs/effort — see the F6 doc.
+  final AgentProvider provider;
   final String model;
   final String effort;
   final DateTime createdAt;
@@ -54,6 +74,10 @@ class AgentProfile {
     required this.createdAt,
     this.skills = const [],
     this.rules = const [],
+    this.tools = const [],
+    this.mcpServers = const [],
+    this.canManageSystem = false,
+    this.provider = AgentProvider.claude,
     this.createdByProfileId,
   });
 
@@ -63,6 +87,10 @@ class AgentProfile {
     String? systemPrompt,
     List<String>? skills,
     List<String>? rules,
+    List<String>? tools,
+    List<String>? mcpServers,
+    bool? canManageSystem,
+    AgentProvider? provider,
     String? model,
     String? effort,
   }) {
@@ -73,6 +101,10 @@ class AgentProfile {
       systemPrompt: systemPrompt ?? this.systemPrompt,
       skills: skills ?? this.skills,
       rules: rules ?? this.rules,
+      tools: tools ?? this.tools,
+      mcpServers: mcpServers ?? this.mcpServers,
+      canManageSystem: canManageSystem ?? this.canManageSystem,
+      provider: provider ?? this.provider,
       model: model ?? this.model,
       effort: effort ?? this.effort,
       createdAt: createdAt,
@@ -87,6 +119,10 @@ class AgentProfile {
     'systemPrompt': systemPrompt,
     'skills': skills,
     'rules': rules,
+    'tools': tools,
+    'mcpServers': mcpServers,
+    'canManageSystem': canManageSystem,
+    'provider': provider.alias,
     'model': model,
     'effort': effort,
     'createdAt': createdAt.toIso8601String(),
@@ -101,6 +137,12 @@ class AgentProfile {
       systemPrompt: json['systemPrompt'] as String? ?? '',
       skills: (json['skills'] as List?)?.cast<String>() ?? const [],
       rules: (json['rules'] as List?)?.cast<String>() ?? const [],
+      tools: (json['tools'] as List?)?.cast<String>() ?? const [],
+      mcpServers: (json['mcpServers'] as List?)?.cast<String>() ?? const [],
+      canManageSystem: json['canManageSystem'] as bool? ?? false,
+      provider: json['provider'] == null
+          ? AgentProvider.claude
+          : AgentProvider.fromAlias(json['provider'] as String),
       model: json['model'] as String,
       effort: json['effort'] as String,
       createdAt: DateTime.parse(json['createdAt'] as String),
@@ -119,6 +161,10 @@ class AgentProfile {
           systemPrompt == other.systemPrompt &&
           listEquals(skills, other.skills) &&
           listEquals(rules, other.rules) &&
+          listEquals(tools, other.tools) &&
+          listEquals(mcpServers, other.mcpServers) &&
+          canManageSystem == other.canManageSystem &&
+          provider == other.provider &&
           model == other.model &&
           effort == other.effort &&
           createdAt == other.createdAt &&
@@ -132,6 +178,10 @@ class AgentProfile {
     systemPrompt,
     Object.hashAll(skills),
     Object.hashAll(rules),
+    Object.hashAll(tools),
+    Object.hashAll(mcpServers),
+    canManageSystem,
+    provider,
     model,
     effort,
     createdAt,
@@ -142,7 +192,9 @@ class AgentProfile {
   String toString() =>
       'AgentProfile(id: $id, name: $name, role: $role, '
       'systemPrompt: ${systemPrompt.length} chars, skills: $skills, '
-      'rules: $rules, model: $model, effort: $effort, createdAt: $createdAt)';
+      'rules: $rules, tools: $tools, mcpServers: $mcpServers, '
+      'canManageSystem: $canManageSystem, provider: ${provider.alias}, '
+      'model: $model, effort: $effort, createdAt: $createdAt)';
 }
 
 class AgentProfilesState {

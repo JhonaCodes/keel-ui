@@ -17,9 +17,11 @@ const _agentKeys = {
   'instrucciones',
   'skills',
   'reglas',
+  'tools',
+  'mcps',
 };
 const _workflowKeys = {'nombre', 'cuando', 'pasos'};
-const _skillKeys = {'nombre', 'contenido'};
+const _skillKeys = {'nombre', 'contenido', 'global'};
 const _ruleKeys = {'nombre', 'contenido'};
 
 /// Reads every action block Keel AI wrote in [text] and returns them ready to
@@ -40,7 +42,11 @@ List<AssistantAction> parseAssistantActions(String text) {
     final name = fields['nombre'];
     if (name == null || name.isEmpty) continue;
     actions.add(
-      CreateSkillAction(name: name, content: fields['contenido'] ?? ''),
+      CreateSkillAction(
+        name: name,
+        content: fields['contenido'] ?? '',
+        isGlobal: _parseBool(fields['global']),
+      ),
     );
   }
 
@@ -67,6 +73,11 @@ List<AssistantAction> parseAssistantActions(String text) {
         instructions: fields['instrucciones'],
         skillNames: _splitList(fields['skills']),
         ruleNames: _splitList(fields['reglas']),
+        // Assignment only — there is deliberately no fenced-block form for
+        // CREATING a tool (see CreateToolAction): this parser collapses
+        // blank lines and indentation, which would corrupt script code.
+        toolNames: _splitList(fields['tools']),
+        mcpServerNames: _splitList(fields['mcps']),
       ),
     );
   }
@@ -107,6 +118,11 @@ List<AssistantAction> parseAssistantActions(String text) {
   }
 
   return actions;
+}
+
+bool _parseBool(String? raw) {
+  final normalized = raw?.trim().toLowerCase();
+  return normalized == 'si' || normalized == 'sí' || normalized == 'true';
 }
 
 List<String> _splitList(String? raw) {

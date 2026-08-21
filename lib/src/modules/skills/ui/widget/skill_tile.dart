@@ -39,6 +39,15 @@ class SkillTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListTile(
+      leading: skill.isGlobal
+          ? const Tooltip(
+              message: 'Global: la reciben todos los agentes',
+              child: Chip(
+                label: Text('global'),
+                visualDensity: VisualDensity.compact,
+              ),
+            )
+          : null,
       title: Text(skill.name),
       subtitle: Text(
         skill.content,

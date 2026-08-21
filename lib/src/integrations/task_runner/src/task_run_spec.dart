@@ -13,6 +13,15 @@ class TaskRunSpec {
   final String? sessionId;
   final String? additionalSystemPrompt;
 
+  /// Provider alias ('claude' | 'codex') — decides which CLI the isolate
+  /// spawns and which JSONL dialect it parses.
+  final String provider;
+
+  /// Full `--mcp-config` JSON for the turn (e.g. the member's assigned
+  /// executable tools), already encoded — a String is isolate-message-safe
+  /// as-is.
+  final String? mcpConfig;
+
   const TaskRunSpec({
     required this.prompt,
     required this.workingDirectory,
@@ -22,6 +31,8 @@ class TaskRunSpec {
     this.extraAllowedTools = const [],
     this.sessionId,
     this.additionalSystemPrompt,
+    this.mcpConfig,
+    this.provider = 'claude',
   });
 
   Map<String, dynamic> toMessage() => {
@@ -33,6 +44,8 @@ class TaskRunSpec {
     'extraAllowedTools': extraAllowedTools,
     'sessionId': sessionId,
     'additionalSystemPrompt': additionalSystemPrompt,
+    'mcpConfig': mcpConfig,
+    'provider': provider,
   };
 
   factory TaskRunSpec.fromMessage(Map<String, dynamic> message) {
@@ -46,6 +59,8 @@ class TaskRunSpec {
           (message['extraAllowedTools'] as List?)?.cast<String>() ?? const [],
       sessionId: message['sessionId'] as String?,
       additionalSystemPrompt: message['additionalSystemPrompt'] as String?,
+      mcpConfig: message['mcpConfig'] as String?,
+      provider: message['provider'] as String? ?? 'claude',
     );
   }
 }

@@ -1,3 +1,4 @@
+import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
 
@@ -11,6 +12,7 @@ import 'package:keel_ui/src/modules/stations/model/station.dart';
 import 'package:keel_ui/src/modules/stations/model/station_task.dart';
 import 'package:keel_ui/src/modules/stations/model/thread_entry.dart';
 import 'package:keel_ui/src/modules/stations/ui/view/station_map_view.dart';
+import 'package:keel_ui/src/modules/stations/ui/widget/task_agent_picker.dart';
 import 'package:keel_ui/src/modules/stations/ui/widget/station_live_turn_strip.dart';
 import 'package:keel_ui/src/modules/stations/ui/widget/station_message_bubble.dart';
 import 'package:keel_ui/src/modules/stations/ui/widget/workflow_progress_panel.dart';
@@ -53,7 +55,10 @@ class _StationChatViewState extends State<StationChatView> {
             final stations = StationsService.instance.notifier;
             return _StationChannel(
               station: widget.station,
-              members: stations.membersOf(widget.station),
+              members: stations.membersOf(
+                widget.station,
+                task: widget.station.activeTask,
+              ),
               allProfiles: profilesState.profiles,
               workflow: stations.activeWorkflowOf(widget.station),
               tab: _tab,
@@ -104,6 +109,8 @@ class _StationChannel extends StatelessWidget {
                 onTabChanged: onTabChanged,
               ),
               const Divider(height: 1),
+              if (station.workingDirectory.trim().isEmpty)
+                _MissingFolderBanner(stationId: station.id),
               Expanded(
                 child: switch (tab) {
                   StationTab.chat => _ThreadList(
@@ -428,6 +435,21 @@ class _ChannelHeader extends StatelessWidget {
   final StationTab tab;
   final ValueChanged<StationTab> onTabChanged;
 
+  /// Per-member cost ledger of the open task, for the subtitle tooltip.
+  String _costBreakdown() {
+    final open = task;
+    if (open == null || open.costUsd <= 0) return '';
+    final lines = <String>['Costo de la tarea por miembro:'];
+    for (final entry in open.costByProfileId.entries) {
+      final member = members.where((m) => m.id == entry.key).firstOrNull;
+      lines.add(
+        '· ${member?.name ?? 'ex-miembro'}: '
+        'US\$${entry.value.toStringAsFixed(2)}',
+      );
+    }
+    return lines.join('\n');
+  }
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -443,6 +465,7 @@ class _ChannelHeader extends StatelessWidget {
         if (workflow != null) workflow!.name,
         if (open.contextUsageRatio != null)
           'contexto ${(open.contextUsageRatio! * 100).round()}%',
+        if (open.costUsd > 0) 'US\$${open.costUsd.toStringAsFixed(2)}',
       ].join(' · ');
     }
 
@@ -471,14 +494,27 @@ class _ChannelHeader extends StatelessWidget {
                     ),
                   ],
                 ),
-                Text(
-                  subtitle,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodySmall,
+                Tooltip(
+                  message: _costBreakdown(),
+                  child: Text(
+                    subtitle,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
                 ),
               ],
             ),
           ),
+          if (open != null)
+            IconButton(
+              tooltip: 'Agentes de esta tarea',
+              icon: const Icon(Icons.person_add_alt_outlined, size: 20),
+              onPressed: () => openTaskAgentPicker(
+                context,
+                stationId: station.id,
+                taskId: open.id,
+              ),
+            ),
           SegmentedButton<StationTab>(
             segments: const [
               ButtonSegment(
@@ -617,6 +653,54 @@ class _EmptyChannel extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+
+/// An imported station lands without a working directory (paths never
+/// travel in the catalog) — nothing can run until the user picks one here.
+class _MissingFolderBanner extends StatelessWidget {
+  const _MissingFolderBanner({required this.stationId});
+
+  final String stationId;
+
+  Future<void> _pickFolder() async {
+    final path = await getDirectoryPath(
+      confirmButtonText: 'Usar esta carpeta',
+    );
+    if (path == null) return;
+    StationsService.instance.notifier.setStationWorkingDirectory(
+      stationId,
+      path,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      width: double.infinity,
+      color: scheme.errorContainer,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        children: [
+          Icon(Icons.folder_off_outlined,
+              size: 18, color: scheme.onErrorContainer),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Esta estación no tiene carpeta de trabajo (vino de un '
+              'import). Elegila para poder correr tareas.',
+              style: TextStyle(color: scheme.onErrorContainer, fontSize: 13),
+            ),
+          ),
+          TextButton(
+            onPressed: _pickFolder,
+            child: const Text('Elegir carpeta'),
+          ),
+        ],
       ),
     );
   }

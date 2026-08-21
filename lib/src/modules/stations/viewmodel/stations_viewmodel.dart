@@ -1,22 +1,31 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:logger_rs/logger_rs.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
 
 import 'package:keel_ui/src/core/services/file_edit_collector.dart';
+import 'package:keel_ui/src/integrations/prompt_insights/prompt_insights.dart';
 import 'package:keel_ui/src/integrations/task_runner/task_runner.dart';
+import 'package:keel_ui/src/integrations/user_tools_mcp/user_tools_mcp_server.dart';
 import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
 import 'package:keel_ui/src/modules/agent_profiles/viewmodel/agent_profiles_viewmodel.dart';
 import 'package:keel_ui/src/modules/agents/model/agent_tool_activity.dart';
 import 'package:keel_ui/src/modules/agents/model/chat_message.dart';
+import 'package:keel_ui/src/modules/agents/model/agent_provider.dart';
 import 'package:keel_ui/src/modules/agents/model/permission_request.dart';
+import 'package:keel_ui/src/modules/mcp_servers/model/mcp_server_config.dart';
+import 'package:keel_ui/src/modules/mcp_servers/viewmodel/mcp_servers_viewmodel.dart';
 import 'package:keel_ui/src/modules/rules/viewmodel/rules_viewmodel.dart';
+import 'package:keel_ui/src/modules/secrets/viewmodel/secrets_viewmodel.dart';
 import 'package:keel_ui/src/modules/settings/viewmodel/settings_viewmodel.dart';
 import 'package:keel_ui/src/modules/skills/viewmodel/skills_viewmodel.dart';
 import 'package:keel_ui/src/modules/stations/model/station.dart';
 import 'package:keel_ui/src/modules/stations/model/station_task.dart';
 import 'package:keel_ui/src/modules/stations/model/task_live_turn.dart';
 import 'package:keel_ui/src/modules/stations/repository/stations_repository.dart';
+import 'package:keel_ui/src/modules/tools/model/tool.dart';
+import 'package:keel_ui/src/modules/tools/viewmodel/tools_viewmodel.dart';
 import 'package:keel_ui/src/modules/workflows/model/workflow.dart';
 import 'package:keel_ui/src/modules/workflows/viewmodel/workflows_viewmodel.dart';
 import 'package:keel_ui/src/shared/shared.dart';
@@ -79,10 +88,24 @@ class StationsViewModel extends ViewModel<StationsState> {
 
   static const _maxConsultDepth = 3;
 
+  /// The consult ledger is keyed by turnId, which never repeats — without a
+  /// purge it grows for the app's whole lifetime. Cleared whenever no task
+  /// is running: no in-flight turn can still need its pairs then.
+  void _purgeConsultLedgerIfIdle() {
+    if (_runningTasks.isEmpty) _consultedPairs.clear();
+  }
+
+  /// Resolves once the persisted stations have loaded — same guarded-ready
+  /// pattern as the other catalogs, so the catalog sync (and any MCP-driven
+  /// first access) can await real data, and a later
+  /// `reinitializeWithContext()` never wipes loaded state.
+  Future<void>? _ready;
+  Future<void> get ready => _ready ??= _loadPersistedStations();
+
   @override
   void init() {
-    updateSilently(const StationsState());
-    unawaited(_loadPersistedStations());
+    if (_ready == null) updateSilently(const StationsState());
+    unawaited(ready);
   }
 
   Future<void> _loadPersistedStations() async {
@@ -428,7 +451,11 @@ class StationsViewModel extends ViewModel<StationsState> {
       final current = _stationById(stationId);
       if (current == null) break;
 
-      final member = _memberForRole(current, step.role);
+      final member = _memberForRole(
+        current,
+        step.role,
+        task: _taskById(current, taskId),
+      );
       if (member == null) {
         _appendMessage(
           stationId,
@@ -495,6 +522,13 @@ class StationsViewModel extends ViewModel<StationsState> {
   /// task kicks off the workflow; every message after that is a follow-up to
   /// the agent that is holding the work.
   Future<void> sendToChannel(String stationId, String text) async {
+    final trimmedForInsights = text.trim();
+    if (trimmedForInsights.isNotEmpty) {
+      // Zero-token recurrence detector — never in the send critical path.
+      unawaited(
+        PromptInsightsService.instance.notifier.record(trimmedForInsights),
+      );
+    }
     final trimmed = text.trim();
     if (trimmed.isEmpty) return;
 
@@ -628,6 +662,7 @@ class StationsViewModel extends ViewModel<StationsState> {
 
     final member = membersOf(
       station,
+      task: task,
     ).where((profile) => profile.id == blockedProfileId).firstOrNull;
     if (member == null) return;
 
@@ -662,6 +697,7 @@ class StationsViewModel extends ViewModel<StationsState> {
     if (task == null) return;
     final member = membersOf(
       station,
+      task: task,
     ).where((m) => m.id == profileId).firstOrNull;
     if (member == null) return;
 
@@ -696,6 +732,7 @@ class StationsViewModel extends ViewModel<StationsState> {
     if (task == null) return;
     final member = membersOf(
       station,
+      task: task,
     ).where((m) => m.id == profileId).firstOrNull;
     if (member == null) return;
 
@@ -749,6 +786,7 @@ class StationsViewModel extends ViewModel<StationsState> {
     } finally {
       _runningTasks.remove(taskId);
       _stoppedTaskIds.remove(taskId);
+      _purgeConsultLedgerIfIdle();
       _updateTask(
         stationId,
         taskId,
@@ -768,11 +806,12 @@ class StationsViewModel extends ViewModel<StationsState> {
       final owner = _memberForRole(
         station,
         workflow.steps[task.currentStepIndex].role,
+        task: task,
       );
       if (owner != null) return owner;
     }
 
-    final members = membersOf(station);
+    final members = membersOf(station, task: task);
     for (var i = task.messages.length - 1; i >= 0; i--) {
       final authorId = task.messages[i].authorProfileId;
       if (authorId == null) continue;
@@ -780,6 +819,13 @@ class StationsViewModel extends ViewModel<StationsState> {
       if (author != null) return author;
     }
     return members.firstOrNull;
+  }
+
+  /// Fills in the working directory of a station that arrived without one
+  /// (catalog import strips paths on purpose — they're machine-local).
+  void setStationWorkingDirectory(String id, String path) {
+    _updateStation(id, (station) => station.copyWith(workingDirectory: path));
+    unawaited(_persist());
   }
 
   // ── ejecución de un turno ───────────────────────────────────────────
@@ -810,6 +856,35 @@ class StationsViewModel extends ViewModel<StationsState> {
     final reasoning = StringBuffer();
     final answer = StringBuffer();
 
+    // The member's assigned executable tools travel as a per-turn MCP
+    // config — the loopback server runs in the main isolate, and the CLI
+    // subprocess reaches it over 127.0.0.1 regardless of which isolate
+    // spawned it.
+    // Codex has no per-turn tools/MCP surface — those stay empty for it.
+    final isCodex = member.provider == AgentProvider.codex;
+    final memberTools = isCodex
+        ? const <Tool>[]
+        : ToolsService.instance.notifier.toolsByNames(member.tools);
+    final toolsEntry = memberTools.isEmpty
+        ? null
+        : UserToolsMcpServer.mcpServerEntryFor(
+            member.id,
+            workingDirectory: station.workingDirectory,
+          );
+    final externalServers = isCodex
+        ? const <McpServerConfig>[]
+        : McpServersService.instance.notifier.serversByNames(
+            member.mcpServers,
+          );
+    final externalSecretValues = SecretsService.instance.notifier.valuesFor([
+      for (final server in externalServers) ...server.secretNames,
+    ]);
+    final mcpServers = <String, dynamic>{
+      kUserToolsMcpServerKey: ?toolsEntry,
+      for (final server in externalServers)
+        server.name: server.toMcpServerEntry(externalSecretValues),
+    };
+
     final run = await TaskRunner.run(
       TaskRunSpec(
         prompt: instruction,
@@ -817,10 +892,24 @@ class StationsViewModel extends ViewModel<StationsState> {
         model: member.model,
         fullFileSystemAccess: false,
         effort: member.effort,
-        extraAllowedTools:
-            SettingsService.instance.notifier.data.extraAllowedTools,
+        extraAllowedTools: [
+          ...SettingsService.instance.notifier.data.extraAllowedTools,
+          if (toolsEntry != null)
+            ...memberTools.map(
+              (tool) => '$kUserToolsMcpToolPrefix${tool.name}',
+            ),
+          ...externalServers.map((server) => 'mcp__${server.name}'),
+        ],
         sessionId: sessionId,
-        additionalSystemPrompt: _turnSystemPrompt(station, member),
+        additionalSystemPrompt: _turnSystemPrompt(
+          station,
+          member,
+          task: _taskById(station, taskId),
+        ),
+        mcpConfig: mcpServers.isEmpty
+            ? null
+            : jsonEncode({'mcpServers': mcpServers}),
+        provider: member.provider.alias,
       ),
     );
     _runningTasks[taskId] = run;
@@ -898,6 +987,16 @@ class StationsViewModel extends ViewModel<StationsState> {
           costUsd: final costUsd,
           durationMs: final durationMs,
         ):
+          if (costUsd > 0) {
+            _updateTask(stationId, taskId, (task) {
+              final costs = Map<String, double>.from(task.costByProfileId);
+              costs[member.id] = (costs[member.id] ?? 0) + costUsd;
+              return task.copyWith(
+                costUsd: task.costUsd + costUsd,
+                costByProfileId: costs,
+              );
+            });
+          }
           if (isError) {
             _appendMessage(
               stationId,
@@ -1073,12 +1172,10 @@ class StationsViewModel extends ViewModel<StationsState> {
 
       if (profileId == null) continue;
       final registeredId = profileId;
-      _updateStation(stationId, (station) {
-        if (station.profileIds.contains(registeredId)) return station;
-        return station.copyWith(
-          profileIds: [...station.profileIds, registeredId],
-        );
-      });
+      // Scoped to THIS task, not the station: a specialist an agent pulls in
+      // mid-conversation exists for that conversation. Making it a standing
+      // member is the user's call, from the station form.
+      addAgentToTask(stationId, taskId, registeredId);
 
       _appendMessage(
         stationId,
@@ -1087,10 +1184,10 @@ class StationsViewModel extends ViewModel<StationsState> {
           role: ChatRole.assistant,
           text: existing == null
               ? '${author.name} incorporó a **@$handle** '
-                    '(${fields['rol'] ?? handle}) a la estación.'
+                    '(${fields['rol'] ?? handle}) a ESTA tarea.'
                     '${fields['proposito'] == null ? '' : '\n\n${fields['proposito']}'}'
               : '${author.name} sumó a **@$handle**, que ya estaba '
-                    'registrado, a esta estación.',
+                    'registrado, a esta tarea.',
           timestamp: DateTime.now(),
           authorProfileId: author.id,
           stepIndex: stepIndex,
@@ -1114,7 +1211,7 @@ class StationsViewModel extends ViewModel<StationsState> {
     final station = _stationById(stationId);
     if (station == null) return;
 
-    final members = membersOf(station);
+    final members = membersOf(station, task: _taskById(station, taskId));
     final asked = <String>{};
 
     for (final match in _mentionPattern.allMatches(text)) {
@@ -1193,20 +1290,36 @@ class StationsViewModel extends ViewModel<StationsState> {
         'Seguí con tu paso usando esa respuesta.';
   }
 
-  /// Composes what this member knows for the whole turn: who it is, the
-  /// station's shared rules and documents, and who else it can consult.
-  String _turnSystemPrompt(Station station, AgentProfile member) {
+  /// Composes what this member knows for the whole turn: the global skills
+  /// every agent carries, who it is, the station's shared rules and
+  /// documents, and who else it can consult.
+  String _turnSystemPrompt(
+    Station station,
+    AgentProfile member, {
+    StationTask? task,
+  }) {
     final buffer = StringBuffer();
 
-    if (member.systemPrompt.isNotEmpty) buffer.writeln(member.systemPrompt);
-
     final skills = SkillsService.instance.notifier.data.skills;
+    for (final skill in skills) {
+      if (!skill.isGlobal || skill.content.isEmpty) continue;
+      if (buffer.isNotEmpty) buffer.writeln();
+      buffer.writeln(skill.content);
+    }
+
+    if (member.systemPrompt.isNotEmpty) {
+      if (buffer.isNotEmpty) buffer.writeln();
+      buffer.writeln(member.systemPrompt);
+    }
+
     for (final name in member.skills) {
       final skill = skills.where((s) => s.name == name).firstOrNull;
       if (skill == null || skill.content.isEmpty) {
         Log.w('Skill "$name" referenced by ${member.name} not found or empty');
         continue;
       }
+      // Globals already went in above — never inject the same skill twice.
+      if (skill.isGlobal) continue;
       buffer.writeln();
       buffer.writeln(skill.content);
     }
@@ -1238,6 +1351,7 @@ class StationsViewModel extends ViewModel<StationsState> {
 
     final companions = membersOf(
       station,
+      task: task,
     ).where((m) => m.id != member.id).toList();
     if (companions.isNotEmpty) {
       buffer.writeln();
@@ -1267,6 +1381,11 @@ class StationsViewModel extends ViewModel<StationsState> {
         'Para eso escribí el nombre sin la arroba. La regla corta es: por '
         'cortesía nunca, por especialidad siempre.',
       );
+      buffer.writeln(
+        'Cuando consultes, formulá SOLO la pregunta concreta con el mínimo '
+        'contexto necesario — no pegues todo tu razonamiento ni el historial: '
+        'cada palabra de más se paga en el turno del otro.',
+      );
     }
 
     buffer.writeln();
@@ -1292,22 +1411,62 @@ class StationsViewModel extends ViewModel<StationsState> {
     return workflows.where((workflow) => workflow.id == id).firstOrNull;
   }
 
-  List<AgentProfile> membersOf(Station station) {
+  /// The roster a turn sees: the station's members plus [task]'s own
+  /// extras. Extras are per-task by design — the station is untouched.
+  List<AgentProfile> membersOf(Station station, {StationTask? task}) {
     final profiles = AgentProfilesService.instance.notifier.data.profiles;
-    return station.profileIds
+    final ids = <String>{
+      ...station.profileIds,
+      ...?task?.extraProfileIds,
+    };
+    return ids
         .map((id) => profiles.where((p) => p.id == id).firstOrNull)
         .whereType<AgentProfile>()
         .toList();
+  }
+
+  /// Adds a registered profile to ONE task's roster. No-op if it's already
+  /// a member (of the station or the task).
+  void addAgentToTask(String stationId, String taskId, String profileId) {
+    final station = _stationById(stationId);
+    if (station == null) return;
+    if (station.profileIds.contains(profileId)) return;
+
+    _updateTask(stationId, taskId, (task) {
+      if (task.extraProfileIds.contains(profileId)) return task;
+      return task.copyWith(
+        extraProfileIds: [...task.extraProfileIds, profileId],
+      );
+    });
+    unawaited(_persist());
+  }
+
+  /// Removes a TASK-scoped extra. Station members can't be removed from
+  /// here — that's the station form's job.
+  void removeAgentFromTask(String stationId, String taskId, String profileId) {
+    _updateTask(stationId, taskId, (task) {
+      return task.copyWith(
+        extraProfileIds: task.extraProfileIds
+            .where((id) => id != profileId)
+            .toList(),
+      );
+    });
+    unawaited(_persist());
   }
 
   int stepCountFor(Station station) {
     return activeWorkflowOf(station)?.steps.length ?? 0;
   }
 
-  AgentProfile? _memberForRole(Station station, String role) {
+  AgentProfile? _memberForRole(
+    Station station,
+    String role, {
+    StationTask? task,
+  }) {
     final wanted = role.trim().toLowerCase();
     return membersOf(
       station,
+      task: task,
     ).where((m) => m.role.trim().toLowerCase() == wanted).firstOrNull;
   }
 
@@ -1325,6 +1484,8 @@ class StationsViewModel extends ViewModel<StationsState> {
   }
 
   void _finishTask(String stationId, String taskId, StationTaskStatus status) {
+    _runningTasks.remove(taskId);
+    _purgeConsultLedgerIfIdle();
     _updateTask(
       stationId,
       taskId,

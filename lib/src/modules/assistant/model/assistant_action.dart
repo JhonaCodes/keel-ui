@@ -39,6 +39,16 @@ class CreateAgentAction extends AssistantAction {
   final String? instructions;
   final List<String> skillNames;
   final List<String> ruleNames;
+  final List<String> toolNames;
+  final List<String> mcpServerNames;
+
+  /// Provider alias ('claude'/'codex'); null on update = keep existing.
+  final String? providerAlias;
+
+  /// Grants the profile the `keelai-actions` MCP (a "builder" agent that
+  /// can create things in the system). Nullable so an update that doesn't
+  /// mention it leaves the existing grant untouched.
+  final bool? systemBuilder;
 
   const CreateAgentAction({
     required this.handle,
@@ -47,6 +57,10 @@ class CreateAgentAction extends AssistantAction {
     required this.instructions,
     required this.skillNames,
     required this.ruleNames,
+    this.toolNames = const [],
+    this.mcpServerNames = const [],
+    this.providerAlias,
+    this.systemBuilder,
   });
 }
 
@@ -65,8 +79,13 @@ class CreateWorkflowAction extends AssistantAction {
 class CreateSkillAction extends AssistantAction {
   final String name;
   final String content;
+  final bool isGlobal;
 
-  const CreateSkillAction({required this.name, required this.content});
+  const CreateSkillAction({
+    required this.name,
+    required this.content,
+    this.isGlobal = false,
+  });
 }
 
 class CreateRuleAction extends AssistantAction {
@@ -74,6 +93,29 @@ class CreateRuleAction extends AssistantAction {
   final String content;
 
   const CreateRuleAction({required this.name, required this.content});
+}
+
+/// Registers an executable tool. Only reachable through the real MCP tool
+/// (`create_tool`) — there is deliberately NO fenced-block form for this
+/// one: the block parser collapses blank lines and trims indentation, which
+/// destroys script code (Python dies on it), while MCP arguments arrive
+/// byte-exact.
+class CreateToolAction extends AssistantAction {
+  final String name;
+  final String description;
+  final String runtimeAlias;
+  final String code;
+  final int? timeoutSeconds;
+  final List<String> secretNames;
+
+  const CreateToolAction({
+    required this.name,
+    required this.description,
+    required this.runtimeAlias,
+    required this.code,
+    required this.timeoutSeconds,
+    this.secretNames = const [],
+  });
 }
 
 /// What happened when one [action] ran. One-shot, not persisted — folded

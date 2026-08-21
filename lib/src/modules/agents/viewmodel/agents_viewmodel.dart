@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/painting.dart';
@@ -6,9 +7,13 @@ import 'package:logger_rs/logger_rs.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
 
 import 'package:keel_ui/src/core/services/claude_cli_service.dart';
+import 'package:keel_ui/src/core/services/codex_cli_service.dart';
 import 'package:keel_ui/src/integrations/assistant_mcp/assistant_mcp_server.dart';
+import 'package:keel_ui/src/integrations/prompt_insights/prompt_insights.dart';
+import 'package:keel_ui/src/integrations/user_tools_mcp/user_tools_mcp_server.dart';
 import 'package:keel_ui/src/modules/agents/model/agent.dart';
 import 'package:keel_ui/src/modules/agents/model/agent_icon_colors.dart';
+import 'package:keel_ui/src/modules/agents/model/agent_provider.dart';
 import 'package:keel_ui/src/modules/agents/model/agent_tool_activity.dart';
 import 'package:keel_ui/src/modules/agents/model/chat_message.dart';
 import 'package:keel_ui/src/modules/agents/model/file_edit.dart';
@@ -19,10 +24,14 @@ import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
 import 'package:keel_ui/src/modules/agent_profiles/viewmodel/agent_profiles_viewmodel.dart';
 import 'package:keel_ui/src/modules/assistant/service/assistant_action_executor.dart';
 import 'package:keel_ui/src/modules/assistant/service/assistant_action_parser.dart';
-import 'package:keel_ui/src/modules/assistant/service/assistant_retry.dart';
 import 'package:keel_ui/src/modules/settings/viewmodel/settings_viewmodel.dart';
+import 'package:keel_ui/src/modules/mcp_servers/model/mcp_server_config.dart';
+import 'package:keel_ui/src/modules/mcp_servers/viewmodel/mcp_servers_viewmodel.dart';
 import 'package:keel_ui/src/modules/rules/viewmodel/rules_viewmodel.dart';
+import 'package:keel_ui/src/modules/secrets/viewmodel/secrets_viewmodel.dart';
 import 'package:keel_ui/src/modules/skills/viewmodel/skills_viewmodel.dart';
+import 'package:keel_ui/src/modules/tools/model/tool.dart';
+import 'package:keel_ui/src/modules/tools/viewmodel/tools_viewmodel.dart';
 import 'package:keel_ui/src/shared/shared.dart';
 
 class AgentsViewModel extends ViewModel<AgentsState> {
@@ -55,6 +64,7 @@ class AgentsViewModel extends ViewModel<AgentsState> {
     required String model,
     required bool fullFileSystemAccess,
     required String effort,
+    AgentProvider provider = AgentProvider.claude,
     String? profileId,
   }) {
     final agent = _buildAgent(
@@ -62,6 +72,7 @@ class AgentsViewModel extends ViewModel<AgentsState> {
       model: model,
       fullFileSystemAccess: fullFileSystemAccess,
       effort: effort,
+      provider: provider,
       profileId: profileId,
     );
     final agents = [...data.agents, agent];
@@ -99,12 +110,14 @@ class AgentsViewModel extends ViewModel<AgentsState> {
     required String model,
     required bool fullFileSystemAccess,
     required String effort,
+    AgentProvider provider = AgentProvider.claude,
     String? profileId,
   }) {
     return Agent(
       id: generateUuidV4(),
       name: name,
       model: model,
+      provider: provider,
       createdAt: DateTime.now(),
       fullFileSystemAccess: fullFileSystemAccess,
       iconColor: suggestNextIconColor(),
@@ -287,11 +300,7 @@ class AgentsViewModel extends ViewModel<AgentsState> {
     );
   }
 
-  Future<void> sendMessage(
-    String agentId,
-    String text, {
-    bool isAutoRetry = false,
-  }) async {
+  Future<void> sendMessage(String agentId, String text) async {
     final trimmed = text.trim();
     if (trimmed.isEmpty) return;
 
@@ -312,13 +321,13 @@ class AgentsViewModel extends ViewModel<AgentsState> {
     _appendMessage(
       agentId,
       ChatMessage(
-        // An auto-retry prompt is written by the app, not the human — shown
-        // as ChatRole.system so it never reads as something the user typed.
-        role: isAutoRetry ? ChatRole.system : ChatRole.user,
+        role: ChatRole.user,
         text: trimmed,
         timestamp: DateTime.now(),
       ),
     );
+    // Zero-token recurrence detector — never in the send critical path.
+    unawaited(PromptInsightsService.instance.notifier.record(trimmed));
     _setStreaming(agentId, true);
     await _persist();
 
@@ -327,11 +336,53 @@ class AgentsViewModel extends ViewModel<AgentsState> {
     final pendingFileBeforeContent = <String, String?>{};
     final assistantTextBuffer = StringBuffer();
     final isKeelAi = _isKeelAi(target.profileId);
-    final mcpConfig = isKeelAi
-        ? AssistantMcpServer.mcpConfigFor(agentId)
-        : null;
 
-    final events = _claude.run(
+    // One merged --mcp-config for the turn: the system-management tools
+    // (Keel AI's reserved profile, plus any profile the user marked as a
+    // builder) and whatever executable tools this agent's profile has
+    // assigned.
+    final keelAiEntry = isKeelAi || _canManageSystem(target.profileId)
+        ? AssistantMcpServer.mcpServerEntryFor(agentId)
+        : null;
+    final profileTools = _resolveProfileTools(target.profileId);
+    final toolsEntry = profileTools.isEmpty
+        ? null
+        : UserToolsMcpServer.mcpServerEntryFor(
+            target.profileId!,
+            workingDirectory: workingDirectory,
+          );
+    // External MCP integrations (gmail, drive, …) the profile declares —
+    // secret references resolve to values HERE, inside JSON that only ever
+    // travels as a 0700 temp file (see ClaudeCliService).
+    final externalServers = _resolveProfileMcpServers(target.profileId);
+    final externalSecretValues = SecretsService.instance.notifier.valuesFor([
+      for (final server in externalServers) ...server.secretNames,
+    ]);
+
+    final mcpServers = <String, dynamic>{
+      'keelai-actions': ?keelAiEntry,
+      kUserToolsMcpServerKey: ?toolsEntry,
+      for (final server in externalServers)
+        server.name: server.toMcpServerEntry(externalSecretValues),
+    };
+    final mcpConfig = mcpServers.isEmpty
+        ? null
+        : jsonEncode({'mcpServers': mcpServers});
+
+    // The codex adapter has no tools/MCP/effort surface — see F6 doc.
+    final events = target.provider == AgentProvider.codex
+        ? CodexCliService().run(
+            prompt: promptForModel,
+            workingDirectory: workingDirectory,
+            fullFileSystemAccess: target.fullFileSystemAccess,
+            sessionId: target.sessionId,
+            additionalSystemPrompt: _resolveProfileSystemPrompt(
+              target.profileId,
+            ),
+            onProcessStarted: (process) =>
+                _runningProcesses[agentId] = process,
+          )
+        : _claude.run(
       prompt: promptForModel,
       sessionId: target.sessionId,
       model: target.model,
@@ -339,7 +390,13 @@ class AgentsViewModel extends ViewModel<AgentsState> {
       effort: target.effort,
       extraAllowedTools: [
         ...SettingsService.instance.notifier.data.extraAllowedTools,
-        if (mcpConfig != null) ...kKeelAiMcpToolNames,
+        if (keelAiEntry != null) ...kKeelAiMcpToolNames,
+        if (toolsEntry != null)
+          ...profileTools.map(
+            (tool) => '$kUserToolsMcpToolPrefix${tool.name}',
+          ),
+        // Server-level grant: every tool an external MCP exposes.
+        ...externalServers.map((server) => 'mcp__${server.name}'),
       ],
       workingDirectory: workingDirectory,
       additionalSystemPrompt: _resolveProfileSystemPrompt(target.profileId),
@@ -347,13 +404,8 @@ class AgentsViewModel extends ViewModel<AgentsState> {
       onProcessStarted: (process) => _runningProcesses[agentId] = process,
     );
 
-    var wasStopped = false;
-    var calledAnyKeelAiTool = false;
     await for (final event in events) {
-      if (_stoppedAgentIds.remove(agentId)) {
-        wasStopped = true;
-        break;
-      }
+      if (_stoppedAgentIds.remove(agentId)) break;
       switch (event) {
         case ClaudeSessionStarted(sessionId: final sessionId):
           _updateAgent(
@@ -377,7 +429,6 @@ class AgentsViewModel extends ViewModel<AgentsState> {
           pendingFileBeforeContent.clear();
 
         case ClaudeToolUse(name: final name, input: final input):
-          if (kKeelAiMcpToolNames.contains(name)) calledAnyKeelAiTool = true;
           _setCurrentActivity(
             agentId,
             AgentToolActivity.fromToolUse(name, input),
@@ -457,34 +508,12 @@ class AgentsViewModel extends ViewModel<AgentsState> {
     _runningProcesses.remove(agentId);
     _setCurrentActivity(agentId, null);
     _updateAgent(agentId, (agent) => agent.copyWith(clearLiveReasoning: true));
-    // Cleared BEFORE the assistant-actions hook, not after: a retry inside
-    // that hook calls sendMessage recursively, and sendMessage's own guard
-    // (`if (target.isStreaming) return;`) would silently no-op the retry if
-    // this agent still looked busy.
     _setStreaming(agentId, false);
 
     if (isKeelAi) {
-      // target.messages was captured before this turn's user message was
-      // appended, so it's exactly the prior history — combined with
-      // `trimmed`, this covers both "creá una estación" as the direct
-      // request AND "sí, dale" a couple of turns after Keel AI already
-      // asked a clarifying question about one.
-      final recentUserTexts = [
-        trimmed,
-        ...target.messages.reversed
-            .where((message) => message.role == ChatRole.user)
-            .take(2)
-            .map((message) => message.text),
-      ];
       await _runAssistantActions(
         agentId,
-        recentUserTexts: recentUserTexts,
         assistantText: assistantTextBuffer.toString(),
-        // A retry only makes sense when NEITHER path fired: no block in the
-        // text AND no real tool call either. If a tool ran, the live trace
-        // from `appendSystemNote` already told the user what happened, even
-        // if the model's own prose is otherwise empty or vague.
-        allowRetry: !isAutoRetry && !wasStopped && !calledAnyKeelAiTool,
       );
     }
 
@@ -501,6 +530,32 @@ class AgentsViewModel extends ViewModel<AgentsState> {
     );
   }
 
+  /// The executable tools [profileId] has assigned, resolved against the
+  /// live catalog. Empty for agents without a profile — tools are granted
+  /// by profile assignment only, never ambient.
+  List<Tool> _resolveProfileTools(String? profileId) {
+    if (profileId == null) return const [];
+    final profile = AgentProfilesService.instance.notifier.data.profiles
+        .where((profile) => profile.id == profileId)
+        .firstOrNull;
+    if (profile == null) return const [];
+    return ToolsService.instance.notifier.toolsByNames(profile.tools);
+  }
+
+  /// External MCP servers [profileId] declares, resolved against the live
+  /// catalog. Empty without a profile — integrations are granted per
+  /// profile, never ambient.
+  List<McpServerConfig> _resolveProfileMcpServers(String? profileId) {
+    if (profileId == null) return const [];
+    final profile = AgentProfilesService.instance.notifier.data.profiles
+        .where((profile) => profile.id == profileId)
+        .firstOrNull;
+    if (profile == null) return const [];
+    return McpServersService.instance.notifier.serversByNames(
+      profile.mcpServers,
+    );
+  }
+
   bool _isKeelAi(String? profileId) {
     if (profileId == null) return false;
     final profiles = AgentProfilesService.instance.notifier.data.profiles;
@@ -511,30 +566,29 @@ class AgentsViewModel extends ViewModel<AgentsState> {
         kKeelAiHandle;
   }
 
+  /// Builder profiles get the same creation MCP as Keel AI — an explicit
+  /// per-profile grant, resolved live so revoking it takes effect on the
+  /// very next turn.
+  bool _canManageSystem(String? profileId) {
+    if (profileId == null) return false;
+    return AgentProfilesService.instance.notifier.data.profiles
+            .where((profile) => profile.id == profileId)
+            .firstOrNull
+            ?.canManageSystem ??
+        false;
+  }
+
   /// Reads whatever Keel AI wrote this turn for action blocks and runs them.
   /// Scoped to the reserved profile only — an ordinary agent's reply is
   /// never scanned, even if its text happens to contain something shaped
-  /// like a block.
-  ///
-  /// If the reply has none AND any of [recentUserTexts] read like a
-  /// creation request, sends exactly one automatic follow-up asking Keel AI
-  /// to redo it as a block — this is a format miss, not a misunderstanding,
-  /// and the retry prompt is visible in the thread like any other message,
-  /// never silent background work. [allowRetry] is false on that follow-up
-  /// call itself, so this never loops.
+  /// like a block. A reply with no blocks is left alone: no automatic
+  /// follow-up, the user decides whether to insist.
   Future<void> _runAssistantActions(
     String agentId, {
-    required List<String> recentUserTexts,
     required String assistantText,
-    required bool allowRetry,
   }) async {
     final actions = parseAssistantActions(assistantText);
-    if (actions.isEmpty) {
-      if (allowRetry && looksLikeCreationRequest(recentUserTexts)) {
-        await sendMessage(agentId, kBlockRetryPrompt, isAutoRetry: true);
-      }
-      return;
-    }
+    if (actions.isEmpty) return;
 
     final results = executeAssistantActions(actions);
     final summary = summarizeAssistantActionResults(results);
@@ -550,42 +604,49 @@ class AgentsViewModel extends ViewModel<AgentsState> {
     );
   }
 
-  /// Concatenates [profileId]'s own `systemPrompt` with the content of its
-  /// registered skills and rules, for injection into the agent's system
-  /// prompt. Selection is static — decided when the profile was
-  /// configured, never inferred by the model at runtime.
+  /// Concatenates the GLOBAL skills (every agent gets them, profile or
+  /// not), then [profileId]'s own `systemPrompt`, assigned skills, and
+  /// rules, for injection into the agent's system prompt. Selection is
+  /// static — decided when the profile/skill was configured, never inferred
+  /// by the model at runtime.
   String? _resolveProfileSystemPrompt(String? profileId) {
-    if (profileId == null) return null;
-
     final profiles = AgentProfilesService.instance.notifier.data.profiles;
-    final profileIndex = profiles.indexWhere(
-      (profile) => profile.id == profileId,
-    );
-    if (profileIndex == -1) return null;
-    final profile = profiles[profileIndex];
+    final profile = profileId == null
+        ? null
+        : profiles.where((entry) => entry.id == profileId).firstOrNull;
 
     final skills = SkillsService.instance.notifier.data.skills;
     final rules = RulesService.instance.notifier.data.rules;
     final buffer = StringBuffer();
-    if (profile.systemPrompt.isNotEmpty) {
-      buffer.writeln(profile.systemPrompt);
-    }
-    for (final skillName in profile.skills) {
-      final skillIndex = skills.indexWhere((skill) => skill.name == skillName);
-      if (skillIndex == -1) continue;
-      final skill = skills[skillIndex];
-      if (skill.content.isEmpty) continue;
+
+    for (final skill in skills) {
+      if (!skill.isGlobal || skill.content.isEmpty) continue;
       if (buffer.isNotEmpty) buffer.writeln();
       buffer.writeln(skill.content);
     }
-    for (final ruleName in profile.rules) {
-      final ruleIndex = rules.indexWhere((rule) => rule.name == ruleName);
-      if (ruleIndex == -1) continue;
-      final rule = rules[ruleIndex];
-      if (rule.content.isEmpty) continue;
-      if (buffer.isNotEmpty) buffer.writeln();
-      buffer.writeln(rule.content);
+
+    if (profile != null) {
+      if (profile.systemPrompt.isNotEmpty) {
+        if (buffer.isNotEmpty) buffer.writeln();
+        buffer.writeln(profile.systemPrompt);
+      }
+      for (final skillName in profile.skills) {
+        final skill = skills
+            .where((entry) => entry.name == skillName)
+            .firstOrNull;
+        // Globals already went in above — never inject the same skill twice.
+        if (skill == null || skill.content.isEmpty || skill.isGlobal) continue;
+        if (buffer.isNotEmpty) buffer.writeln();
+        buffer.writeln(skill.content);
+      }
+      for (final ruleName in profile.rules) {
+        final rule = rules.where((entry) => entry.name == ruleName).firstOrNull;
+        if (rule == null || rule.content.isEmpty) continue;
+        if (buffer.isNotEmpty) buffer.writeln();
+        buffer.writeln(rule.content);
+      }
     }
+
     final combined = buffer.toString().trim();
     return combined.isEmpty ? null : combined;
   }

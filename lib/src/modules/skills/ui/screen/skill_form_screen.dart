@@ -4,14 +4,36 @@ import 'package:keel_ui/src/core/ui/form_panel.dart';
 import 'package:keel_ui/src/modules/skills/model/skill.dart';
 import 'package:keel_ui/src/modules/skills/viewmodel/skills_viewmodel.dart';
 
-Future<void> openSkillFormScreen(BuildContext context, {Skill? initial}) {
-  return showFormPanel<void>(context, child: SkillFormScreen(initial: initial));
+Future<void> openSkillFormScreen(
+  BuildContext context, {
+  Skill? initial,
+  String? draftContent,
+  bool draftGlobal = false,
+}) {
+  return showFormPanel<void>(
+    context,
+    child: SkillFormScreen(
+      initial: initial,
+      draftContent: draftContent,
+      draftGlobal: draftGlobal,
+    ),
+  );
 }
 
 class SkillFormScreen extends StatefulWidget {
-  const SkillFormScreen({super.key, this.initial});
+  const SkillFormScreen({
+    super.key,
+    this.initial,
+    this.draftContent,
+    this.draftGlobal = false,
+  });
 
   final Skill? initial;
+
+  /// Prefill for a NEW skill (e.g. from a recurrence suggestion). Ignored
+  /// when editing.
+  final String? draftContent;
+  final bool draftGlobal;
 
   @override
   State<SkillFormScreen> createState() => _SkillFormScreenState();
@@ -22,8 +44,10 @@ class _SkillFormScreenState extends State<SkillFormScreen> {
     text: widget.initial?.name,
   );
   late final _contentController = TextEditingController(
-    text: widget.initial?.content,
+    text: widget.initial?.content ?? widget.draftContent,
   );
+  late bool _isGlobal =
+      widget.initial?.isGlobal ?? widget.draftGlobal;
   String? _nameError;
   String? _formError;
 
@@ -52,11 +76,16 @@ class _SkillFormScreenState extends State<SkillFormScreen> {
     final viewmodel = SkillsService.instance.notifier;
     final initial = widget.initial;
     final error = initial == null
-        ? viewmodel.createSkill(name: name, content: _contentController.text)
+        ? viewmodel.createSkill(
+            name: name,
+            content: _contentController.text,
+            isGlobal: _isGlobal,
+          )
         : viewmodel.updateSkill(
             initial.id,
             name: name,
             content: _contentController.text,
+            isGlobal: _isGlobal,
           );
 
     if (error != null) {
@@ -102,6 +131,17 @@ class _SkillFormScreenState extends State<SkillFormScreen> {
                       borderRadius: BorderRadius.all(Radius.circular(16)),
                     ),
                   ),
+                ),
+                const SizedBox(height: 16),
+                SwitchListTile(
+                  title: const Text('Skill global'),
+                  subtitle: const Text(
+                    'La reciben TODOS los agentes en cada turno, sin '
+                    'necesidad de asignarla.',
+                  ),
+                  contentPadding: EdgeInsets.zero,
+                  value: _isGlobal,
+                  onChanged: (value) => setState(() => _isGlobal = value),
                 ),
                 const SizedBox(height: 16),
                 Expanded(

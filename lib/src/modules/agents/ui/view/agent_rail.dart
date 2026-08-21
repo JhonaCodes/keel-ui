@@ -8,7 +8,7 @@ import 'package:keel_ui/src/modules/agents/viewmodel/agents_viewmodel.dart';
 import 'package:keel_ui/src/modules/agent_profiles/ui/screen/agent_profile_form_screen.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/use_agent_panel.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/agent_status_icon.dart';
-import 'package:keel_ui/src/modules/assistant/ui/widget/assistant_panel.dart';
+import 'package:keel_ui/src/modules/assistant/service/assistant_window_bridge.dart';
 import 'package:keel_ui/src/modules/settings/ui/widget/settings_panel.dart';
 
 class AgentRail extends StatelessWidget {
@@ -19,6 +19,10 @@ class AgentRail extends StatelessWidget {
     required this.onOpenProfiles,
     required this.onOpenSkills,
     required this.onOpenRules,
+    required this.onOpenTools,
+    required this.onOpenSecrets,
+    required this.onOpenMcpServers,
+    required this.onOpenKnowledge,
     required this.onOpenWorkflows,
   });
 
@@ -27,6 +31,10 @@ class AgentRail extends StatelessWidget {
   final VoidCallback onOpenProfiles;
   final VoidCallback onOpenSkills;
   final VoidCallback onOpenRules;
+  final VoidCallback onOpenTools;
+  final VoidCallback onOpenSecrets;
+  final VoidCallback onOpenMcpServers;
+  final VoidCallback onOpenKnowledge;
   final VoidCallback onOpenWorkflows;
 
   @override
@@ -47,6 +55,10 @@ class AgentRail extends StatelessWidget {
           onOpenProfiles: onOpenProfiles,
           onOpenSkills: onOpenSkills,
           onOpenRules: onOpenRules,
+          onOpenTools: onOpenTools,
+          onOpenSecrets: onOpenSecrets,
+          onOpenMcpServers: onOpenMcpServers,
+          onOpenKnowledge: onOpenKnowledge,
           onOpenWorkflows: onOpenWorkflows,
         );
       },
@@ -62,6 +74,10 @@ class _AgentRailContent extends StatelessWidget {
     required this.onOpenProfiles,
     required this.onOpenSkills,
     required this.onOpenRules,
+    required this.onOpenTools,
+    required this.onOpenSecrets,
+    required this.onOpenMcpServers,
+    required this.onOpenKnowledge,
     required this.onOpenWorkflows,
   });
 
@@ -75,6 +91,10 @@ class _AgentRailContent extends StatelessWidget {
   final VoidCallback onOpenProfiles;
   final VoidCallback onOpenSkills;
   final VoidCallback onOpenRules;
+  final VoidCallback onOpenTools;
+  final VoidCallback onOpenSecrets;
+  final VoidCallback onOpenMcpServers;
+  final VoidCallback onOpenKnowledge;
   final VoidCallback onOpenWorkflows;
 
   @override
@@ -147,6 +167,10 @@ class _AgentRailContent extends StatelessWidget {
           onOpenProfiles: onOpenProfiles,
           onOpenSkills: onOpenSkills,
           onOpenRules: onOpenRules,
+          onOpenTools: onOpenTools,
+          onOpenSecrets: onOpenSecrets,
+          onOpenMcpServers: onOpenMcpServers,
+          onOpenKnowledge: onOpenKnowledge,
           onOpenWorkflows: onOpenWorkflows,
         ),
       ],
@@ -159,12 +183,20 @@ class _RegistryButtons extends StatelessWidget {
     required this.onOpenProfiles,
     required this.onOpenSkills,
     required this.onOpenRules,
+    required this.onOpenTools,
+    required this.onOpenSecrets,
+    required this.onOpenMcpServers,
+    required this.onOpenKnowledge,
     required this.onOpenWorkflows,
   });
 
   final VoidCallback onOpenProfiles;
   final VoidCallback onOpenSkills;
   final VoidCallback onOpenRules;
+  final VoidCallback onOpenTools;
+  final VoidCallback onOpenSecrets;
+  final VoidCallback onOpenMcpServers;
+  final VoidCallback onOpenKnowledge;
   final VoidCallback onOpenWorkflows;
 
   @override
@@ -179,7 +211,7 @@ class _RegistryButtons extends StatelessWidget {
           IconButton(
             tooltip: 'Asistente',
             icon: const Icon(Icons.auto_awesome),
-            onPressed: () => openAssistantPanel(context),
+            onPressed: () => AssistantWindowBridge.instance.open(),
           ),
           IconButton(
             tooltip: 'Agentes registrados',
@@ -195,6 +227,26 @@ class _RegistryButtons extends StatelessWidget {
             tooltip: 'Reglas registradas',
             icon: const Icon(Icons.rule_outlined),
             onPressed: onOpenRules,
+          ),
+          IconButton(
+            tooltip: 'Tools registradas',
+            icon: const Icon(Icons.terminal_outlined),
+            onPressed: onOpenTools,
+          ),
+          IconButton(
+            tooltip: 'Secrets',
+            icon: const Icon(Icons.key_outlined),
+            onPressed: onOpenSecrets,
+          ),
+          IconButton(
+            tooltip: 'Integraciones MCP',
+            icon: const Icon(Icons.hub_outlined),
+            onPressed: onOpenMcpServers,
+          ),
+          IconButton(
+            tooltip: 'Conocimiento',
+            icon: const Icon(Icons.menu_book_outlined),
+            onPressed: onOpenKnowledge,
           ),
           IconButton(
             tooltip: 'Workflows registrados',

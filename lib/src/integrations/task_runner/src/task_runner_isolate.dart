@@ -72,43 +72,103 @@ Future<void> _runInIsolate({
       ? _appendedSystemPrompt
       : '$_appendedSystemPrompt\n\n$additionalPrompt';
 
-  final arguments = [
-    '-p',
-    spec.prompt,
-    '--output-format',
-    'stream-json',
-    '--verbose',
-    '--model',
-    spec.model,
-    '--effort',
-    spec.effort,
-    '--allowedTools',
-    allowedTools.join(','),
-    '--append-system-prompt',
-    systemPrompt,
-    if (spec.fullFileSystemAccess) ...['--add-dir', '/'],
-    if (spec.sessionId != null) ...['--resume', spec.sessionId!],
-  ];
+  // File, never inline: the config may embed resolved secret values and an
+  // inline argument is world-readable via `ps` — same rule as
+  // ClaudeCliService. The 0700 temp dir dies with the turn.
+  Directory? mcpConfigDir;
+  String? mcpConfigPath;
+  if (spec.mcpConfig != null) {
+    mcpConfigDir = await Directory.systemTemp.createTemp('keel_mcpcfg_');
+    final file = File('${mcpConfigDir.path}/mcp.json');
+    await file.writeAsString(spec.mcpConfig!);
+    mcpConfigPath = file.path;
+  }
+
+  Future<void> cleanUpMcpConfig() async {
+    if (mcpConfigDir == null) return;
+    try {
+      await mcpConfigDir.delete(recursive: true);
+    } catch (error) {
+      Log.w('Could not clean up ${mcpConfigDir.path}: $error');
+    }
+  }
+
+  final isCodex = spec.provider == 'codex';
+
+  // Codex has no system-prompt flag: on the FIRST turn of a session the
+  // member's prompt stack rides as a delimited preamble of the user prompt
+  // (resumed turns keep it from the thread history). Mirrors
+  // CodexCliService — the isolate is self-contained by design.
+  final codexPrompt =
+      (spec.sessionId == null &&
+          additionalPrompt != null &&
+          additionalPrompt.isNotEmpty)
+      ? '### Instrucciones de tu rol (fijas para toda la conversación)\n'
+            '$additionalPrompt\n'
+            '### Fin de instrucciones\n\n'
+            '${spec.prompt}'
+      : spec.prompt;
+
+  final arguments = isCodex
+      ? [
+          'exec',
+          if (spec.sessionId != null) ...['resume', spec.sessionId!],
+          '--json',
+          '--skip-git-repo-check',
+          '-s',
+          spec.fullFileSystemAccess ? 'danger-full-access' : 'workspace-write',
+          '--color',
+          'never',
+          codexPrompt,
+        ]
+      : [
+          '-p',
+          spec.prompt,
+          '--output-format',
+          'stream-json',
+          '--verbose',
+          '--model',
+          spec.model,
+          '--effort',
+          spec.effort,
+          '--allowedTools',
+          allowedTools.join(','),
+          '--append-system-prompt',
+          systemPrompt,
+          if (mcpConfigPath != null) ...[
+            '--mcp-config',
+            mcpConfigPath,
+            '--strict-mcp-config',
+          ],
+          if (spec.fullFileSystemAccess) ...['--add-dir', '/'],
+          if (spec.sessionId != null) ...['--resume', spec.sessionId!],
+        ];
+
+  final executable = isCodex ? 'codex' : 'claude';
 
   Process process;
   try {
     process = await Process.start(
-      'claude',
+      executable,
       arguments,
       workingDirectory: spec.workingDirectory,
       runInShell: true,
     );
   } catch (error) {
-    Log.e('Failed to start claude CLI', error: error);
+    Log.e('Failed to start $executable CLI', error: error);
+    await cleanUpMcpConfig();
     mainSendPort.send({
       'type': 'failure',
-      'message': 'No se pudo iniciar claude: $error',
+      'message': 'No se pudo iniciar $executable: $error',
     });
     mainSendPort.send({'type': 'done'});
     commandPort.close();
     return;
   }
   onProcessStarted(process);
+
+  // codex reads stdin when it isn't a TTY and waits for EOF — close it.
+  if (isCodex) await process.stdin.close();
 
   final stderrBuffer = StringBuffer();
   final stderrDone = process.stderr
@@ -131,7 +191,10 @@ Future<void> _runInIsolate({
       continue;
     }
 
-    for (final messageMap in _parseEventToMessages(event)) {
+    final messages = isCodex
+        ? _parseCodexEventToMessages(event)
+        : _parseEventToMessages(event);
+    for (final messageMap in messages) {
       mainSendPort.send(messageMap);
     }
   }
@@ -150,8 +213,117 @@ Future<void> _runInIsolate({
     }
   }
 
+  await cleanUpMcpConfig();
   mainSendPort.send({'type': 'done'});
   commandPort.close();
+}
+
+/// Ports `CodexCliService._parseEvent`'s JSONL parsing (verified against
+/// codex-cli 0.142.3: `thread.started` / `turn.*` / `item.*` events),
+/// emitting the same plain message maps the claude dialect emits.
+List<Map<String, dynamic>> _parseCodexEventToMessages(
+  Map<String, dynamic> event,
+) {
+  switch (event['type'] as String?) {
+    case 'thread.started':
+      return switch (event['thread_id'] as String?) {
+        null => const [],
+        final threadId => [
+          {'type': 'sessionStarted', 'sessionId': threadId},
+        ],
+      };
+
+    case 'item.completed':
+    case 'item.updated':
+    case 'item.started':
+      final item = event['item'] as Map<String, dynamic>?;
+      if (item == null) return const [];
+      final isCompleted = event['type'] == 'item.completed';
+
+      switch (item['type'] as String?) {
+        case 'agent_message':
+          final text = item['text'] as String?;
+          return (isCompleted && text != null && text.isNotEmpty)
+              ? [
+                  {'type': 'assistantText', 'text': text},
+                ]
+              : const [];
+        case 'reasoning':
+          final text = item['text'] as String?;
+          return (isCompleted && text != null && text.isNotEmpty)
+              ? [
+                  {'type': 'reasoningChunk', 'text': text},
+                ]
+              : const [];
+        case 'command_execution':
+          final command = item['command'] as String?;
+          return (!isCompleted && command != null)
+              ? [
+                  {
+                    'type': 'toolUse',
+                    'name': 'Bash',
+                    'input': {'command': command},
+                  },
+                ]
+              : const [];
+        case 'file_change':
+          return isCompleted
+              ? const []
+              : const [
+                  {'type': 'toolUse', 'name': 'Edit', 'input': null},
+                ];
+        case 'mcp_tool_call':
+          return isCompleted
+              ? const []
+              : [
+                  {
+                    'type': 'toolUse',
+                    'name': event['item'] is Map
+                        ? ((event['item'] as Map)['tool'] as String? ?? 'mcp')
+                        : 'mcp',
+                    'input': null,
+                  },
+                ];
+        case 'web_search':
+          return isCompleted
+              ? const []
+              : const [
+                  {'type': 'toolUse', 'name': 'WebSearch', 'input': null},
+                ];
+        default:
+          return const [];
+      }
+
+    case 'turn.completed':
+      return const [
+        {'type': 'turnCompleted', 'isError': false, 'costUsd': 0.0,
+          'durationMs': 0},
+      ];
+
+    case 'turn.failed':
+      final message =
+          (event['error'] as Map<String, dynamic>?)?['message'] as String?;
+      return [
+        if (message != null) {'type': 'failure', 'message': message},
+        const {
+          'type': 'turnCompleted',
+          'isError': true,
+          'costUsd': 0.0,
+          'durationMs': 0,
+        },
+      ];
+
+    case 'error':
+      return switch (event['message'] as String?) {
+        null => const [],
+        final message => [
+          {'type': 'failure', 'message': message},
+        ],
+      };
+
+    default:
+      return const [];
+  }
 }
 
 /// Ports `ClaudeCliService._parseEvent`'s NDJSON parsing, emitting plain

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
 
 import 'package:keel_ui/src/core/ui/form_panel.dart';
+import 'package:keel_ui/src/integrations/catalog_sync/catalog_sync.dart';
+import 'package:keel_ui/src/integrations/jobs_api/jobs_api.dart';
 import 'package:keel_ui/src/modules/settings/model/app_settings.dart';
 import 'package:keel_ui/src/modules/settings/viewmodel/settings_viewmodel.dart';
 
@@ -66,10 +68,186 @@ class SettingsPanel extends StatelessWidget {
                   onChanged: (enabled) =>
                       viewmodel.setExtraToolEnabled(tool, enabled ?? false),
                 ),
+              const SizedBox(height: 24),
+              Text(
+                'Sincronización del catálogo',
+                style: Theme.of(context).textTheme.labelLarge,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Repo git donde se exporta/importa todo el catálogo (skills, '
+                'reglas, tools, workflows, MCPs, agentes y estaciones — sin '
+                'secrets ni rutas de trabajo).',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(height: 8),
+              _RepoUrlField(
+                initialValue: settings.catalogRepoUrl,
+                label: 'URL del repo de catálogo',
+                onSubmitted: viewmodel.setCatalogRepoUrl,
+              ),
+              const SizedBox(height: 8),
+              const _CatalogSyncControls(),
+              const SizedBox(height: 24),
+              Text(
+                'Conocimiento',
+                style: Theme.of(context).textTheme.labelLarge,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Repo git con la documentación que muestra la sección '
+                'Conocimiento (botón libro del rail). Se descarga/actualiza '
+                'desde ahí con su botón Actualizar.',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(height: 8),
+              _RepoUrlField(
+                initialValue: settings.knowledgeRepoUrl,
+                label: 'URL del repo de conocimiento',
+                onSubmitted: viewmodel.setKnowledgeRepoUrl,
+              ),
+              const SizedBox(height: 24),
+              Text(
+                'API de trabajos programados',
+                style: Theme.of(context).textTheme.labelLarge,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Para schedulers externos (cron, keel): '
+                'POST /stations/<nombre>/tasks {"prompt": "..."} con el '
+                'token Bearer. Solo loopback.',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(height: 8),
+              const _JobsApiInfo(),
             ],
           );
         },
       ),
+    );
+  }
+}
+
+
+/// A settings text field that saves on submit/focus-out — the value must
+/// come from and return to the ViewModel, never live only in the widget.
+class _RepoUrlField extends StatefulWidget {
+  const _RepoUrlField({
+    required this.initialValue,
+    required this.label,
+    required this.onSubmitted,
+  });
+
+  final String initialValue;
+  final String label;
+  final ValueChanged<String> onSubmitted;
+
+  @override
+  State<_RepoUrlField> createState() => _RepoUrlFieldState();
+}
+
+class _RepoUrlFieldState extends State<_RepoUrlField> {
+  late final _controller = TextEditingController(text: widget.initialValue);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Focus(
+      onFocusChange: (hasFocus) {
+        if (!hasFocus) widget.onSubmitted(_controller.text);
+      },
+      child: TextField(
+        controller: _controller,
+        onSubmitted: widget.onSubmitted,
+        decoration: InputDecoration(
+          labelText: widget.label,
+          hintText: 'git@github.com:usuario/repo.git',
+          border: const OutlineInputBorder(
+            borderRadius: BorderRadius.all(Radius.circular(16)),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CatalogSyncControls extends StatelessWidget {
+  const _CatalogSyncControls();
+
+  @override
+  Widget build(BuildContext context) {
+    return ReactiveViewModelBuilder<CatalogSyncViewModel, CatalogSyncState>(
+      viewmodel: CatalogSyncService.instance.notifier,
+      build: (sync, viewmodel, keep) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                FilledButton.icon(
+                  onPressed: sync.busy ? null : viewmodel.exportCatalog,
+                  icon: const Icon(Icons.upload_outlined, size: 18),
+                  label: const Text('Exportar'),
+                ),
+                const SizedBox(width: 8),
+                OutlinedButton.icon(
+                  onPressed: sync.busy ? null : viewmodel.refreshCatalog,
+                  icon: const Icon(Icons.refresh, size: 18),
+                  label: const Text('Refresh (importar)'),
+                ),
+                if (sync.busy) ...[
+                  const SizedBox(width: 12),
+                  const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                ],
+              ],
+            ),
+            if (sync.log.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(sync.log, style: Theme.of(context).textTheme.bodySmall),
+            ],
+          ],
+        );
+      },
+    );
+  }
+}
+
+
+class _JobsApiInfo extends StatelessWidget {
+  const _JobsApiInfo();
+
+  @override
+  Widget build(BuildContext context) {
+    return ReactiveViewModelBuilder<JobsApiViewModel, JobsApiState>(
+      viewmodel: JobsApiService.instance.notifier,
+      build: (api, viewmodel, keep) {
+        if (!api.running) {
+          return const Text('La API no está corriendo en esta ventana.');
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SelectableText('URL: http://127.0.0.1:${api.port}'),
+            const SizedBox(height: 4),
+            SelectableText('Token: ${api.token}'),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: viewmodel.regenerateToken,
+              icon: const Icon(Icons.autorenew, size: 18),
+              label: const Text('Regenerar token'),
+            ),
+          ],
+        );
+      },
     );
   }
 }

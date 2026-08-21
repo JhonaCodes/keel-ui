@@ -1,11 +1,14 @@
 import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
 import 'package:keel_ui/src/modules/agent_profiles/viewmodel/agent_profiles_viewmodel.dart';
+import 'package:keel_ui/src/modules/agents/model/agent_provider.dart';
 import 'package:keel_ui/src/modules/agents/model/claude_model_option.dart';
 import 'package:keel_ui/src/modules/agents/model/effort_level.dart';
 import 'package:keel_ui/src/modules/assistant/model/assistant_action.dart';
 import 'package:keel_ui/src/modules/rules/viewmodel/rules_viewmodel.dart';
 import 'package:keel_ui/src/modules/skills/viewmodel/skills_viewmodel.dart';
 import 'package:keel_ui/src/modules/stations/viewmodel/stations_viewmodel.dart';
+import 'package:keel_ui/src/modules/tools/model/tool.dart';
+import 'package:keel_ui/src/modules/tools/viewmodel/tools_viewmodel.dart';
 import 'package:keel_ui/src/modules/workflows/viewmodel/workflows_viewmodel.dart';
 
 /// Runs every parsed action against the same ViewModels the app's own forms
@@ -20,6 +23,7 @@ List<AssistantActionResult> executeAssistantActions(
       switch (action) {
         CreateSkillAction() => executeSkillAction(action),
         CreateRuleAction() => executeRuleAction(action),
+        CreateToolAction() => executeToolAction(action),
         CreateAgentAction() => executeAgentAction(action),
         CreateWorkflowAction() => executeWorkflowAction(action),
         CreateStationAction() => executeStationAction(action),
@@ -39,11 +43,14 @@ AssistantActionResult executeSkillAction(CreateSkillAction action) {
   final error = viewmodel.createSkill(
     name: action.name,
     content: action.content,
+    isGlobal: action.isGlobal,
   );
   return AssistantActionResult(
     action: action,
     ok: error == null,
-    message: error ?? 'Creé la skill "${action.name}".',
+    message:
+        error ??
+        'Creé la skill "${action.name}"${action.isGlobal ? ' (global)' : ''}.',
   );
 }
 
@@ -67,7 +74,56 @@ AssistantActionResult executeRuleAction(CreateRuleAction action) {
   );
 }
 
+AssistantActionResult executeToolAction(CreateToolAction action) {
+  final viewmodel = ToolsService.instance.notifier;
+  if (viewmodel.data.tools.any((tool) => tool.name == action.name)) {
+    return AssistantActionResult(
+      action: action,
+      ok: true,
+      message: 'La tool "${action.name}" ya existía, la reusé.',
+    );
+  }
+
+  final runtime = ToolRuntime.tryFromAlias(action.runtimeAlias);
+  if (runtime == null) {
+    return AssistantActionResult(
+      action: action,
+      ok: false,
+      message:
+          'Runtime "${action.runtimeAlias}" desconocido para la tool '
+          '"${action.name}" — válidos: bash, python, dart.',
+    );
+  }
+
+  final error = viewmodel.createTool(
+    name: action.name,
+    description: action.description,
+    runtime: runtime,
+    code: action.code,
+    timeoutSeconds: action.timeoutSeconds ?? kDefaultToolTimeoutSeconds,
+    secretNames: action.secretNames,
+  );
+  return AssistantActionResult(
+    action: action,
+    ok: error == null,
+    message: error ?? 'Creé la tool "${action.name}" (${runtime.label}).',
+  );
+}
+
 AssistantActionResult executeAgentAction(CreateAgentAction action) {
+  final providerAlias = action.providerAlias;
+  final provider = providerAlias == null
+      ? null
+      : AgentProvider.tryFromAlias(providerAlias);
+  if (providerAlias != null && provider == null) {
+    return AssistantActionResult(
+      action: action,
+      ok: false,
+      message:
+          'Proveedor "$providerAlias" desconocido — válidos: claude, codex.',
+    );
+  }
+
   if (action.handle == kKeelAiHandle) {
     return AssistantActionResult(
       action: action,
@@ -92,6 +148,10 @@ AssistantActionResult executeAgentAction(CreateAgentAction action) {
       systemPrompt: systemPrompt,
       skills: action.skillNames,
       rules: action.ruleNames,
+      tools: action.toolNames,
+      mcpServers: action.mcpServerNames,
+      canManageSystem: action.systemBuilder ?? false,
+      provider: provider ?? AgentProvider.claude,
       model: kDefaultClaudeModelAlias,
       effort: kDefaultEffortAlias,
       // Not attributed to keelai: this agent isn't spawned inside a station
@@ -105,10 +165,16 @@ AssistantActionResult executeAgentAction(CreateAgentAction action) {
     );
   }
 
-  // Update is additive only: skills/rules are a union with what the profile
-  // already had, and a field the block didn't mention is left untouched.
+  // Update is additive only: skills/rules/tools are a union with what the
+  // profile already had, and a field the block didn't mention is left
+  // untouched.
   final mergedSkills = {...existing.skills, ...action.skillNames}.toList();
   final mergedRules = {...existing.rules, ...action.ruleNames}.toList();
+  final mergedTools = {...existing.tools, ...action.toolNames}.toList();
+  final mergedMcpServers = {
+    ...existing.mcpServers,
+    ...action.mcpServerNames,
+  }.toList();
   final instructions = action.instructions;
   final systemPrompt = instructions == null
       ? existing.systemPrompt
@@ -124,6 +190,10 @@ AssistantActionResult executeAgentAction(CreateAgentAction action) {
     systemPrompt: systemPrompt,
     skills: mergedSkills,
     rules: mergedRules,
+    tools: mergedTools,
+    mcpServers: mergedMcpServers,
+    canManageSystem: action.systemBuilder,
+    provider: provider,
     model: existing.model,
     effort: existing.effort,
   );

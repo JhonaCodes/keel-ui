@@ -1,0 +1,1197 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1">  <title>Estaciones de Trabajo</title>
+</head><body>
+
+
+<style>
+  /* ── tokens ───────────────────────────────────────────────────────────
+     page/*  → el documento, responde al tema del lector
+     app/*   → las pantallas mostradas, SIEMPRE oscuras (son la app)      */
+  :root {
+    --page-bg:        #EFF2F6;
+    --page-surface:   #FFFFFF;
+    --page-ink:       #131C28;
+    --page-ink-soft:  #56687E;
+    --page-ink-faint: #8496AA;
+    --page-rule:      #D9E0E8;
+    --page-brass:     #7C5D10;
+    --page-brass-bg:  #F5EDD8;
+
+    --app-void:       #0A0F15;
+    --app-bg:         #111925;
+    --app-panel:      #151F2B;
+    --app-raise:      #1C2735;
+    --app-rule:       #253141;
+    --app-rule-soft:  #1D2733;
+    --app-ink:        #DEE6F0;
+    --app-ink-soft:   #8194A9;
+    --app-ink-faint:  #57687C;
+    --app-brass:      #D9A93C;
+    --app-brass-deep: #6B5420;
+    --app-add:        #4E9E6A;
+    --app-del:        #B85C5C;
+    --app-done:       #4E9E6A;
+
+    --a-flutter: #4FA3D9;
+    --a-rn:      #3FA38C;
+    --a-audit:   #9B7BC4;
+    --a-docs:    #C9A227;
+
+    --serif: ui-serif, "New York", Georgia, "Times New Roman", serif;
+    --sans:  -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+    --mono:  ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --page-bg:        #0A0F15;
+      --page-surface:   #111925;
+      --page-ink:       #DEE6F0;
+      --page-ink-soft:  #8194A9;
+      --page-ink-faint: #57687C;
+      --page-rule:      #253141;
+      --page-brass:     #D9A93C;
+      --page-brass-bg:  #1F1A0D;
+    }
+  }
+  :root[data-theme="dark"] {
+    --page-bg:        #0A0F15;
+    --page-surface:   #111925;
+    --page-ink:       #DEE6F0;
+    --page-ink-soft:  #8194A9;
+    --page-ink-faint: #57687C;
+    --page-rule:      #253141;
+    --page-brass:     #D9A93C;
+    --page-brass-bg:  #1F1A0D;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--page-bg);
+    color: var(--page-ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: 1240px; margin: 0 auto; padding: 0 28px 96px; }
+  .prose { max-width: 64ch; }
+
+  header.masthead {
+    padding: 72px 0 40px;
+    border-bottom: 1px solid var(--page-rule);
+    margin-bottom: 52px;
+  }
+  .eyebrow {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--page-brass); margin: 0 0 18px;
+  }
+  h1 {
+    font-family: var(--serif); font-weight: 500;
+    font-size: clamp(38px, 6vw, 62px); line-height: 1.04;
+    letter-spacing: -0.02em; margin: 0 0 20px; text-wrap: balance;
+  }
+  .lede { font-size: 19px; line-height: 1.55; color: var(--page-ink-soft); margin: 0; max-width: 60ch; }
+  h2 {
+    font-family: var(--serif); font-weight: 500; font-size: 30px;
+    letter-spacing: -0.01em; margin: 0 0 10px; text-wrap: balance;
+  }
+  h3 { font-size: 15px; font-weight: 600; letter-spacing: -0.005em; margin: 0 0 6px; }
+  p { margin: 0 0 16px; }
+  .section { margin: 0 0 20px; }
+  .section-mark {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--page-ink-faint); margin: 0 0 12px;
+  }
+  code {
+    font-family: var(--mono); font-size: 0.88em;
+    background: var(--page-brass-bg); color: var(--page-brass);
+    padding: 1px 5px; border-radius: 3px;
+  }
+
+  /* ── ventana macOS ──────────────────────────────────────────────── */
+  .scroller { overflow-x: auto; margin: 28px 0 40px; padding-bottom: 4px; }
+  .win {
+    min-width: 1080px; background: var(--app-bg);
+    border: 1px solid var(--app-rule); border-radius: 10px; overflow: hidden;
+    box-shadow: 0 18px 44px -12px rgba(0,0,0,.42);
+    color: var(--app-ink); font-size: 13px; line-height: 1.5;
+  }
+  .titlebar {
+    height: 34px; background: var(--app-void);
+    border-bottom: 1px solid var(--app-rule-soft);
+    display: flex; align-items: center; padding: 0 12px; gap: 7px;
+  }
+  .light { width: 11px; height: 11px; border-radius: 50%; }
+  .l-r { background: #E05E52; } .l-y { background: #E0A83E; } .l-g { background: #52B04E; }
+  .titlebar .tname {
+    margin-left: auto; margin-right: auto; font-size: 12px;
+    color: var(--app-ink-faint); font-family: var(--mono); transform: translateX(-24px);
+  }
+
+  .app { display: grid; grid-template-columns: 58px 210px 1fr 272px; min-height: 700px; }
+  .col { border-right: 1px solid var(--app-rule-soft); }
+  .col:last-child { border-right: 0; }
+
+  .rail { background: var(--app-void); display: flex; flex-direction: column; align-items: center; padding: 12px 0; gap: 4px; }
+  .rail-btn { width: 34px; height: 34px; border-radius: 8px; display: grid; place-items: center; color: var(--app-ink-faint); font-size: 17px; }
+  .rail-btn.brass { color: var(--app-brass); }
+  .rail-av { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; font-size: 14px; margin: 3px 0; }
+  .rail-spacer { flex: 1; }
+  .rail-rule { width: 22px; height: 1px; background: var(--app-rule); margin: 7px 0; }
+
+  .stations { background: var(--app-panel); padding: 14px 0; }
+  .grouphead {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 14px; margin: 0 0 8px;
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.13em;
+    text-transform: uppercase; color: var(--app-ink-faint);
+  }
+  .grouphead + .grouphead { margin-top: 22px; }
+  .grouphead .plus { color: var(--app-ink-soft); font-size: 14px; }
+  .srow {
+    display: flex; align-items: center; gap: 8px; padding: 5px 14px 5px 12px;
+    color: var(--app-ink-soft); border-left: 2px solid transparent;
+  }
+  .srow .hash { color: var(--app-ink-faint); font-family: var(--mono); font-size: 13px; }
+  .srow.on { background: var(--app-raise); border-left-color: var(--app-brass); color: var(--app-ink); font-weight: 600; }
+  .srow.on .hash { color: var(--app-brass); }
+  .srow .run { margin-left: auto; font-family: var(--mono); font-size: 10px; color: var(--app-brass); font-variant-numeric: tabular-nums; }
+  .srow .mini { width: 18px; height: 18px; border-radius: 6px; display: grid; place-items: center; font-size: 10px; }
+
+  /* tareas dentro de una estación */
+  .trow {
+    display: flex; align-items: center; gap: 7px;
+    padding: 4px 12px 4px 30px; font-size: 12px; color: var(--app-ink-faint);
+  }
+  .trow.on { color: var(--app-ink); background: rgba(217,169,60,.07); }
+  .trow .tk { font-family: var(--mono); font-size: 9px; color: var(--app-ink-faint); }
+  .trow.on .tk { color: var(--app-brass); }
+  .trow .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .trow .prog { margin-left: auto; font-family: var(--mono); font-size: 10px; color: var(--app-brass); font-variant-numeric: tabular-nums; }
+  .trow .ok { margin-left: auto; color: var(--app-done); font-size: 11px; }
+  .trow .x { color: var(--app-ink-faint); font-size: 13px; padding-left: 2px; }
+  .newtask {
+    display: flex; align-items: center; gap: 7px;
+    padding: 5px 12px 9px 30px; font-size: 12px; color: var(--app-brass);
+  }
+
+  /* chat */
+  .chat { display: flex; flex-direction: column; background: var(--app-bg); }
+  .chathead { padding: 12px 20px; border-bottom: 1px solid var(--app-rule-soft); display: flex; align-items: center; gap: 12px; }
+  .chathead .title { font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+  .chathead .title .hash { color: var(--app-brass); font-family: var(--mono); }
+  .chathead .purpose { font-size: 12px; color: var(--app-ink-faint); margin-top: 1px; }
+  .stack { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+  .facepile { display: flex; }
+  .facepile .f { width: 22px; height: 22px; border-radius: 7px; display: grid; place-items: center; font-size: 10px; border: 1.5px solid var(--app-bg); margin-left: -6px; }
+  .facepile .f:first-child { margin-left: 0; }
+  .count { font-size: 12px; color: var(--app-ink-soft); font-variant-numeric: tabular-nums; }
+  .tabs {
+    display: flex; gap: 3px; background: var(--app-void);
+    border: 1px solid var(--app-rule); border-radius: 10px; padding: 3px;
+  }
+  .tab {
+    font-size: 12px; color: var(--app-ink-soft); padding: 5px 13px;
+    border-radius: 7px; display: flex; align-items: center; gap: 6px; white-space: nowrap;
+  }
+  .tab .g { font-size: 12px; }
+  .tab.on { background: var(--app-brass); color: #17120A; font-weight: 600; }
+
+  .thread { flex: 1; padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+
+  .msg { display: flex; gap: 10px; max-width: 84%; }
+  .msg.me { align-self: flex-end; flex-direction: row-reverse; }
+  .msg.nested { margin-left: 34px; max-width: 78%; }
+  .bub { background: var(--app-raise); border: 1px solid var(--app-rule); border-radius: 12px; padding: 9px 13px; }
+  .msg.me .bub { background: #23324A; border-color: #2E4260; }
+  .msg.nested .bub { background: var(--app-panel); border-style: dashed; }
+  .who { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; flex-wrap: wrap; }
+  .who .h { font-family: var(--mono); font-size: 12px; font-weight: 600; }
+  .who .t { font-size: 11px; color: var(--app-ink-faint); font-variant-numeric: tabular-nums; }
+  .steptag {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.05em;
+    color: var(--app-brass); background: var(--app-brass-deep);
+    border-radius: 4px; padding: 1px 6px;
+  }
+  .asktag {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.05em;
+    color: var(--app-ink-soft); border: 1px dashed var(--app-rule);
+    border-radius: 4px; padding: 1px 6px;
+  }
+  .av { width: 28px; height: 28px; border-radius: 9px; flex: none; display: grid; place-items: center; font-size: 13px; }
+  .av.sm { width: 22px; height: 22px; border-radius: 7px; font-size: 11px; }
+  .mention { font-family: var(--mono); font-weight: 600; }
+
+  .handoff {
+    display: flex; align-items: center; gap: 10px;
+    color: var(--app-ink-faint); font-size: 11px;
+    font-family: var(--mono); letter-spacing: 0.04em;
+  }
+  .handoff::before, .handoff::after { content: ""; height: 1px; background: var(--app-rule-soft); flex: 1; }
+
+  .tool { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--app-ink-soft); margin-top: 7px; }
+  .tool .caret { color: var(--app-brass); }
+
+  .filecard {
+    margin-top: 9px; border: 1px solid var(--app-rule); border-radius: 9px;
+    background: var(--app-panel); padding: 8px 11px;
+    display: flex; align-items: center; gap: 10px; font-size: 12px;
+  }
+  .filecard .fn { font-family: var(--mono); color: var(--app-ink); }
+  .filecard .stat { margin-left: auto; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .filecard .plus { color: var(--app-add); }
+  .filecard .minus { color: var(--app-del); }
+  .filecard .chev { color: var(--app-ink-faint); }
+  .meta { font-size: 11px; color: var(--app-ink-faint); margin-top: 6px; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+  .composer { padding: 14px 20px 18px; border-top: 1px solid var(--app-rule-soft); }
+  .cbox {
+    border: 1px solid var(--app-rule); border-radius: 11px; background: var(--app-panel);
+    padding: 10px 12px; display: flex; align-items: center; gap: 10px;
+  }
+  .cbox .ph { color: var(--app-ink-faint); flex: 1; }
+  .cbox .send { width: 26px; height: 26px; border-radius: 8px; background: var(--app-brass); color: #17120A; display: grid; place-items: center; font-size: 13px; font-weight: 700; }
+  .chint { font-size: 11px; color: var(--app-ink-faint); margin-top: 7px; padding-left: 3px; }
+  .chint b { color: var(--app-brass); }
+
+  /* panel derecho */
+  .ingr { background: var(--app-panel); padding: 14px 0; }
+  .ingr .grouphead { padding: 0 16px; }
+  .wfcard { margin: 0 12px 6px; }
+  .wfname { display: flex; align-items: baseline; gap: 8px; padding: 0 4px 10px; font-size: 13px; font-weight: 600; }
+  .wfname .of { margin-left: auto; font-family: var(--mono); font-size: 10px; color: var(--app-ink-faint); font-variant-numeric: tabular-nums; }
+
+  .step { display: flex; gap: 10px; padding: 0 4px; }
+  .step .gutter { display: flex; flex-direction: column; align-items: center; flex: none; width: 16px; }
+  .step .bead { width: 11px; height: 11px; border-radius: 50%; flex: none; margin-top: 3px; border: 1.5px solid var(--app-ink-faint); background: var(--app-bg); }
+  .step.done .bead { background: var(--app-done); border-color: var(--app-done); }
+  .step.now .bead { background: var(--app-brass); border-color: var(--app-brass); box-shadow: 0 0 0 3px var(--app-brass-deep); }
+  .step .wire { width: 1.5px; flex: 1; background: var(--app-rule); margin: 3px 0; min-height: 14px; }
+  .step.done .wire { background: var(--app-done); }
+  .step .body { padding-bottom: 12px; flex: 1; }
+  .step .nm { font-size: 12.5px; color: var(--app-ink-soft); }
+  .step.now .nm { color: var(--app-ink); font-weight: 600; }
+  .step .assg { display: flex; align-items: center; gap: 6px; margin-top: 3px; font-family: var(--mono); font-size: 11px; color: var(--app-ink-faint); }
+  .step .assg .sq { width: 12px; height: 12px; border-radius: 4px; flex: none; }
+  .step .state { font-family: var(--mono); font-size: 10px; margin-left: auto; }
+  .step.done .state { color: var(--app-done); }
+  .step.now .state { color: var(--app-brass); }
+  .step .toprow { display: flex; align-items: baseline; gap: 8px; }
+  .step .aside { font-size: 11px; color: var(--app-ink-faint); margin-top: 4px; font-style: italic; }
+
+  .irow { display: flex; align-items: center; gap: 9px; padding: 5px 16px; color: var(--app-ink-soft); font-size: 12px; }
+  .irow .nm { color: var(--app-ink); font-family: var(--mono); font-size: 12px; }
+  .irow .sub { display: block; color: var(--app-ink-faint); font-size: 11px; font-family: var(--sans); }
+  .irow .sq { width: 20px; height: 20px; border-radius: 6px; display: grid; place-items: center; font-size: 11px; flex: none; }
+  .irow .bullet { color: var(--app-brass); }
+
+  /* ── mapa ───────────────────────────────────────────────────────── */
+  .mapwrap { background: var(--app-bg); }
+  #graph { display: block; width: 100%; height: 460px; }
+  .mapbar {
+    display: flex; align-items: center; gap: 18px;
+    padding: 12px 22px 16px; border-top: 1px solid var(--app-rule-soft);
+  }
+  .playbtn {
+    width: 30px; height: 30px; border-radius: 9px; flex: none;
+    background: var(--app-brass-deep); color: var(--app-brass);
+    border: 1px solid var(--app-brass);
+    display: grid; place-items: center; font-size: 12px; cursor: pointer;
+    font-family: var(--mono);
+  }
+  .scrub { flex: 1; height: 3px; background: var(--app-rule); border-radius: 2px; overflow: hidden; }
+  .scrub .fill { height: 100%; width: 0%; background: var(--app-brass); border-radius: 2px; }
+  .maplegend { display: flex; gap: 20px; align-items: center; font-size: 11.5px; color: var(--app-ink-faint); }
+  .lg { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+  .lg .swatch-solid { width: 24px; height: 2px; background: var(--app-brass); border-radius: 2px; }
+  .lg .swatch-dash { width: 24px; height: 0; border-top: 2px dashed var(--a-rn); }
+  .lg .swatch-node { width: 11px; height: 11px; border-radius: 4px; background: var(--app-ink-faint); }
+
+  /* ── formularios ────────────────────────────────────────────────── */
+  .form { padding: 26px 34px 30px; }
+  .formtop { display: flex; align-items: center; gap: 12px; margin-bottom: 26px; }
+  .formtop .back { color: var(--app-ink-faint); font-size: 16px; }
+  .formtop h4 { margin: 0; font-size: 17px; font-weight: 600; }
+  .btn { margin-left: auto; background: var(--app-brass); color: #17120A; border-radius: 9px; padding: 7px 18px; font-size: 13px; font-weight: 600; }
+  .field { margin-bottom: 20px; max-width: 640px; }
+  .lbl { font-size: 12px; color: var(--app-ink-soft); margin-bottom: 6px; }
+  .inp { border: 1px solid var(--app-rule); border-radius: 10px; background: var(--app-panel); padding: 10px 13px; color: var(--app-ink); font-size: 13px; }
+  .inp.mono { font-family: var(--mono); }
+  .row2 { display: flex; gap: 10px; align-items: stretch; }
+  .row2 .inp { flex: 1; }
+  .pickbtn { border: 1px solid var(--app-rule); border-radius: 10px; padding: 10px 16px; font-size: 13px; color: var(--app-ink-soft); display: grid; place-items: center; }
+  .divider {
+    display: flex; align-items: center; gap: 14px; margin: 30px 0 22px;
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.16em;
+    text-transform: uppercase; color: var(--app-brass);
+  }
+  .divider::before, .divider::after { content: ""; height: 1px; background: var(--app-rule); flex: 1; }
+  .chips { display: flex; flex-wrap: wrap; gap: 7px; }
+  .chip { border: 1px solid var(--app-rule); border-radius: 999px; padding: 5px 13px; font-size: 12px; color: var(--app-ink-soft); display: flex; align-items: center; gap: 6px; }
+  .chip.on { background: var(--app-brass-deep); border-color: var(--app-brass); color: var(--app-brass); }
+  .chip .sq { width: 14px; height: 14px; border-radius: 4px; }
+  .hint { font-size: 11px; color: var(--app-ink-faint); margin-top: 7px; }
+
+  .steplist { border: 1px solid var(--app-rule); border-radius: 11px; overflow: hidden; max-width: 700px; }
+  .steprow { display: flex; gap: 13px; padding: 14px 16px; border-bottom: 1px solid var(--app-rule-soft); }
+  .steprow:last-child { border-bottom: 0; }
+  .steprow .grip { color: var(--app-ink-faint); font-size: 13px; padding-top: 1px; }
+  .steprow .idx {
+    width: 20px; height: 20px; border-radius: 6px; flex: none;
+    background: var(--app-brass-deep); color: var(--app-brass);
+    display: grid; place-items: center; font-family: var(--mono); font-size: 11px; font-weight: 600;
+  }
+  .steprow .sbody { flex: 1; }
+  .steprow .stitle { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+  .steprow .sdesc { font-size: 12px; color: var(--app-ink-faint); }
+  .steprow .srole {
+    display: inline-flex; align-items: center; gap: 6px;
+    border: 1px solid var(--app-rule); border-radius: 999px;
+    padding: 3px 10px; font-size: 11px; color: var(--app-ink-soft);
+    margin-bottom: 6px; font-family: var(--mono);
+  }
+  .steprow .srole .sq { width: 11px; height: 11px; border-radius: 3px; }
+  .steprow .x { color: var(--app-ink-faint); }
+  .addstep { margin-top: 10px; max-width: 700px; display: flex; justify-content: flex-end; }
+
+  /* ── notas ──────────────────────────────────────────────────────── */
+  .notes {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 1px; background: var(--page-rule);
+    border: 1px solid var(--page-rule); border-radius: 10px;
+    overflow: hidden; margin: 8px 0 44px;
+  }
+  .note { background: var(--page-surface); padding: 18px 20px; }
+  .note h3 { color: var(--page-ink); }
+  .note p { margin: 0; font-size: 14px; line-height: 1.55; color: var(--page-ink-soft); }
+
+  .decide {
+    border: 1px solid var(--page-rule); border-left: 3px solid var(--page-brass);
+    background: var(--page-surface); border-radius: 8px;
+    padding: 16px 20px; margin: 0 0 12px; max-width: 64ch;
+  }
+  .decide h3 { margin-bottom: 4px; }
+  .decide p { margin: 0; font-size: 14.5px; color: var(--page-ink-soft); }
+</style>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <p class="eyebrow">keel-ui · propuesta de interfaz</p>
+    <h1>Estaciones de trabajo</h1>
+    <p class="lede">
+      Un canal con tus agentes adentro y un workflow que decide quién entra y
+      cuándo. Vos pedís una vez; el flujo reparte los pasos, todos escriben en
+      el mismo hilo, y si a alguno le falta un dato se lo pregunta a otro ahí
+      mismo.
+    </p>
+  </header>
+
+  <section class="prose section">
+    <p class="section-mark">La idea</p>
+    <h2>El workflow manda</h2>
+    <p>
+      No hay que llamar a nadie ni adivinar quién sabe de qué. La estación tiene
+      workflows cargados; cuando pedís algo, el flujo aplicable define los pasos
+      y cada paso ya sabe qué rol lo ejecuta. Un agente termina, entrega, y
+      arranca el siguiente.
+    </p>
+    <p>
+      La estación es permanente &#8212; sus agentes, reglas y documentos se
+      configuran una vez. Lo que va y viene son las <strong>tareas</strong>: le
+      das <em>nueva tarea</em>, corre el workflow, termina, y la cerrás. El
+      contexto se va con la tarea; la estación queda lista para la siguiente sin
+      volver a armarla.
+    </p>
+    <p>
+      Arriba a la derecha, el selector <strong>Chat / Mapa</strong> cambia entre
+      la conversación y el grafo animado de la misma tarea.
+    </p>
+  </section>
+
+  <div class="scroller">
+    <div class="win">
+      <div class="titlebar">
+        <span class="light l-r"></span><span class="light l-y"></span><span class="light l-g"></span>
+        <span class="tname">keel-ui</span>
+      </div>
+
+      <div class="app">
+
+        <div class="col rail">
+          <div class="rail-btn brass">&#43;</div>
+          <div class="rail-rule"></div>
+          <div class="rail-av" style="background:#2A2438;color:var(--a-audit)">&#9673;</div>
+          <div class="rail-av" style="background:#1C2A36;color:var(--a-flutter)">&#9673;</div>
+          <div class="rail-spacer"></div>
+          <div class="rail-rule"></div>
+          <div class="rail-btn">&#9707;</div>
+          <div class="rail-btn">&#9635;</div>
+          <div class="rail-btn">&#9776;</div>
+          <div class="rail-btn">&#9881;</div>
+        </div>
+
+        <div class="col stations">
+          <div class="grouphead"><span>Estaciones</span><span class="plus">&#43;</span></div>
+          <div class="srow on"><span class="hash">&#35;</span> mobile-con-dev</div>
+          <div class="trow on"><span class="tk">&#9679;</span><span class="nm">migrar el login</span><span class="prog">3/4</span></div>
+          <div class="trow"><span class="tk">&#9679;</span><span class="nm">fix del reintento</span><span class="ok">&#10003;</span><span class="x">&#215;</span></div>
+          <div class="newtask"><span>&#43;</span> Nueva tarea</div>
+          <div class="srow"><span class="hash">&#35;</span> aulamas-api</div>
+          <div class="srow"><span class="hash">&#35;</span> redvida-co</div>
+
+          <div class="grouphead"><span>Agentes sueltos</span><span class="plus">&#43;</span></div>
+          <div class="srow"><span class="mini" style="background:#2A2438;color:var(--a-audit)">&#9673;</span> Jhoancode</div>
+          <div class="srow"><span class="mini" style="background:#1C2A36;color:var(--a-flutter)">&#9673;</span> scratch</div>
+        </div>
+
+        <div class="col chat">
+          <div class="chathead">
+            <div>
+              <div class="title"><span class="hash">&#35;</span> mobile-con-dev</div>
+              <div class="purpose">Tarea: migrar el login &#183; Feature nueva &#183; contexto 18%</div>
+            </div>
+            <div class="stack">
+              <div class="tabs">
+                <span class="tab on"><span class="g">&#9776;</span> Chat</span>
+                <span class="tab"><span class="g">&#9678;</span> Mapa</span>
+              </div>
+              <div class="facepile">
+                <span class="f" style="background:#1C2A36;color:var(--a-flutter)">&#9673;</span>
+                <span class="f" style="background:#2E1F18;color:var(--a-rn)">&#9673;</span>
+                <span class="f" style="background:#2A2438;color:var(--a-audit)">&#9673;</span>
+                <span class="f" style="background:#2B2510;color:var(--a-docs)">&#9673;</span>
+              </div>
+              <span class="count">4</span>
+            </div>
+          </div>
+
+          <div class="thread">
+
+            <div class="msg me">
+              <div class="bub">
+                <div class="who"><span class="t">1:24</span></div>
+                necesito migrar el login de Riverpod a RN, respetando el flujo que ya definimos
+              </div>
+            </div>
+
+            <div class="handoff"><span>Feature nueva &#183; 4 pasos</span></div>
+
+            <div class="msg">
+              <div class="av" style="background:#1C2A36;color:var(--a-flutter)">&#9673;</div>
+              <div class="bub">
+                <div class="who">
+                  <span class="h" style="color:var(--a-flutter)">flutter-dev</span>
+                  <span class="steptag">paso 1 &#183; test primero</span>
+                  <span class="t">1:24</span>
+                </div>
+                Escribo el test que falla antes de tocar el ViewModel.
+                <div class="filecard">
+                  <span class="fn">login_vm_test.dart</span>
+                  <span class="stat"><span class="plus">&#43;64</span></span>
+                  <span class="chev">&#8964;</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="handoff"><span>paso 1 listo &#8594; paso 2</span></div>
+
+            <div class="msg">
+              <div class="av" style="background:#1C2A36;color:var(--a-flutter)">&#9673;</div>
+              <div class="bub">
+                <div class="who">
+                  <span class="h" style="color:var(--a-flutter)">flutter-dev</span>
+                  <span class="steptag">paso 2 &#183; implementación</span>
+                  <span class="t">1:26</span>
+                </div>
+                Antes de escribir el refresh necesito confirmar el contrato.<br>
+                <span class="mention" style="color:var(--a-rn)">@rn-expert</span> ¿el token de refresh viaja en el body o en el header?
+              </div>
+            </div>
+
+            <div class="msg nested">
+              <div class="av sm" style="background:#2E1F18;color:var(--a-rn)">&#9673;</div>
+              <div class="bub">
+                <div class="who">
+                  <span class="h" style="color:var(--a-rn)">rn-expert</span>
+                  <span class="asktag">consulta de flutter-dev</span>
+                  <span class="t">1:26</span>
+                </div>
+                En el header: <span style="font-family:var(--mono)">Authorization: Bearer</span>. El body solo lleva el device id.
+              </div>
+            </div>
+
+            <div class="handoff"><span>vuelve al paso 2</span></div>
+
+            <div class="msg">
+              <div class="av" style="background:#1C2A36;color:var(--a-flutter)">&#9673;</div>
+              <div class="bub">
+                <div class="who">
+                  <span class="h" style="color:var(--a-flutter)">flutter-dev</span>
+                  <span class="steptag">paso 2 &#183; implementación</span>
+                  <span class="t">1:27</span>
+                </div>
+                Perfecto, lo armo con el header entonces.
+                <div class="tool"><span class="caret">&#9656;</span> Editando <span style="font-family:var(--mono)">lib/auth/login_vm.dart</span></div>
+                <div class="filecard">
+                  <span class="fn">login_vm.dart</span>
+                  <span class="stat"><span class="plus">&#43;42</span> <span class="minus">&#8722;18</span></span>
+                  <span class="chev">&#8964;</span>
+                </div>
+                <div class="meta">$0.06 &#183; 34s</div>
+              </div>
+            </div>
+
+            <div class="handoff"><span>paso 2 listo &#8594; paso 3</span></div>
+
+            <div class="msg">
+              <div class="av" style="background:#2A2438;color:var(--a-audit)">&#9673;</div>
+              <div class="bub">
+                <div class="who">
+                  <span class="h" style="color:var(--a-audit)">auditor</span>
+                  <span class="steptag">paso 3 &#183; revisión</span>
+                  <span class="t">1:29</span>
+                </div>
+                El test cubre el happy path pero falta el caso de token expirado.
+                Contra la regla de TDD eso queda incompleto.
+                <div class="meta">$0.02 &#183; 9s</div>
+              </div>
+            </div>
+
+            <div class="handoff"><span>paso 3 listo &#8594; paso 4</span></div>
+
+            <div class="msg">
+              <div class="av" style="background:#2B2510;color:var(--a-docs)">&#9673;</div>
+              <div class="bub">
+                <div class="who">
+                  <span class="h" style="color:var(--a-docs)">docs-writer</span>
+                  <span class="steptag">paso 4 &#183; documentación</span>
+                  <span class="t">1:30</span>
+                </div>
+                Actualizo el diagrama de auth en arquitectura.md con el header.
+                <div class="filecard">
+                  <span class="fn">arquitectura.md</span>
+                  <span class="stat"><span class="plus">&#43;11</span> <span class="minus">&#8722;3</span></span>
+                  <span class="chev">&#8964;</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <div class="composer">
+            <div class="cbox">
+              <span class="ph">Mensaje a #mobile-con-dev</span>
+              <span class="send">&#8593;</span>
+            </div>
+            <div class="chint">El workflow reparte los pasos. Escribí cuando quieras corregir el rumbo &#8212; <b>entra en el paso que esté corriendo</b>.</div>
+          </div>
+        </div>
+
+        <div class="col ingr">
+          <div class="grouphead"><span>Workflow en curso</span></div>
+          <div class="wfcard">
+            <div class="wfname">Feature nueva <span class="of">3 de 4</span></div>
+
+            <div class="step done">
+              <div class="gutter"><span class="bead"></span><span class="wire"></span></div>
+              <div class="body">
+                <div class="toprow"><span class="nm">Test primero</span><span class="state">listo</span></div>
+                <div class="assg"><span class="sq" style="background:var(--a-flutter)"></span> flutter-dev</div>
+              </div>
+            </div>
+
+            <div class="step done">
+              <div class="gutter"><span class="bead"></span><span class="wire"></span></div>
+              <div class="body">
+                <div class="toprow"><span class="nm">Implementación</span><span class="state">listo</span></div>
+                <div class="assg"><span class="sq" style="background:var(--a-flutter)"></span> flutter-dev</div>
+                <div class="aside">consultó a rn-expert</div>
+              </div>
+            </div>
+
+            <div class="step now">
+              <div class="gutter"><span class="bead"></span><span class="wire"></span></div>
+              <div class="body">
+                <div class="toprow"><span class="nm">Revisión</span><span class="state">ahora</span></div>
+                <div class="assg"><span class="sq" style="background:var(--a-audit)"></span> auditor</div>
+              </div>
+            </div>
+
+            <div class="step">
+              <div class="gutter"><span class="bead"></span></div>
+              <div class="body">
+                <div class="toprow"><span class="nm">Documentación</span></div>
+                <div class="assg"><span class="sq" style="background:var(--a-docs)"></span> docs-writer</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="grouphead"><span>Reglas</span><span class="plus">&#43;</span></div>
+          <div class="irow"><span class="bullet">&#9642;</span> TDD obligatorio</div>
+          <div class="irow"><span class="bullet">&#9642;</span> Sin Riverpod</div>
+
+          <div class="grouphead"><span>Documentos</span><span class="plus">&#43;</span></div>
+          <div class="irow"><span class="bullet">&#9723;</span> arquitectura.md</div>
+          <div class="irow"><span class="bullet">&#9723;</span> negocio.md</div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <div class="notes">
+    <div class="note">
+      <h3>La estación queda, la tarea se va</h3>
+      <p>Terminás una tarea, la cerrás con la <strong>×</strong> y su contexto se borra con ella. La estación sigue igual: mismos agentes, reglas y documentos, lista para la próxima.</p>
+    </div>
+    <div class="note">
+      <h3>Todos en el mismo hilo</h3>
+      <p>Los cuatro escriben en el canal, no en chats separados. Vos leés una sola conversación de arriba a abajo.</p>
+    </div>
+    <div class="note">
+      <h3>Se preguntan entre ellos</h3>
+      <p>Si a un agente le falta un dato, menciona al que sabe y sigue. La consulta queda anidada, sin romper el paso en curso.</p>
+    </div>
+    <div class="note">
+      <h3>Cada mensaje sabe su paso</h3>
+      <p>La etiqueta <em>paso 3 · revisión</em> dice por qué ese agente está hablando. No hace falta explicar el ruteo.</p>
+    </div>
+    <div class="note">
+      <h3>Podés interrumpir</h3>
+      <p>Escribir en el canal no lanza otro flujo: entra como corrección en el paso que esté corriendo.</p>
+    </div>
+  </div>
+
+  <section class="prose section">
+    <p class="section-mark">Pestaña Mapa</p>
+    <h2>El flujo, en movimiento</h2>
+    <p>
+      La misma conversación vista como red, reproducida paso a paso: quién lo
+      tiene, quién está razonando, a quién le pregunta y por dónde viaja la
+      respuesta. La línea sólida es el workflow avanzando; la punteada, una
+      consulta entre agentes.
+    </p>
+  </section>
+
+  <div class="scroller">
+    <div class="win">
+      <div class="titlebar">
+        <span class="light l-r"></span><span class="light l-y"></span><span class="light l-g"></span>
+        <span class="tname">keel-ui</span>
+      </div>
+      <div class="chathead" style="padding:12px 22px">
+        <div>
+          <div class="title"><span class="hash">&#35;</span> mobile-con-dev</div>
+          <div class="purpose">Feature nueva</div>
+        </div>
+        <div class="stack">
+          <div class="tabs">
+            <span class="tab"><span class="g">&#9776;</span> Chat</span>
+            <span class="tab on"><span class="g">&#9678;</span> Mapa</span>
+          </div>
+          <div class="facepile">
+            <span class="f" style="background:#1C2A36;color:var(--a-flutter)">&#9673;</span>
+            <span class="f" style="background:#2E1F18;color:var(--a-rn)">&#9673;</span>
+            <span class="f" style="background:#2A2438;color:var(--a-audit)">&#9673;</span>
+            <span class="f" style="background:#2B2510;color:var(--a-docs)">&#9673;</span>
+          </div>
+          <span class="count">4</span>
+        </div>
+      </div>
+      <div class="mapwrap">
+        <canvas id="graph" width="1120" height="460" role="img"
+                aria-label="Mapa animado de la estación: el pedido llega a flutter-dev, que ejecuta el paso 1 y el paso 2, consulta a rn-expert por el contrato del token, recibe la respuesta, y entrega a auditor para la revisión y a docs-writer para la documentación."></canvas>
+        <div class="mapbar">
+          <button class="playbtn" id="playbtn" aria-label="Pausar o reanudar la animación">&#10073;&#10073;</button>
+          <div class="scrub"><div class="fill" id="scrubfill"></div></div>
+          <div class="maplegend">
+            <span class="lg"><span class="swatch-solid"></span> Paso del workflow</span>
+            <span class="lg"><span class="swatch-dash"></span> Consulta</span>
+            <span class="lg"><span class="swatch-node"></span> Sin tocar</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <section class="prose section">
+    <p class="section-mark">El corazón de la función</p>
+    <h2>Definir un workflow</h2>
+    <p>
+      Pasos ordenados, cada uno con un rol asignado y la instrucción de qué
+      hacer. La estación resuelve el rol contra sus miembros: el paso dice
+      <em>Flutter / Dart</em> y le toca a quien tenga ese rol.
+    </p>
+  </section>
+
+  <div class="scroller">
+    <div class="win">
+      <div class="titlebar">
+        <span class="light l-r"></span><span class="light l-y"></span><span class="light l-g"></span>
+        <span class="tname">keel-ui</span>
+      </div>
+      <div class="form">
+        <div class="formtop">
+          <span class="back">&#8592;</span>
+          <h4>Workflow &#183; Feature nueva</h4>
+          <span class="btn">Guardar</span>
+        </div>
+
+        <div class="field">
+          <div class="lbl">Nombre</div>
+          <div class="inp">Feature nueva</div>
+        </div>
+
+        <div class="field">
+          <div class="lbl">Cuándo se aplica</div>
+          <div class="inp">Cuando pido una funcionalidad nueva o un cambio de comportamiento</div>
+          <div class="hint">Así la estación sabe cuál de sus workflows corresponde a lo que pediste.</div>
+        </div>
+
+        <div class="divider">Pasos</div>
+
+        <div class="steplist">
+          <div class="steprow">
+            <span class="grip">&#8942;&#8942;</span>
+            <span class="idx">1</span>
+            <div class="sbody">
+              <div class="stitle">Test primero</div>
+              <div class="srole"><span class="sq" style="background:var(--a-flutter)"></span> Flutter / Dart</div>
+              <div class="sdesc">Escribí el test que falla antes de tocar código de producción.</div>
+            </div>
+            <span class="x">&#215;</span>
+          </div>
+
+          <div class="steprow">
+            <span class="grip">&#8942;&#8942;</span>
+            <span class="idx">2</span>
+            <div class="sbody">
+              <div class="stitle">Implementación</div>
+              <div class="srole"><span class="sq" style="background:var(--a-flutter)"></span> Flutter / Dart</div>
+              <div class="sdesc">Hacé pasar el test sin tocar nada fuera del alcance pedido.</div>
+            </div>
+            <span class="x">&#215;</span>
+          </div>
+
+          <div class="steprow">
+            <span class="grip">&#8942;&#8942;</span>
+            <span class="idx">3</span>
+            <div class="sbody">
+              <div class="stitle">Revisión</div>
+              <div class="srole"><span class="sq" style="background:var(--a-audit)"></span> QA / revisión</div>
+              <div class="sdesc">Auditá el cambio contra las reglas de la estación. Señalá lo que falte.</div>
+            </div>
+            <span class="x">&#215;</span>
+          </div>
+
+          <div class="steprow">
+            <span class="grip">&#8942;&#8942;</span>
+            <span class="idx">4</span>
+            <div class="sbody">
+              <div class="stitle">Documentación</div>
+              <div class="srole"><span class="sq" style="background:var(--a-docs)"></span> Documentación</div>
+              <div class="sdesc">Actualizá lo que haga falta en los documentos del negocio.</div>
+            </div>
+            <span class="x">&#215;</span>
+          </div>
+        </div>
+
+        <div class="addstep"><span class="chip">&#43; Agregar paso</span></div>
+      </div>
+    </div>
+  </div>
+
+  <section class="prose section">
+    <p class="section-mark">Alta</p>
+    <h2>Crear una estación</h2>
+    <p>
+      Los mismos ingredientes que ya conocés, ahora con los workflows como parte
+      central. Los chips reusan el selector que ya existe para skills y reglas.
+    </p>
+  </section>
+
+  <div class="scroller">
+    <div class="win">
+      <div class="titlebar">
+        <span class="light l-r"></span><span class="light l-y"></span><span class="light l-g"></span>
+        <span class="tname">keel-ui</span>
+      </div>
+      <div class="form">
+        <div class="formtop">
+          <span class="back">&#8592;</span>
+          <h4>Nueva estación de trabajo</h4>
+          <span class="btn">Crear</span>
+        </div>
+
+        <div class="field">
+          <div class="lbl">Nombre</div>
+          <div class="inp mono">mobile-con-dev</div>
+        </div>
+
+        <div class="field">
+          <div class="lbl">Propósito</div>
+          <div class="inp">Migración de con-app de React Native a Flutter</div>
+        </div>
+
+        <div class="field">
+          <div class="lbl">Carpeta de trabajo</div>
+          <div class="row2">
+            <div class="inp mono">/Volumes/Data/con-app</div>
+            <div class="pickbtn">Elegir…</div>
+          </div>
+          <div class="hint">Todos los agentes de la estación trabajan sobre esta carpeta.</div>
+        </div>
+
+        <div class="divider">Ingredientes</div>
+
+        <div class="field">
+          <div class="lbl">Agentes</div>
+          <div class="chips">
+            <span class="chip on"><span class="sq" style="background:var(--a-flutter)"></span> flutter-dev</span>
+            <span class="chip on"><span class="sq" style="background:var(--a-rn)"></span> rn-expert</span>
+            <span class="chip on"><span class="sq" style="background:var(--a-audit)"></span> auditor</span>
+            <span class="chip on"><span class="sq" style="background:var(--a-docs)"></span> docs-writer</span>
+            <span class="chip">&#43; jhoancode</span>
+          </div>
+          <div class="hint">El rol de cada agente es lo que los pasos del workflow buscan &#8212; y lo que sus compañeros consultan.</div>
+        </div>
+
+        <div class="field">
+          <div class="lbl">Workflows</div>
+          <div class="chips">
+            <span class="chip on">&#9656; Feature nueva</span>
+            <span class="chip on">&#9656; Hotfix</span>
+            <span class="chip">&#43; Migración de módulo</span>
+          </div>
+          <div class="hint">Definen quién entra y en qué orden. Sin workflows, la estación no sabe repartir.</div>
+        </div>
+
+        <div class="field">
+          <div class="lbl">Reglas</div>
+          <div class="chips">
+            <span class="chip on">&#10003; TDD obligatorio</span>
+            <span class="chip on">&#10003; Sin Riverpod</span>
+            <span class="chip">&#43; no-legacy-fallbacks</span>
+          </div>
+          <div class="hint">Se suman a las reglas que ya trae el perfil de cada agente.</div>
+        </div>
+
+        <div class="field">
+          <div class="lbl">Documentos del negocio</div>
+          <div class="chips">
+            <span class="chip on">&#9723; arquitectura.md</span>
+            <span class="chip on">&#9723; negocio.md</span>
+            <span class="chip">&#43; Agregar archivo</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <section class="prose section">
+    <p class="section-mark">Decidido</p>
+    <h2>Lo que ya está cerrado</h2>
+  </section>
+
+  <div class="notes">
+    <div class="note">
+      <h3>Avanza de corrido</h3>
+      <p>Un paso termina y arranca el siguiente sin pedirte permiso. Vos leés el hilo y frenás con el botón de stop si algo va mal.</p>
+    </div>
+    <div class="note">
+      <h3>Un workflow activo</h3>
+      <p>La estación tiene uno activo y lo cambiás con un clic. Sin adivinanzas, sin latencia extra antes de arrancar.</p>
+    </div>
+    <div class="note">
+      <h3>Contexto por tarea</h3>
+      <p>Cada tarea arranca limpia y se lleva su contexto al cerrarse. Nada se acumula entre una tarea y la siguiente.</p>
+    </div>
+  </div>
+
+  <section class="prose section">
+    <p class="section-mark">Pendiente de decidir</p>
+    <h2>Lo único que falta</h2>
+  </section>
+
+  <div class="decide">
+    <h3>Hasta dónde llega una consulta</h3>
+    <p>
+      Cuando <code>flutter-dev</code> menciona a <code>rn-expert</code>, ¿el
+      consultado solo responde la duda, o también puede tocar archivos? Y si a él
+      le falta un dato, ¿lo dejamos preguntarle a un tercero o cortamos la cadena
+      ahí?
+    </p>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  var canvas = document.getElementById('graph');
+  if (!canvas || !canvas.getContext) return;
+  var ctx = canvas.getContext('2d');
+  var scrub = document.getElementById('scrubfill');
+  var playbtn = document.getElementById('playbtn');
+
+  var C = {
+    bg: '#111925', grid: '#1A2431', rule: '#253141',
+    ink: '#DEE6F0', soft: '#8194A9', faint: '#57687C',
+    brass: '#D9A93C', done: '#4E9E6A',
+    you: '#8194A9', flutter: '#4FA3D9', rn: '#3FA38C',
+    audit: '#9B7BC4', docs: '#C9A227'
+  };
+
+  var N = {
+    you:     { x: 110, y: 230, label: 'Vos',         role: '',               color: C.you   },
+    flutter: { x: 385, y: 160, label: 'flutter-dev', role: 'Flutter / Dart', color: C.flutter },
+    rn:      { x: 385, y: 358, label: 'rn-expert',   role: 'Estado / RN',    color: C.rn    },
+    audit:   { x: 715, y: 160, label: 'auditor',     role: 'QA / revisión',  color: C.audit },
+    docs:    { x: 975, y: 230, label: 'docs-writer', role: 'Documentación',  color: C.docs  }
+  };
+
+  var E = [
+    { a:'you',     b:'flutter', kind:'step', tag:'pedido',     bow:-38 },  // 0
+    { a:'flutter', b:'rn',      kind:'ask',  tag:'consulta',   bow: 52 },  // 1
+    { a:'rn',      b:'flutter', kind:'ask',  tag:'respuesta',  bow: 52 },  // 2
+    { a:'flutter', b:'audit',   kind:'step', tag:'paso 3',     bow:-34 },  // 3
+    { a:'audit',   b:'docs',    kind:'step', tag:'paso 4',     bow:-30 }   // 4
+  ];
+
+  // Guion del flujo. edge → traza la línea. work → el nodo trabaja.
+  var SCRIPT = [
+    { t0:0,     t1:1100,  type:'edge', e:0                                                      },
+    { t0:1100,  t1:2900,  type:'work', n:'flutter', st:'paso 1 · escribiendo el test'           },
+    { t0:2900,  t1:4600,  type:'work', n:'flutter', st:'paso 2 · implementando'                 },
+    { t0:4600,  t1:5500,  type:'edge', e:1,         st:'le pregunta a rn-expert'                },
+    { t0:5500,  t1:7000,  type:'work', n:'rn',      st:'respondiendo la consulta'               },
+    { t0:7000,  t1:7900,  type:'edge', e:2                                                      },
+    { t0:7900,  t1:9500,  type:'work', n:'flutter', st:'paso 2 · aplicando la respuesta'        },
+    { t0:9500,  t1:10400, type:'edge', e:3,         st:'entrega al auditor'                     },
+    { t0:10400, t1:12100, type:'work', n:'audit',   st:'paso 3 · revisando contra las reglas'   },
+    { t0:12100, t1:13000, type:'edge', e:4,         st:'entrega a docs-writer'                  },
+    { t0:13000, t1:14700, type:'work', n:'docs',    st:'paso 4 · actualizando la documentación' },
+    { t0:14700, t1:16400, type:'hold', st:'flujo completo'                                      }
+  ];
+  var TOTAL = SCRIPT[SCRIPT.length - 1].t1;
+
+  var W = 1120, H = 460, R = 28;
+  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var playing = !reduce;
+  var clock = reduce ? 11000 : 0;
+  var last = null;
+
+  function fit() {
+    var cssW = canvas.clientWidth || W;
+    var scale = cssW / W;
+    canvas.style.height = (H * scale) + 'px';
+    var dpr = window.devicePixelRatio || 1;
+    canvas.width  = Math.round(cssW * dpr);
+    canvas.height = Math.round(H * scale * dpr);
+    ctx.setTransform(dpr * scale, 0, 0, dpr * scale, 0, 0);
+  }
+
+  function curve(e) {
+    var a = N[e.a], b = N[e.b];
+    var mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+    var dx = b.x - a.x, dy = b.y - a.y;
+    var len = Math.sqrt(dx * dx + dy * dy) || 1;
+    return { x1:a.x, y1:a.y, cx:mx + (-dy/len)*e.bow, cy:my + (dx/len)*e.bow, x2:b.x, y2:b.y };
+  }
+  function ptAt(q, t) {
+    var u = 1 - t;
+    return { x: u*u*q.x1 + 2*u*t*q.cx + t*t*q.x2, y: u*u*q.y1 + 2*u*t*q.cy + t*t*q.y2 };
+  }
+  function trimmed(q) {
+    var lo = 0, hi = 1, i, p;
+    for (i = 0; i < 30; i++) { p = ptAt(q, lo); if (Math.hypot(p.x-q.x1, p.y-q.y1) >= R + 8) break; lo += 0.012; }
+    for (i = 0; i < 30; i++) { p = ptAt(q, hi); if (Math.hypot(p.x-q.x2, p.y-q.y2) >= R + 12) break; hi -= 0.012; }
+    return { lo:lo, hi:hi };
+  }
+  function strokeEdge(q, t0, t1, dashed, color, width, alpha) {
+    if (t1 <= t0) return;
+    ctx.save();
+    ctx.globalAlpha = alpha; ctx.strokeStyle = color; ctx.lineWidth = width;
+    ctx.lineCap = 'round'; ctx.setLineDash(dashed ? [5,6] : []);
+    ctx.beginPath();
+    var steps = 46;
+    for (var i = 0; i <= steps; i++) {
+      var p = ptAt(q, t0 + (t1-t0) * (i/steps));
+      if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
+    }
+    ctx.stroke(); ctx.restore();
+  }
+  function arrow(q, t, color, alpha) {
+    var p = ptAt(q, t), p0 = ptAt(q, Math.max(0, t - 0.03));
+    var ang = Math.atan2(p.y - p0.y, p.x - p0.x);
+    ctx.save(); ctx.globalAlpha = alpha; ctx.translate(p.x, p.y); ctx.rotate(ang);
+    ctx.fillStyle = color; ctx.beginPath();
+    ctx.moveTo(0,0); ctx.lineTo(-10,-5); ctx.lineTo(-10,5); ctx.closePath(); ctx.fill();
+    ctx.restore();
+  }
+  function roundRect(x, y, w, h, r) {
+    ctx.beginPath(); ctx.moveTo(x+r, y);
+    ctx.arcTo(x+w, y, x+w, y+h, r); ctx.arcTo(x+w, y+h, x, y+h, r);
+    ctx.arcTo(x, y+h, x, y, r);     ctx.arcTo(x, y, x+w, y, r);
+    ctx.closePath();
+  }
+  function chip(text, x, y, color) {
+    ctx.save();
+    ctx.font = '500 11px ui-monospace, "SF Mono", Menlo, monospace';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    var tw = ctx.measureText(text).width;
+    ctx.fillStyle = C.bg;
+    roundRect(x - tw/2 - 7, y - 9, tw + 14, 18, 5); ctx.fill();
+    ctx.fillStyle = color; ctx.fillText(text, x, y);
+    ctx.restore();
+  }
+
+  function stateAt(t) {
+    var s = { edge:{}, work:null, caption:'', activeEdge:-1 };
+    for (var i = 0; i < SCRIPT.length; i++) {
+      var p = SCRIPT[i];
+      if (p.type === 'edge') {
+        if (t >= p.t1)      s.edge[p.e] = 1;
+        else if (t >= p.t0) { s.edge[p.e] = (t - p.t0) / (p.t1 - p.t0); s.activeEdge = p.e; }
+      }
+      if (t >= p.t0 && t < p.t1) {
+        if (p.type === 'work') s.work = p.n;
+        if (p.st) s.caption = p.st;
+      }
+    }
+    return s;
+  }
+
+  function draw() {
+    var s = stateAt(clock);
+
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = C.bg; ctx.fillRect(0, 0, W, H);
+
+    ctx.save(); ctx.strokeStyle = C.grid; ctx.lineWidth = 1;
+    for (var gx = 40; gx < W; gx += 40) { ctx.beginPath(); ctx.moveTo(gx,0); ctx.lineTo(gx,H); ctx.stroke(); }
+    for (var gy = 40; gy < H; gy += 40) { ctx.beginPath(); ctx.moveTo(0,gy); ctx.lineTo(W,gy); ctx.stroke(); }
+    ctx.restore();
+
+    E.forEach(function (e, i) {
+      var q = curve(e), tr = trimmed(q);
+      var prog = s.edge[i] || 0;
+      var dashed = e.kind === 'ask';
+      var live = s.activeEdge === i;
+      var col = prog > 0 ? (dashed ? N[e.b].color : C.brass) : C.rule;
+
+      // riel de fondo
+      strokeEdge(q, tr.lo, tr.hi, dashed, C.rule, dashed ? 1.6 : 2, 0.4);
+
+      if (prog > 0) {
+        var end = tr.lo + (tr.hi - tr.lo) * prog;
+        strokeEdge(q, tr.lo, end, dashed, col, dashed ? 2 : 2.4, 1);
+        arrow(q, end, col, 1);
+
+        if (live) {
+          var p = ptAt(q, end);
+          ctx.save();
+          var g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, 15);
+          g.addColorStop(0, col); g.addColorStop(1, 'rgba(0,0,0,0)');
+          ctx.globalAlpha = 0.85; ctx.fillStyle = g;
+          ctx.beginPath(); ctx.arc(p.x, p.y, 15, 0, Math.PI*2); ctx.fill();
+          ctx.restore();
+        }
+        var mid = ptAt(q, (tr.lo + tr.hi) / 2);
+        if (prog > 0.5) chip(e.tag, mid.x, mid.y, live ? col : C.faint);
+      }
+    });
+
+    Object.keys(N).forEach(function (key) {
+      var n = N[key];
+      var working = s.work === key;
+      var touched = key === 'you' || Object.keys(s.edge).some(function (i) {
+        return s.edge[i] > 0.4 && (E[i].a === key || E[i].b === key);
+      });
+
+      if (working) {
+        var pulse = 0.5 + 0.5 * Math.sin(clock / 260);
+        ctx.save();
+        ctx.globalAlpha = 0.15 + pulse * 0.18;
+        ctx.fillStyle = n.color;
+        ctx.beginPath(); ctx.arc(n.x, n.y, R + 11 + pulse * 7, 0, Math.PI*2); ctx.fill();
+        ctx.restore();
+      }
+
+      ctx.save();
+      ctx.globalAlpha = touched ? 1 : 0.55;
+      roundRect(n.x - R, n.y - R, R*2, R*2, 13);
+      ctx.fillStyle = '#18222F'; ctx.fill();
+      ctx.lineWidth = working ? 2.6 : 1.6;
+      ctx.strokeStyle = touched ? n.color : C.rule; ctx.stroke();
+      ctx.fillStyle = touched ? n.color : C.faint;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      if (key === 'you') {
+        ctx.font = '600 13px -apple-system, system-ui, sans-serif';
+        ctx.fillText('Vos', n.x, n.y);
+      } else {
+        ctx.font = '600 18px -apple-system, system-ui, sans-serif';
+        ctx.fillText('◉', n.x, n.y);
+      }
+      ctx.restore();
+
+      if (key !== 'you') {
+        ctx.save();
+        ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+        ctx.font = '600 12.5px ui-monospace, "SF Mono", Menlo, monospace';
+        ctx.fillStyle = touched ? C.ink : C.soft;
+        ctx.fillText(n.label, n.x, n.y + R + 11);
+        ctx.font = '400 11px -apple-system, system-ui, sans-serif';
+        ctx.fillStyle = C.faint;
+        ctx.fillText(n.role, n.x, n.y + R + 28);
+        ctx.restore();
+      }
+
+      // estado del que está trabajando, encima del nodo
+      if (working && s.caption) {
+        var dots = ['', '.', '..', '...'][Math.floor(clock / 340) % 4];
+        chip(s.caption + dots, n.x, n.y - R - 18, n.color);
+      }
+    });
+
+    // pie de reproducción
+    ctx.save();
+    ctx.font = '500 12px -apple-system, system-ui, sans-serif';
+    ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
+    ctx.fillStyle = C.faint;
+    ctx.fillText(s.work ? '' : (s.caption || ''), 26, H - 20);
+    ctx.restore();
+
+    if (scrub) scrub.style.width = ((clock / TOTAL) * 100).toFixed(1) + '%';
+  }
+
+  function tick(now) {
+    if (last === null) last = now;
+    var dt = Math.min(64, now - last);
+    last = now;
+    if (playing) { clock += dt; if (clock > TOTAL) clock = 0; }
+    draw();
+    requestAnimationFrame(tick);
+  }
+
+  if (playbtn) {
+    playbtn.addEventListener('click', function () {
+      playing = !playing;
+      playbtn.innerHTML = playing ? '&#10073;&#10073;' : '&#9654;';
+    });
+    if (reduce) playbtn.innerHTML = '&#9654;';
+  }
+
+  var rt;
+  window.addEventListener('resize', function () {
+    clearTimeout(rt); rt = setTimeout(function () { fit(); draw(); }, 120);
+  });
+
+  fit();
+  if (reduce) draw(); else requestAnimationFrame(tick);
+})();
+</script>
+
+</body></html>

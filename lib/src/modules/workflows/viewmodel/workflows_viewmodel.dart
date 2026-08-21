@@ -12,10 +12,17 @@ class WorkflowsViewModel extends ViewModel<WorkflowsState> {
 
   WorkflowsRepository get _repository => WorkflowsRepository();
 
+  /// Resolves once the persisted catalog has loaded — callers that read
+  /// [data] outside a widget (catalog sync, MCP tools) must await this,
+  /// and the guard keeps `reinitializeWithContext()`'s second init() from
+  /// wiping an already-loaded catalog. Same pattern as SkillsViewModel.
+  Future<void>? _ready;
+  Future<void> get ready => _ready ??= _loadPersistedWorkflows();
+
   @override
   void init() {
-    updateSilently(const WorkflowsState());
-    unawaited(_loadPersistedWorkflows());
+    if (_ready == null) updateSilently(const WorkflowsState());
+    unawaited(ready);
   }
 
   Future<void> _loadPersistedWorkflows() async {

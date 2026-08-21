@@ -8,7 +8,10 @@ import 'package:keel_ui/src/modules/agents/viewmodel/agents_viewmodel.dart';
 import 'package:keel_ui/src/modules/agents/ui/view/agent_rail.dart';
 import 'package:keel_ui/src/modules/agents/ui/view/chat_view.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/empty_chat_placeholder.dart';
+import 'package:keel_ui/src/modules/knowledge/ui/screen/knowledge_screen.dart';
+import 'package:keel_ui/src/modules/mcp_servers/ui/screen/mcp_servers_screen.dart';
 import 'package:keel_ui/src/modules/rules/ui/screen/rules_screen.dart';
+import 'package:keel_ui/src/modules/secrets/ui/screen/secrets_screen.dart';
 import 'package:keel_ui/src/modules/skills/ui/screen/skills_screen.dart';
 import 'package:keel_ui/src/modules/stations/model/station.dart';
 import 'package:keel_ui/src/modules/stations/ui/screen/station_form_screen.dart';
@@ -16,6 +19,7 @@ import 'package:keel_ui/src/modules/stations/ui/screen/stations_screen.dart';
 import 'package:keel_ui/src/modules/stations/ui/view/station_chat_view.dart';
 import 'package:keel_ui/src/modules/stations/ui/view/stations_sidebar.dart';
 import 'package:keel_ui/src/modules/stations/viewmodel/stations_viewmodel.dart';
+import 'package:keel_ui/src/modules/tools/ui/screen/tools_screen.dart';
 import 'package:keel_ui/src/modules/workflows/ui/screen/workflows_screen.dart';
 
 /// Which conversation the content area shows: a 1:1 agent chat or a station
@@ -62,6 +66,18 @@ class _AgentsScreenState extends State<AgentsScreen> {
                         showFormPanel(context, child: const SkillsScreen()),
                     onOpenRules: () =>
                         showFormPanel(context, child: const RulesScreen()),
+                    onOpenTools: () =>
+                        showFormPanel(context, child: const ToolsScreen()),
+                    onOpenSecrets: () =>
+                        showFormPanel(context, child: const SecretsScreen()),
+                    onOpenMcpServers: () => showFormPanel(
+                      context,
+                      child: const McpServersScreen(),
+                    ),
+                    onOpenKnowledge: () => showFormPanel(
+                      context,
+                      child: const KnowledgeScreen(),
+                    ),
                     onOpenWorkflows: () =>
                         showFormPanel(context, child: const WorkflowsScreen()),
                   ),

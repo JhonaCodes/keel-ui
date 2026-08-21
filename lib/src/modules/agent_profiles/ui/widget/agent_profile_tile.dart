@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
 import 'package:keel_ui/src/modules/agent_profiles/viewmodel/agent_profiles_viewmodel.dart';
 import 'package:keel_ui/src/modules/agent_profiles/ui/screen/agent_profile_form_screen.dart';
-import 'package:keel_ui/src/modules/agents/model/claude_model_option.dart';
+import 'package:keel_ui/src/modules/agents/model/agent_model_option.dart';
 import 'package:keel_ui/src/modules/agents/model/effort_level.dart';
 
 class AgentProfileTile extends StatelessWidget {
@@ -53,7 +53,8 @@ class AgentProfileTile extends StatelessWidget {
         children: [
           if (profile.role.isNotEmpty) Text(profile.role),
           Text(
-            '${claudeModelLabel(profile.model)} · ${effortLabel(profile.effort)}',
+            '${modelLabelFor(profile.provider, profile.model)} · '
+            '${effortLabel(profile.effort)}',
             style: Theme.of(context).textTheme.bodySmall,
           ),
           if (profile.skills.isNotEmpty)

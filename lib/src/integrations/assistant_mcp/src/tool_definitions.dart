@@ -91,9 +91,10 @@ final List<Tool> keelAiTools = [
     description:
         'Registra que el sistema necesita una clave/credencial (API key, '
         'token, etc.). Crea el secret como PENDIENTE: el VALOR solo lo puede '
-        'cargar el usuario desde la pantalla de Secrets — nunca lo pidas por '
-        'chat ni lo aceptes si te lo pegan (deciles que lo carguen en la '
-        'pantalla). Idempotente por nombre.',
+        'cargar el usuario, con el botón «Cargar valor» de la pantalla de '
+        'Secrets o del formulario de la tool/MCP que lo declara — nunca lo '
+        'pidas por chat ni lo aceptes si te lo pegan (deciles que usen ese '
+        'botón). Idempotente por nombre.',
     inputSchema: ObjectSchema(
       properties: {
         'name': Schema.string(

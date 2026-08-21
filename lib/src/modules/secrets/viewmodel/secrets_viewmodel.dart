@@ -49,6 +49,15 @@ class SecretsViewModel extends ViewModel<SecretsState> {
       if (names.contains(secret.name) && secret.isPending) secret.name,
   ];
 
+  /// Names in [names] with no secret registered under them at all — a
+  /// dangling grant left by deleting a secret a tool or MCP still declares.
+  /// Like a pending one it is skipped at injection time, but the fix is the
+  /// opposite: drop the grant, or register the secret again.
+  List<String> missingOf(List<String> names) {
+    final registered = {for (final secret in data.secrets) secret.name};
+    return names.where((name) => !registered.contains(name)).toList();
+  }
+
   /// Registers a secret from the UI. Returns a user-facing error message on
   /// failure, or null on success.
   String? createSecret({

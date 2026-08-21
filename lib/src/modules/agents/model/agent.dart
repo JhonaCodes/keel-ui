@@ -8,6 +8,7 @@ import 'package:keel_ui/src/modules/agents/model/chat_message.dart';
 import 'package:keel_ui/src/modules/agents/model/effort_level.dart';
 import 'package:keel_ui/src/modules/agents/model/file_edit.dart';
 import 'package:keel_ui/src/modules/agents/model/permission_request.dart';
+import 'package:keel_ui/src/modules/agents/model/queued_message.dart';
 
 class Agent {
   final String id;
@@ -29,6 +30,13 @@ class Agent {
   final FileEdit? pendingUserEdit;
   final String? profileId;
 
+  /// What the user typed while this agent was streaming, waiting to go out
+  /// as the next turn. Transient like [isStreaming] and never serialized: a
+  /// queue is only meaningful next to the turn it was typed during, and a
+  /// message resurrected three launches later would be sent into a
+  /// conversation that has moved on.
+  final List<QueuedMessage> queuedMessages;
+
   const Agent({
     required this.id,
     required this.name,
@@ -48,6 +56,7 @@ class Agent {
     this.contextWindowTokens,
     this.pendingUserEdit,
     this.profileId,
+    this.queuedMessages = const [],
   });
 
   double? get contextUsageRatio {
@@ -76,6 +85,7 @@ class Agent {
     FileEdit? pendingUserEdit,
     bool clearPendingUserEdit = false,
     String? profileId,
+    List<QueuedMessage>? queuedMessages,
   }) {
     return Agent(
       id: id,
@@ -104,6 +114,7 @@ class Agent {
           ? null
           : (pendingUserEdit ?? this.pendingUserEdit),
       profileId: profileId ?? this.profileId,
+      queuedMessages: queuedMessages ?? this.queuedMessages,
     );
   }
 
@@ -169,7 +180,8 @@ class Agent {
           contextUsedTokens == other.contextUsedTokens &&
           contextWindowTokens == other.contextWindowTokens &&
           pendingUserEdit == other.pendingUserEdit &&
-          profileId == other.profileId;
+          profileId == other.profileId &&
+          listEquals(queuedMessages, other.queuedMessages);
 
   @override
   int get hashCode => Object.hash(
@@ -190,6 +202,7 @@ class Agent {
     Object.hash(contextUsedTokens, contextWindowTokens),
     pendingUserEdit,
     profileId,
+    Object.hashAll(queuedMessages),
   );
 
   @override
@@ -201,7 +214,8 @@ class Agent {
       'effort: $effort, currentActivity: $currentActivity, '
       'pendingPermission: $pendingPermission, liveReasoning: $liveReasoning, '
       'contextUsedTokens: $contextUsedTokens, contextWindowTokens: $contextWindowTokens, '
-      'pendingUserEdit: $pendingUserEdit, profileId: $profileId)';
+      'pendingUserEdit: $pendingUserEdit, profileId: $profileId, '
+      'queued: ${queuedMessages.length})';
 }
 
 class AgentsState {

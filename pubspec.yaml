@@ -51,6 +51,7 @@ dependencies:
   flutter_local_db: ^1.5.1
   dart_mcp: ^0.5.2
   stream_channel: ^2.1.4
+  desktop_drop: ^0.8.0
 
 dev_dependencies:
   flutter_test:

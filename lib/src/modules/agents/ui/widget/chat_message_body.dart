@@ -3,6 +3,7 @@ import 'package:gpt_markdown/custom_widgets/code_field.dart';
 import 'package:gpt_markdown/gpt_markdown.dart';
 
 import 'package:keel_ui/src/modules/agents/model/chat_message.dart';
+import 'package:keel_ui/src/modules/agents/ui/widget/chat_image_attachments.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/mermaid_diagram.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/svg_diagram.dart';
 
@@ -26,6 +27,8 @@ class ChatMessageBody extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // Above the text: what you attached is what you were talking about.
+        ChatImageAttachments(paths: message.imagePaths),
         GptMarkdown(
           message.text,
           style: TextStyle(color: foreground, fontSize: 14 * fontScale),

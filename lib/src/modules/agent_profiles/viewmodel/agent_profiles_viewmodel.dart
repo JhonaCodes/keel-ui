@@ -129,6 +129,40 @@ class AgentProfilesViewModel extends ViewModel<AgentProfilesState> {
     return null;
   }
 
+  /// Whether Keel AI's reserved profile currently carries [serverName].
+  bool keelAiUsesMcpServer(String serverName) {
+    final keelAi = data.profiles
+        .where((profile) => profile.name == kKeelAiHandle)
+        .firstOrNull;
+    return keelAi?.mcpServers.contains(serverName) ?? false;
+  }
+
+  /// Grants or revokes an external MCP for Keel AI's reserved profile.
+  ///
+  /// The reserved profile is hidden from the profiles screen because its
+  /// systemPrompt is app-owned and re-synced on every launch, so an edit
+  /// there would silently revert. Its INTEGRATIONS are not re-synced —
+  /// only the prompt is (see `syncReservedProfilePrompt`) — so granting one
+  /// here sticks. Without this the assistant could never use a registered
+  /// MCP: no screen in the app reaches that profile.
+  void setKeelAiMcpServer(String serverName, {required bool enabled}) {
+    final index = data.profiles.indexWhere(
+      (profile) => profile.name == kKeelAiHandle,
+    );
+    if (index == -1) return;
+
+    final current = data.profiles[index].mcpServers;
+    if (current.contains(serverName) == enabled) return;
+
+    final servers = enabled
+        ? [...current, serverName]
+        : current.where((name) => name != serverName).toList();
+    final profiles = [...data.profiles];
+    profiles[index] = profiles[index].copyWith(mcpServers: servers);
+    updateState(data.copyWith(profiles: profiles));
+    unawaited(_repository.save(profiles));
+  }
+
   /// Refuses to delete the reserved system-assistant profile — nothing in
   /// the UI offers this on purpose, but the check stays here too since
   /// [deleteProfile] is the actual point of no return.

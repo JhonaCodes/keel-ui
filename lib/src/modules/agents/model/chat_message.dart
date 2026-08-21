@@ -22,6 +22,13 @@ class ChatMessage {
   final String? reasoning;
   final List<FileEdit> fileEdits;
 
+  /// Images the user attached to this message, as paths inside app storage
+  /// (see `ChatAttachmentStore`) — never the original path they were
+  /// dragged from, which is often a temp folder the OS wipes. The bubble
+  /// renders them as bounded previews; the model gets the PATHS in the
+  /// prompt and reads the bytes itself with its Read tool.
+  final List<String> imagePaths;
+
   /// Which registered profile wrote this, when the thread has more than one
   /// author (a workstation channel). Null in a 1:1 agent chat, where the
   /// single assistant needs no attribution.
@@ -43,6 +50,7 @@ class ChatMessage {
     this.durationMs,
     this.reasoning,
     this.fileEdits = const [],
+    this.imagePaths = const [],
     this.authorProfileId,
     this.stepIndex,
     this.consultOfProfileId,
@@ -56,6 +64,7 @@ class ChatMessage {
     'durationMs': durationMs,
     'reasoning': reasoning,
     'fileEdits': fileEdits.map((edit) => edit.toJson()).toList(),
+    'imagePaths': imagePaths,
     'authorProfileId': authorProfileId,
     'stepIndex': stepIndex,
     'consultOfProfileId': consultOfProfileId,
@@ -74,6 +83,7 @@ class ChatMessage {
               ?.map((entry) => FileEdit.fromJson(entry as Map<String, dynamic>))
               .toList() ??
           const [],
+      imagePaths: (json['imagePaths'] as List?)?.cast<String>() ?? const [],
       authorProfileId: json['authorProfileId'] as String?,
       stepIndex: json['stepIndex'] as int?,
       consultOfProfileId: json['consultOfProfileId'] as String?,
@@ -92,6 +102,7 @@ class ChatMessage {
           durationMs == other.durationMs &&
           reasoning == other.reasoning &&
           listEquals(fileEdits, other.fileEdits) &&
+          listEquals(imagePaths, other.imagePaths) &&
           authorProfileId == other.authorProfileId &&
           stepIndex == other.stepIndex &&
           consultOfProfileId == other.consultOfProfileId;
@@ -105,6 +116,7 @@ class ChatMessage {
     durationMs,
     reasoning,
     Object.hashAll(fileEdits),
+    Object.hashAll(imagePaths),
     authorProfileId,
     stepIndex,
     consultOfProfileId,
@@ -114,5 +126,6 @@ class ChatMessage {
   String toString() =>
       'ChatMessage(role: $role, text: $text, timestamp: $timestamp, costUsd: $costUsd, '
       'durationMs: $durationMs, reasoning: $reasoning, fileEdits: ${fileEdits.length}, '
+      'images: ${imagePaths.length}, '
       'author: $authorProfileId, step: $stepIndex, consultOf: $consultOfProfileId)';
 }

@@ -37,6 +37,30 @@ Pantalla "Integraciones MCP" (icono hub en el rail): lista con transporte y
 destino, formulario con campos condicionales por transporte y picker de
 secrets (clave env = nombre del secret; mapeos distintos vía keelai).
 
+El picker no solo elige: carga el valor de un secret pendiente, lo cambia o
+lo elimina sin salir del formulario (F4, "Dónde se carga el valor"), y avisa
+antes de guardar si el MCP quedaría sin la clave. La lista marca "falta la
+clave" en los MCPs con secrets sin resolver.
+
+**Sin campo de env literal.** El formulario tenía un textarea "Variables de
+entorno NO sensibles" al lado de la sección Secrets, y leído en la pantalla
+eran dos lugares para lo mismo — la pregunta era cuál de los dos usar para
+la API key. En la UI hay UNA sola vía de entorno: Secrets. El campo `env`
+sigue existiendo en el modelo para `register_mcp_server` (un MCP puede
+necesitar un `NODE_ENV`), y al guardar desde el formulario se conserva tal
+cual estaba en vez de borrarse.
+
+**Switch "Dárselo a Keel AI".** Registrar un MCP no lo habilita: un agente
+solo lo ve si su perfil lo lleva. A los agentes normales se les asigna
+desde su formulario de perfil, pero el perfil del asistente está oculto de
+esa pantalla (su systemPrompt es de la app y se re-sincroniza en cada
+arranque) y `create_or_update_agent` rechaza el handle reservado — o sea
+que Keel AI no puede asignárselo ni a mano ni pidiéndoselo a sí mismo. El
+switch del formulario es la única vía: escribe el nombre del server en
+`mcpServers` del perfil reservado
+(`AgentProfilesViewModel.setKeelAiMcpServer`), que NO se re-sincroniza, así
+que el grant persiste. Aplica al turno siguiente.
+
 ## Límite
 
 Los agentes codex (F6) no reciben MCPs externos en v1 (su config va por

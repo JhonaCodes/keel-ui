@@ -19,11 +19,17 @@ class ChatMessageBubble extends StatelessWidget {
     super.key,
     required this.message,
     required this.agentId,
+    required this.agentColor,
     this.actions = const LocalChatActions(),
   });
 
   final ChatMessage message;
   final String agentId;
+
+  /// The agent's own colour, so a system trace line ("Creé la skill …") is
+  /// visibly ITS trace and not an anonymous app notice.
+  final Color agentColor;
+
   final ChatActions actions;
 
   @override
@@ -33,6 +39,7 @@ class ChatMessageBubble extends StatelessWidget {
       build: (settings, viewmodel, keep) => _ChatMessageBubbleContent(
         message: message,
         agentId: agentId,
+        agentColor: agentColor,
         actions: actions,
         fontScale: settings.chatFontScale,
       ),
@@ -44,12 +51,14 @@ class _ChatMessageBubbleContent extends StatelessWidget {
   const _ChatMessageBubbleContent({
     required this.message,
     required this.agentId,
+    required this.agentColor,
     required this.actions,
     required this.fontScale,
   });
 
   final ChatMessage message;
   final String agentId;
+  final Color agentColor;
   final ChatActions actions;
   final double fontScale;
 
@@ -70,15 +79,21 @@ class _ChatMessageBubbleContent extends StatelessWidget {
       );
     }
 
+    // Left, with the thread — centred it read as a divider between
+    // messages rather than as one more thing the agent did.
     if (message.role == ChatRole.system) {
       return Align(
-        alignment: Alignment.center,
+        alignment: Alignment.centerLeft,
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 6),
           child: InfoLabel(
             text: message.text,
             typeInfoLabel: TypeInfoLabel.neutral,
-            leftIcon: const Icon(Icons.smart_toy_outlined, size: 14),
+            leftIcon: Icon(
+              Icons.smart_toy_outlined,
+              size: 14,
+              color: agentColor,
+            ),
             fontSize: 12 * fontScale,
           ),
         ),

@@ -116,7 +116,10 @@ class _SidebarList extends StatelessWidget {
           ReactiveViewModelBuilder<AgentsViewModel, AgentsState>(
             viewmodel: AgentsService.instance.notifier,
             build: (state, viewmodel, keep) {
-              if (state.agents.isEmpty) {
+              // Sin las sesiones de Keel AI: el asistente vive en su ventana
+              // flotante, no acá entre los agentes que registró el usuario.
+              final agents = viewmodel.listableAgents;
+              if (agents.isEmpty) {
                 return Padding(
                   padding: const EdgeInsets.fromLTRB(14, 2, 14, 8),
                   child: Text(
@@ -128,7 +131,7 @@ class _SidebarList extends StatelessWidget {
               }
               return Column(
                 children: [
-                  for (final agent in state.agents)
+                  for (final agent in agents)
                     _LooseAgentRow(
                       agent: agent,
                       selected:

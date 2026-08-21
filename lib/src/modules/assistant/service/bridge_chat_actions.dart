@@ -17,8 +17,23 @@ class BridgeChatActions extends ChatActions {
   }
 
   @override
-  void sendMessage(String agentId, String text) =>
-      _invoke('sendMessage', {'agentId': agentId, 'text': text});
+  void sendMessage(
+    String agentId,
+    String text, {
+    List<String> imagePaths = const [],
+  }) => _invoke('sendMessage', {
+    'agentId': agentId,
+    'text': text,
+    'imagePaths': imagePaths,
+  });
+
+  @override
+  void sendQueuedMessages(String agentId) =>
+      _invoke('sendQueued', {'agentId': agentId});
+
+  @override
+  void removeQueuedMessage(String agentId, int index) =>
+      _invoke('removeQueued', {'agentId': agentId, 'index': index});
 
   @override
   void stopAgent(String agentId) => _invoke('stop', {'agentId': agentId});

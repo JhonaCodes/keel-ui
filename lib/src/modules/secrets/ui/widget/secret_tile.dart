@@ -1,40 +1,13 @@
 import 'package:flutter/material.dart';
 
 import 'package:keel_ui/src/modules/secrets/model/secret.dart';
-import 'package:keel_ui/src/modules/secrets/viewmodel/secrets_viewmodel.dart';
 import 'package:keel_ui/src/modules/secrets/ui/screen/secret_form_screen.dart';
+import 'package:keel_ui/src/modules/secrets/ui/widget/secret_delete_dialog.dart';
 
 class SecretTile extends StatelessWidget {
   const SecretTile({super.key, required this.secret});
 
   final Secret secret;
-
-  Future<void> _confirmAndDelete(BuildContext context) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Eliminar secret'),
-        content: Text(
-          'Se eliminará "${secret.name}". Las tools y MCPs que lo declaran '
-          'dejarán de recibirlo.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Eliminar'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed ?? false) {
-      SecretsService.instance.notifier.deleteSecret(secret.id);
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -78,7 +51,7 @@ class SecretTile extends StatelessWidget {
           IconButton(
             tooltip: 'Eliminar',
             icon: const Icon(Icons.delete_outline),
-            onPressed: () => _confirmAndDelete(context),
+            onPressed: () => confirmDeleteSecret(context, secret),
           ),
         ],
       ),

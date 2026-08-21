@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:logger_rs/logger_rs.dart';
 
 import 'package:keel_ui/src/core/services/claude_cli_service.dart';
+import 'package:keel_ui/src/modules/agents/model/agent_model_option.dart';
 
 /// Drives the local `codex` CLI (OpenAI Codex) as a subprocess, emitting the
 /// SAME [ClaudeEvent] stream the claude adapter emits so every consumer
@@ -18,8 +19,10 @@ import 'package:keel_ui/src/core/services/claude_cli_service.dart';
 /// - No effort levels, no `--allowedTools`, no MCP config per turn (codex
 ///   MCP lives in its own TOML config) → those inputs simply don't exist in
 ///   this adapter's signature.
-/// - `model` is NOT forwarded: the app's model aliases are Claude's; codex
-///   uses the default model from the user's own codex config.
+/// - `model` IS forwarded as `-m`, but only when it is a codex model: the
+///   catalogs are per provider now (`agent_model_option.dart`), and an
+///   empty alias — or a leftover Claude one — means "let codex resolve it
+///   from `~/.codex/config.toml`".
 /// - Sandbox mapping: full access → `danger-full-access`, otherwise
 ///   `workspace-write`.
 class CodexCliService {
@@ -27,6 +30,7 @@ class CodexCliService {
     required String prompt,
     required String workingDirectory,
     required bool fullFileSystemAccess,
+    String model = kCodexDefaultModelAlias,
     String? sessionId,
     String? additionalSystemPrompt,
     void Function(Process process)? onProcessStarted,
@@ -41,9 +45,15 @@ class CodexCliService {
               '$prompt'
         : prompt;
 
+    // Null when the agent carries no model, or a Claude alias left over from
+    // before the model catalogs were split per provider: codex would reject
+    // `-m sonnet`, so it falls back to the model in the user's codex config.
+    final modelArgument = codexModelArgument(model);
+
     final arguments = [
       'exec',
       if (sessionId != null) ...['resume', sessionId],
+      if (modelArgument != null) ...['-m', modelArgument],
       '--json',
       '--skip-git-repo-check',
       '-s',

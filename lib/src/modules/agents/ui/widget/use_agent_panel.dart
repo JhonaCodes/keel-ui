@@ -6,7 +6,7 @@ import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
 import 'package:keel_ui/src/modules/agent_profiles/viewmodel/agent_profiles_viewmodel.dart';
 import 'package:keel_ui/src/modules/agent_profiles/ui/screen/agent_profile_form_screen.dart';
 import 'package:keel_ui/src/modules/agents/model/effort_level.dart';
-import 'package:keel_ui/src/modules/agents/model/claude_model_option.dart';
+import 'package:keel_ui/src/modules/agents/model/agent_model_option.dart';
 import 'package:keel_ui/src/modules/agents/viewmodel/agents_viewmodel.dart';
 
 Future<void> openUseAgentPanel(BuildContext context) {
@@ -127,7 +127,7 @@ class _ProfileRow extends StatelessWidget {
         [
           if (profile.role.isNotEmpty) profile.role,
           profile.provider.label,
-          claudeModelLabel(profile.model),
+          modelLabelFor(profile.provider, profile.model),
           effortLabel(profile.effort),
         ].join(' · '),
         style: Theme.of(context).textTheme.bodySmall,

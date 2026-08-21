@@ -58,6 +58,19 @@ todo snapshot es completo e idempotente.
   `ChatView` con `actions: BridgeChatActions()`.
 - `PermissionRequest` y `AgentToolActivity` ganaron toJson/fromJson (wire).
 
+## El asistente NO aparece en las listas de agentes
+
+Sus sesiones se filtran en las dos superficies que listan agentes: el rail
+(por `keelAiProfileId`) y la sección "Agentes sueltos" del sidebar de
+estaciones (por `AgentsViewModel.listableAgents`, que es la regla en un
+solo lugar). Keel AI vive en su ventana flotante y en ningún otro lado —
+mezclar sus sesiones con los agentes que registró el usuario es
+exactamente la confusión que esa ventana existe para evitar.
+
+Tampoco puede quedar seleccionado en el área de conversación:
+`createAgentSilently` no toca `selectedAgentId`, así que una sesión keelai
+nunca se convierte en el agente activo de la ventana principal.
+
 ## Flujos
 
 - **Abrir**: ✨ del rail → `AssistantWindowBridge.instance.open()` (resuelve

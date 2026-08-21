@@ -73,7 +73,22 @@ class AssistantWindowBridge {
         return _encodeWireState();
 
       case 'sendMessage':
-        unawaited(_agents.sendMessage(agentId!, payload['text'] as String));
+        unawaited(
+          _agents.sendMessage(
+            agentId!,
+            payload['text'] as String,
+            imagePaths:
+                (payload['imagePaths'] as List?)?.cast<String>() ?? const [],
+          ),
+        );
+        return null;
+
+      case 'sendQueued':
+        unawaited(_agents.sendQueuedMessages(agentId!));
+        return null;
+
+      case 'removeQueued':
+        _agents.removeQueuedMessage(agentId!, payload['index'] as int);
         return null;
 
       case 'stop':

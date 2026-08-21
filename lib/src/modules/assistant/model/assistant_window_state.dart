@@ -6,6 +6,7 @@ import 'package:keel_ui/src/modules/agents/model/agent_icon_colors.dart';
 import 'package:keel_ui/src/modules/agents/model/agent_tool_activity.dart';
 import 'package:keel_ui/src/modules/agents/model/chat_message.dart';
 import 'package:keel_ui/src/modules/agents/model/permission_request.dart';
+import 'package:keel_ui/src/modules/agents/model/queued_message.dart';
 
 /// Wire model for the assistant window bridge: the full [Agent] state the
 /// dedicated Keel AI window needs to render, TRANSIENTS INCLUDED — which is
@@ -31,6 +32,11 @@ class AssistantAgentSnapshot {
   final int? contextUsedTokens;
   final int? contextWindowTokens;
 
+  /// Typed during the current turn, waiting to go out as the next one — on
+  /// the wire so the assistant window renders the same pending strip the
+  /// main window does.
+  final List<QueuedMessage> queuedMessages;
+
   const AssistantAgentSnapshot({
     required this.id,
     required this.name,
@@ -45,6 +51,7 @@ class AssistantAgentSnapshot {
     this.pendingPermission,
     this.contextUsedTokens,
     this.contextWindowTokens,
+    this.queuedMessages = const [],
   });
 
   factory AssistantAgentSnapshot.fromAgent(Agent agent) {
@@ -65,6 +72,7 @@ class AssistantAgentSnapshot {
       pendingPermission: agent.pendingPermission,
       contextUsedTokens: agent.contextUsedTokens,
       contextWindowTokens: agent.contextWindowTokens,
+      queuedMessages: agent.queuedMessages,
     );
   }
 
@@ -87,6 +95,7 @@ class AssistantAgentSnapshot {
       liveReasoning: liveReasoning,
       contextUsedTokens: contextUsedTokens,
       contextWindowTokens: contextWindowTokens,
+      queuedMessages: queuedMessages,
     );
   }
 
@@ -118,6 +127,7 @@ class AssistantAgentSnapshot {
     'pendingPermission': pendingPermission?.toJson(),
     'contextUsedTokens': contextUsedTokens,
     'contextWindowTokens': contextWindowTokens,
+    'queuedMessages': queuedMessages.map((entry) => entry.toJson()).toList(),
   };
 
   factory AssistantAgentSnapshot.fromJson(Map<String, dynamic> json) {
@@ -147,6 +157,14 @@ class AssistantAgentSnapshot {
             ),
       contextUsedTokens: json['contextUsedTokens'] as int?,
       contextWindowTokens: json['contextWindowTokens'] as int?,
+      queuedMessages:
+          (json['queuedMessages'] as List?)
+              ?.map(
+                (entry) =>
+                    QueuedMessage.fromJson(entry as Map<String, dynamic>),
+              )
+              .toList() ??
+          const [],
     );
   }
 
@@ -167,7 +185,8 @@ class AssistantAgentSnapshot {
           currentActivity == other.currentActivity &&
           pendingPermission == other.pendingPermission &&
           contextUsedTokens == other.contextUsedTokens &&
-          contextWindowTokens == other.contextWindowTokens;
+          contextWindowTokens == other.contextWindowTokens &&
+          listEquals(queuedMessages, other.queuedMessages);
 
   @override
   int get hashCode => Object.hash(
@@ -184,6 +203,7 @@ class AssistantAgentSnapshot {
     pendingPermission,
     contextUsedTokens,
     contextWindowTokens,
+    Object.hashAll(queuedMessages),
   );
 
   @override

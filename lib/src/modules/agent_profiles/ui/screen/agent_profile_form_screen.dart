@@ -5,7 +5,7 @@ import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
 import 'package:keel_ui/src/modules/agent_profiles/viewmodel/agent_profiles_viewmodel.dart';
 import 'package:keel_ui/src/modules/agent_profiles/ui/widget/role_field.dart';
 import 'package:keel_ui/src/modules/agents/model/agent_provider.dart';
-import 'package:keel_ui/src/modules/agents/model/claude_model_option.dart';
+import 'package:keel_ui/src/modules/agents/model/agent_model_option.dart';
 import 'package:keel_ui/src/modules/mcp_servers/ui/widget/mcp_server_multi_select.dart';
 import 'package:keel_ui/src/modules/agents/model/effort_level.dart';
 import 'package:keel_ui/src/modules/rules/ui/widget/rule_multi_select.dart';
@@ -48,7 +48,13 @@ class _AgentProfileFormScreenState extends State<AgentProfileFormScreen> {
   late bool _canManageSystem = widget.initial?.canManageSystem ?? false;
   late AgentProvider _provider =
       widget.initial?.provider ?? AgentProvider.claude;
-  late String _model = widget.initial?.model ?? kDefaultClaudeModelAlias;
+  /// Normalized against the provider: a codex agent created before the
+  /// catalogs were split still carries a Claude alias, and offering it back
+  /// would keep a value codex cannot run.
+  late String _model = initialModelFor(
+    widget.initial?.provider ?? AgentProvider.claude,
+    widget.initial?.model ?? kDefaultClaudeModelAlias,
+  );
   late String _effort = widget.initial?.effort ?? kDefaultEffortAlias;
   String? _nameError;
   String? _formError;
@@ -207,8 +213,8 @@ class _AgentProfileFormScreenState extends State<AgentProfileFormScreen> {
                   initialValue: _provider,
                   decoration: const InputDecoration(
                     labelText:
-                        'Proveedor (codex: sin tools/MCPs/esfuerzo; usa el '
-                        'modelo de su propia config)',
+                        'Proveedor (codex: sin tools/MCPs/esfuerzo, y sus '
+                        'propios modelos)',
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.all(Radius.circular(16)),
                     ),
@@ -222,20 +228,27 @@ class _AgentProfileFormScreenState extends State<AgentProfileFormScreen> {
                   ],
                   onChanged: (value) {
                     if (value == null) return;
-                    setState(() => _provider = value);
+                    // The two CLIs share no model names, so the current pick
+                    // means nothing to the new provider: fall back to its
+                    // own default instead of carrying a foreign alias over.
+                    setState(() {
+                      _provider = value;
+                      _model = defaultModelFor(value);
+                    });
                   },
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
+                  key: ValueKey(_provider),
                   initialValue: _model,
-                  decoration: const InputDecoration(
-                    labelText: 'Modelo por defecto',
-                    border: OutlineInputBorder(
+                  decoration: InputDecoration(
+                    labelText: 'Modelo por defecto (${_provider.label})',
+                    border: const OutlineInputBorder(
                       borderRadius: BorderRadius.all(Radius.circular(16)),
                     ),
                   ),
                   items: [
-                    for (final option in kClaudeModelOptions)
+                    for (final option in modelOptionsFor(_provider))
                       DropdownMenuItem(
                         value: option.alias,
                         child: Text(option.label),

@@ -109,10 +109,16 @@ Future<void> _runInIsolate({
             '${spec.prompt}'
       : spec.prompt;
 
+  // Same rule as CodexCliService: only a codex model reaches `-m`. A member
+  // carrying a Claude alias (every codex agent created before the catalogs
+  // were split per provider) falls back to the codex config's model.
+  final codexModel = codexModelArgument(spec.model);
+
   final arguments = isCodex
       ? [
           'exec',
           if (spec.sessionId != null) ...['resume', spec.sessionId!],
+          if (codexModel != null) ...['-m', codexModel],
           '--json',
           '--skip-git-repo-check',
           '-s',

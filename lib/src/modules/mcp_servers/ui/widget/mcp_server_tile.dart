@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:keel_ui/src/modules/mcp_servers/model/mcp_server_config.dart';
 import 'package:keel_ui/src/modules/mcp_servers/viewmodel/mcp_servers_viewmodel.dart';
 import 'package:keel_ui/src/modules/mcp_servers/ui/screen/mcp_server_form_screen.dart';
+import 'package:keel_ui/src/modules/secrets/ui/widget/pending_secrets_badge.dart';
 
 class McpServerTile extends StatelessWidget {
   const McpServerTile({super.key, required this.server});
@@ -49,7 +50,13 @@ class McpServerTile extends StatelessWidget {
         label: Text(server.transport.label),
         visualDensity: VisualDensity.compact,
       ),
-      title: Text(server.name),
+      title: Row(
+        children: [
+          Flexible(child: Text(server.name, overflow: TextOverflow.ellipsis)),
+          const SizedBox(width: 8),
+          PendingSecretsBadge(secretNames: server.secretNames),
+        ],
+      ),
       subtitle: Text(detail, maxLines: 1, overflow: TextOverflow.ellipsis),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,

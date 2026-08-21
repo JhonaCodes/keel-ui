@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:keel_ui/src/core/ui/form_panel.dart';
+import 'package:keel_ui/src/modules/agent_profiles/viewmodel/agent_profiles_viewmodel.dart';
 import 'package:keel_ui/src/modules/mcp_servers/model/mcp_server_config.dart';
 import 'package:keel_ui/src/modules/mcp_servers/viewmodel/mcp_servers_viewmodel.dart';
 import 'package:keel_ui/src/modules/secrets/ui/widget/secret_multi_select.dart';
@@ -34,12 +35,7 @@ class _McpServerFormScreenState extends State<McpServerFormScreen> {
   late final _argsController = TextEditingController(
     text: widget.initial?.args.join(' '),
   );
-  late final _envController = TextEditingController(
-    text: formatKeyValueLines(widget.initial?.env ?? const {}),
-  );
-  late final _urlController = TextEditingController(
-    text: widget.initial?.url,
-  );
+  late final _urlController = TextEditingController(text: widget.initial?.url);
   late final _headersController = TextEditingController(
     text: formatKeyValueLines(widget.initial?.headers ?? const {}),
   );
@@ -50,6 +46,17 @@ class _McpServerFormScreenState extends State<McpServerFormScreen> {
   /// API keys. A different env key can be mapped by editing the config via
   /// Keel AI (`register_mcp_server`), not from this form.
   late List<String> _secretNames = [...?widget.initial?.secretEnv.values];
+
+  /// Registering an MCP is not enough for anyone to use it: an agent only
+  /// sees it if its profile carries it. The assistant's profile is hidden
+  /// from the profiles screen, so this switch is the only way to hand it
+  /// one — without it, a registered MCP is invisible to Keel AI forever.
+  late bool _availableToKeelAi =
+      widget.initial != null &&
+      AgentProfilesService.instance.notifier.keelAiUsesMcpServer(
+        widget.initial!.name,
+      );
+
   String? _nameError;
   String? _formError;
 
@@ -58,7 +65,6 @@ class _McpServerFormScreenState extends State<McpServerFormScreen> {
     _nameController.dispose();
     _commandController.dispose();
     _argsController.dispose();
-    _envController.dispose();
     _urlController.dispose();
     _headersController.dispose();
     super.dispose();
@@ -94,7 +100,7 @@ class _McpServerFormScreenState extends State<McpServerFormScreen> {
             transport: _transport,
             command: _commandController.text,
             args: args,
-            env: parseKeyValueLines(_envController.text),
+            env: const {},
             secretEnv: secretEnv,
             url: _urlController.text,
             headers: parseKeyValueLines(_headersController.text),
@@ -105,7 +111,11 @@ class _McpServerFormScreenState extends State<McpServerFormScreen> {
             transport: _transport,
             command: _commandController.text,
             args: args,
-            env: parseKeyValueLines(_envController.text),
+            // Literal env vars have no field in this form on purpose —
+            // credentials go through Secrets and nothing else needed one.
+            // Whatever `register_mcp_server` stored is carried through
+            // untouched instead of being silently wiped on save.
+            env: initial.env,
             secretEnv: secretEnv,
             url: _urlController.text,
             headers: parseKeyValueLines(_headersController.text),
@@ -115,6 +125,12 @@ class _McpServerFormScreenState extends State<McpServerFormScreen> {
       setState(() => _formError = error);
       return;
     }
+
+    // After the name is final: the grant is stored by NAME.
+    AgentProfilesService.instance.notifier.setKeelAiMcpServer(
+      name,
+      enabled: _availableToKeelAi,
+    );
     Navigator.of(context).pop();
   }
 
@@ -202,25 +218,9 @@ class _McpServerFormScreenState extends State<McpServerFormScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  TextField(
-                    controller: _envController,
-                    minLines: 2,
-                    maxLines: 6,
-                    decoration: const InputDecoration(
-                      labelText:
-                          'Variables de entorno NO sensibles (KEY=valor, '
-                          'una por línea)',
-                      alignLabelWithHint: true,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.all(Radius.circular(16)),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
                   SecretMultiSelect(
                     selectedNames: _secretNames,
-                    onChanged: (names) =>
-                        setState(() => _secretNames = names),
+                    onChanged: (names) => setState(() => _secretNames = names),
                   ),
                 ] else ...[
                   TextField(
@@ -246,6 +246,19 @@ class _McpServerFormScreenState extends State<McpServerFormScreen> {
                     ),
                   ),
                 ],
+                const SizedBox(height: 16),
+                SwitchListTile(
+                  value: _availableToKeelAi,
+                  onChanged: (value) =>
+                      setState(() => _availableToKeelAi = value),
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Dárselo a Keel AI (el asistente)'),
+                  subtitle: const Text(
+                    'Registrar el MCP no basta: un agente solo lo ve si lo '
+                    'tiene asignado. Al resto de los agentes se les asigna '
+                    'desde su perfil.',
+                  ),
+                ),
                 if (_formError != null) ...[
                   const SizedBox(height: 12),
                   Text(

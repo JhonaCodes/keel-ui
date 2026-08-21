@@ -19,6 +19,7 @@ import 'package:keel_ui/src/modules/agents/model/chat_message.dart';
 import 'package:keel_ui/src/modules/agents/model/file_edit.dart';
 import 'package:keel_ui/src/modules/agents/model/line_diff.dart';
 import 'package:keel_ui/src/modules/agents/model/permission_request.dart';
+import 'package:keel_ui/src/modules/agents/model/queued_message.dart';
 import 'package:keel_ui/src/modules/agents/repository/agents_repository.dart';
 import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
 import 'package:keel_ui/src/modules/agent_profiles/viewmodel/agent_profiles_viewmodel.dart';
@@ -300,12 +301,33 @@ class AgentsViewModel extends ViewModel<AgentsState> {
     );
   }
 
-  Future<void> sendMessage(String agentId, String text) async {
+  /// [imagePaths] are attachments already stored by [ChatAttachmentStore].
+  /// A message carrying only images and no text is legitimate — dropping a
+  /// screenshot and hitting send is the whole point of the feature.
+  Future<void> sendMessage(
+    String agentId,
+    String text, {
+    List<String> imagePaths = const [],
+  }) async {
     final trimmed = text.trim();
-    if (trimmed.isEmpty) return;
+    if (trimmed.isEmpty && imagePaths.isEmpty) return;
 
     final target = data.agents.firstWhere((agent) => agent.id == agentId);
-    if (target.isStreaming) return;
+    // Mid-turn: the CLIs are one-shot per turn, so there is nothing to
+    // inject into. The message waits and goes out as the next turn instead
+    // of the composer refusing to accept it.
+    if (target.isStreaming) {
+      _updateAgent(
+        agentId,
+        (agent) => agent.copyWith(
+          queuedMessages: [
+            ...agent.queuedMessages,
+            QueuedMessage(text: trimmed, imagePaths: imagePaths),
+          ],
+        ),
+      );
+      return;
+    }
 
     final pendingUserEdit = target.pendingUserEdit;
     if (pendingUserEdit != null) {
@@ -314,9 +336,11 @@ class AgentsViewModel extends ViewModel<AgentsState> {
         (agent) => agent.copyWith(clearPendingUserEdit: true),
       );
     }
-    final promptForModel = pendingUserEdit == null
-        ? trimmed
-        : '${_describeManualEdit(pendingUserEdit)}\n\n$trimmed';
+    final promptForModel = [
+      if (pendingUserEdit != null) _describeManualEdit(pendingUserEdit),
+      if (trimmed.isNotEmpty) trimmed,
+      if (imagePaths.isNotEmpty) _describeAttachments(imagePaths),
+    ].join('\n\n');
 
     _appendMessage(
       agentId,
@@ -324,6 +348,7 @@ class AgentsViewModel extends ViewModel<AgentsState> {
         role: ChatRole.user,
         text: trimmed,
         timestamp: DateTime.now(),
+        imagePaths: imagePaths,
       ),
     );
     // Zero-token recurrence detector — never in the send critical path.
@@ -375,6 +400,7 @@ class AgentsViewModel extends ViewModel<AgentsState> {
             prompt: promptForModel,
             workingDirectory: workingDirectory,
             fullFileSystemAccess: target.fullFileSystemAccess,
+            model: target.model,
             sessionId: target.sessionId,
             additionalSystemPrompt: _resolveProfileSystemPrompt(
               target.profileId,
@@ -404,8 +430,12 @@ class AgentsViewModel extends ViewModel<AgentsState> {
       onProcessStarted: (process) => _runningProcesses[agentId] = process,
     );
 
+    var wasStopped = false;
     await for (final event in events) {
-      if (_stoppedAgentIds.remove(agentId)) break;
+      if (_stoppedAgentIds.remove(agentId)) {
+        wasStopped = true;
+        break;
+      }
       switch (event) {
         case ClaudeSessionStarted(sessionId: final sessionId):
           _updateAgent(
@@ -518,6 +548,45 @@ class AgentsViewModel extends ViewModel<AgentsState> {
     }
 
     await _persist();
+
+    // Whatever the user typed during the turn goes out now — unless they
+    // STOPPED the agent, which is a deliberate "take control": firing a new
+    // turn right after would be the opposite of what the stop button means.
+    // Those messages stay queued with an explicit "Enviar ahora".
+    if (!wasStopped) unawaited(sendQueuedMessages(agentId));
+  }
+
+  /// Sends everything queued during the last turn as ONE next turn: the
+  /// order is preserved and the model reads them together, which is what
+  /// "I sent a correction while you were working" means. No-op while the
+  /// agent is busy — the next turn's own ending will pick them up.
+  Future<void> sendQueuedMessages(String agentId) async {
+    final target = data.agents
+        .where((agent) => agent.id == agentId)
+        .firstOrNull;
+    if (target == null || target.isStreaming) return;
+    final queued = target.queuedMessages;
+    if (queued.isEmpty) return;
+
+    _updateAgent(agentId, (agent) => agent.copyWith(queuedMessages: const []));
+    await sendMessage(
+      agentId,
+      queued
+          .map((message) => message.text)
+          .where((text) => text.isNotEmpty)
+          .join('\n\n'),
+      imagePaths: [for (final message in queued) ...message.imagePaths],
+    );
+  }
+
+  /// Drops one queued message before it is sent — the user changed their
+  /// mind about the correction they typed mid-turn.
+  void removeQueuedMessage(String agentId, int index) {
+    _updateAgent(agentId, (agent) {
+      if (index < 0 || index >= agent.queuedMessages.length) return agent;
+      final queued = [...agent.queuedMessages]..removeAt(index);
+      return agent.copyWith(queuedMessages: queued);
+    });
   }
 
   /// Appends a system-authored trace line to [agentId]'s thread. Used by
@@ -555,6 +624,13 @@ class AgentsViewModel extends ViewModel<AgentsState> {
       profile.mcpServers,
     );
   }
+
+  /// The agents that belong in a user-facing list. Keel AI's own sessions
+  /// are excluded: the assistant lives in its dedicated window, and mixing
+  /// its sessions in with the agents the user registered is exactly the
+  /// confusion that window exists to avoid.
+  List<Agent> get listableAgents =>
+      data.agents.where((agent) => !_isKeelAi(agent.profileId)).toList();
 
   bool _isKeelAi(String? profileId) {
     if (profileId == null) return false;
@@ -649,6 +725,22 @@ class AgentsViewModel extends ViewModel<AgentsState> {
 
     final combined = buffer.toString().trim();
     return combined.isEmpty ? null : combined;
+  }
+
+  /// How attached images reach the model: as PATHS it reads on demand with
+  /// its own Read tool, never as bytes we inline into the prompt. A 4 MB
+  /// screenshot costs nothing until the agent decides it needs to look, and
+  /// the path stays valid because the file lives in app storage.
+  String _describeAttachments(List<String> imagePaths) {
+    final buffer = StringBuffer()
+      ..writeln(
+        'El usuario adjuntó ${imagePaths.length == 1 ? 'una imagen' : '${imagePaths.length} imágenes'} '
+        'a este mensaje. Leelas con la tool Read antes de responder:',
+      );
+    for (final path in imagePaths) {
+      buffer.writeln('- $path');
+    }
+    return buffer.toString().trim();
   }
 
   String _describeManualEdit(FileEdit edit) {

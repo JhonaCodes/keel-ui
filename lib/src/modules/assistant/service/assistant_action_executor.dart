@@ -1,7 +1,7 @@
 import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
 import 'package:keel_ui/src/modules/agent_profiles/viewmodel/agent_profiles_viewmodel.dart';
 import 'package:keel_ui/src/modules/agents/model/agent_provider.dart';
-import 'package:keel_ui/src/modules/agents/model/claude_model_option.dart';
+import 'package:keel_ui/src/modules/agents/model/agent_model_option.dart';
 import 'package:keel_ui/src/modules/agents/model/effort_level.dart';
 import 'package:keel_ui/src/modules/assistant/model/assistant_action.dart';
 import 'package:keel_ui/src/modules/rules/viewmodel/rules_viewmodel.dart';
@@ -152,7 +152,9 @@ AssistantActionResult executeAgentAction(CreateAgentAction action) {
       mcpServers: action.mcpServerNames,
       canManageSystem: action.systemBuilder ?? false,
       provider: provider ?? AgentProvider.claude,
-      model: kDefaultClaudeModelAlias,
+      // Per provider: a codex agent seeded with a Claude alias would carry a
+      // model its own CLI has never heard of.
+      model: defaultModelFor(provider ?? AgentProvider.claude),
       effort: kDefaultEffortAlias,
       // Not attributed to keelai: this agent isn't spawned inside a station
       // task, so a "spawn" edge in a station's map view would be spurious.

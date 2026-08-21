@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:keel_ui/src/modules/agents/model/file_edit.dart';
 import 'package:keel_ui/src/modules/agents/viewmodel/agents_viewmodel.dart';
 
@@ -10,7 +12,21 @@ import 'package:keel_ui/src/modules/agents/viewmodel/agents_viewmodel.dart';
 abstract class ChatActions {
   const ChatActions();
 
-  void sendMessage(String agentId, String text);
+  /// [imagePaths] are attachments ALREADY stored by
+  /// `ChatAttachmentStore` — the port carries paths, never bytes, so the
+  /// RPC bridge stays a small JSON payload no matter how big the image is.
+  void sendMessage(
+    String agentId,
+    String text, {
+    List<String> imagePaths = const [],
+  });
+  /// Sends what is queued right now, without waiting for a turn to end —
+  /// the escape hatch after stopping an agent mid-turn.
+  void sendQueuedMessages(String agentId);
+
+  /// Drops the queued message at [index] before it goes out.
+  void removeQueuedMessage(String agentId, int index);
+
   void stopAgent(String agentId);
   void deleteAgent(String agentId);
   void deleteMessage(String agentId, DateTime timestamp);
@@ -39,8 +55,19 @@ class LocalChatActions extends ChatActions {
   AgentsViewModel get _agents => AgentsService.instance.notifier;
 
   @override
-  void sendMessage(String agentId, String text) =>
-      _agents.sendMessage(agentId, text);
+  void sendMessage(
+    String agentId,
+    String text, {
+    List<String> imagePaths = const [],
+  }) => _agents.sendMessage(agentId, text, imagePaths: imagePaths);
+
+  @override
+  void sendQueuedMessages(String agentId) =>
+      unawaited(_agents.sendQueuedMessages(agentId));
+
+  @override
+  void removeQueuedMessage(String agentId, int index) =>
+      _agents.removeQueuedMessage(agentId, index);
 
   @override
   void stopAgent(String agentId) => _agents.stopAgent(agentId);

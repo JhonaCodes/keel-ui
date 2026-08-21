@@ -13,6 +13,12 @@ final Map<String, WindowController> _controllersByBusinessId = {};
 /// decides (in the new engine's `main()`) which widget tree that window
 /// runs — see [AppWindowArguments]. The returned controller is already
 /// registered under the arguments' businessId.
+///
+/// **La ventana nace oculta y se muestra sola.** Mostrarla desde acá, apenas
+/// creada, la deja visible mientras su engine todavía arranca: eso es el
+/// rectángulo negro que aparecía la primera vez (la segunda no, porque ahí
+/// la ventana ya existía pintada). Quien la muestra es su propio `main()`,
+/// después del primer frame — ver `_showWhenPainted` en `main.dart`.
 Future<WindowController> openAppWindow(AppWindowArguments arguments) async {
   final controller = await WindowController.create(
     WindowConfiguration(
@@ -21,7 +27,6 @@ Future<WindowController> openAppWindow(AppWindowArguments arguments) async {
     ),
   );
   _controllersByBusinessId[arguments.businessId] = controller;
-  await controller.show();
   return controller;
 }
 

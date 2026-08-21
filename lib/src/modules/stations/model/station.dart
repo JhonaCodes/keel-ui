@@ -18,9 +18,15 @@ String? validateStationName(String value) {
   return null;
 }
 
-/// A durable workspace: the agents that live in it, the workflows that decide
-/// who acts and when, plus the rules and documents they all share. Tasks come
-/// and go inside it — the station itself is configured once and stays.
+/// El contexto de un PROYECTO: su directorio de trabajo, los agentes que
+/// viven ahí, los workflows que deciden quién actúa y cuándo, y las reglas y
+/// bases de saber que todos comparten. Las tareas entran y salen; la
+/// estación se configura una vez y queda.
+///
+/// Su granularidad es el producto o repo (`nuimarkets`, `connect`), no la
+/// etapa del trabajo: la secuencia de etapas la aporta el workflow activo.
+/// Reglas y bases de saber llegan SOLO a los miembros de esta estación — es
+/// la frontera que evita que un proyecto sepa cosas de otro.
 class Station {
   final String id;
   final String name;
@@ -29,7 +35,11 @@ class Station {
   final List<String> profileIds;
   final List<String> workflowIds;
   final List<String> ruleNames;
-  final List<String> documentPaths;
+
+  /// Bases de saber que ven los miembros de esta estación, por nombre. En su
+  /// turno reciben el MAPA de cada una (raíz, tamaño, carpetas, portada),
+  /// nunca los documentos enteros: los abren ellos cuando les hacen falta.
+  final List<String> knowledgeBaseNames;
   final String? activeWorkflowId;
   final List<StationTask> tasks;
   final String? activeTaskId;
@@ -44,7 +54,7 @@ class Station {
     this.profileIds = const [],
     this.workflowIds = const [],
     this.ruleNames = const [],
-    this.documentPaths = const [],
+    this.knowledgeBaseNames = const [],
     this.activeWorkflowId,
     this.tasks = const [],
     this.activeTaskId,
@@ -66,7 +76,7 @@ class Station {
     List<String>? profileIds,
     List<String>? workflowIds,
     List<String>? ruleNames,
-    List<String>? documentPaths,
+    List<String>? knowledgeBaseNames,
     String? activeWorkflowId,
     bool clearActiveWorkflow = false,
     List<StationTask>? tasks,
@@ -81,7 +91,7 @@ class Station {
       profileIds: profileIds ?? this.profileIds,
       workflowIds: workflowIds ?? this.workflowIds,
       ruleNames: ruleNames ?? this.ruleNames,
-      documentPaths: documentPaths ?? this.documentPaths,
+      knowledgeBaseNames: knowledgeBaseNames ?? this.knowledgeBaseNames,
       activeWorkflowId: clearActiveWorkflow
           ? null
           : (activeWorkflowId ?? this.activeWorkflowId),
@@ -101,7 +111,7 @@ class Station {
     'profileIds': profileIds,
     'workflowIds': workflowIds,
     'ruleNames': ruleNames,
-    'documentPaths': documentPaths,
+    'knowledgeBaseNames': knowledgeBaseNames,
     'activeWorkflowId': activeWorkflowId,
     'tasks': tasks.map((task) => task.toJson()).toList(),
     'activeTaskId': activeTaskId,
@@ -117,8 +127,8 @@ class Station {
       profileIds: (json['profileIds'] as List?)?.cast<String>() ?? const [],
       workflowIds: (json['workflowIds'] as List?)?.cast<String>() ?? const [],
       ruleNames: (json['ruleNames'] as List?)?.cast<String>() ?? const [],
-      documentPaths:
-          (json['documentPaths'] as List?)?.cast<String>() ?? const [],
+      knowledgeBaseNames:
+          (json['knowledgeBaseNames'] as List?)?.cast<String>() ?? const [],
       activeWorkflowId: json['activeWorkflowId'] as String?,
       tasks: (json['tasks'] as List? ?? const [])
           .map((entry) => StationTask.fromJson(entry as Map<String, dynamic>))
@@ -140,7 +150,7 @@ class Station {
           listEquals(profileIds, other.profileIds) &&
           listEquals(workflowIds, other.workflowIds) &&
           listEquals(ruleNames, other.ruleNames) &&
-          listEquals(documentPaths, other.documentPaths) &&
+          listEquals(knowledgeBaseNames, other.knowledgeBaseNames) &&
           activeWorkflowId == other.activeWorkflowId &&
           listEquals(tasks, other.tasks) &&
           activeTaskId == other.activeTaskId &&
@@ -155,7 +165,7 @@ class Station {
     Object.hashAll(profileIds),
     Object.hashAll(workflowIds),
     Object.hashAll(ruleNames),
-    Object.hashAll(documentPaths),
+    Object.hashAll(knowledgeBaseNames),
     activeWorkflowId,
     Object.hashAll(tasks),
     activeTaskId,

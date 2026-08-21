@@ -90,6 +90,7 @@ class _AssistantWindowState extends State<AssistantWindow> {
                         agent: snapshot.toAgent(),
                         controller: _composer,
                         actions: const BridgeChatActions(),
+                        fontScaleOverride: state.chatFontScale,
                         emptyState: AssistantWelcomeCard(
                           onExampleTap: (prompt) =>
                               setState(() => _composer.text = prompt),

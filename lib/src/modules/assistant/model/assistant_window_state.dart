@@ -7,6 +7,7 @@ import 'package:keel_ui/src/modules/agents/model/agent_tool_activity.dart';
 import 'package:keel_ui/src/modules/agents/model/chat_message.dart';
 import 'package:keel_ui/src/modules/agents/model/permission_request.dart';
 import 'package:keel_ui/src/modules/agents/model/queued_message.dart';
+import 'package:keel_ui/src/modules/settings/model/app_settings.dart';
 
 /// Wire model for the assistant window bridge: the full [Agent] state the
 /// dedicated Keel AI window needs to render, TRANSIENTS INCLUDED — which is
@@ -272,11 +273,21 @@ class AssistantWindowState {
   final AssistantAgentSnapshot? agent;
   final List<AssistantSessionSummary> sessions;
 
+  /// The user's chat font scale, resolved in MAIN. This window's engine has
+  /// no database (see `LocalDatabase.markUnavailable`), so its settings
+  /// singleton only ever holds defaults — the real value has to travel.
+  ///
+  /// The fallback is the app's own default rather than a literal, so a
+  /// payload without the field renders at the same size the main window
+  /// would use.
+  final double chatFontScale;
+
   const AssistantWindowState({
     this.seq = 0,
     this.activeAgentId,
     this.agent,
     this.sessions = const [],
+    this.chatFontScale = kDefaultChatFontScale,
   });
 
   Map<String, dynamic> toJson() => {
@@ -284,6 +295,7 @@ class AssistantWindowState {
     'activeAgentId': activeAgentId,
     'agent': agent?.toJson(),
     'sessions': sessions.map((session) => session.toJson()).toList(),
+    'chatFontScale': chatFontScale,
   };
 
   factory AssistantWindowState.fromJson(Map<String, dynamic> json) {
@@ -295,6 +307,8 @@ class AssistantWindowState {
           : AssistantAgentSnapshot.fromJson(
               json['agent'] as Map<String, dynamic>,
             ),
+      chatFontScale:
+          (json['chatFontScale'] as num?)?.toDouble() ?? kDefaultChatFontScale,
       sessions: (json['sessions'] as List)
           .map(
             (entry) =>
@@ -312,11 +326,17 @@ class AssistantWindowState {
           seq == other.seq &&
           activeAgentId == other.activeAgentId &&
           agent == other.agent &&
-          listEquals(sessions, other.sessions);
+          listEquals(sessions, other.sessions) &&
+          chatFontScale == other.chatFontScale;
 
   @override
-  int get hashCode =>
-      Object.hash(seq, activeAgentId, agent, Object.hashAll(sessions));
+  int get hashCode => Object.hash(
+    seq,
+    activeAgentId,
+    agent,
+    Object.hashAll(sessions),
+    chatFontScale,
+  );
 
   @override
   String toString() =>

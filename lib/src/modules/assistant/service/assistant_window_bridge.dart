@@ -12,6 +12,7 @@ import 'package:keel_ui/src/modules/agents/model/file_edit.dart';
 import 'package:keel_ui/src/modules/agents/viewmodel/agents_viewmodel.dart';
 import 'package:keel_ui/src/modules/assistant/model/assistant_window_arguments.dart';
 import 'package:keel_ui/src/modules/assistant/model/assistant_window_state.dart';
+import 'package:keel_ui/src/modules/settings/viewmodel/settings_viewmodel.dart';
 
 /// MAIN-engine side of the assistant window: owns which Keel AI session the
 /// window shows, listens to [AgentsService] and pushes coalesced
@@ -52,9 +53,18 @@ class AssistantWindowBridge {
   Future<void> _open() async {
     _activeAgentId = _agents.resolveKeelAiSession() ?? _activeAgentId;
     _ensureListening();
+
+    // El nudge es SOLO para una ventana que ya existía: su engine no se
+    // vuelve a attachear solo. Una ventana nueva se conecta por su cuenta
+    // en el init de su ViewModel, y empujarle un método antes de que
+    // registre su handler no llega a nadie — además de tirar un error que
+    // hace que la demos por muerta y borremos su registro.
+    final existed =
+        await liveWindowController(AssistantWindowArguments.id) != null;
     await openOrFocusAppWindow(AssistantWindowArguments());
-    // If the window already existed, its engine won't re-attach — nudge it.
-    await invokeOnWindow(AssistantWindowArguments.id, 'assistantFocus', '{}');
+    if (existed) {
+      await invokeOnWindow(AssistantWindowArguments.id, 'assistantFocus', '{}');
+    }
   }
 
   /// Dispatches one `assistant.<method>` bridge call. Returns a JSON-encoded
@@ -216,6 +226,7 @@ class AssistantWindowBridge {
       activeAgentId: content.activeAgentId,
       agent: content.agent,
       sessions: content.sessions,
+      chatFontScale: content.chatFontScale,
     );
     return jsonEncode(wire.toJson());
   }
@@ -241,6 +252,8 @@ class AssistantWindowBridge {
     return AssistantWindowState(
       activeAgentId: active?.id,
       agent: active == null ? null : _boundedSnapshot(active),
+      // Resuelto acá: en main la base sí está, en la sub-ventana no.
+      chatFontScale: SettingsService.instance.notifier.data.chatFontScale,
       sessions: [
         for (final session in sessions)
           AssistantSessionSummary.fromAgent(session),
@@ -278,6 +291,10 @@ class AssistantWindowBridge {
         pendingPermission: snapshot.pendingPermission,
         contextUsedTokens: snapshot.contextUsedTokens,
         contextWindowTokens: snapshot.contextWindowTokens,
+        // Se rearma el snapshot para recortar el historial: lo que NO es
+        // historial tiene que sobrevivir el recorte, o la cola desaparece
+        // de la ventana justo en los hilos largos.
+        queuedMessages: snapshot.queuedMessages,
       );
     }
     return snapshot;

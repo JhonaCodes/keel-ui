@@ -90,24 +90,6 @@ class SettingsPanel extends StatelessWidget {
               const _CatalogSyncControls(),
               const SizedBox(height: 24),
               Text(
-                'Conocimiento',
-                style: Theme.of(context).textTheme.labelLarge,
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Repo git con la documentación que muestra la sección '
-                'Conocimiento (botón libro del rail). Se descarga/actualiza '
-                'desde ahí con su botón Actualizar.',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-              const SizedBox(height: 8),
-              _RepoUrlField(
-                initialValue: settings.knowledgeRepoUrl,
-                label: 'URL del repo de conocimiento',
-                onSubmitted: viewmodel.setKnowledgeRepoUrl,
-              ),
-              const SizedBox(height: 24),
-              Text(
                 'API de trabajos programados',
                 style: Theme.of(context).textTheme.labelLarge,
               ),

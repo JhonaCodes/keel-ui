@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import 'package:keel_ui/src/modules/agents/model/chat_message.dart';
 import 'package:keel_ui/src/modules/agents/model/permission_request.dart';
+import 'package:keel_ui/src/modules/stations/model/task_plan_item.dart';
 import 'package:keel_ui/src/modules/stations/model/task_live_turn.dart';
 
 enum StationTaskStatus { running, finished, failed }
@@ -29,6 +30,13 @@ class StationTask {
   /// Members added ONLY to this task ("traé un auditor para esta tarea").
   /// The station's own roster is untouched — other tasks never see them.
   final List<String> extraProfileIds;
+
+  /// El plan de trabajo acordado en esta tarea: lo escribe el miembro que
+  /// planifica y lo marcan los que lo cumplen. Vive acá y no en el hilo
+  /// porque la pregunta "qué falta" tiene que tener una respuesta que no
+  /// dependa de scrollear.
+  final List<TaskPlanItem> plan;
+
   final int currentStepIndex;
   final bool isRunning;
 
@@ -61,6 +69,7 @@ class StationTask {
     this.messages = const [],
     this.sessionsByProfileId = const {},
     this.extraProfileIds = const [],
+    this.plan = const [],
     this.currentStepIndex = 0,
     this.isRunning = false,
     this.costUsd = 0,
@@ -85,6 +94,7 @@ class StationTask {
     List<ChatMessage>? messages,
     Map<String, String>? sessionsByProfileId,
     List<String>? extraProfileIds,
+    List<TaskPlanItem>? plan,
     int? currentStepIndex,
     bool? isRunning,
     double? costUsd,
@@ -104,6 +114,7 @@ class StationTask {
       messages: messages ?? this.messages,
       sessionsByProfileId: sessionsByProfileId ?? this.sessionsByProfileId,
       extraProfileIds: extraProfileIds ?? this.extraProfileIds,
+      plan: plan ?? this.plan,
       currentStepIndex: currentStepIndex ?? this.currentStepIndex,
       isRunning: isRunning ?? this.isRunning,
       costUsd: costUsd ?? this.costUsd,
@@ -125,6 +136,7 @@ class StationTask {
     'messages': messages.map((message) => message.toJson()).toList(),
     'sessionsByProfileId': sessionsByProfileId,
     'extraProfileIds': extraProfileIds,
+    'plan': plan.map((item) => item.toJson()).toList(),
     'currentStepIndex': currentStepIndex,
     'isRunning': isRunning,
     'costUsd': costUsd,
@@ -147,6 +159,9 @@ class StationTask {
           const {},
       extraProfileIds:
           (json['extraProfileIds'] as List?)?.cast<String>() ?? const [],
+      plan: (json['plan'] as List? ?? const [])
+          .map((entry) => TaskPlanItem.fromJson(entry as Map<String, dynamic>))
+          .toList(),
       currentStepIndex: json['currentStepIndex'] as int? ?? 0,
       isRunning: json['isRunning'] as bool? ?? false,
       costUsd: (json['costUsd'] as num?)?.toDouble() ?? 0,
@@ -172,6 +187,7 @@ class StationTask {
           listEquals(messages, other.messages) &&
           mapEquals(sessionsByProfileId, other.sessionsByProfileId) &&
           listEquals(extraProfileIds, other.extraProfileIds) &&
+          listEquals(plan, other.plan) &&
           currentStepIndex == other.currentStepIndex &&
           isRunning == other.isRunning &&
           costUsd == other.costUsd &&
@@ -192,6 +208,7 @@ class StationTask {
       sessionsByProfileId.entries.map((e) => '${e.key}:${e.value}'),
     ),
     Object.hashAll(extraProfileIds),
+    Object.hashAll(plan),
     currentStepIndex,
     isRunning,
     costUsd,

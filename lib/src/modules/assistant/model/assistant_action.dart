@@ -14,6 +14,7 @@ class CreateStationAction extends AssistantAction {
   final List<String> agentHandles;
   final List<String> workflowNames;
   final List<String> ruleNames;
+  final List<String> knowledgeBaseNames;
 
   const CreateStationAction({
     required this.name,
@@ -22,6 +23,7 @@ class CreateStationAction extends AssistantAction {
     required this.agentHandles,
     required this.workflowNames,
     required this.ruleNames,
+    this.knowledgeBaseNames = const [],
   });
 }
 
@@ -41,6 +43,7 @@ class CreateAgentAction extends AssistantAction {
   final List<String> ruleNames;
   final List<String> toolNames;
   final List<String> mcpServerNames;
+  final List<String> knowledgeBaseNames;
 
   /// Provider alias ('claude'/'codex'); null on update = keep existing.
   final String? providerAlias;
@@ -58,6 +61,7 @@ class CreateAgentAction extends AssistantAction {
     required this.skillNames,
     required this.ruleNames,
     this.toolNames = const [],
+    this.knowledgeBaseNames = const [],
     this.mcpServerNames = const [],
     this.providerAlias,
     this.systemBuilder,

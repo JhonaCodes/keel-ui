@@ -4,6 +4,8 @@ import 'package:keel_ui/src/modules/agents/model/agent_provider.dart';
 import 'package:keel_ui/src/modules/agents/model/agent_model_option.dart';
 import 'package:keel_ui/src/modules/agents/model/effort_level.dart';
 import 'package:keel_ui/src/modules/assistant/model/assistant_action.dart';
+import 'package:keel_ui/src/modules/knowledge/viewmodel/knowledge_viewmodel.dart';
+import 'package:keel_ui/src/modules/mcp_servers/viewmodel/mcp_servers_viewmodel.dart';
 import 'package:keel_ui/src/modules/rules/viewmodel/rules_viewmodel.dart';
 import 'package:keel_ui/src/modules/skills/viewmodel/skills_viewmodel.dart';
 import 'package:keel_ui/src/modules/stations/viewmodel/stations_viewmodel.dart';
@@ -137,6 +139,44 @@ AssistantActionResult executeAgentAction(CreateAgentAction action) {
       .where((profile) => profile.name == action.handle)
       .firstOrNull;
 
+  // Un nombre que no existe en el catálogo queda como asignación colgada:
+  // el agente cree que tiene esa skill y en el turno no le llega nada. Se
+  // asignan las válidas y las descartadas se nombran en la respuesta, para
+  // que el modelo se entere de que inventó un nombre.
+  final skills = _keepKnown(
+    action.skillNames,
+    known: SkillsService.instance.notifier.data.skills.map(
+      (skill) => skill.name,
+    ),
+  );
+  final rules = _keepKnown(
+    action.ruleNames,
+    known: RulesService.instance.notifier.data.rules.map((rule) => rule.name),
+  );
+  final tools = _keepKnown(
+    action.toolNames,
+    known: ToolsService.instance.notifier.data.tools.map((tool) => tool.name),
+  );
+  final mcpServers = _keepKnown(
+    action.mcpServerNames,
+    known: McpServersService.instance.notifier.data.servers.map(
+      (server) => server.name,
+    ),
+  );
+  final knowledgeBases = _keepKnown(
+    action.knowledgeBaseNames,
+    known: KnowledgeService.instance.notifier.data.bases.map(
+      (base) => base.name,
+    ),
+  );
+  final dropped = _describeDropped({
+    'skills': skills.dropped,
+    'reglas': rules.dropped,
+    'tools': tools.dropped,
+    'MCPs': mcpServers.dropped,
+    'bases de saber': knowledgeBases.dropped,
+  });
+
   if (existing == null) {
     final systemPrompt = [
       action.purpose,
@@ -146,10 +186,11 @@ AssistantActionResult executeAgentAction(CreateAgentAction action) {
       name: action.handle,
       role: action.role ?? action.handle,
       systemPrompt: systemPrompt,
-      skills: action.skillNames,
-      rules: action.ruleNames,
-      tools: action.toolNames,
-      mcpServers: action.mcpServerNames,
+      skills: skills.kept,
+      rules: rules.kept,
+      tools: tools.kept,
+      mcpServers: mcpServers.kept,
+      knowledgeBaseNames: knowledgeBases.kept,
       canManageSystem: action.systemBuilder ?? false,
       provider: provider ?? AgentProvider.claude,
       // Per provider: a codex agent seeded with a Claude alias would carry a
@@ -163,19 +204,23 @@ AssistantActionResult executeAgentAction(CreateAgentAction action) {
     return AssistantActionResult(
       action: action,
       ok: error == null,
-      message: error ?? 'Registré a @${action.handle}.',
+      message: error ?? 'Registré a @${action.handle}.$dropped',
     );
   }
 
   // Update is additive only: skills/rules/tools are a union with what the
   // profile already had, and a field the block didn't mention is left
   // untouched.
-  final mergedSkills = {...existing.skills, ...action.skillNames}.toList();
-  final mergedRules = {...existing.rules, ...action.ruleNames}.toList();
-  final mergedTools = {...existing.tools, ...action.toolNames}.toList();
+  final mergedSkills = {...existing.skills, ...skills.kept}.toList();
+  final mergedRules = {...existing.rules, ...rules.kept}.toList();
+  final mergedTools = {...existing.tools, ...tools.kept}.toList();
   final mergedMcpServers = {
     ...existing.mcpServers,
-    ...action.mcpServerNames,
+    ...mcpServers.kept,
+  }.toList();
+  final mergedKnowledgeBases = {
+    ...existing.knowledgeBaseNames,
+    ...knowledgeBases.kept,
   }.toList();
   final instructions = action.instructions;
   final systemPrompt = instructions == null
@@ -194,6 +239,7 @@ AssistantActionResult executeAgentAction(CreateAgentAction action) {
     rules: mergedRules,
     tools: mergedTools,
     mcpServers: mergedMcpServers,
+    knowledgeBaseNames: mergedKnowledgeBases,
     canManageSystem: action.systemBuilder,
     provider: provider,
     model: existing.model,
@@ -202,8 +248,35 @@ AssistantActionResult executeAgentAction(CreateAgentAction action) {
   return AssistantActionResult(
     action: action,
     ok: error == null,
-    message: error ?? 'Actualicé a @${action.handle}.',
+    message: error ?? 'Actualicé a @${action.handle}.$dropped',
   );
+}
+
+/// Los nombres que existen en el catálogo y los que no.
+typedef _KnownNames = ({List<String> kept, List<String> dropped});
+
+_KnownNames _keepKnown(
+  List<String> requested, {
+  required Iterable<String> known,
+}) {
+  final catalog = known.toSet();
+  return (
+    kept: requested.where(catalog.contains).toList(),
+    dropped: requested.where((name) => !catalog.contains(name)).toList(),
+  );
+}
+
+/// Una línea por tipo con lo que se descartó, o cadena vacía si todo
+/// existía. Va pegada al mensaje de éxito: la acción se hizo, pero el
+/// modelo tiene que ver qué pidió mal.
+String _describeDropped(Map<String, List<String>> byKind) {
+  final lines = [
+    for (final entry in byKind.entries)
+      if (entry.value.isNotEmpty)
+        '⚠️ ${entry.key} ignoradas (no existen): ${entry.value.join(', ')}',
+  ];
+  if (lines.isEmpty) return '';
+  return '\n${lines.join('\n')}';
 }
 
 AssistantActionResult executeWorkflowAction(CreateWorkflowAction action) {
@@ -229,12 +302,31 @@ AssistantActionResult executeWorkflowAction(CreateWorkflowAction action) {
     whenToApply: action.whenToApply,
     steps: action.steps,
   );
+  if (error != null) {
+    return AssistantActionResult(action: action, ok: false, message: error);
+  }
+
+  // Un paso encuentra a su agente por rol (o, si nadie lo tiene, por
+  // handle). Un rol que no le corresponde a NINGÚN perfil registrado deja al
+  // paso huérfano: la estación lo muestra como "sin agente para X" y ese
+  // paso no lo ejecuta nadie. No se rechaza el workflow —el agente que falta
+  // puede registrarse después— pero se nombra, porque en silencio se
+  // descubre recién cuando la tarea se traba.
+  final profiles = AgentProfilesService.instance.notifier.data.profiles;
+  final huerfanos = <String>{
+    for (final step in action.steps)
+      if (memberForRole(profiles, step.role) == null) step.role,
+  };
+
   return AssistantActionResult(
     action: action,
-    ok: error == null,
-    message:
-        error ??
-        'Creé el workflow "${action.name}" (${action.steps.length} pasos).',
+    ok: true,
+    message: huerfanos.isEmpty
+        ? 'Creé el workflow "${action.name}" (${action.steps.length} pasos).'
+        : 'Creé el workflow "${action.name}" (${action.steps.length} pasos). '
+              '⚠️ Ningún agente registrado responde a: '
+              '${huerfanos.join(', ')} — esos pasos quedan sin dueño hasta '
+              'que exista un agente con ese rol o ese handle.',
   );
 }
 
@@ -264,14 +356,29 @@ AssistantActionResult executeStationAction(CreateStationAction action) {
     }
   }
 
+  // Los agentes y workflows ya se resuelven arriba por id; las reglas van
+  // por nombre y hasta acá pasaban sin verificar, así que una regla
+  // inventada quedaba declarada en la estación sin existir.
+  final rules = _keepKnown(
+    action.ruleNames,
+    known: RulesService.instance.notifier.data.rules.map((rule) => rule.name),
+  );
+
+  final bases = _keepKnown(
+    action.knowledgeBaseNames,
+    known: KnowledgeService.instance.notifier.data.bases.map(
+      (base) => base.name,
+    ),
+  );
+
   final error = StationsService.instance.notifier.createStation(
     name: action.name,
     purpose: action.purpose,
     workingDirectory: action.workingDirectory,
     profileIds: profileIds,
     workflowIds: workflowIds,
-    ruleNames: action.ruleNames,
-    documentPaths: const [],
+    ruleNames: rules.kept,
+    knowledgeBaseNames: bases.kept,
   );
   if (error != null) {
     return AssistantActionResult(action: action, ok: false, message: error);
@@ -282,6 +389,10 @@ AssistantActionResult executeStationAction(CreateStationAction action) {
       'no encontré a ${unresolvedAgents.join(', ')}',
     if (unresolvedWorkflows.isNotEmpty)
       'no encontré el workflow ${unresolvedWorkflows.join(', ')}',
+    if (rules.dropped.isNotEmpty)
+      'no encontré la regla ${rules.dropped.join(', ')}',
+    if (bases.dropped.isNotEmpty)
+      'no encontré la base de saber ${bases.dropped.join(', ')}',
   ];
   final message = warnings.isEmpty
       ? 'Creé la estación "${action.name}".'

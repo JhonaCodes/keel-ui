@@ -26,6 +26,7 @@ import 'package:keel_ui/src/modules/agent_profiles/viewmodel/agent_profiles_view
 import 'package:keel_ui/src/modules/assistant/service/assistant_action_executor.dart';
 import 'package:keel_ui/src/modules/assistant/service/assistant_action_parser.dart';
 import 'package:keel_ui/src/modules/settings/viewmodel/settings_viewmodel.dart';
+import 'package:keel_ui/src/modules/knowledge/viewmodel/knowledge_viewmodel.dart';
 import 'package:keel_ui/src/modules/mcp_servers/model/mcp_server_config.dart';
 import 'package:keel_ui/src/modules/mcp_servers/viewmodel/mcp_servers_viewmodel.dart';
 import 'package:keel_ui/src/modules/rules/viewmodel/rules_viewmodel.dart';
@@ -366,6 +367,11 @@ class AgentsViewModel extends ViewModel<AgentsState> {
     // (Keel AI's reserved profile, plus any profile the user marked as a
     // builder) and whatever executable tools this agent's profile has
     // assigned.
+    // Mismo motivo que en el turno de una estación: el mapa de las bases
+    // sale del disco, y sin esperar la carga el agente arrancaría sin saber
+    // que su base existe.
+    await KnowledgeService.instance.notifier.ready;
+
     final keelAiEntry = isKeelAi || _canManageSystem(target.profileId)
         ? AssistantMcpServer.mcpServerEntryFor(agentId)
         : null;
@@ -720,6 +726,16 @@ class AgentsViewModel extends ViewModel<AgentsState> {
         if (rule == null || rule.content.isEmpty) continue;
         if (buffer.isNotEmpty) buffer.writeln();
         buffer.writeln(rule.content);
+      }
+
+      // El caso oráculo: en 1:1 no hay estación que aporte bases, así que
+      // las únicas que llegan son las del propio perfil.
+      final saber = KnowledgeService.instance.notifier.briefFor(
+        profile.knowledgeBaseNames,
+      );
+      if (saber.isNotEmpty) {
+        if (buffer.isNotEmpty) buffer.writeln();
+        buffer.writeln(saber);
       }
     }
 

@@ -5,6 +5,7 @@ import 'package:reactive_notifier/reactive_notifier.dart';
 import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
 import 'package:keel_ui/src/modules/agent_profiles/viewmodel/agent_profiles_viewmodel.dart';
 import 'package:keel_ui/src/modules/agents/model/chat_message.dart';
+import 'package:keel_ui/src/modules/agents/ui/widget/chat_composer_field.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/fade_in_entrance.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/permission_request_banner.dart';
 import 'package:keel_ui/src/modules/stations/model/member_color.dart';
@@ -365,23 +366,16 @@ class _ComposerState extends State<_Composer> {
                       ),
                     ),
                   ),
-                  child: TextField(
+                  child: ChatComposerField(
                     controller: _controller,
+                    onSend: _send,
                     enabled: task != null && !running,
-                    decoration: InputDecoration(
-                      hintText: switch (task) {
-                        null => 'Creá una tarea para empezar',
-                        _ when !started =>
-                          'Qué necesitás en esta tarea de #${station.name}',
-                        _ => 'Mensaje a #${station.name}',
-                      },
-                      border: InputBorder.none,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 12,
-                      ),
-                    ),
-                    onSubmitted: (_) => _send(),
+                    hintText: switch (task) {
+                      null => 'Creá una tarea para empezar',
+                      _ when !started =>
+                        'Qué necesitás en esta tarea de #${station.name}',
+                      _ => 'Mensaje a #${station.name}',
+                    },
                   ),
                 ),
               ),

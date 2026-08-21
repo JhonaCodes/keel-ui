@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
 
 import 'package:keel_ui/src/core/ui/form_panel.dart';
+import 'package:keel_ui/src/modules/knowledge/ui/widget/knowledge_base_multi_select.dart';
 import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
 import 'package:keel_ui/src/modules/agent_profiles/viewmodel/agent_profiles_viewmodel.dart';
 import 'package:keel_ui/src/modules/agent_profiles/ui/screen/agent_profile_form_screen.dart';
@@ -42,7 +43,9 @@ class _StationFormScreenState extends State<StationFormScreen> {
   late List<String> _profileIds = [...?widget.initial?.profileIds];
   late List<String> _workflowNames = _initialWorkflowNames();
   late List<String> _ruleNames = [...?widget.initial?.ruleNames];
-  late List<String> _documentPaths = [...?widget.initial?.documentPaths];
+  late List<String> _knowledgeBaseNames = [
+    ...?widget.initial?.knowledgeBaseNames,
+  ];
   String? _nameError;
   String? _formError;
 
@@ -80,20 +83,14 @@ class _StationFormScreenState extends State<StationFormScreen> {
     setState(() => _workingDirectoryController.text = path);
   }
 
-  Future<void> _addDocument() async {
-    final file = await openFile();
-    if (file == null) return;
-    setState(() {
-      if (!_documentPaths.contains(file.path)) {
-        _documentPaths = [..._documentPaths, file.path];
-      }
-    });
-  }
-
-  void _removeDocument(String path) {
-    setState(() {
-      _documentPaths = _documentPaths.where((entry) => entry != path).toList();
-    });
+  /// El inverso de [_initialWorkflowNames]: la estación guarda ids, el
+  /// formulario trabaja con nombres.
+  List<String> _workflowNamesToIds(List<String> names) {
+    final workflows = WorkflowsService.instance.notifier.data.workflows;
+    return names
+        .map((name) => workflows.where((w) => w.name == name).firstOrNull?.id)
+        .whereType<String>()
+        .toList();
   }
 
   void _toggleProfile(String id, bool selected) {
@@ -102,14 +99,6 @@ class _StationFormScreenState extends State<StationFormScreen> {
           ? [..._profileIds, id]
           : _profileIds.where((entry) => entry != id).toList();
     });
-  }
-
-  List<String> _workflowNamesToIds(List<String> names) {
-    final workflows = WorkflowsService.instance.notifier.data.workflows;
-    return names
-        .map((name) => workflows.where((w) => w.name == name).firstOrNull?.id)
-        .whereType<String>()
-        .toList();
   }
 
   void _submit() {
@@ -137,7 +126,7 @@ class _StationFormScreenState extends State<StationFormScreen> {
             profileIds: _profileIds,
             workflowIds: workflowIds,
             ruleNames: _ruleNames,
-            documentPaths: _documentPaths,
+            knowledgeBaseNames: _knowledgeBaseNames,
           )
         : viewmodel.updateStation(
             initial.id,
@@ -147,7 +136,7 @@ class _StationFormScreenState extends State<StationFormScreen> {
             profileIds: _profileIds,
             workflowIds: workflowIds,
             ruleNames: _ruleNames,
-            documentPaths: _documentPaths,
+            knowledgeBaseNames: _knowledgeBaseNames,
           );
 
     if (error != null) {
@@ -275,31 +264,21 @@ class _StationFormScreenState extends State<StationFormScreen> {
                   ),
                 ),
                 const SizedBox(height: 20),
-                Text(
-                  'Documentos del negocio',
-                  style: Theme.of(context).textTheme.labelLarge,
+                KnowledgeBaseMultiSelect(
+                  selectedNames: _knowledgeBaseNames,
+                  onChanged: (names) =>
+                      setState(() => _knowledgeBaseNames = names),
                 ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: [
-                    for (final path in _documentPaths)
-                      Chip(
-                        avatar: const Icon(
-                          Icons.description_outlined,
-                          size: 16,
-                        ),
-                        label: Text(path.split('/').last),
-                        onDeleted: () => _removeDocument(path),
-                      ),
-                    ActionChip(
-                      avatar: const Icon(Icons.add, size: 16),
-                      label: const Text('Agregar archivo'),
-                      onPressed: _addDocument,
-                    ),
-                  ],
+                const Padding(
+                  padding: EdgeInsets.only(top: 6, left: 4),
+                  child: Text(
+                    'Sus miembros reciben el mapa de estas bases —dónde '
+                    'están y qué hay— y las consultan cuando les hace falta. '
+                    'Ninguna otra estación las ve.',
+                    style: TextStyle(fontSize: 11),
+                  ),
                 ),
+                const SizedBox(height: 20),
                 if (_formError != null) ...[
                   const SizedBox(height: 12),
                   Text(

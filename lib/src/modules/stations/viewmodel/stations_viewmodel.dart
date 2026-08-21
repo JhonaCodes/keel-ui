@@ -7,6 +7,7 @@ import 'package:reactive_notifier/reactive_notifier.dart';
 import 'package:keel_ui/src/core/services/file_edit_collector.dart';
 import 'package:keel_ui/src/integrations/prompt_insights/prompt_insights.dart';
 import 'package:keel_ui/src/integrations/task_runner/task_runner.dart';
+import 'package:keel_ui/src/integrations/task_plan_mcp/task_plan_mcp_server.dart';
 import 'package:keel_ui/src/integrations/user_tools_mcp/user_tools_mcp_server.dart';
 import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
 import 'package:keel_ui/src/modules/agent_profiles/viewmodel/agent_profiles_viewmodel.dart';
@@ -14,6 +15,7 @@ import 'package:keel_ui/src/modules/agents/model/agent_tool_activity.dart';
 import 'package:keel_ui/src/modules/agents/model/chat_message.dart';
 import 'package:keel_ui/src/modules/agents/model/agent_provider.dart';
 import 'package:keel_ui/src/modules/agents/model/permission_request.dart';
+import 'package:keel_ui/src/modules/knowledge/viewmodel/knowledge_viewmodel.dart';
 import 'package:keel_ui/src/modules/mcp_servers/model/mcp_server_config.dart';
 import 'package:keel_ui/src/modules/mcp_servers/viewmodel/mcp_servers_viewmodel.dart';
 import 'package:keel_ui/src/modules/rules/viewmodel/rules_viewmodel.dart';
@@ -23,6 +25,7 @@ import 'package:keel_ui/src/modules/skills/viewmodel/skills_viewmodel.dart';
 import 'package:keel_ui/src/modules/stations/model/station.dart';
 import 'package:keel_ui/src/modules/stations/model/station_task.dart';
 import 'package:keel_ui/src/modules/stations/model/task_live_turn.dart';
+import 'package:keel_ui/src/modules/stations/model/task_plan_item.dart';
 import 'package:keel_ui/src/modules/stations/repository/stations_repository.dart';
 import 'package:keel_ui/src/modules/tools/model/tool.dart';
 import 'package:keel_ui/src/modules/tools/viewmodel/tools_viewmodel.dart';
@@ -39,10 +42,30 @@ final RegExp _mentionPattern = RegExp(r'@([a-z0-9_-]{1,16})');
 /// decision, not a guess about prose.
 const _agentDeclarationKeys = {'handle', 'rol', 'proposito', 'instrucciones'};
 
+/// El plan de la tarea es lo que el usuario mira para saber qué falta. Un
+/// plan que solo vive como mensaje del hilo deja de ser consultable a los
+/// diez turnos: por eso hay tools, y por eso el turno las nombra.
+const _planPrompt =
+    'PLAN DE LA TAREA: esta tarea tiene un plan visible para el usuario, con '
+    'sus puntos y cuáles están cumplidos.\n'
+    '- Si tu paso es planificar, escribilo con `set_task_plan`: puntos '
+    'concretos y verificables, no las etapas del workflow (esas ya se ven '
+    'aparte). Si el plan cambia a mitad de camino, volvé a llamarla — lo que '
+    'ya estaba hecho y sigue igual se conserva marcado.\n'
+    '- Al cerrar tu turno, marcá con `complete_plan_items` los puntos que '
+    'efectivamente resolviste, con su texto exacto. Solo esos: el usuario lee '
+    'esto para saber qué queda, y marcar de más lo deja ciego.\n'
+    '- Si no hay plan todavía y tu paso no es planificar, no lo inventes.';
+
 /// Nothing an agent does may be invisible. The CLI can spawn subagents of its
 /// own, which run outside the channel, cost money, and answer to nobody the
 /// user registered — so they are forbidden outright, and the way to get a
 /// specialist is to declare it and have the app register it in the open.
+/// El título con el que nace una tarea. Vale como marca de "todavía no
+/// tiene nombre propio": mientras siga siendo este, el primer pedido la
+/// renombra sola.
+const kDefaultTaskTitle = 'Tarea nueva';
+
 const _noBackgroundWorkPrompt =
     'REGLA DEL CANAL, POR ENCIMA DE CUALQUIER OTRA COSA: no lanzás trabajo '
     'en segundo plano. Nada de subagentes propios, nada de delegar a procesos '
@@ -145,7 +168,7 @@ class StationsViewModel extends ViewModel<StationsState> {
     required List<String> profileIds,
     required List<String> workflowIds,
     required List<String> ruleNames,
-    required List<String> documentPaths,
+    required List<String> knowledgeBaseNames,
   }) {
     final error = _validateName(name);
     if (error != null) return error;
@@ -158,7 +181,7 @@ class StationsViewModel extends ViewModel<StationsState> {
       profileIds: profileIds,
       workflowIds: workflowIds,
       ruleNames: ruleNames,
-      documentPaths: documentPaths,
+      knowledgeBaseNames: knowledgeBaseNames,
       activeWorkflowId: workflowIds.isEmpty ? null : workflowIds.first,
       createdAt: DateTime.now(),
     );
@@ -180,7 +203,7 @@ class StationsViewModel extends ViewModel<StationsState> {
     required List<String> profileIds,
     required List<String> workflowIds,
     required List<String> ruleNames,
-    required List<String> documentPaths,
+    required List<String> knowledgeBaseNames,
   }) {
     final error = _validateName(name, excludingId: id);
     if (error != null) return error;
@@ -197,7 +220,7 @@ class StationsViewModel extends ViewModel<StationsState> {
         profileIds: profileIds,
         workflowIds: workflowIds,
         ruleNames: ruleNames,
-        documentPaths: documentPaths,
+        knowledgeBaseNames: knowledgeBaseNames,
         activeWorkflowId: keepsActive
             ? station.activeWorkflowId
             : (workflowIds.isEmpty ? null : workflowIds.first),
@@ -250,19 +273,125 @@ class StationsViewModel extends ViewModel<StationsState> {
     unawaited(_persist());
   }
 
-  void addDocument(String stationId, String path) {
+  void addKnowledgeBase(String stationId, String baseName) {
     _updateStation(stationId, (station) {
-      if (station.documentPaths.contains(path)) return station;
-      return station.copyWith(documentPaths: [...station.documentPaths, path]);
+      if (station.knowledgeBaseNames.contains(baseName)) return station;
+      return station.copyWith(
+        knowledgeBaseNames: [...station.knowledgeBaseNames, baseName],
+      );
     });
     unawaited(_persist());
   }
 
-  void removeDocument(String stationId, String path) {
+  void removeKnowledgeBase(String stationId, String baseName) {
     _updateStation(
       stationId,
       (station) => station.copyWith(
-        documentPaths: station.documentPaths.where((p) => p != path).toList(),
+        knowledgeBaseNames: station.knowledgeBaseNames
+            .where((name) => name != baseName)
+            .toList(),
+      ),
+    );
+    unawaited(_persist());
+  }
+
+  // ── plan de trabajo de una tarea ────────────────────────────────────
+
+  /// Fija el plan de la tarea. Reemplaza el anterior, pero **conserva el
+  /// estado de los puntos cuyo texto no cambió**: replanificar a mitad de
+  /// camino no puede desmarcar lo que ya se hizo.
+  void setTaskPlan(String stationId, String taskId, List<String> items) {
+    _updateTask(stationId, taskId, (task) {
+      final anteriores = {
+        for (final item in task.plan) item.text.trim(): item,
+      };
+      return task.copyWith(
+        plan: [
+          for (final text in items)
+            if (text.trim().isNotEmpty)
+              anteriores[text.trim()] ??
+                  TaskPlanItem(id: generateUuidV4(), text: text.trim()),
+        ],
+      );
+    });
+    unawaited(_persist());
+  }
+
+  /// Marca puntos del plan como hechos. Acepta el id o el texto exacto: el
+  /// modelo tiene los dos a la vista y exigir el id convierte un acierto en
+  /// un fallo silencioso. Devuelve los que no encontró.
+  List<String> completePlanItems(
+    String stationId,
+    String taskId, {
+    required List<String> items,
+    String? byProfileId,
+  }) {
+    final station = _stationById(stationId);
+    final task = station == null ? null : _taskById(station, taskId);
+    if (task == null) return items;
+
+    final buscados = items.map((entry) => entry.trim()).toSet();
+    final encontrados = <String>{};
+    final plan = [
+      for (final item in task.plan)
+        if (buscados.contains(item.id) || buscados.contains(item.text.trim()))
+          () {
+            encontrados.add(
+              buscados.contains(item.id) ? item.id : item.text.trim(),
+            );
+            return item.copyWith(done: true, doneByProfileId: byProfileId);
+          }()
+        else
+          item,
+    ];
+
+    _updateTask(stationId, taskId, (current) => current.copyWith(plan: plan));
+    unawaited(_persist());
+    return buscados.difference(encontrados).toList();
+  }
+
+  /// El plan de una tarea, o vacío si no existe. Para quien lo lee de
+  /// afuera del árbol de widgets (el servidor MCP del plan).
+  List<TaskPlanItem> planOf(String stationId, String taskId) {
+    final station = _stationById(stationId);
+    if (station == null) return const [];
+    return _taskById(station, taskId)?.plan ?? const [];
+  }
+
+  /// Des/marca un punto a mano — el veredicto final es del usuario.
+  void togglePlanItem(String stationId, String taskId, String itemId) {
+    _updateTask(stationId, taskId, (task) {
+      return task.copyWith(
+        plan: [
+          for (final item in task.plan)
+            if (item.id == itemId)
+              item.copyWith(done: !item.done, clearDoneBy: item.done)
+            else
+              item,
+        ],
+      );
+    });
+    unawaited(_persist());
+  }
+
+  void removePlanItem(String stationId, String taskId, String itemId) {
+    _updateTask(stationId, taskId, (task) {
+      return task.copyWith(
+        plan: task.plan.where((item) => item.id != itemId).toList(),
+      );
+    });
+    unawaited(_persist());
+  }
+
+  /// Renombra una tarea a mano. Un título vacío la devuelve al de fábrica,
+  /// que es lo que deja que el primer pedido vuelva a nombrarla sola.
+  void renameTask(String stationId, String taskId, String title) {
+    final limpio = title.trim();
+    _updateTask(
+      stationId,
+      taskId,
+      (task) => task.copyWith(
+        title: limpio.isEmpty ? kDefaultTaskTitle : limpio,
       ),
     );
     unawaited(_persist());
@@ -305,7 +434,7 @@ class StationsViewModel extends ViewModel<StationsState> {
   void createTask(String stationId) {
     final task = StationTask(
       id: generateUuidV4(),
-      title: 'Tarea nueva',
+      title: kDefaultTaskTitle,
       createdAt: DateTime.now(),
     );
     _updateStation(
@@ -369,10 +498,14 @@ class StationsViewModel extends ViewModel<StationsState> {
     final station = _stationById(stationId);
     if (station == null) return;
 
+    // El título se deduce del primer pedido SOLO si sigue siendo el de
+    // fábrica: si el usuario ya lo puso a mano, el suyo manda.
     _updateTask(
       stationId,
       taskId,
-      (task) => task.copyWith(title: _titleFor(request)),
+      (task) => task.title == kDefaultTaskTitle
+          ? task.copyWith(title: _titleFor(request))
+          : task,
     );
     _appendMessage(
       stationId,
@@ -856,6 +989,11 @@ class StationsViewModel extends ViewModel<StationsState> {
     final reasoning = StringBuffer();
     final answer = StringBuffer();
 
+    // El mapa de las bases se arma leyendo el disco: si el catálogo todavía
+    // no cargó, el turno saldría sin saber que existen. Acá sí se puede
+    // esperar — `_turnSystemPrompt` es síncrono a propósito.
+    await KnowledgeService.instance.notifier.ready;
+
     // The member's assigned executable tools travel as a per-turn MCP
     // config — the loopback server runs in the main isolate, and the CLI
     // subprocess reaches it over 127.0.0.1 regardless of which isolate
@@ -879,8 +1017,18 @@ class StationsViewModel extends ViewModel<StationsState> {
     final externalSecretValues = SecretsService.instance.notifier.valuesFor([
       for (final server in externalServers) ...server.secretNames,
     ]);
+    // El plan de la tarea va en TODOS los turnos de estación, sin depender
+    // de que el perfil tenga tools asignadas: es del canal, no del agente.
+    final planEntry = isCodex
+        ? null
+        : TaskPlanMcpServer.mcpServerEntryFor(
+            stationId: stationId,
+            taskId: taskId,
+            profileId: member.id,
+          );
     final mcpServers = <String, dynamic>{
       kUserToolsMcpServerKey: ?toolsEntry,
+      kTaskPlanMcpServerKey: ?planEntry,
       for (final server in externalServers)
         server.name: server.toMcpServerEntry(externalSecretValues),
     };
@@ -894,6 +1042,7 @@ class StationsViewModel extends ViewModel<StationsState> {
         effort: member.effort,
         extraAllowedTools: [
           ...SettingsService.instance.notifier.data.extraAllowedTools,
+          if (planEntry != null) ...kTaskPlanMcpToolNames,
           if (toolsEntry != null)
             ...memberTools.map(
               (tool) => '$kUserToolsMcpToolPrefix${tool.name}',
@@ -1338,15 +1487,13 @@ class StationsViewModel extends ViewModel<StationsState> {
       buffer.writeln(rule.content);
     }
 
-    if (station.documentPaths.isNotEmpty) {
+    final saber = KnowledgeService.instance.notifier.briefFor(<String>{
+      ...station.knowledgeBaseNames,
+      ...member.knowledgeBaseNames,
+    }.toList());
+    if (saber.isNotEmpty) {
       buffer.writeln();
-      buffer.writeln(
-        'Documentos del negocio de esta estación (abrilos con tus '
-        'herramientas cuando los necesites):',
-      );
-      for (final path in station.documentPaths) {
-        buffer.writeln('- $path');
-      }
+      buffer.writeln(saber);
     }
 
     final companions = membersOf(
@@ -1387,6 +1534,9 @@ class StationsViewModel extends ViewModel<StationsState> {
         'cada palabra de más se paga en el turno del otro.',
       );
     }
+
+    buffer.writeln();
+    buffer.writeln(_planPrompt);
 
     buffer.writeln();
     buffer.writeln(_noBackgroundWorkPrompt);
@@ -1463,11 +1613,7 @@ class StationsViewModel extends ViewModel<StationsState> {
     String role, {
     StationTask? task,
   }) {
-    final wanted = role.trim().toLowerCase();
-    return membersOf(
-      station,
-      task: task,
-    ).where((m) => m.role.trim().toLowerCase() == wanted).firstOrNull;
+    return memberForRole(membersOf(station, task: task), role);
   }
 
   String _titleFor(String request) {

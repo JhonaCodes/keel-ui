@@ -76,6 +76,10 @@ class _AgentsScreenState extends State<AgentsScreen> {
                     ),
                     onOpenKnowledge: () => showFormPanel(
                       context,
+                      // Saber no es un formulario: es un navegador de dos
+                      // columnas. En el ancho de panel por defecto el visor
+                      // queda en una ranura de 280 puntos.
+                      width: 1100,
                       child: const KnowledgeScreen(),
                     ),
                     onOpenWorkflows: () =>

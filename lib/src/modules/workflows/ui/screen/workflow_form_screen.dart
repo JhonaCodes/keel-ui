@@ -457,6 +457,11 @@ class _RoleDropdown extends StatelessWidget {
                 child: DropdownButtonFormField<String>(
                   initialValue: value.trim().isEmpty ? null : value,
                   isDense: true,
+                  // Sin esto el botón se dimensiona por su ítem más ancho y
+                  // se sale de la píldora: un rol escrito en prosa ("del
+                  // objetivo difuso a tareas atómicas") pide bastante más de
+                  // los 280 puntos que mide.
+                  isExpanded: true,
                   hint: const Text(
                     'Rol',
                     style: TextStyle(fontFamily: 'monospace', fontSize: 12),
@@ -470,6 +475,19 @@ class _RoleDropdown extends StatelessWidget {
                   items: [
                     for (final role in options)
                       DropdownMenuItem(value: role, child: Text(role)),
+                  ],
+                  // El desplegable puede mostrar el rol entero; el campo
+                  // cerrado vive en una píldora angosta y lo corta.
+                  selectedItemBuilder: (context) => [
+                    for (final role in options)
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          role,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
                   ],
                   onChanged: (role) {
                     if (role != null) onChanged(role);

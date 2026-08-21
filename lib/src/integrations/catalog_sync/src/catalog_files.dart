@@ -6,6 +6,7 @@ const _kCatalogDirs = [
   'tools',
   'workflows',
   'mcp_servers',
+  'knowledge_bases',
   'profiles',
   'stations',
 ];
@@ -101,6 +102,20 @@ Future<int> _writeCatalog(Directory mirror) async {
     written++;
   }
 
+  for (final base in KnowledgeService.instance.notifier.data.bases) {
+    await _writeEntity(catalogDir, 'knowledge_bases', base.name, {
+      'name': base.name,
+      'description': base.description,
+      'source': base.source.alias,
+      'gitUrl': base.gitUrl,
+      'gitBranch': base.gitBranch,
+      // La ruta local NO viaja, igual que el directorio de una estación: al
+      // importar la base queda sin carpeta y la UI la pide. El CONTENIDO
+      // tampoco — un repo git se recupera clonando.
+    });
+    written++;
+  }
+
   final profiles = AgentProfilesService.instance.notifier.data.profiles;
   for (final profile in profiles) {
     if (profile.name == kKeelAiHandle) continue;
@@ -112,6 +127,7 @@ Future<int> _writeCatalog(Directory mirror) async {
       'rules': profile.rules,
       'tools': profile.tools,
       'mcpServers': profile.mcpServers,
+      'knowledgeBaseNames': profile.knowledgeBaseNames,
       'canManageSystem': profile.canManageSystem,
       'provider': profile.provider.alias,
       'model': profile.model,
@@ -128,8 +144,8 @@ Future<int> _writeCatalog(Directory mirror) async {
     await _writeEntity(catalogDir, 'stations', station.name, {
       'name': station.name,
       'purpose': station.purpose,
-      // Portable references only: handles and names. Working directory,
-      // document paths and tasks are machine-local and NEVER exported.
+      // Portable references only: handles and names. Working directory and
+      // tasks are machine-local and NEVER exported.
       'agentHandles': [
         for (final id in station.profileIds)
           profiles.where((profile) => profile.id == id).firstOrNull?.name,
@@ -139,6 +155,7 @@ Future<int> _writeCatalog(Directory mirror) async {
           .whereType<String>()
           .toList(),
       'ruleNames': station.ruleNames,
+      'knowledgeBaseNames': station.knowledgeBaseNames,
       'activeWorkflowName': station.activeWorkflowId == null
           ? null
           : workflowNameOf(station.activeWorkflowId!),
@@ -335,6 +352,39 @@ Future<String> _readAndMergeCatalog(Directory mirror) async {
     track(error, existed: existing != null, label: 'mcp $name');
   }
 
+  final knowledge = KnowledgeService.instance.notifier;
+  for (final json in _readCategory(mirror, 'knowledge_bases')) {
+    final name = json['name'] as String;
+    final source = KnowledgeSource.tryFromAlias(
+      json['source'] as String? ?? '',
+    );
+    if (source == null) {
+      problems.add('base de saber $name: fuente inválida');
+      continue;
+    }
+    final existing = knowledge.baseByName(name);
+    final error = existing == null
+        ? knowledge.createBase(
+            name: name,
+            description: json['description'] as String? ?? '',
+            source: source,
+            gitUrl: json['gitUrl'] as String? ?? '',
+            gitBranch: json['gitBranch'] as String? ?? '',
+          )
+        : knowledge.updateBase(
+            existing.id,
+            name: name,
+            description: json['description'] as String? ?? '',
+            source: source,
+            gitUrl: json['gitUrl'] as String? ?? '',
+            gitBranch: json['gitBranch'] as String? ?? '',
+            // La carpeta que ya tenga en ESTA máquina se respeta: la ruta
+            // nunca viaja, así que la del repo sería siempre vacía.
+            localPath: existing.localPath,
+          );
+    track(error, existed: existing != null, label: 'base de saber $name');
+  }
+
   final profiles = AgentProfilesService.instance.notifier;
   for (final json in _readCategory(mirror, 'profiles')) {
     final name = json['name'] as String;
@@ -355,6 +405,9 @@ Future<String> _readAndMergeCatalog(Directory mirror) async {
             tools: (json['tools'] as List?)?.cast<String>() ?? const [],
             mcpServers:
                 (json['mcpServers'] as List?)?.cast<String>() ?? const [],
+            knowledgeBaseNames:
+                (json['knowledgeBaseNames'] as List?)?.cast<String>() ??
+                const [],
             canManageSystem: json['canManageSystem'] as bool? ?? false,
             provider: provider,
             model: json['model'] as String? ?? 'sonnet',
@@ -370,6 +423,9 @@ Future<String> _readAndMergeCatalog(Directory mirror) async {
             tools: (json['tools'] as List?)?.cast<String>() ?? const [],
             mcpServers:
                 (json['mcpServers'] as List?)?.cast<String>() ?? const [],
+            knowledgeBaseNames:
+                (json['knowledgeBaseNames'] as List?)?.cast<String>() ??
+                const [],
             canManageSystem: json['canManageSystem'] as bool? ?? false,
             provider: provider,
             model: json['model'] as String? ?? existing.model,
@@ -398,6 +454,9 @@ Future<String> _readAndMergeCatalog(Directory mirror) async {
     ].whereType<String>().toList();
     final ruleNames =
         (json['ruleNames'] as List?)?.cast<String>() ?? const <String>[];
+    final knowledgeBaseNames =
+        (json['knowledgeBaseNames'] as List?)?.cast<String>() ??
+        const <String>[];
 
     final existing = stations.data.stations
         .where((station) => station.name == name)
@@ -412,7 +471,7 @@ Future<String> _readAndMergeCatalog(Directory mirror) async {
             profileIds: profileIds,
             workflowIds: workflowIds,
             ruleNames: ruleNames,
-            documentPaths: const [],
+            knowledgeBaseNames: knowledgeBaseNames,
           )
         : stations.updateStation(
             existing.id,
@@ -422,7 +481,7 @@ Future<String> _readAndMergeCatalog(Directory mirror) async {
             profileIds: profileIds,
             workflowIds: workflowIds,
             ruleNames: ruleNames,
-            documentPaths: existing.documentPaths,
+            knowledgeBaseNames: knowledgeBaseNames,
           );
     track(error, existed: existing != null, label: 'estación $name');
   }
@@ -430,8 +489,8 @@ Future<String> _readAndMergeCatalog(Directory mirror) async {
   final parts = [
     'Importé el catálogo: $created creados, $updated actualizados.',
     if (problems.isNotEmpty) 'Problemas:\n- ${problems.join('\n- ')}',
-    'Las estaciones nuevas necesitan su carpeta de trabajo: se pide al '
-        'abrirlas.',
+    'Las estaciones nuevas necesitan su carpeta de trabajo, y las bases de '
+        'saber locales su carpeta: se piden al abrirlas.',
   ];
   return parts.join('\n');
 }

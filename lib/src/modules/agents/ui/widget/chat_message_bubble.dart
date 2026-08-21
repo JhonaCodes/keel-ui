@@ -21,6 +21,7 @@ class ChatMessageBubble extends StatelessWidget {
     required this.agentId,
     required this.agentColor,
     this.actions = const LocalChatActions(),
+    this.fontScaleOverride,
   });
 
   final ChatMessage message;
@@ -32,8 +33,25 @@ class ChatMessageBubble extends StatelessWidget {
 
   final ChatActions actions;
 
+  /// Font scale handed down instead of read from the local settings
+  /// singleton. The assistant window's engine has no database, so its
+  /// settings only ever hold defaults — main sends the real value in the
+  /// snapshot (see `AssistantWindowState.chatFontScale`).
+  final double? fontScaleOverride;
+
   @override
   Widget build(BuildContext context) {
+    final override = fontScaleOverride;
+    if (override != null) {
+      return _ChatMessageBubbleContent(
+        message: message,
+        agentId: agentId,
+        agentColor: agentColor,
+        actions: actions,
+        fontScale: override,
+      );
+    }
+
     return ReactiveViewModelBuilder<SettingsViewModel, AppSettings>(
       viewmodel: SettingsService.instance.notifier,
       build: (settings, viewmodel, keep) => _ChatMessageBubbleContent(

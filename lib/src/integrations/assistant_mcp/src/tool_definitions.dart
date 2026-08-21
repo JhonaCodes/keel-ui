@@ -180,10 +180,224 @@ final List<Tool> keelAiTools = [
     inputSchema: ObjectSchema(properties: {}),
   ),
   Tool(
-    name: 'update_knowledge',
+    name: 'sync_knowledge',
     description:
-        'Trae (git pull) la documentación del repo de conocimiento '
-        'configurado por el usuario y reindexa la sección Conocimiento.',
+        'Actualiza una base de saber (git pull del repo, o releer la carpeta '
+        'local) y la reindexa. Sin `base`, actualiza todas.',
+    inputSchema: ObjectSchema(
+      properties: {
+        'base': Schema.string(
+          description: 'Nombre de la base. Vacío = todas.',
+        ),
+      },
+    ),
+  ),
+  Tool(
+    name: 'list_catalog',
+    description:
+        'Lista lo que YA existe en el sistema: skills, reglas, tools, '
+        'agentes, workflows, estaciones y MCPs registrados, con su nombre y '
+        'para qué sirve cada uno. USALA ANTES de asignarle cualquier cosa a '
+        'un agente o a una estación: los nombres se referencian tal cual, y '
+        'un nombre inventado se descarta. Sin `kind` devuelve todo el '
+        'catálogo.',
+    inputSchema: ObjectSchema(
+      properties: {
+        'kind': Schema.string(
+          description:
+              'Qué listar: skills, rules, tools, agents, workflows, '
+              'stations, mcp_servers, knowledge_bases, o all (default).',
+        ),
+      },
+    ),
+  ),
+  Tool(
+    name: 'get_item',
+    description:
+        'Devuelve el CONTENIDO COMPLETO de una cosa registrada: el texto '
+        'entero de una skill o regla, el código de una tool, los pasos de '
+        'un workflow, la configuración de un agente o de una estación. '
+        'Usala ANTES de actualizar cualquier cosa: los update reemplazan el '
+        'contenido, así que sin leerlo primero pisás lo que había.',
+    inputSchema: ObjectSchema(
+      properties: {
+        'kind': Schema.string(
+          description:
+              'Tipo: skill, rule, tool, agent, workflow, station, '
+              'mcp_server o knowledge_base.',
+        ),
+        'name': Schema.string(
+          description: 'Nombre exacto (para un agente, su handle sin @).',
+        ),
+      },
+      required: ['kind', 'name'],
+    ),
+  ),
+  Tool(
+    name: 'update_skill',
+    description:
+        'Reemplaza el contenido de una skill que ya existe (para crearla '
+        'usá create_skill). El contenido se sustituye entero: leelo antes '
+        'con get_item si querés conservar parte. Las asignaciones a agentes '
+        'se mantienen porque van por nombre.',
+    inputSchema: ObjectSchema(
+      properties: {
+        'name': Schema.string(description: 'Nombre de la skill a actualizar.'),
+        'content': Schema.string(description: 'Contenido nuevo, completo.'),
+        'new_name': Schema.string(
+          description:
+              'Renombrar (opcional). OJO: los agentes la referencian por '
+              'nombre, así que renombrar rompe las asignaciones existentes.',
+        ),
+      },
+      required: ['name', 'content'],
+    ),
+  ),
+  Tool(
+    name: 'update_rule',
+    description:
+        'Reemplaza el contenido de una regla existente. Mismo criterio que '
+        'update_skill: sustituye todo, leé antes con get_item.',
+    inputSchema: ObjectSchema(
+      properties: {
+        'name': Schema.string(description: 'Nombre de la regla.'),
+        'content': Schema.string(description: 'Contenido nuevo, completo.'),
+        'new_name': Schema.string(description: 'Renombrar (opcional).'),
+      },
+      required: ['name', 'content'],
+    ),
+  ),
+  Tool(
+    name: 'update_tool',
+    description:
+        'Actualiza una tool ejecutable existente. Solo se cambia lo que '
+        'mandás: lo que omitas queda como estaba.',
+    inputSchema: ObjectSchema(
+      properties: {
+        'name': Schema.string(description: 'Nombre de la tool.'),
+        'description': Schema.string(description: 'Descripción nueva.'),
+        'runtime': Schema.string(description: '"bash", "python" o "dart".'),
+        'code': Schema.string(description: 'Código fuente nuevo, completo.'),
+        'timeout_seconds': Schema.int(description: 'Timeout en segundos.'),
+        'secret_names': Schema.list(
+          items: Schema.string(),
+          description: 'Secrets que recibe como variables de entorno.',
+        ),
+        'new_name': Schema.string(description: 'Renombrar (opcional).'),
+      },
+      required: ['name'],
+    ),
+  ),
+  Tool(
+    name: 'update_workflow',
+    description:
+        'Actualiza un workflow existente: cuándo aplica y/o sus pasos. Si '
+        'mandás steps, reemplazan a TODOS los actuales.',
+    inputSchema: ObjectSchema(
+      properties: {
+        'name': Schema.string(description: 'Nombre del workflow.'),
+        'when_to_apply': Schema.string(
+          description: 'Cuándo se usa este workflow.',
+        ),
+        'steps': Schema.list(
+          items: Schema.object(
+            properties: {
+              'title': Schema.string(),
+              'role': Schema.string(),
+              'instruction': Schema.string(),
+            },
+          ),
+          description: 'Pasos nuevos, en orden. Reemplazan a los actuales.',
+        ),
+        'new_name': Schema.string(description: 'Renombrar (opcional).'),
+      },
+      required: ['name'],
+    ),
+  ),
+  Tool(
+    name: 'unassign_from_agent',
+    description:
+        'SACA skills, reglas, tools o MCPs de un agente. '
+        'create_or_update_agent solo SUMA, así que esta es la única forma '
+        'de quitar algo mal asignado sin borrar el agente entero.',
+    inputSchema: ObjectSchema(
+      properties: {
+        'handle': Schema.string(description: 'Handle del agente, sin @.'),
+        'skill_names': Schema.list(items: Schema.string()),
+        'rule_names': Schema.list(items: Schema.string()),
+        'tool_names': Schema.list(items: Schema.string()),
+        'mcp_server_names': Schema.list(items: Schema.string()),
+      },
+      required: ['handle'],
+    ),
+  ),
+  Tool(
+    name: 'update_station',
+    description:
+        'Actualiza una estación existente: propósito, directorio de '
+        'trabajo, miembros, workflows disponibles, reglas propias y cuál es '
+        'el workflow ACTIVO. Solo cambia lo que mandes; los miembros y '
+        'workflows que envíes REEMPLAZAN a los actuales.',
+    inputSchema: ObjectSchema(
+      properties: {
+        'name': Schema.string(description: 'Nombre de la estación.'),
+        'purpose': Schema.string(description: 'Propósito nuevo.'),
+        'working_directory': Schema.string(
+          description: 'Ruta absoluta del directorio de trabajo.',
+        ),
+        'agent_handles': Schema.list(
+          items: Schema.string(),
+          description: 'Miembros (handles sin @). Reemplazan a los actuales.',
+        ),
+        'workflow_names': Schema.list(
+          items: Schema.string(),
+          description: 'Workflows disponibles. Reemplazan a los actuales.',
+        ),
+        'rule_names': Schema.list(
+          items: Schema.string(),
+          description: 'Reglas de la estación. Reemplazan a las actuales.',
+        ),
+        'knowledge_base_names': Schema.list(
+          items: Schema.string(),
+          description:
+              'Bases de saber que ve esta estación. Reemplazan a las '
+              'actuales.',
+        ),
+        'active_workflow': Schema.string(
+          description:
+              'Nombre del workflow que queda ACTIVO (tiene que estar entre '
+              'los disponibles).',
+        ),
+        'new_name': Schema.string(description: 'Renombrar (opcional).'),
+      },
+      required: ['name'],
+    ),
+  ),
+  Tool(
+    name: 'open_station_task',
+    description:
+        'Abre una TAREA en una estación y le manda el prompt inicial al '
+        'canal: sus miembros empiezan a trabajar según el workflow activo. '
+        'La tarea corre sola, no bloquea tu respuesta.',
+    inputSchema: ObjectSchema(
+      properties: {
+        'station': Schema.string(description: 'Nombre de la estación.'),
+        'prompt': Schema.string(
+          description: 'Qué tiene que hacer la estación, en detalle.',
+        ),
+      },
+      required: ['station', 'prompt'],
+    ),
+  ),
+  Tool(
+    name: 'describe_system',
+    description:
+        'Estado actual del sistema: qué está configurado (repos de catálogo '
+        'y conocimiento), qué secrets faltan cargar, qué MCPs no van a '
+        'levantar por falta de clave, qué agentes tienen conversación '
+        'abierta y qué estaciones tienen tareas corriendo. Usalo cuando el '
+        'usuario pregunte "cómo está esto" o antes de diagnosticar algo que '
+        'no funciona.',
     inputSchema: ObjectSchema(properties: {}),
   ),
   Tool(
@@ -227,6 +441,14 @@ final List<Tool> keelAiTools = [
           items: Schema.string(),
           description: 'MCPs externos (registrados) a asignarle.',
         ),
+        'knowledge_base_names': Schema.list(
+          items: Schema.string(),
+          description:
+              'Bases de saber que este agente lleva consigo a donde vaya, '
+              'incluido el chat 1:1 — el caso ORÁCULO, para un agente que ES '
+              'de ese dominio. El saber de un proyecto se pone en su '
+              'estación, no acá.',
+        ),
         'provider': Schema.string(
           description:
               'CLI que corre al agente: "claude" (default) o "codex". '
@@ -248,7 +470,9 @@ final List<Tool> keelAiTools = [
     name: 'create_workflow',
     description:
         'Crea un workflow (nombre, cuándo se aplica, pasos ordenados). '
-        'Idempotente por nombre.',
+        'Idempotente por nombre. Cada paso nombra el ROL o el HANDLE de un '
+        'agente ya registrado: listá los agentes ANTES de escribir los '
+        'pasos.',
     inputSchema: ObjectSchema(
       properties: {
         'name': Schema.string(description: 'Nombre único del workflow.'),
@@ -262,8 +486,14 @@ final List<Tool> keelAiTools = [
               'title': Schema.string(description: 'Título corto del paso.'),
               'role': Schema.string(
                 description:
-                    'Rol a buscar entre los miembros de la estación, no un '
-                    'agente específico.',
+                    'A quién le toca el paso. Se busca entre los miembros de '
+                    'la estación: primero por su ROL, y si nadie lo tiene, '
+                    'por su HANDLE. Tiene que coincidir EXACTO con uno de '
+                    'los dos de un agente ya registrado — corré '
+                    'list_catalog(kind: "agents") y copiá el valor, no lo '
+                    'redactes. Un rol que no le corresponde a nadie deja el '
+                    'paso sin dueño y la estación lo muestra como "sin '
+                    'agente para X".',
               ),
               'instruction': Schema.string(
                 description: 'Instrucción del paso.',
@@ -279,8 +509,10 @@ final List<Tool> keelAiTools = [
   Tool(
     name: 'create_station',
     description:
-        'Crea una estación, resolviendo handles de agente y nombres de '
-        'workflow a sus ids reales. Reporta qué referencias no se pudieron '
+        'Crea una estación: el contexto de un proyecto (un repo/producto) '
+        'con su directorio de trabajo, sus miembros, sus workflows '
+        'disponibles y sus reglas. Resuelve handles de agente y nombres de '
+        'workflow a sus ids reales, y reporta qué referencias no se pudieron '
         'resolver.',
     inputSchema: ObjectSchema(
       properties: {
@@ -301,8 +533,75 @@ final List<Tool> keelAiTools = [
           items: Schema.string(),
           description: 'Nombres de las reglas a aplicar.',
         ),
+        'knowledge_base_names': Schema.list(
+          items: Schema.string(),
+          description:
+              'Bases de saber del proyecto. Sus miembros reciben el mapa de '
+              'cada una y las consultan solos; ninguna otra estación las ve.',
+        ),
       },
       required: ['name', 'purpose', 'working_directory'],
+    ),
+  ),
+  Tool(
+    name: 'create_knowledge_base',
+    description:
+        'Registra una base de saber: un cuerpo de documentación con nombre '
+        'propio (NUI, CONNECT) que después se le asigna a una estación con '
+        'knowledge_base_names. source "local" apunta a una carpeta del disco '
+        '(se crea si no existe, y es donde ESCRIBÍS los documentos con tus '
+        'herramientas de archivo); source "git" clona un repo a un espejo '
+        'que administra la app, y ahí NO se escribe: el contenido se cambia '
+        'en el repo. Idempotente no es: si el nombre ya existe, falla — para '
+        'cambiarla usá update_knowledge_base.',
+    inputSchema: ObjectSchema(
+      properties: {
+        'name': Schema.string(
+          description: 'Nombre único. Letras, números, "-" y "_"; sin espacios.',
+        ),
+        'description': Schema.string(
+          description:
+              'Una línea: qué contesta esta base. Es lo primero que lee un '
+              'agente para decidir si buscar acá.',
+        ),
+        'source': Schema.string(description: '"local" o "git".'),
+        'local_path': Schema.string(
+          description: 'Ruta absoluta de la carpeta (source "local").',
+        ),
+        'git_url': Schema.string(description: 'URL del repo (source "git").'),
+        'git_branch': Schema.string(description: 'Rama (opcional).'),
+      },
+      required: ['name', 'description', 'source'],
+    ),
+  ),
+  Tool(
+    name: 'update_knowledge_base',
+    description:
+        'Cambia el nombre, la descripción o la fuente de una base de saber '
+        'existente. Solo lo que mandes; el resto queda como estaba.',
+    inputSchema: ObjectSchema(
+      properties: {
+        'name': Schema.string(description: 'Nombre actual de la base.'),
+        'new_name': Schema.string(description: 'Renombrar (opcional).'),
+        'description': Schema.string(description: 'Descripción nueva.'),
+        'source': Schema.string(description: '"local" o "git".'),
+        'local_path': Schema.string(description: 'Carpeta (source "local").'),
+        'git_url': Schema.string(description: 'URL del repo (source "git").'),
+        'git_branch': Schema.string(description: 'Rama.'),
+      },
+      required: ['name'],
+    ),
+  ),
+  Tool(
+    name: 'delete_knowledge_base',
+    description:
+        'Da de baja una base de saber del catálogo. NO borra sus documentos '
+        'del disco: saca el registro y deja de llegarles a los agentes.',
+    inputSchema: ObjectSchema(
+      properties: {
+        'name': Schema.string(description: 'Nombre de la base.'),
+      },
+      required: ['name'],
     ),
   ),
   Tool(

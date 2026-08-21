@@ -10,6 +10,7 @@ import 'package:keel_ui/src/modules/agents/model/agent_model_option.dart';
 import 'package:keel_ui/src/modules/agents/service/chat_actions.dart';
 import 'package:keel_ui/src/modules/agents/service/chat_attachment_store.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/chat_attachment_strip.dart';
+import 'package:keel_ui/src/modules/agents/ui/widget/chat_composer_field.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/chat_message_bubble.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/queued_messages_strip.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/agent_activity_indicator.dart';
@@ -29,6 +30,7 @@ class ChatView extends StatefulWidget {
     this.controller,
     this.emptyState,
     this.actions = const LocalChatActions(),
+    this.fontScaleOverride,
   });
 
   final Agent agent;
@@ -43,6 +45,11 @@ class ChatView extends StatefulWidget {
   /// this widget creating its own. Defaults to an internally-owned one, so
   /// every other caller is unaffected.
   final TextEditingController? controller;
+
+  /// Font scale to use instead of this engine's settings singleton. The
+  /// assistant window has no database, so its settings hold defaults only —
+  /// main sends the real value with the snapshot.
+  final double? fontScaleOverride;
 
   /// Shown instead of the default "Escríbele algo a tu agente" text when
   /// [Agent.messages] is empty. Lets a caller (e.g. the Assistant panel)
@@ -313,6 +320,7 @@ class _ChatViewState extends State<ChatView> {
                                 agentId: agent.id,
                                 agentColor: agent.iconColor,
                                 actions: widget.actions,
+                                fontScaleOverride: widget.fontScaleOverride,
                               ),
                             );
                           },
@@ -394,19 +402,12 @@ class _ChatViewState extends State<ChatView> {
                                 ),
                               ),
                             ),
-                            child: TextField(
+                            child: ChatComposerField(
                               controller: _controller,
-                              decoration: InputDecoration(
-                                hintText: agent.isStreaming
-                                    ? 'Escribí y se envía cuando termine…'
-                                    : 'Escribe un mensaje…',
-                                border: InputBorder.none,
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 14,
-                                  vertical: 12,
-                                ),
-                              ),
-                              onSubmitted: (_) => _send(),
+                              onSend: _send,
+                              hintText: agent.isStreaming
+                                  ? 'Escribí y se envía cuando termine…'
+                                  : 'Escribe un mensaje…',
                             ),
                           ),
                         ),

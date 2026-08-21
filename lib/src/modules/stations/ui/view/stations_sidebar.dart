@@ -7,6 +7,7 @@ import 'package:keel_ui/src/modules/agents/ui/widget/use_agent_panel.dart';
 import 'package:keel_ui/src/modules/agents/viewmodel/agents_viewmodel.dart';
 import 'package:keel_ui/src/modules/stations/model/station.dart';
 import 'package:keel_ui/src/modules/stations/model/station_task.dart';
+import 'package:keel_ui/src/modules/stations/ui/widget/task_plan_list.dart';
 import 'package:keel_ui/src/modules/stations/viewmodel/stations_viewmodel.dart';
 import 'package:keel_ui/src/modules/workflows/model/workflow.dart';
 import 'package:keel_ui/src/modules/workflows/viewmodel/workflows_viewmodel.dart';
@@ -97,7 +98,7 @@ class _SidebarList extends StatelessWidget {
               onTap: () => onSelectStation(station.id),
             ),
             if (state.selectedStationId == station.id) ...[
-              for (final task in station.tasks)
+              for (final task in station.tasks) ...[
                 _TaskRow(
                   task: task,
                   stationId: station.id,
@@ -106,6 +107,16 @@ class _SidebarList extends StatelessWidget {
                   ),
                   selected: station.activeTaskId == task.id,
                 ),
+                // El plan solo se despliega en la tarea abierta: con cuatro
+                // tareas en la estación, cuatro planes a la vez convierten
+                // el sidebar en una pared.
+                if (station.activeTaskId == task.id)
+                  TaskPlanList(
+                    stationId: station.id,
+                    taskId: task.id,
+                    plan: task.plan,
+                  ),
+              ],
               _NewTaskButton(
                 onPressed: () =>
                     StationsService.instance.notifier.createTask(station.id),
@@ -344,7 +355,7 @@ class _StationRow extends StatelessWidget {
   }
 }
 
-class _TaskRow extends StatelessWidget {
+class _TaskRow extends StatefulWidget {
   const _TaskRow({
     required this.task,
     required this.stationId,
@@ -356,6 +367,46 @@ class _TaskRow extends StatelessWidget {
   final String stationId;
   final int totalSteps;
   final bool selected;
+
+  @override
+  State<_TaskRow> createState() => _TaskRowState();
+}
+
+/// La fila de una tarea. Doble click sobre el nombre lo edita ahí mismo: es
+/// un rename, no un formulario, y mandarlo a un panel por un campo de texto
+/// sería más ceremonia que la que el gesto merece.
+class _TaskRowState extends State<_TaskRow> {
+  bool _editing = false;
+  late final _controller = TextEditingController(text: widget.task.title);
+  final _focusNode = FocusNode();
+
+  StationTask get task => widget.task;
+  String get stationId => widget.stationId;
+  int get totalSteps => widget.totalSteps;
+  bool get selected => widget.selected;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  void _startEditing() {
+    _controller.text = task.title == kDefaultTaskTitle ? '' : task.title;
+    setState(() => _editing = true);
+    _focusNode.requestFocus();
+  }
+
+  void _commit() {
+    if (!_editing) return;
+    setState(() => _editing = false);
+    StationsService.instance.notifier.renameTask(
+      stationId,
+      task.id,
+      _controller.text,
+    );
+  }
 
   Future<void> _confirmAndClose(BuildContext context) async {
     final confirmed = await showDialog<bool>(
@@ -415,6 +466,7 @@ class _TaskRow extends StatelessWidget {
     return InkWell(
       onTap: () =>
           StationsService.instance.notifier.selectTask(stationId, task.id),
+      onDoubleTap: _startEditing,
       child: Container(
         color: selected ? scheme.primary.withValues(alpha: 0.07) : null,
         padding: const EdgeInsets.fromLTRB(30, 4, 6, 4),
@@ -427,14 +479,37 @@ class _TaskRow extends StatelessWidget {
             ),
             const SizedBox(width: 7),
             Expanded(
-              child: Text(
-                task.title,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: selected ? scheme.onSurface : scheme.outline,
-                ),
-              ),
+              child: _editing
+                  ? Focus(
+                      onFocusChange: (hasFocus) {
+                        if (!hasFocus) _commit();
+                      },
+                      child: TextField(
+                        controller: _controller,
+                        focusNode: _focusNode,
+                        onSubmitted: (_) => _commit(),
+                        style: const TextStyle(fontSize: 12),
+                        decoration: const InputDecoration(
+                          isDense: true,
+                          isCollapsed: true,
+                          border: InputBorder.none,
+                          hintText: 'Nombre de la tarea',
+                          hintStyle: TextStyle(fontSize: 12),
+                        ),
+                      ),
+                    )
+                  : Tooltip(
+                      message: 'Doble click para renombrar',
+                      waitDuration: const Duration(milliseconds: 900),
+                      child: Text(
+                        task.title,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: selected ? scheme.onSurface : scheme.outline,
+                        ),
+                      ),
+                    ),
             ),
             const SizedBox(width: 4),
             trailing,

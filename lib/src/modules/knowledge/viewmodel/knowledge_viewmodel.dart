@@ -6,38 +6,69 @@ import 'package:logger_rs/logger_rs.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
 
+import 'package:keel_ui/src/modules/knowledge/model/knowledge_base.dart';
+import 'package:keel_ui/src/modules/knowledge/model/knowledge_document.dart';
+import 'package:keel_ui/src/modules/knowledge/repository/knowledge_bases_repository.dart';
 import 'package:keel_ui/src/modules/settings/viewmodel/settings_viewmodel.dart';
+import 'package:keel_ui/src/shared/shared.dart';
+
+/// Carpetas que nunca son documentación y sí son enormes. Una base local
+/// puede apuntar a un repo entero: sin este filtro el árbol se llena de
+/// `node_modules` y el índice tarda segundos en armarse.
+const _skippedDirectories = {
+  '.git',
+  'node_modules',
+  'build',
+  '.dart_tool',
+  '.idea',
+  '.vscode',
+  'Pods',
+  'DerivedData',
+  '__pycache__',
+};
+
+/// Tope de archivos por base. Existe para que apuntar una base a la carpeta
+/// equivocada sea molesto y no un cuelgue: se corta, se avisa, y el usuario
+/// corrige la ruta.
+const _maxIndexedFiles = 5000;
 
 class KnowledgeState {
-  final bool busy;
+  final List<KnowledgeBase> bases;
+
+  /// El estado en disco de cada base, por id. Se arma escaneando; nunca se
+  /// persiste, porque la fuente de verdad es el disco.
+  final Map<String, KnowledgeIndex> indexes;
+
+  /// Ids de las bases con una sincronización corriendo ahora.
+  final Set<String> syncing;
+
+  final KnowledgeDocument? selectedDocument;
   final String status;
 
-  /// Repo-relative paths of every markdown doc, sorted.
-  final List<String> documents;
-  final String? selectedPath;
-  final String selectedContent;
-
   const KnowledgeState({
-    this.busy = false,
+    this.bases = const [],
+    this.indexes = const {},
+    this.syncing = const {},
+    this.selectedDocument,
     this.status = '',
-    this.documents = const [],
-    this.selectedPath,
-    this.selectedContent = '',
   });
 
   KnowledgeState copyWith({
-    bool? busy,
+    List<KnowledgeBase>? bases,
+    Map<String, KnowledgeIndex>? indexes,
+    Set<String>? syncing,
+    KnowledgeDocument? selectedDocument,
+    bool clearSelection = false,
     String? status,
-    List<String>? documents,
-    String? selectedPath,
-    String? selectedContent,
   }) {
     return KnowledgeState(
-      busy: busy ?? this.busy,
+      bases: bases ?? this.bases,
+      indexes: indexes ?? this.indexes,
+      syncing: syncing ?? this.syncing,
+      selectedDocument: clearSelection
+          ? null
+          : selectedDocument ?? this.selectedDocument,
       status: status ?? this.status,
-      documents: documents ?? this.documents,
-      selectedPath: selectedPath ?? this.selectedPath,
-      selectedContent: selectedContent ?? this.selectedContent,
     );
   }
 
@@ -46,153 +77,445 @@ class KnowledgeState {
       identical(this, other) ||
       other is KnowledgeState &&
           runtimeType == other.runtimeType &&
-          busy == other.busy &&
-          status == other.status &&
-          listEquals(documents, other.documents) &&
-          selectedPath == other.selectedPath &&
-          selectedContent == other.selectedContent;
+          listEquals(bases, other.bases) &&
+          mapEquals(indexes, other.indexes) &&
+          setEquals(syncing, other.syncing) &&
+          selectedDocument == other.selectedDocument &&
+          status == other.status;
 
   @override
   int get hashCode => Object.hash(
-    busy,
+    Object.hashAll(bases),
+    Object.hashAll(indexes.entries.map((entry) => Object.hash(entry.key, entry.value))),
+    Object.hashAll(syncing),
+    selectedDocument,
     status,
-    Object.hashAll(documents),
-    selectedPath,
-    selectedContent,
   );
 
   @override
   String toString() =>
-      'KnowledgeState(busy: $busy, documents: ${documents.length}, '
-      'selected: $selectedPath)';
+      'KnowledgeState(bases: ${bases.length}, syncing: ${syncing.length}, '
+      'selected: ${selectedDocument?.relativePath})';
 }
 
-/// The Knowledge section: a git repo of markdown docs, configured by URL in
-/// Settings, cloned/pulled into app support and browsed in-app. Agents can
-/// read it too — [mirrorPathIfPresent] is advertised in Keel AI's seed.
+/// El área de Saber: bases de documentación con frontera de contexto. Una
+/// estación (o un perfil oráculo) declara qué bases ve por nombre, y en el
+/// turno de sus agentes entra el MAPA de esas bases — nunca los documentos
+/// enteros. Ver `docs/features/16-bases-de-saber.md`.
 class KnowledgeViewModel extends ViewModel<KnowledgeState> {
   KnowledgeViewModel() : super(const KnowledgeState());
 
-  /// First-init guard (same reasoning as the catalog VMs): the first access
-  /// can come from an MCP tool with no widget mounted, and the later
-  /// builder-triggered re-init must not wipe documents or the busy flag of
-  /// an in-flight update.
+  KnowledgeBasesRepository get _repository => KnowledgeBasesRepository();
+
+  /// Application Support resuelto una vez, para que [rootPathOf] sea
+  /// síncrono: el armado del turno de un agente no puede esperar I/O.
+  static String _supportPath = '';
+
   Future<void>? _ready;
+  Future<void> get ready => _ready ??= _load();
 
   @override
   void init() {
-    if (_ready != null) return;
-    updateSilently(const KnowledgeState());
-    _ready = _loadLocalIndex();
+    if (_ready == null) updateSilently(const KnowledgeState());
+    unawaited(ready);
   }
 
-  static Future<String> mirrorPath() async {
-    final support = await getApplicationSupportDirectory();
-    return '${support.path}/knowledge/repo';
-  }
-
-  /// The local docs path IF an update already ran on this machine.
-  static String? mirrorPathIfPresentSync;
-
-  Future<void> _loadLocalIndex() async {
-    final path = await mirrorPath();
-    if (!Directory('$path/.git').existsSync()) {
-      updateState(
-        data.copyWith(
-          status:
-              'Sin documentación descargada todavía — configurá el repo en '
-              'Configuración y tocá Actualizar.',
-        ),
-      );
-      return;
+  Future<void> _load() async {
+    try {
+      _supportPath = (await getApplicationSupportDirectory()).path;
+      final bases = await _migrated(await _repository.load());
+      updateState(data.copyWith(bases: bases));
+      await _reindexAll(bases);
+    } catch (error) {
+      Log.e('Failed to load knowledge bases', error: error);
     }
-    mirrorPathIfPresentSync = path;
+  }
+
+  /// Una sola vez: la URL única de la vieja sección Conocimiento (F11) pasa
+  /// a ser una base, y el ajuste queda en blanco. Sin bases registradas y
+  /// sin URL no hace nada, que es el caso de una instalación nueva.
+  Future<List<KnowledgeBase>> _migrated(List<KnowledgeBase> bases) async {
+    if (bases.isNotEmpty) return bases;
+
+    final settings = SettingsService.instance.notifier;
+    await settings.ready;
+    final legacyUrl = settings.data.knowledgeRepoUrl.trim();
+    if (legacyUrl.isEmpty) return bases;
+
+    final migrated = [
+      KnowledgeBase(
+        id: generateUuidV4(),
+        name: 'conocimiento',
+        description: 'Documentación migrada de la sección anterior.',
+        source: KnowledgeSource.git,
+        gitUrl: legacyUrl,
+        createdAt: DateTime.now(),
+      ),
+    ];
+    await _repository.save(migrated);
+    settings.setKnowledgeRepoUrl('');
+    Log.i('Knowledge: migrada la URL única a la base "conocimiento"');
+    return migrated;
+  }
+
+  // ── catálogo ────────────────────────────────────────────────────────
+
+  /// Registra una base. Devuelve un mensaje de error para mostrar, o null.
+  ///
+  /// [createFolderIfMissing] existe para el camino de las tools: cuando un
+  /// agente arma una base local para escribir documentación adentro, la
+  /// carpeta todavía no existe y exigirla sería pedirle al usuario que la
+  /// cree a mano. Desde el formulario queda en false: ahí una ruta que no
+  /// existe es un error de tipeo, y crear la carpeta lo escondería.
+  String? createBase({
+    required String name,
+    required String description,
+    required KnowledgeSource source,
+    String gitUrl = '',
+    String gitBranch = '',
+    String localPath = '',
+    bool createFolderIfMissing = false,
+  }) {
+    if (createFolderIfMissing &&
+        source == KnowledgeSource.local &&
+        localPath.trim().isNotEmpty) {
+      try {
+        Directory(localPath.trim()).createSync(recursive: true);
+      } catch (error) {
+        return 'No pude crear la carpeta: $error';
+      }
+    }
+
+    final error = _validate(
+      name,
+      source: source,
+      gitUrl: gitUrl,
+      localPath: localPath,
+    );
+    if (error != null) return error;
+
+    final base = KnowledgeBase(
+      id: generateUuidV4(),
+      name: name,
+      description: description.trim(),
+      source: source,
+      gitUrl: gitUrl.trim(),
+      gitBranch: gitBranch.trim(),
+      localPath: localPath.trim(),
+      createdAt: DateTime.now(),
+    );
+    final bases = [...data.bases, base];
+    updateState(data.copyWith(bases: bases));
+    unawaited(_repository.save(bases));
+    unawaited(reindexBase(base.id));
+    return null;
+  }
+
+  String? updateBase(
+    String id, {
+    required String name,
+    required String description,
+    required KnowledgeSource source,
+    String gitUrl = '',
+    String gitBranch = '',
+    String localPath = '',
+  }) {
+    final error = _validate(
+      name,
+      excludingId: id,
+      source: source,
+      gitUrl: gitUrl,
+      localPath: localPath,
+    );
+    if (error != null) return error;
+
+    final bases = data.bases
+        .map(
+          (base) => base.id == id
+              ? base.copyWith(
+                  name: name,
+                  description: description.trim(),
+                  source: source,
+                  gitUrl: gitUrl.trim(),
+                  gitBranch: gitBranch.trim(),
+                  localPath: localPath.trim(),
+                )
+              : base,
+        )
+        .toList();
+    updateState(data.copyWith(bases: bases));
+    unawaited(_repository.save(bases));
+    unawaited(reindexBase(id));
+    return null;
+  }
+
+  void deleteBase(String id) {
+    final bases = data.bases.where((base) => base.id != id).toList();
+    final indexes = {...data.indexes}..remove(id);
+    final clearing = data.selectedDocument?.baseId == id;
     updateState(
-      data.copyWith(documents: _indexMarkdown(path), status: ''),
+      data.copyWith(bases: bases, indexes: indexes, clearSelection: clearing),
+    );
+    unawaited(_repository.save(bases));
+  }
+
+  /// Le da carpeta a una base local que llegó sin una (importada). El
+  /// contenido no se toca: la base pasa a apuntar ahí y se reindexa.
+  String? setBaseFolder(String id, String path) {
+    final base = baseById(id);
+    if (base == null) return 'Esa base ya no existe.';
+    return updateBase(
+      id,
+      name: base.name,
+      description: base.description,
+      source: base.source,
+      gitUrl: base.gitUrl,
+      gitBranch: base.gitBranch,
+      localPath: path,
     );
   }
 
-  /// Clone-or-pull of the configured docs repo, then reindex.
-  Future<String> update() async {
-    if (data.busy) return 'Ya hay una actualización en curso.';
-    final repoUrl = SettingsService.instance.notifier.data.knowledgeRepoUrl
-        .trim();
-    if (repoUrl.isEmpty) {
-      const message =
-          'No hay repo de conocimiento configurado — cargá la URL en '
-          'Configuración → Conocimiento.';
+  String? _validate(
+    String name, {
+    String? excludingId,
+    required KnowledgeSource source,
+    required String gitUrl,
+    required String localPath,
+  }) {
+    final formatError = validateKnowledgeBaseName(name);
+    if (formatError != null) return formatError;
+
+    final isTaken = data.bases.any(
+      (base) => base.name == name && base.id != excludingId,
+    );
+    if (isTaken) return 'Ya existe una base con ese nombre.';
+
+    if (source == KnowledgeSource.git && gitUrl.trim().isEmpty) {
+      return 'Una base git necesita la URL del repo.';
+    }
+    if (source == KnowledgeSource.local && localPath.trim().isNotEmpty) {
+      if (!Directory(localPath.trim()).existsSync()) {
+        return 'Esa carpeta no existe.';
+      }
+    }
+    return null;
+  }
+
+  // ── lecturas ────────────────────────────────────────────────────────
+
+  KnowledgeBase? baseById(String id) =>
+      data.bases.where((base) => base.id == id).firstOrNull;
+
+  KnowledgeBase? baseByName(String name) =>
+      data.bases.where((base) => base.name == name).firstOrNull;
+
+  /// Dónde vive el contenido de [base]: el espejo en Application Support si
+  /// es git, la carpeta del usuario si es local. Vacío si todavía no tiene.
+  String rootPathOf(KnowledgeBase base) {
+    if (base.source == KnowledgeSource.local) return base.localPath.trim();
+    if (_supportPath.isEmpty) return '';
+    return '$_supportPath/knowledge/${base.name}';
+  }
+
+  KnowledgeIndex? indexOf(String baseId) => data.indexes[baseId];
+
+  // ── índice ──────────────────────────────────────────────────────────
+
+  Future<void> _reindexAll(List<KnowledgeBase> bases) async {
+    final indexes = {...data.indexes};
+    for (final base in bases) {
+      indexes[base.id] = await _buildIndex(base);
+    }
+    updateState(data.copyWith(indexes: indexes));
+  }
+
+  Future<void> reindexBase(String id) async {
+    final base = baseById(id);
+    if (base == null) return;
+    final index = await _buildIndex(base);
+    updateState(data.copyWith(indexes: {...data.indexes, id: index}));
+  }
+
+  Future<KnowledgeIndex> _buildIndex(KnowledgeBase base) async {
+    final root = rootPathOf(base);
+    if (root.isEmpty) {
+      return const KnowledgeIndex(
+        rootPath: '',
+        problem: 'Sin carpeta asignada todavía.',
+      );
+    }
+    final directory = Directory(root);
+    if (!directory.existsSync()) {
+      return KnowledgeIndex(
+        rootPath: root,
+        problem: base.source == KnowledgeSource.git
+            ? 'Sin descargar todavía — tocá Actualizar.'
+            : 'La carpeta no existe: $root',
+      );
+    }
+
+    try {
+      var budget = _maxIndexedFiles;
+      final nodes = _scan(directory, root, () => budget, (used) => budget = used);
+      var portada = '';
+      for (final candidate in kKnowledgeIndexFileNames) {
+        final file = File('$root/$candidate');
+        if (!file.existsSync()) continue;
+        portada = file.readAsStringSync();
+        break;
+      }
+      return KnowledgeIndex(
+        rootPath: root,
+        nodes: nodes,
+        indexContent: portada.length > kKnowledgeIndexPromptLimit
+            ? '${portada.substring(0, kKnowledgeIndexPromptLimit)}\n…'
+            : portada,
+        problem: budget <= 0
+            ? 'Más de $_maxIndexedFiles archivos: el árbol está recortado. '
+                  'Apuntá la base a una carpeta más chica.'
+            : '',
+      );
+    } catch (error) {
+      Log.e('Knowledge: no pude indexar ${base.name}', error: error);
+      return KnowledgeIndex(rootPath: root, problem: 'No pude leerla: $error');
+    }
+  }
+
+  /// Escaneo recursivo, ordenado carpetas-primero-y-alfabético, saltando lo
+  /// que nunca es documentación. Las carpetas que quedan vacías después del
+  /// filtro no se listan.
+  List<KnowledgeNode> _scan(
+    Directory directory,
+    String root,
+    int Function() budget,
+    void Function(int) spend,
+  ) {
+    final entities = directory.listSync()..sort((a, b) => a.path.compareTo(b.path));
+    final directories = <KnowledgeNode>[];
+    final files = <KnowledgeNode>[];
+
+    for (final entity in entities) {
+      final name = entity.path.split('/').last;
+      if (name.startsWith('.')) continue;
+
+      if (entity is Directory) {
+        if (_skippedDirectories.contains(name)) continue;
+        final children = _scan(entity, root, budget, spend);
+        if (children.isEmpty) continue;
+        directories.add(
+          KnowledgeNode(
+            name: name,
+            relativePath: entity.path.substring(root.length + 1),
+            isDirectory: true,
+            children: children,
+          ),
+        );
+        continue;
+      }
+
+      if (entity is! File) continue;
+      if (budget() <= 0) break;
+      spend(budget() - 1);
+      files.add(
+        KnowledgeNode(
+          name: name,
+          relativePath: entity.path.substring(root.length + 1),
+          isDirectory: false,
+        ),
+      );
+    }
+
+    return [...directories, ...files];
+  }
+
+  // ── sincronización ──────────────────────────────────────────────────
+
+  /// Actualiza una base git (clone o pull) y la reindexa. Una base local no
+  /// tiene nada que sincronizar: se reindexa y ya.
+  Future<String> syncBase(String id) async {
+    final base = baseById(id);
+    if (base == null) return 'Esa base ya no existe.';
+    if (data.syncing.contains(id)) {
+      return 'La base "${base.name}" ya se está actualizando.';
+    }
+
+    if (base.source == KnowledgeSource.local) {
+      await reindexBase(id);
+      final count = indexOf(id)?.documentCount ?? 0;
+      final message = 'Base "${base.name}": $count documentos.';
       updateState(data.copyWith(status: message));
       return message;
     }
 
-    updateState(data.copyWith(busy: true, status: 'Actualizando…'));
+    updateState(
+      data.copyWith(
+        syncing: {...data.syncing, id},
+        status: 'Actualizando "${base.name}"…',
+      ),
+    );
     try {
-      final path = await mirrorPath();
-      final hasClone = Directory('$path/.git').existsSync();
-      final result = hasClone
-          ? await _git(['pull', '--ff-only'], cwd: path)
-          : await () async {
-              await Directory(path).parent.create(recursive: true);
-              return _git(['clone', '--depth', '1', repoUrl, path]);
-            }();
-      if (!result.ok) {
-        final message = 'Actualización falló: ${result.output}';
-        updateState(data.copyWith(busy: false, status: message));
-        return message;
-      }
-      if (hasClone) {
-        final remote = await _git([
-          'remote',
-          'set-url',
-          'origin',
-          repoUrl,
-        ], cwd: path);
-        if (!remote.ok) Log.w('knowledge remote set-url: ${remote.output}');
-      }
-      mirrorPathIfPresentSync = path;
-      final documents = _indexMarkdown(path);
-      final message = 'Documentación al día: ${documents.length} documentos.';
-      updateState(
-        data.copyWith(busy: false, status: message, documents: documents),
-      );
-      return message;
-    } catch (error) {
-      final message = 'Actualización falló: $error';
-      Log.e('Knowledge update failed', error: error);
-      updateState(data.copyWith(busy: false, status: message));
-      return message;
-    }
-  }
-
-  Future<void> select(String relativePath) async {
-    final root = await mirrorPath();
-    try {
-      final content = await File('$root/$relativePath').readAsString();
-      updateState(
-        data.copyWith(selectedPath: relativePath, selectedContent: content),
-      );
-    } catch (error) {
+      final message = await _pullOrClone(base);
+      await reindexBase(id);
       updateState(
         data.copyWith(
-          selectedPath: relativePath,
-          selectedContent: 'No pude leer el documento: $error',
+          syncing: {...data.syncing}..remove(id),
+          status: message,
         ),
       );
+      return message;
+    } catch (error) {
+      final message = 'Base "${base.name}": $error';
+      Log.e('Knowledge sync failed for ${base.name}', error: error);
+      updateState(
+        data.copyWith(
+          syncing: {...data.syncing}..remove(id),
+          status: message,
+        ),
+      );
+      return message;
     }
   }
 
-  List<String> _indexMarkdown(String root) {
-    final rootDir = Directory(root);
-    if (!rootDir.existsSync()) return const [];
-    final docs = <String>[];
-    for (final entity in rootDir.listSync(recursive: true)) {
-      if (entity is! File || !entity.path.endsWith('.md')) continue;
-      final relative = entity.path.substring(root.length + 1);
-      if (relative.startsWith('.git/')) continue;
-      docs.add(relative);
+  Future<String> syncAll() async {
+    final messages = <String>[];
+    for (final base in data.bases) {
+      messages.add(await syncBase(base.id));
     }
-    docs.sort();
-    return docs;
+    final summary = messages.isEmpty
+        ? 'No hay bases de saber registradas.'
+        : messages.join('\n');
+    updateState(data.copyWith(status: summary));
+    return summary;
+  }
+
+  Future<String> _pullOrClone(KnowledgeBase base) async {
+    final root = rootPathOf(base);
+    if (root.isEmpty) throw 'no pude resolver su carpeta.';
+
+    final hasClone = Directory('$root/.git').existsSync();
+    if (hasClone) {
+      final remote = await _git([
+        'remote',
+        'set-url',
+        'origin',
+        base.gitUrl,
+      ], cwd: root);
+      if (!remote.ok) Log.w('knowledge remote set-url: ${remote.output}');
+      final pull = await _git(['pull', '--ff-only'], cwd: root);
+      if (!pull.ok) throw 'git pull falló: ${pull.output}';
+    } else {
+      await Directory(root).parent.create(recursive: true);
+      final clone = await _git([
+        'clone',
+        '--depth',
+        '1',
+        if (base.gitBranch.isNotEmpty) ...['--branch', base.gitBranch],
+        base.gitUrl,
+        root,
+      ]);
+      if (!clone.ok) throw 'git clone falló: ${clone.output}';
+    }
+    return 'Base "${base.name}" al día.';
   }
 
   Future<({bool ok, String output})> _git(
@@ -205,6 +528,109 @@ class KnowledgeViewModel extends ViewModel<KnowledgeState> {
       (result.stderr as String).trim(),
     ].where((part) => part.isNotEmpty).join('\n');
     return (ok: result.exitCode == 0, output: output);
+  }
+
+  // ── documento abierto ───────────────────────────────────────────────
+
+  Future<void> selectDocument(String baseId, String relativePath) async {
+    final base = baseById(baseId);
+    if (base == null) return;
+    final absolute = '${rootPathOf(base)}/$relativePath';
+    final kind = KnowledgeDocument.kindOf(relativePath);
+
+    var text = '';
+    var problem = '';
+    if (KnowledgeDocument(
+      baseId: baseId,
+      relativePath: relativePath,
+      absolutePath: absolute,
+      kind: kind,
+    ).isText) {
+      try {
+        text = await File(absolute).readAsString();
+      } catch (error) {
+        problem = 'No pude leerlo: $error';
+      }
+    }
+
+    updateState(
+      data.copyWith(
+        selectedDocument: KnowledgeDocument(
+          baseId: baseId,
+          relativePath: relativePath,
+          absolutePath: absolute,
+          kind: kind,
+          text: text,
+          problem: problem,
+        ),
+      ),
+    );
+  }
+
+  void clearSelection() => updateState(data.copyWith(clearSelection: true));
+
+  /// Abre [absolutePath] con la app que el sistema tenga asociada. Es la
+  /// salida para los formatos que esta app no dibuja (PDF, planillas): se
+  /// delega en vez de fingir un visor.
+  Future<void> openWithSystem(String absolutePath) async {
+    final result = await Process.run('open', [absolutePath]);
+    if (result.exitCode == 0) return;
+    final message = 'No pude abrirlo: ${(result.stderr as String).trim()}';
+    Log.w('Knowledge open failed for $absolutePath');
+    updateState(data.copyWith(status: message));
+  }
+
+  // ── lo que ve un agente ─────────────────────────────────────────────
+
+  /// El MAPA de las bases [baseNames], para inyectar en el turno de un
+  /// agente. Tamaño acotado: raíz, cuántos documentos, las carpetas de
+  /// primer nivel y la portada `INDEX.md` si la base tiene una. Los
+  /// documentos los abre el agente con sus propias herramientas — de eso se
+  /// trata: que sepa dónde y qué consultar, no que se lo cargue entero.
+  ///
+  /// Devuelve vacío si no hay ninguna base resoluble, para que quien lo
+  /// llama no agregue un encabezado colgado.
+  String briefFor(List<String> baseNames) {
+    final buffer = StringBuffer();
+
+    for (final name in baseNames) {
+      final base = baseByName(name);
+      if (base == null) {
+        Log.w('Base de saber "$name" referenciada y no registrada');
+        continue;
+      }
+      final index = indexOf(base.id);
+      final root = rootPathOf(base);
+      if (index == null || root.isEmpty || index.isEmpty) continue;
+
+      if (buffer.isNotEmpty) buffer.writeln();
+      buffer.writeln(
+        'Base de saber "${base.name}"'
+        '${base.description.isEmpty ? '' : ' — ${base.description}'}',
+      );
+      buffer.writeln('Raíz: $root  (${index.documentCount} documentos)');
+
+      final folders = index.nodes.where((node) => node.isDirectory).toList();
+      if (folders.isNotEmpty) {
+        buffer.writeln(
+          folders
+              .map((folder) => '${folder.name}/ (${folder.documentCount})')
+              .join(' · '),
+        );
+      }
+      if (index.indexContent.isNotEmpty) {
+        buffer.writeln('--- portada de ${base.name} ---');
+        buffer.writeln(index.indexContent.trim());
+        buffer.writeln('--- fin ---');
+      }
+    }
+
+    if (buffer.isEmpty) return '';
+    return '''
+Tenés estas bases de saber disponibles. Buscá en ellas con Grep/Read cuando
+necesites un dato del proyecto; no las leas enteras.
+
+${buffer.toString().trim()}''';
   }
 }
 

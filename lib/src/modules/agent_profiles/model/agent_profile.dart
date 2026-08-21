@@ -25,6 +25,26 @@ String? validateAgentProfileName(String value) {
   return null;
 }
 
+/// El miembro que le toca a un paso que pide [role].
+///
+/// Empareja primero por ROL —que es lo que un paso nombra a propósito, para
+/// que el mismo workflow sirva en cualquier estación que tenga ese rol— y si
+/// nadie lo tiene, por HANDLE. El handle es único en toda la app, así que un
+/// paso que dice "auditor" y el agente `@auditor` son inequívocamente lo
+/// mismo; sin esta segunda pasada, un workflow escrito con handles queda con
+/// todos sus pasos huérfanos aunque la estación tenga a los nueve miembros.
+AgentProfile? memberForRole(Iterable<AgentProfile> members, String role) {
+  final wanted = role.trim().toLowerCase();
+  if (wanted.isEmpty) return null;
+  for (final member in members) {
+    if (member.role.trim().toLowerCase() == wanted) return member;
+  }
+  for (final member in members) {
+    if (member.name.trim().toLowerCase() == wanted) return member;
+  }
+  return null;
+}
+
 /// A reusable, registered agent identity: name, role, system prompt, and
 /// saved skills travel with it wherever it's instantiated. Permissions
 /// (e.g. full file system access) are NOT part of the profile — they're set
@@ -44,6 +64,14 @@ class AgentProfile {
   /// Names of registered external MCP servers (gmail, drive, …) this
   /// profile's agents get wired into their turns — see F5.
   final List<String> mcpServers;
+
+  /// Bases de saber que este perfil lleva consigo, por nombre — el caso
+  /// ORÁCULO: un agente cuyo trabajo es contestar desde esa documentación,
+  /// también en 1:1, fuera de toda estación. Es una excepción deliberada al
+  /// aislamiento por estación: la base viaja con el perfil a donde vaya, así
+  /// que se usa para el agente que ES de ese dominio, no como atajo para
+  /// darle documentación a un especialista general.
+  final List<String> knowledgeBaseNames;
 
   /// A "builder" profile: its 1:1 agents receive the same `keelai-actions`
   /// MCP that Keel AI has, so they can create skills/rules/tools/agents/
@@ -76,6 +104,7 @@ class AgentProfile {
     this.rules = const [],
     this.tools = const [],
     this.mcpServers = const [],
+    this.knowledgeBaseNames = const [],
     this.canManageSystem = false,
     this.provider = AgentProvider.claude,
     this.createdByProfileId,
@@ -89,6 +118,7 @@ class AgentProfile {
     List<String>? rules,
     List<String>? tools,
     List<String>? mcpServers,
+    List<String>? knowledgeBaseNames,
     bool? canManageSystem,
     AgentProvider? provider,
     String? model,
@@ -103,6 +133,7 @@ class AgentProfile {
       rules: rules ?? this.rules,
       tools: tools ?? this.tools,
       mcpServers: mcpServers ?? this.mcpServers,
+      knowledgeBaseNames: knowledgeBaseNames ?? this.knowledgeBaseNames,
       canManageSystem: canManageSystem ?? this.canManageSystem,
       provider: provider ?? this.provider,
       model: model ?? this.model,
@@ -121,6 +152,7 @@ class AgentProfile {
     'rules': rules,
     'tools': tools,
     'mcpServers': mcpServers,
+    'knowledgeBaseNames': knowledgeBaseNames,
     'canManageSystem': canManageSystem,
     'provider': provider.alias,
     'model': model,
@@ -139,6 +171,8 @@ class AgentProfile {
       rules: (json['rules'] as List?)?.cast<String>() ?? const [],
       tools: (json['tools'] as List?)?.cast<String>() ?? const [],
       mcpServers: (json['mcpServers'] as List?)?.cast<String>() ?? const [],
+      knowledgeBaseNames:
+          (json['knowledgeBaseNames'] as List?)?.cast<String>() ?? const [],
       canManageSystem: json['canManageSystem'] as bool? ?? false,
       provider: json['provider'] == null
           ? AgentProvider.claude
@@ -163,6 +197,7 @@ class AgentProfile {
           listEquals(rules, other.rules) &&
           listEquals(tools, other.tools) &&
           listEquals(mcpServers, other.mcpServers) &&
+          listEquals(knowledgeBaseNames, other.knowledgeBaseNames) &&
           canManageSystem == other.canManageSystem &&
           provider == other.provider &&
           model == other.model &&
@@ -180,6 +215,7 @@ class AgentProfile {
     Object.hashAll(rules),
     Object.hashAll(tools),
     Object.hashAll(mcpServers),
+    Object.hashAll(knowledgeBaseNames),
     canManageSystem,
     provider,
     model,

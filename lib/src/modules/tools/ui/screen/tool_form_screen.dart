@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 
 import 'package:keel_ui/src/core/ui/form_panel.dart';
 import 'package:keel_ui/src/modules/secrets/ui/widget/secret_multi_select.dart';
+import 'package:keel_ui/src/modules/agents/model/code_language.dart';
+import 'package:keel_ui/src/modules/agents/model/highlighted_line.dart';
+import 'package:keel_ui/src/modules/agents/ui/widget/code_editing_controller.dart';
 import 'package:keel_ui/src/modules/tools/model/tool.dart';
 import 'package:keel_ui/src/modules/tools/viewmodel/tools_viewmodel.dart';
 
@@ -25,9 +28,17 @@ class _ToolFormScreenState extends State<ToolFormScreen> {
   late final _descriptionController = TextEditingController(
     text: widget.initial?.description,
   );
-  late final _codeController = TextEditingController(
+  /// Pinta la sintaxis mientras se edita, en vez de dejar el script como un
+  /// bloque de texto plano: es código, y leerlo sin colores es lo que hace
+  /// que un `fi` de más pase desapercibido.
+  late final _codeController = CodeEditingController(
+    language: _languageOf(widget.initial?.runtime ?? ToolRuntime.bash),
+    theme: codeHighlightTheme(Brightness.dark),
     text: widget.initial?.code,
   );
+
+  static String _languageOf(ToolRuntime runtime) =>
+      codeLanguageForPath('script.${runtime.fileExtension}');
   late final _timeoutController = TextEditingController(
     text: (widget.initial?.timeoutSeconds ?? kDefaultToolTimeoutSeconds)
         .toString(),
@@ -170,7 +181,10 @@ class _ToolFormScreenState extends State<ToolFormScreen> {
                         ],
                         onChanged: (value) {
                           if (value == null) return;
-                          setState(() => _runtime = value);
+                          setState(() {
+                            _runtime = value;
+                            _codeController.language = _languageOf(value);
+                          });
                         },
                       ),
                     ),
@@ -206,13 +220,25 @@ class _ToolFormScreenState extends State<ToolFormScreen> {
                     maxLines: null,
                     minLines: null,
                     textAlignVertical: TextAlignVertical.top,
-                    style: const TextStyle(fontFamily: 'monospace'),
-                    decoration: const InputDecoration(
+                    style: const TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 13,
+                      height: 1.45,
+                    ),
+                    decoration: InputDecoration(
                       labelText:
                           'Código (recibe los argumentos como argv y '
                           'reporta por stdout/stderr)',
                       alignLabelWithHint: true,
-                      border: OutlineInputBorder(
+                      // Fondo propio: el script se lee como un editor, no
+                      // como un campo de formulario más.
+                      filled: true,
+                      fillColor: Theme.of(
+                        context,
+                      ).colorScheme.surfaceContainerHighest.withValues(
+                        alpha: 0.4,
+                      ),
+                      border: const OutlineInputBorder(
                         borderRadius: BorderRadius.all(Radius.circular(16)),
                       ),
                     ),

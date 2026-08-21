@@ -1,145 +1,96 @@
 import 'package:flutter/material.dart';
-import 'package:gpt_markdown/gpt_markdown.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
 
+import 'package:keel_ui/src/modules/knowledge/ui/screen/knowledge_base_form_screen.dart';
+import 'package:keel_ui/src/modules/knowledge/ui/widget/knowledge_document_view.dart';
+import 'package:keel_ui/src/modules/knowledge/ui/widget/knowledge_tree.dart';
 import 'package:keel_ui/src/modules/knowledge/viewmodel/knowledge_viewmodel.dart';
 
-/// The Knowledge section: browse the markdown docs pulled from the
-/// configured git repo, with the same renderer the chat uses.
-class KnowledgeScreen extends StatefulWidget {
+/// El área de Saber: bases con frontera de contexto a la izquierda, el
+/// documento abierto a la derecha. Ver `docs/features/16-bases-de-saber.md`.
+class KnowledgeScreen extends StatelessWidget {
   const KnowledgeScreen({super.key});
-
-  @override
-  State<KnowledgeScreen> createState() => _KnowledgeScreenState();
-}
-
-class _KnowledgeScreenState extends State<KnowledgeScreen> {
-  String _filter = '';
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Conocimiento'),
+        title: const Text('Saber'),
         actions: [
           ReactiveViewModelBuilder<KnowledgeViewModel, KnowledgeState>(
             viewmodel: KnowledgeService.instance.notifier,
             build: (state, viewmodel, keep) => IconButton(
-              tooltip: 'Actualizar (git pull del repo configurado)',
-              icon: state.busy
-                  ? const SizedBox(
+              tooltip: 'Actualizar todas las bases',
+              icon: state.syncing.isEmpty
+                  ? const Icon(Icons.refresh)
+                  : const SizedBox(
                       width: 16,
                       height: 16,
                       child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.refresh),
-              onPressed: state.busy ? null : viewmodel.update,
+                    ),
+              onPressed: state.syncing.isEmpty ? viewmodel.syncAll : null,
             ),
+          ),
+          IconButton(
+            tooltip: 'Nueva base de saber',
+            icon: const Icon(Icons.add),
+            onPressed: () => openKnowledgeBaseFormScreen(context),
           ),
         ],
       ),
       body: ReactiveViewModelBuilder<KnowledgeViewModel, KnowledgeState>(
         viewmodel: KnowledgeService.instance.notifier,
         build: (state, viewmodel, keep) {
-          if (state.documents.isEmpty) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Text(
-                  state.status.isEmpty
-                      ? 'Sin documentación todavía.'
-                      : state.status,
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            );
-          }
+          final document = state.selectedDocument;
 
-          final visible = _filter.isEmpty
-              ? state.documents
-              : state.documents
-                    .where(
-                      (path) =>
-                          path.toLowerCase().contains(_filter.toLowerCase()),
-                    )
-                    .toList();
-
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          return Column(
             children: [
-              SizedBox(
-                width: 280,
-                child: Column(
+              Expanded(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-                      child: TextField(
-                        decoration: const InputDecoration(
-                          isDense: true,
-                          prefixIcon: Icon(Icons.search, size: 18),
-                          hintText: 'Filtrar por nombre…',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.all(
-                              Radius.circular(12),
-                            ),
-                          ),
-                        ),
-                        onChanged: (value) =>
-                            setState(() => _filter = value.trim()),
-                      ),
+                    SizedBox(
+                      width: 300,
+                      child: KnowledgeTree(state: state, viewmodel: viewmodel),
                     ),
+                    const VerticalDivider(width: 1),
                     Expanded(
-                      child: ListView.builder(
-                        itemCount: visible.length,
-                        itemBuilder: (context, index) {
-                          final path = visible[index];
-                          return ListTile(
-                            dense: true,
-                            selected: path == state.selectedPath,
-                            title: Text(
-                              path.split('/').last,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            subtitle: path.contains('/')
-                                ? Text(
-                                    path.substring(
-                                      0,
-                                      path.lastIndexOf('/'),
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style:
-                                        Theme.of(
-                                          context,
-                                        ).textTheme.bodySmall,
-                                  )
-                                : null,
-                            onTap: () => viewmodel.select(path),
-                          );
-                        },
-                      ),
+                      child: document == null
+                          ? const Center(
+                              child: Padding(
+                                padding: EdgeInsets.all(24),
+                                child: Text(
+                                  'Elegí un documento del árbol.',
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            )
+                          : KnowledgeDocumentView(document: document),
                     ),
                   ],
                 ),
               ),
-              const VerticalDivider(width: 1),
-              Expanded(
-                child: state.selectedPath == null
-                    ? const Center(
-                        child: Text('Elegí un documento de la izquierda.'),
-                      )
-                    : SingleChildScrollView(
-                        padding: const EdgeInsets.all(24),
-                        child: SelectionArea(
-                          child: GptMarkdown(state.selectedContent),
-                        ),
-                      ),
-              ),
+              if (state.status.isNotEmpty) _StatusBar(status: state.status),
             ],
           );
         },
       ),
+    );
+  }
+}
+
+class _StatusBar extends StatelessWidget {
+  const _StatusBar({required this.status});
+
+  final String status;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      color: Theme.of(context).colorScheme.surfaceContainerHigh,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Text(status, style: Theme.of(context).textTheme.bodySmall),
     );
   }
 }

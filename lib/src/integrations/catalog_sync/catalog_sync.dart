@@ -11,6 +11,8 @@ import 'package:reactive_notifier/reactive_notifier.dart';
 import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
 import 'package:keel_ui/src/modules/agent_profiles/viewmodel/agent_profiles_viewmodel.dart';
 import 'package:keel_ui/src/modules/agents/model/agent_provider.dart';
+import 'package:keel_ui/src/modules/knowledge/model/knowledge_base.dart';
+import 'package:keel_ui/src/modules/knowledge/viewmodel/knowledge_viewmodel.dart';
 import 'package:keel_ui/src/modules/mcp_servers/model/mcp_server_config.dart';
 import 'package:keel_ui/src/modules/mcp_servers/viewmodel/mcp_servers_viewmodel.dart';
 import 'package:keel_ui/src/modules/rules/viewmodel/rules_viewmodel.dart';
@@ -135,6 +137,7 @@ class CatalogSyncViewModel extends ViewModel<CatalogSyncState> {
         WorkflowsService.instance.notifier.ready,
         McpServersService.instance.notifier.ready,
         AgentProfilesService.instance.notifier.ready,
+        KnowledgeService.instance.notifier.ready,
         StationsService.instance.notifier.ready,
       ]);
       final message = await operation();

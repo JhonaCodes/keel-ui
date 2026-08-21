@@ -1,8 +1,9 @@
-import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 
 import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
 import 'package:keel_ui/src/modules/rules/ui/screen/rule_form_screen.dart';
+import 'package:keel_ui/src/modules/knowledge/ui/screen/knowledge_base_form_screen.dart';
+import 'package:keel_ui/src/modules/knowledge/viewmodel/knowledge_viewmodel.dart';
 import 'package:keel_ui/src/modules/rules/viewmodel/rules_viewmodel.dart';
 import 'package:keel_ui/src/modules/stations/model/member_color.dart';
 import 'package:keel_ui/src/modules/stations/model/station.dart';
@@ -29,13 +30,8 @@ class WorkflowProgressPanel extends StatelessWidget {
   final Workflow? workflow;
   final List<AgentProfile> members;
 
-  AgentProfile? _ownerOf(WorkflowStep step) {
-    final wanted = step.role.trim().toLowerCase();
-    for (final member in members) {
-      if (member.role.trim().toLowerCase() == wanted) return member;
-    }
-    return null;
-  }
+  AgentProfile? _ownerOf(WorkflowStep step) =>
+      memberForRole(members, step.role);
 
   /// Picks a registered rule and attaches it to the station, or jumps
   /// straight to registering a new one when the catalog is empty.
@@ -67,10 +63,34 @@ class WorkflowProgressPanel extends StatelessWidget {
     StationsService.instance.notifier.addRule(station.id, picked);
   }
 
-  Future<void> _addDocument(BuildContext context) async {
-    final file = await openFile();
-    if (file == null) return;
-    StationsService.instance.notifier.addDocument(station.id, file.path);
+  /// Suma una base de saber registrada a esta estación, o manda a crear una
+  /// cuando todavía no hay ninguna disponible.
+  Future<void> _addKnowledgeBase(BuildContext context) async {
+    final bases = KnowledgeService.instance.notifier.data.bases
+        .where((base) => !station.knowledgeBaseNames.contains(base.name))
+        .toList();
+
+    if (bases.isEmpty) {
+      await openKnowledgeBaseFormScreen(context);
+      return;
+    }
+
+    if (!context.mounted) return;
+    final picked = await showDialog<String>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: const Text('Agregar base de saber'),
+        children: [
+          for (final base in bases)
+            SimpleDialogOption(
+              onPressed: () => Navigator.of(context).pop(base.name),
+              child: Text(base.name),
+            ),
+        ],
+      ),
+    );
+    if (picked == null) return;
+    StationsService.instance.notifier.addKnowledgeBase(station.id, picked);
   }
 
   /// Who this step consulted, read back from the thread: a message tagged
@@ -161,15 +181,16 @@ class WorkflowProgressPanel extends StatelessWidget {
             onRemove: () =>
                 StationsService.instance.notifier.removeRule(station.id, rule),
           ),
-        _GroupHead(label: 'Documentos', onAdd: () => _addDocument(context)),
-        for (final path in station.documentPaths)
+        _GroupHead(label: 'Saber', onAdd: () => _addKnowledgeBase(context)),
+        for (final baseName in station.knowledgeBaseNames)
           _BulletRow(
-            label: path.split('/').last,
-            filled: false,
-            onRemove: () => StationsService.instance.notifier.removeDocument(
-              station.id,
-              path,
-            ),
+            label: baseName,
+            filled: true,
+            onRemove: () =>
+                StationsService.instance.notifier.removeKnowledgeBase(
+                  station.id,
+                  baseName,
+                ),
           ),
       ],
     );

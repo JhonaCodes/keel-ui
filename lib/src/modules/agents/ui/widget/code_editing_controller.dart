@@ -4,13 +4,18 @@ import 'package:keel_ui/src/modules/agents/model/highlighted_line.dart';
 
 /// A [TextEditingController] that stays fully editable while painting real
 /// syntax colors, by overriding [buildTextSpan] instead of swapping in a
-/// read-only highlighter widget. [theme] is mutable so the host can react
-/// to light/dark changes without recreating the controller (and losing
-/// cursor/selection state).
+/// read-only highlighter widget. [theme] and [language] are mutable so the
+/// host can react to a light/dark change — or to the user switching the
+/// script's runtime mid-edit — without recreating the controller and losing
+/// cursor/selection state.
 class CodeEditingController extends TextEditingController {
-  CodeEditingController({required this.language, required this.theme});
+  CodeEditingController({
+    required this.language,
+    required this.theme,
+    super.text,
+  });
 
-  final String language;
+  String language;
   Map<String, TextStyle> theme;
 
   @override

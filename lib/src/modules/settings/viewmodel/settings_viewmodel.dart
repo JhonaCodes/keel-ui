@@ -11,10 +11,17 @@ class SettingsViewModel extends ViewModel<AppSettings> {
 
   SettingsRepository get _repository => SettingsRepository();
 
+  /// Resuelve cuando los ajustes persistidos ya cargaron. Quien los lee
+  /// fuera de un widget —la migración de bases de saber, por ejemplo— tiene
+  /// que esperarlo: leer antes devuelve los valores por defecto y parece
+  /// que el usuario no configuró nada.
+  Future<void>? _ready;
+  Future<void> get ready => _ready ??= _loadPersistedSettings();
+
   @override
   void init() {
-    updateSilently(const AppSettings());
-    unawaited(_loadPersistedSettings());
+    if (_ready == null) updateSilently(const AppSettings());
+    unawaited(ready);
   }
 
   Future<void> _loadPersistedSettings() async {

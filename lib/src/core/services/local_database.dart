@@ -20,6 +20,7 @@ class LocalDatabase {
   static const _migrationFlagKey = '_migrated_from_json_v1';
 
   static bool _initialized = false;
+  static bool _unavailable = false;
 
   LocalDatabase._();
 
@@ -29,7 +30,26 @@ class LocalDatabase {
     _initialized = true;
   }
 
+  /// Declares that THIS engine has no storage, on purpose.
+  ///
+  /// Every sub-window is a separate Flutter engine, and each one opening
+  /// its own LMDB handle is exactly what the main window's init avoids —
+  /// so sub-windows never initialize the database. But their ViewModels
+  /// are the same `reactive_notifier` singletons, and they self-init on
+  /// first touch: a chat bubble reading the font scale reaches
+  /// `SettingsRepository`, which reaches here.
+  ///
+  /// With this flag, reads answer "nothing stored" and writes are dropped
+  /// — a stated contract, not a swallowed failure. Without it (main
+  /// engine), an uninitialized database still throws, because there the
+  /// same call really is a bug.
+  static void markUnavailable() => _unavailable = true;
+
+  /// Whether this engine can actually persist. False in sub-windows.
+  static bool get isAvailable => _initialized;
+
   static Future<void> put(String key, Map<String, dynamic> data) async {
+    if (_unavailable) return;
     final result = await LocalDB.Put(key, data);
     result.when(
       ok: (_) {},
@@ -41,6 +61,7 @@ class LocalDatabase {
   }
 
   static Future<Map<String, dynamic>?> get(String key) async {
+    if (_unavailable) return null;
     final result = await LocalDB.GetById(key);
     return result.when(
       ok: (model) => model?.data,
@@ -52,6 +73,7 @@ class LocalDatabase {
   }
 
   static Future<void> delete(String key) async {
+    if (_unavailable) return;
     final result = await LocalDB.Delete(key);
     result.when(
       ok: (_) {},
@@ -66,6 +88,7 @@ class LocalDatabase {
   static Future<List<Map<String, dynamic>>> getAllWithPrefix(
     String prefix,
   ) async {
+    if (_unavailable) return const [];
     final result = await LocalDB.GetAll();
     return result.when(
       ok: (models) => models
@@ -88,6 +111,7 @@ class LocalDatabase {
     String prefix,
     List<Map<String, dynamic>> items,
   ) async {
+    if (_unavailable) return;
     final currentIds = items.map((item) => item['id'] as String).toSet();
     final existing = await getAllWithPrefix(prefix);
 

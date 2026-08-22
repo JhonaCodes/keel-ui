@@ -285,6 +285,11 @@ final class _RoadmapMcpServer extends mcp.MCPServer with mcp.ToolsSupport {
         'estado': task.state.alias,
         'borrador': task.isDraft,
         'tomable': tomable,
+        if (task.brokenBlockers.isNotEmpty)
+          'referencias_rotas': [
+            for (final blocker in task.brokenBlockers)
+              '${blocker.reference} (${blocker.target.name})',
+          ],
         if (claim != null)
           'tomada_por': '${claim.profileHandle} (${claim.stationName})',
         if (task.blockers.isNotEmpty)
@@ -328,9 +333,29 @@ final class _RoadmapMcpServer extends mcp.MCPServer with mcp.ToolsSupport {
     if (task.state == RoadmapState.hecho) {
       return _text('"$taskPath" ya está hecha.');
     }
+    // Una referencia rota se avisa ANTES que un bloqueante abierto: es un
+    // error del roadmap, no una dependencia legítima, y nadie puede
+    // destrabarla terminando algo.
+    if (task.brokenBlockers.isNotEmpty) {
+      final rotas = task.brokenBlockers
+          .map(
+            (blocker) => blocker.target == BlockerTarget.ambiguous
+                ? '"${blocker.reference}" coincide con más de una tarea'
+                : '"${blocker.reference}" no existe',
+          )
+          .join('; ');
+      return _text(
+        'El roadmap está roto en "$taskPath": $rotas. Alguien renombró o '
+        'renumeró una tarea sin arrastrar la referencia. Arreglala en la '
+        'sección Bloqueantes del archivo —o borrá el bloqueante si la '
+        'dependencia ya no existe— y volvé a intentar. No la tomo así '
+        'porque no se puede saber si la dependencia desapareció o solo '
+        'cambió de nombre.',
+      );
+    }
     if (task.hasOpenBlockers) {
       final abiertos = task.blockers
-          .where((blocker) => !blocker.resolved)
+          .where((blocker) => !blocker.resolved && !blocker.isBroken)
           .map((blocker) => blocker.reference)
           .join(', ');
       return _text(

@@ -87,6 +87,30 @@ tareas — y la base muestra la foto vieja. Recorrer la carpeta es barato.
 El servidor solo se le entrega a un turno si el proyecto **tiene** carpeta
 `TASKS/`. Un proyecto sin roadmap no ve tres tools que no aplican.
 
+## Renumerar sin arrastrar las referencias
+
+Es el modo de falla que más caro sale: alguien renumera una carpeta, no
+actualiza los bloqueantes que apuntaban ahí, y esa tarea queda trabada por
+algo que nadie puede terminar porque ya no existe. El síntoma aparece lejos
+de la causa.
+
+Se podría pedir por prompt que quien renumere arrastre las referencias, pero
+eso **pide**; no garantiza. El lector lo detecta: después de juntar todas las
+tareas hace una segunda pasada y resuelve cada referencia contra las que
+existen de verdad.
+
+- Acepta la ruta completa (`01-fundacion/02-shell.md`) y también el nombre
+  suelto (`02-shell.md`, o `02-shell`), porque así lo escribe cualquiera.
+- Si no coincide con ninguna → `missing`.
+- Si el nombre suelto coincide con dos tareas → `ambiguous`, en vez de elegir
+  una.
+
+Una tarea con una referencia rota **no se puede tomar**, y `claim_task` dice
+exactamente cuál está rota y qué hacer. Cierra la puerta a propósito: no hay
+forma de saber si la dependencia desapareció o solo cambió de nombre, y
+adivinar en cualquiera de las dos direcciones se equivoca en silencio. Lo que
+sí se puede hacer es nombrar el problema.
+
 ## Cómo convive con el plan de tarea
 
 No lo reemplaza: son granularidades distintas que se componen.
@@ -111,3 +135,7 @@ El ciclo cierra en el repo: lo último que hace el turno es marcar
 6. Dos estaciones con proyectos distintos y una tarea del mismo nombre: tomar
    una no bloquea la otra.
 7. Un proyecto sin `TASKS/` no recibe las tools.
+8. Un bloqueante que apunta a una tarea inexistente marca la tarea como no
+   tomable, y `claim_task` nombra la referencia rota.
+9. Un bloqueante escrito con el nombre suelto resuelve solo; si ese nombre
+   existe en dos carpetas, queda ambiguo en vez de elegir una.

@@ -24,6 +24,20 @@ enum RoadmapState {
   }
 }
 
+/// Contra qué resolvió la referencia de un bloqueante.
+enum BlockerTarget {
+  /// Apunta a una tarea que existe.
+  found,
+
+  /// No apunta a ninguna: la tarea se renombró, se renumeró o se borró y
+  /// nadie arrastró la referencia.
+  missing,
+
+  /// El nombre suelto coincide con más de una tarea, así que no se puede
+  /// saber a cuál se refiere.
+  ambiguous,
+}
+
 /// Una tarea que otra tiene que resolver antes.
 class RoadmapBlocker {
   /// Referencia a la tarea bloqueante, tal como la escribió quien la anotó.
@@ -36,16 +50,40 @@ class RoadmapBlocker {
   /// Si ya está resuelto — el checkbox marcado.
   final bool resolved;
 
+  /// Contra qué resolvió [reference] al mirar el roadmap entero.
+  final BlockerTarget target;
+
+  /// La ruta real de la tarea bloqueante, cuando [target] es
+  /// [BlockerTarget.found].
+  final String? targetPath;
+
   const RoadmapBlocker({
     required this.reference,
     required this.reason,
     required this.resolved,
+    this.target = BlockerTarget.found,
+    this.targetPath,
   });
+
+  RoadmapBlocker resolvedAgainst(BlockerTarget target, String? path) =>
+      RoadmapBlocker(
+        reference: reference,
+        reason: reason,
+        resolved: resolved,
+        target: target,
+        targetPath: path,
+      );
+
+  /// Una referencia rota no se puede cumplir ni desmarcar: nadie puede
+  /// terminar una tarea que no existe.
+  bool get isBroken => target != BlockerTarget.found;
 
   Map<String, dynamic> toJson() => {
     'reference': reference,
     'reason': reason,
     'resolved': resolved,
+    if (isBroken) 'referencia_rota': target.name,
+    if (targetPath != null && targetPath != reference) 'apunta_a': targetPath,
   };
 }
 
@@ -73,12 +111,29 @@ class RoadmapTask {
 
   /// Si le falta que alguien resuelva algo antes.
   bool get hasOpenBlockers =>
-      blockers.any((blocker) => !blocker.resolved);
+      blockers.any((blocker) => !blocker.resolved && !blocker.isBroken);
 
-  /// Si se puede tomar: no está hecha, no es borrador y nadie la bloquea.
-  /// Que esté tomada o no se resuelve aparte — eso vive en la base.
+  /// Bloqueantes cuya referencia no apunta a ninguna tarea real.
+  ///
+  /// Es el modo de falla que más caro sale: alguien renumera una carpeta, no
+  /// arrastra las referencias, y la tarea queda trabada por algo que nadie
+  /// puede terminar porque no existe. Se detecta acá en vez de confiar en que
+  /// quien renumeró se acuerde.
+  List<RoadmapBlocker> get brokenBlockers =>
+      blockers.where((blocker) => blocker.isBroken).toList();
+
+  /// Si se puede tomar: no está hecha, no es borrador, nadie la bloquea y
+  /// ninguna de sus referencias está rota.
+  ///
+  /// Una referencia rota cierra la puerta a propósito. No se puede saber si
+  /// la dependencia desapareció o solo cambió de nombre, y adivinar en
+  /// cualquiera de las dos direcciones se equivoca en silencio. Lo que sí se
+  /// puede es decir exactamente qué está roto.
   bool get isTakeable =>
-      !isDraft && state != RoadmapState.hecho && !hasOpenBlockers;
+      !isDraft &&
+      state != RoadmapState.hecho &&
+      !hasOpenBlockers &&
+      brokenBlockers.isEmpty;
 }
 
 /// Lee la carpeta [kRoadmapFolder] de [projectPath].
@@ -114,7 +169,63 @@ List<RoadmapTask> readRoadmap(String projectPath) {
   }
 
   tasks.sort((a, b) => a.path.compareTo(b.path));
-  return tasks;
+  // Segunda pasada: recién con TODAS las tareas a la vista se puede saber si
+  // una referencia apunta a algo real.
+  return _resolveBlockerTargets(tasks);
+}
+
+/// Resuelve la referencia de cada bloqueante contra las tareas que existen.
+///
+/// Acepta la ruta completa (`01-fundacion/02-shell.md`) y también el nombre
+/// suelto (`02-shell.md`, o incluso `02-shell`), porque así es como lo
+/// escribe cualquiera a mano. Un nombre suelto que coincide con dos tareas
+/// queda marcado como ambiguo en vez de elegir una.
+List<RoadmapTask> _resolveBlockerTargets(List<RoadmapTask> tasks) {
+  final byPath = {for (final task in tasks) task.path};
+  final byName = <String, List<String>>{};
+  for (final task in tasks) {
+    final name = task.path.split('/').last;
+    byName.putIfAbsent(name, () => []).add(task.path);
+    final sinExtension = name.endsWith('.md')
+        ? name.substring(0, name.length - 3)
+        : name;
+    if (sinExtension != name) {
+      byName.putIfAbsent(sinExtension, () => []).add(task.path);
+    }
+  }
+
+  return [
+    for (final task in tasks)
+      RoadmapTask(
+        path: task.path,
+        folder: task.folder,
+        title: task.title,
+        state: task.state,
+        isDraft: task.isDraft,
+        blockers: [
+          for (final blocker in task.blockers)
+            _resolveBlocker(blocker, byPath, byName),
+        ],
+      ),
+  ];
+}
+
+RoadmapBlocker _resolveBlocker(
+  RoadmapBlocker blocker,
+  Set<String> byPath,
+  Map<String, List<String>> byName,
+) {
+  final reference = blocker.reference.trim();
+  if (byPath.contains(reference)) {
+    return blocker.resolvedAgainst(BlockerTarget.found, reference);
+  }
+
+  final candidatos = byName[reference.split('/').last] ?? const <String>[];
+  return switch (candidatos.length) {
+    1 => blocker.resolvedAgainst(BlockerTarget.found, candidatos.first),
+    0 => blocker.resolvedAgainst(BlockerTarget.missing, null),
+    _ => blocker.resolvedAgainst(BlockerTarget.ambiguous, null),
+  };
 }
 
 final RegExp _frontMatter = RegExp(r'^---\s*\n(.*?)\n---\s*\n', dotAll: true);

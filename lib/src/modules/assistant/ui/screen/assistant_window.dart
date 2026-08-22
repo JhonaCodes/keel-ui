@@ -38,11 +38,17 @@ class _AssistantWindowState extends State<AssistantWindow> {
       center: true,
       title: 'Asistente',
       titleBarStyle: TitleBarStyle.normal,
+      // Sin esto, cualquier hueco antes del primer raster es el
+      // `FlutterView` vacío, que se ve negro. Con esto es el fondo de
+      // la app, y el hueco deja de notarse aunque exista.
+      backgroundColor: AppColors.bg,
     );
-    await windowManager.waitUntilReadyToShow(options, () async {
-      await windowManager.show();
-      await windowManager.focus();
-    });
+    // Configurar y NADA MÁS. Mostrar desde acá era el rectángulo negro: esto
+    // corre en `initState`, cuando todavía no existe ningún frame, y encima
+    // `waitUntilReadyToShow` redimensiona y centra DESPUÉS de mostrar, así
+    // que el área nueva quedaba sin pintar. Quien muestra es
+    // `_showWhenPainted`, que para eso espera al primer frame.
+    await windowManager.waitUntilReadyToShow(options);
   }
 
   @override

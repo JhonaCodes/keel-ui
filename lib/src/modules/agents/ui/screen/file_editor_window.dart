@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
 
+import 'package:keel_ui/src/core/ui/app_theme.dart';
+
 import 'package:keel_ui/src/core/services/agent_bridge_channel.dart';
 import 'package:keel_ui/src/modules/agents/model/file_editor_window_arguments.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/file_editor_content.dart';
@@ -32,11 +34,17 @@ class _FileEditorWindowState extends State<FileEditorWindow> {
       center: true,
       title: _fileName,
       titleBarStyle: TitleBarStyle.normal,
+      // Sin esto, cualquier hueco antes del primer raster es el
+      // `FlutterView` vacío, que se ve negro. Con esto es el fondo de
+      // la app, y el hueco deja de notarse aunque exista.
+      backgroundColor: AppColors.bg,
     );
-    await windowManager.waitUntilReadyToShow(options, () async {
-      await windowManager.show();
-      await windowManager.focus();
-    });
+    // Configurar y NADA MÁS. Mostrar desde acá era el rectángulo negro: esto
+    // corre en `initState`, cuando todavía no existe ningún frame, y encima
+    // `waitUntilReadyToShow` redimensiona y centra DESPUÉS de mostrar, así
+    // que el área nueva quedaba sin pintar. Quien muestra es
+    // `_showWhenPainted`, que para eso espera al primer frame.
+    await windowManager.waitUntilReadyToShow(options);
   }
 
   Future<void> _askAboutLine({

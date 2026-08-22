@@ -104,8 +104,12 @@ Future<void> main(List<String> rawArgs) async {
 /// se ve es una superficie sin nada, o sea un rectángulo negro. El engine
 /// que la va a llenar es el único que sabe cuándo está listo.
 void _showWhenPainted(WindowController controller) {
-  WidgetsBinding.instance.addPostFrameCallback((_) {
-    unawaited(controller.show());
+  WidgetsBinding.instance.addPostFrameCallback((_) async {
+    await controller.show();
+    // El foco viene con el show y no antes: la ventana se configuraba y se
+    // enfocaba desde `initState`, con lo cual se mostraba dos veces y la
+    // primera era sin píxeles.
+    await windowManager.focus();
   });
 }
 

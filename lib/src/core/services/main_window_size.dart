@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'package:window_manager/window_manager.dart';
 
+import 'package:keel_ui/src/core/ui/app_theme.dart';
+
 import 'package:keel_ui/src/modules/settings/model/app_settings.dart';
 import 'package:keel_ui/src/modules/settings/repository/settings_repository.dart';
 
@@ -37,6 +39,10 @@ class MainWindowSize with WindowListener {
         size: size,
         minimumSize: const Size(kMinWindowWidth, kMinWindowHeight),
         center: true,
+        // Esta ventana se muestra ANTES de `runApp`, así que hay un hueco
+        // real entre que aparece y que Flutter pinta. Con el fondo nativo
+        // puesto, ese hueco es el color de la app y no un rectángulo negro.
+        backgroundColor: AppColors.bg,
       ),
       () async {
         await windowManager.show();

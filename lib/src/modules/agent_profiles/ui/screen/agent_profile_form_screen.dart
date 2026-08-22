@@ -8,6 +8,8 @@ import 'package:keel_ui/src/modules/agents/model/agent_provider.dart';
 import 'package:keel_ui/src/modules/agents/model/agent_model_option.dart';
 import 'package:keel_ui/src/modules/mcp_servers/ui/widget/mcp_server_multi_select.dart';
 import 'package:keel_ui/src/modules/agents/model/effort_level.dart';
+import 'package:keel_ui/src/integrations/hook_delivery/hook_delivery.dart';
+import 'package:keel_ui/src/modules/hooks/ui/widget/hook_multi_select.dart';
 import 'package:keel_ui/src/modules/rules/ui/widget/rule_multi_select.dart';
 import 'package:keel_ui/src/modules/skills/ui/widget/skill_multi_select.dart';
 import 'package:keel_ui/src/modules/tools/ui/widget/tool_multi_select.dart';
@@ -43,6 +45,7 @@ class _AgentProfileFormScreenState extends State<AgentProfileFormScreen> {
   );
   late List<String> _skills = [...?widget.initial?.skills];
   late List<String> _rules = [...?widget.initial?.rules];
+  late List<String> _hooks = [...?widget.initial?.hooks];
   late List<String> _tools = [...?widget.initial?.tools];
   late List<String> _mcpServers = [...?widget.initial?.mcpServers];
   late bool _canManageSystem = widget.initial?.canManageSystem ?? false;
@@ -91,6 +94,7 @@ class _AgentProfileFormScreenState extends State<AgentProfileFormScreen> {
             systemPrompt: _systemPromptController.text,
             skills: _skills,
             rules: _rules,
+            hooks: _hooks,
             tools: _tools,
             mcpServers: _mcpServers,
             canManageSystem: _canManageSystem,
@@ -105,6 +109,7 @@ class _AgentProfileFormScreenState extends State<AgentProfileFormScreen> {
             systemPrompt: _systemPromptController.text,
             skills: _skills,
             rules: _rules,
+            hooks: _hooks,
             tools: _tools,
             mcpServers: _mcpServers,
             canManageSystem: _canManageSystem,
@@ -183,6 +188,24 @@ class _AgentProfileFormScreenState extends State<AgentProfileFormScreen> {
                 RuleMultiSelect(
                   selectedNames: _rules,
                   onChanged: (rules) => setState(() => _rules = rules),
+                ),
+                const SizedBox(height: 16),
+                HookMultiSelect(
+                  selectedNames: _hooks,
+                  onChanged: (hooks) => setState(() => _hooks = hooks),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(top: 6, left: 4),
+                  child: Text(
+                    widget.initial?.name == kKeelAiHandleForHooks
+                        ? 'Keel AI corre sin hooks a propósito: es a quien le '
+                              'pedís apagar uno que te trabó. Lo que asignes '
+                              'acá no se va a aplicar.'
+                        : 'Corren fuera del modelo, así que no los puede '
+                              'saltear. Las reglas de arriba se piden; estos '
+                              'se cumplen.',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
                 ),
                 const SizedBox(height: 16),
                 ToolMultiSelect(

@@ -8,6 +8,7 @@ import 'package:keel_ui/src/modules/agents/viewmodel/agents_viewmodel.dart';
 import 'package:keel_ui/src/modules/agents/ui/view/agent_rail.dart';
 import 'package:keel_ui/src/modules/agents/ui/view/chat_view.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/empty_chat_placeholder.dart';
+import 'package:keel_ui/src/modules/hooks/ui/screen/hooks_screen.dart';
 import 'package:keel_ui/src/modules/knowledge/ui/screen/knowledge_screen.dart';
 import 'package:keel_ui/src/modules/mcp_servers/ui/screen/mcp_servers_screen.dart';
 import 'package:keel_ui/src/modules/rules/ui/screen/rules_screen.dart';
@@ -64,6 +65,8 @@ class _AgentsScreenState extends State<AgentsScreen> {
                         showFormPanel(context, child: const SkillsScreen()),
                     onOpenRules: () =>
                         showFormPanel(context, child: const RulesScreen()),
+                    onOpenHooks: () =>
+                        showFormPanel(context, child: const HooksScreen()),
                     onOpenTools: () =>
                         showFormPanel(context, child: const ToolsScreen()),
                     onOpenSecrets: () =>

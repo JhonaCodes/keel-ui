@@ -222,6 +222,7 @@ class StationsViewModel extends ViewModel<StationsState> {
     required List<String> profileIds,
     required List<String> workflowIds,
     required List<String> ruleNames,
+    List<String> hookNames = const [],
     required List<String> knowledgeBaseNames,
   }) {
     final error = _validateName(name);
@@ -235,6 +236,7 @@ class StationsViewModel extends ViewModel<StationsState> {
       profileIds: profileIds,
       workflowIds: workflowIds,
       ruleNames: ruleNames,
+      hookNames: hookNames,
       knowledgeBaseNames: knowledgeBaseNames,
       activeWorkflowId: workflowIds.isEmpty ? null : workflowIds.first,
       createdAt: DateTime.now(),
@@ -257,6 +259,7 @@ class StationsViewModel extends ViewModel<StationsState> {
     required List<String> profileIds,
     required List<String> workflowIds,
     required List<String> ruleNames,
+    List<String> hookNames = const [],
     required List<String> knowledgeBaseNames,
   }) {
     final error = _validateName(name, excludingId: id);
@@ -274,6 +277,7 @@ class StationsViewModel extends ViewModel<StationsState> {
         profileIds: profileIds,
         workflowIds: workflowIds,
         ruleNames: ruleNames,
+      hookNames: hookNames,
         knowledgeBaseNames: knowledgeBaseNames,
         activeWorkflowId: keepsActive
             ? station.activeWorkflowId

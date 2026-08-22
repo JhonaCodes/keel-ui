@@ -31,6 +31,7 @@ class AgentRail extends StatelessWidget {
     required this.onOpenProfiles,
     required this.onOpenSkills,
     required this.onOpenRules,
+    required this.onOpenHooks,
     required this.onOpenTools,
     required this.onOpenSecrets,
     required this.onOpenMcpServers,
@@ -41,6 +42,7 @@ class AgentRail extends StatelessWidget {
   final VoidCallback onOpenProfiles;
   final VoidCallback onOpenSkills;
   final VoidCallback onOpenRules;
+  final VoidCallback onOpenHooks;
   final VoidCallback onOpenTools;
   final VoidCallback onOpenSecrets;
   final VoidCallback onOpenMcpServers;
@@ -101,6 +103,12 @@ class AgentRail extends StatelessWidget {
                       onPressed: onOpenRules,
                     ),
                     const SizedBox(height: 12),
+                    _RailButton(
+                      label: 'Hooks',
+                      icon: Icons.gpp_maybe_outlined,
+                      tooltip: 'Guardarraíles que corren solos',
+                      onPressed: onOpenHooks,
+                    ),
                     _RailButton(
                       label: 'Tools',
                       icon: Icons.terminal_outlined,

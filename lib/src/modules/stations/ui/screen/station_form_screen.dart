@@ -7,6 +7,7 @@ import 'package:keel_ui/src/modules/knowledge/ui/widget/knowledge_base_multi_sel
 import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
 import 'package:keel_ui/src/modules/agent_profiles/viewmodel/agent_profiles_viewmodel.dart';
 import 'package:keel_ui/src/modules/agent_profiles/ui/screen/agent_profile_form_screen.dart';
+import 'package:keel_ui/src/modules/hooks/ui/widget/hook_multi_select.dart';
 import 'package:keel_ui/src/modules/rules/ui/widget/rule_multi_select.dart';
 import 'package:keel_ui/src/modules/stations/model/member_color.dart';
 import 'package:keel_ui/src/modules/stations/model/station.dart';
@@ -43,6 +44,7 @@ class _StationFormScreenState extends State<StationFormScreen> {
   late List<String> _profileIds = [...?widget.initial?.profileIds];
   late List<String> _workflowNames = _initialWorkflowNames();
   late List<String> _ruleNames = [...?widget.initial?.ruleNames];
+  late List<String> _hookNames = [...?widget.initial?.hookNames];
   late List<String> _knowledgeBaseNames = [
     ...?widget.initial?.knowledgeBaseNames,
   ];
@@ -126,6 +128,7 @@ class _StationFormScreenState extends State<StationFormScreen> {
             profileIds: _profileIds,
             workflowIds: workflowIds,
             ruleNames: _ruleNames,
+            hookNames: _hookNames,
             knowledgeBaseNames: _knowledgeBaseNames,
           )
         : viewmodel.updateStation(
@@ -136,6 +139,7 @@ class _StationFormScreenState extends State<StationFormScreen> {
             profileIds: _profileIds,
             workflowIds: workflowIds,
             ruleNames: _ruleNames,
+            hookNames: _hookNames,
             knowledgeBaseNames: _knowledgeBaseNames,
           );
 
@@ -260,6 +264,20 @@ class _StationFormScreenState extends State<StationFormScreen> {
                   child: Text(
                     'Se suman a las reglas que ya trae el perfil de cada '
                     'agente.',
+                    style: TextStyle(fontSize: 11),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                HookMultiSelect(
+                  selectedNames: _hookNames,
+                  onChanged: (names) => setState(() => _hookNames = names),
+                ),
+                const Padding(
+                  padding: EdgeInsets.only(top: 6, left: 4),
+                  child: Text(
+                    'Se suman a los del perfil de cada agente. A diferencia '
+                    'de las reglas, estos no dependen de que el modelo los '
+                    'respete.',
                     style: TextStyle(fontSize: 11),
                   ),
                 ),

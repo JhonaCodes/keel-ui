@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 
+import 'package:reactive_notifier/reactive_notifier.dart';
+
+import 'package:keel_ui/src/modules/hooks/model/hook.dart';
+import 'package:keel_ui/src/modules/hooks/viewmodel/hooks_viewmodel.dart';
 import 'package:keel_ui/src/modules/rules/model/rule.dart';
 import 'package:keel_ui/src/modules/rules/viewmodel/rules_viewmodel.dart';
 import 'package:keel_ui/src/modules/rules/ui/screen/rule_form_screen.dart';
@@ -40,10 +44,12 @@ class RuleTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListTile(
       title: Text(rule.name),
-      subtitle: Text(
-        rule.content,
-        maxLines: 2,
-        overflow: TextOverflow.ellipsis,
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(rule.content, maxLines: 2, overflow: TextOverflow.ellipsis),
+          _EnforcedBadge(ruleName: rule.name),
+        ],
       ),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
@@ -60,6 +66,52 @@ class RuleTile extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Si algún hook activo hace cumplir esta regla.
+///
+/// Es la respuesta visible a "¿esto se cumple, o se pide?": una regla sola
+/// depende de que el modelo obedezca; con un hook detrás, no.
+class _EnforcedBadge extends StatelessWidget {
+  const _EnforcedBadge({required this.ruleName});
+
+  final String ruleName;
+
+  @override
+  Widget build(BuildContext context) {
+    return ReactiveViewModelBuilder<HooksViewModel, HooksState>(
+      viewmodel: HooksService.instance.notifier,
+      build: (state, viewmodel, keep) {
+        final enforcing = state.hooks
+            .where((hook) => hook.enabled && hook.enforces.contains(ruleName))
+            .map((hook) => hook.name)
+            .toList();
+        if (enforcing.isEmpty) return const SizedBox.shrink();
+
+        final colors = Theme.of(context).colorScheme;
+        return Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.verified_outlined, size: 14, color: colors.primary),
+              const SizedBox(width: 4),
+              Flexible(
+                child: Text(
+                  'Garantizada por ${enforcing.join(', ')}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: colors.primary),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

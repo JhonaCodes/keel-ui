@@ -15,15 +15,11 @@ class SessionPlanList extends StatelessWidget {
     required this.projectId,
     required this.sessionId,
     required this.plan,
-    required this.sessionIsRunning,
   });
 
   final String projectId;
   final String sessionId;
   final List<SessionPlanItem> plan;
-
-  /// Con la sesión corriendo no se ofrece arrancar otro ciclo: ya hay uno.
-  final bool sessionIsRunning;
 
   @override
   Widget build(BuildContext context) {
@@ -58,35 +54,12 @@ class SessionPlanList extends StatelessWidget {
                 'plan completo',
                 style: TextStyle(fontSize: 10, color: scheme.tertiary),
               ),
-            )
-          // Cada punto pendiente es otra vuelta entera del workflow, desde el
-          // paso 1. Estaba solo como palabra escrita en el chat ("continuar"),
-          // que es pedirle al usuario que adivine el conjuro.
-          else if (!sessionIsRunning && current != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 6, left: 16, bottom: 2),
-              child: TextButton.icon(
-                onPressed: () => ProjectsService.instance.notifier
-                    .continueWithNextPlanItem(projectId, sessionId),
-                icon: const Icon(Icons.play_circle_outline, size: 14),
-                label: Text(
-                  'Seguir con "${current.text}"',
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.left,
-                  style: const TextStyle(fontSize: 10.5, height: 1.2),
-                ),
-                style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  alignment: Alignment.centerLeft,
-                ),
-              ),
             ),
+          // Acá había un botón para arrancar el próximo punto. Se movió a la
+          // barra que va arriba del campo de escribir: esta columna es
+          // contexto, y una acción escondida al fondo del contexto no la
+          // encuentra nadie. Lo que queda es la lista, que es lo que hay
+          // que mirar.
         ],
       ),
     );

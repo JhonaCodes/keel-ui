@@ -57,7 +57,7 @@ class RadarSession {
     required this.totalSteps,
     required this.planDone,
     required this.planTotal,
-    required this.costUsd,
+    required this.contextRatio,
     required this.isRunning,
     this.claimedTaskPath,
   });
@@ -69,7 +69,14 @@ class RadarSession {
   final int totalSteps;
   final int planDone;
   final int planTotal;
-  final double costUsd;
+
+  /// Cuánto contexto lleva consumido, 0..1. Null si el turno todavía no
+  /// reportó ninguno.
+  ///
+  /// Acá estaba el costo en dólares. Se sacó porque no cambia ninguna
+  /// decisión que se tome mirando esta pantalla; el contexto sí: una sesión
+  /// al 90% está por quedarse sin aire.
+  final double? contextRatio;
   final bool isRunning;
 
   /// Qué tarea del roadmap tiene tomada, si tiene alguna.

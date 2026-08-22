@@ -141,7 +141,6 @@ class _SidebarList extends StatelessWidget {
                     projectId: project.id,
                     sessionId: session.id,
                     plan: session.plan,
-                    sessionIsRunning: session.isRunning,
                   ),
               ],
               _NewSessionButton(

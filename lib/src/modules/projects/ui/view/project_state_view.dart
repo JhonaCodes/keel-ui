@@ -652,7 +652,7 @@ class _Sesiones extends StatelessWidget {
         (label: 'Estado', flex: 20),
         (label: 'Paso', flex: 11),
         (label: 'Plan', flex: 12),
-        (label: 'Costo', flex: 12),
+        (label: 'Contexto', flex: 12),
         (label: 'Trabaja en', flex: 16),
       ],
       rows: [
@@ -692,7 +692,11 @@ class _Sesiones extends StatelessWidget {
                   ? '—'
                   : '${session.planDone} de ${session.planTotal}',
             ),
-            _Mono('US\$${session.costUsd.toStringAsFixed(2)}'),
+            _Mono(
+              session.contextRatio == null
+                  ? '—'
+                  : '${(session.contextRatio! * 100).round()}%',
+            ),
             _Mono(
               session.claimedTaskPath == null
                   ? '—'

@@ -82,8 +82,14 @@ Los dos tenían razón y la sesión no avanzaba. No era el prompt del
 planificador ni faltaba un agente: faltaba la vuelta.
 
 Ahora, con puntos pendientes y la sesión detenida, **"continuar" arranca otro
-ciclo completo desde el paso 1, acotado al próximo punto**. Está como botón
-debajo del plan (`Seguir con "…"`) y como palabra escrita en el canal. Sólo
+ciclo completo desde el paso 1, acotado al próximo punto**. Está como palabra
+escrita en el canal y como una barra pegada **arriba del campo de escribir**,
+que dice cuál es el punto que sigue y a qué puesto le toca.
+
+Esa barra vivía antes al fondo del sidebar, debajo de la lista de puntos, y
+ahí no la encontraba nadie: el sidebar es la columna del CONTEXTO, y una
+acción escondida al final del contexto es una acción que no existe. Las
+acciones se buscan donde uno está escribiendo. Sólo
 si el mensaje es corto y no dice nada más: *"continuá pero primero mirá el
 endpoint X"* es un mensaje para quien tiene la palabra, no un ciclo nuevo.
 

@@ -381,6 +381,27 @@
   .liveturn .ph svg { width: 14px; height: 14px; color: var(--brass); }
 
   .composer { padding: 12px; display: flex; align-items: center; gap: 8px; }
+
+  /* El próximo punto del plan, pegado arriba del campo de escribir */
+  .nextitem {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px 8px 16px;
+    background: var(--panel);
+    border-top: 1px solid var(--rule);
+  }
+  .nextitem .play { color: var(--brass); font-size: 11px; }
+  .nextitem .tag {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 1.1px;
+    color: var(--ink-faint);
+  }
+  .nextitem .what { flex: 1; font-size: 12.5px; }
+  .nextitem .who { font-family: var(--mono); font-size: 10px; color: var(--ink-faint); }
+  .nextitem .go {
+    background: var(--brass-deep); color: var(--brass);
+    font-size: 12px; padding: 5px 14px; border-radius: 14px;
+  }
   .cfield {
     flex: 1;
     border: 1px solid var(--ink-faint);
@@ -662,19 +683,19 @@ en que los números se mueven— y cada 15 s como piso, para que un <code>git pu
 <div class="sec-h">Sesiones en el radar<span class="line"></span></div>
     <table class="grid">
       <tr><th style="width:29%">Sesión</th><th style="width:20%">Estado</th><th style="width:11%">Paso</th>
-          <th style="width:12%">Plan</th><th style="width:12%">Costo</th><th>Trabaja en</th></tr>
+          <th style="width:12%">Plan</th><th style="width:12%">Contexto</th><th>Trabaja en</th></tr>
       <tr><td>migrar login a RN</td><td><span class="chip">corriendo</span></td>
           <td class="mono soft">3/7</td><td class="mono soft">4 de 6</td>
-          <td class="mono soft">US$1.24</td><td class="mono soft">02-shell.md</td></tr>
+          <td class="mono soft">42%</td><td class="mono soft">02-shell.md</td></tr>
       <tr><td>goldens de tablet</td><td><span class="chip">corriendo</span></td>
           <td class="mono soft">1/7</td><td class="mono soft">2 de 5</td>
-          <td class="mono soft">US$0.31</td><td class="mono soft">01-listado.md</td></tr>
+          <td class="mono soft">11%</td><td class="mono soft">01-listado.md</td></tr>
       <tr><td>auditoría de export</td><td><span class="chip">corriendo</span></td>
           <td class="mono soft">6/7</td><td class="mono soft">5 de 5</td>
-          <td class="mono soft">US$2.08</td><td class="mono soft">02-export.md</td></tr>
+          <td class="mono soft">78%</td><td class="mono soft">02-export.md</td></tr>
       <tr><td class="soft">fix de deep links</td><td><span class="chip good">terminada</span></td>
           <td class="mono soft">7/7</td><td class="mono soft">3 de 3</td>
-          <td class="mono soft">US$0.77</td><td class="soft">&mdash;</td></tr>
+          <td class="mono soft">&mdash;</td><td class="soft">&mdash;</td></tr>
     </table>
 
 <div class="sec-h">Trabado<span class="line"></span></div>
@@ -898,7 +919,7 @@ tiene tomada</strong>, que es el hilo que la ata al radar.</p>
     <div class="mainhead">
       <div>
         <div class="h1"><span class="hash">#</span><span class="nm">aulamas-app</span></div>
-        <div class="sub">Sesión: migrar login a RN &middot; tdd &middot; contexto 42% &middot; US$1.24</div>
+        <div class="sub">Sesión: migrar login a RN &middot; tdd &middot; contexto 42%</div>
       </div>
       <div class="grow"></div>
       <span class="chip quiet">02-shell.md tomada</span>
@@ -930,6 +951,13 @@ tiene tomada</strong>, que es el hilo que la ata al radar.</p>
       <span class="av" style="background:color-mix(in srgb, var(--m1) 18%, transparent);color:var(--m1)"><svg><use href="#i-bot"/></svg></span>
       <span class="h" style="color:var(--m1)">@flutter-expert</span>
       <span class="ph"><svg><use href="#i-bolt"/></svg>Editando lib/shell/app_shell.dart</span>
+    </div>
+    <div class="nextitem">
+      <span class="play">&#9654;</span>
+      <span class="tag">SIGUE</span>
+      <span class="what">Navegación con back de Android cubierto por test</span>
+      <span class="who">implementador</span>
+      <span class="go">Seguir</span>
     </div>
     <div class="strip live"></div>
     <div class="composer">
@@ -974,7 +1002,11 @@ tiene tomada</strong>, que es el hilo que la ata al radar.</p>
 </div>
 </div>
 </div></div>
-<figcaption>El chip <code>02-shell.md tomada</code> es lo que hace que la fila de esta sesión
+<figcaption>La barra <strong>SIGUE</strong> va pegada arriba del campo de escribir, no al fondo
+del sidebar: cada punto pendiente del plan es otra vuelta entera del workflow, y eso es una
+acción &mdash; las acciones se buscan donde uno está escribiendo, no en la columna de contexto.
+Y no hay plata en ninguna parte: lo que se muestra es el contexto, que es lo que decide algo.
+El chip <code>02-shell.md tomada</code> es lo que hace que la fila de esta sesión
 aparezca en «En curso ahora» con su agente. Sin él, el radar puede decir qué se está
 trabajando pero no dónde.</figcaption>
 </section><section>

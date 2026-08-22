@@ -74,11 +74,12 @@ class ChatMessageBody extends StatelessWidget {
             },
           ),
         ),
-        if (message.costUsd != null) ...[
+        // Cuánto tardó, y nada más. La plata que costó el turno no cambia
+        // ninguna decisión mientras leés el hilo, y estaba en cada burbuja.
+        if (message.durationMs != null) ...[
           const SizedBox(height: 6),
           Text(
-            '\$${message.costUsd!.toStringAsFixed(2)} · '
-            '${((message.durationMs ?? 0) / 1000).round()}s',
+            '${(message.durationMs! / 1000).round()}s',
             style: TextStyle(
               fontSize: 11 * fontScale,
               color: foreground.withValues(alpha: 0.7),

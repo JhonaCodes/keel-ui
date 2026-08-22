@@ -117,7 +117,7 @@ ProjectRadar buildProjectRadar({
           totalSteps: totalSteps,
           planDone: session.plan.doneCount,
           planTotal: session.plan.length,
-          costUsd: session.costUsd,
+          contextRatio: session.contextUsageRatio,
           isRunning: session.isRunning,
           claimedTaskPath: claimedBySession[session.id],
         ),

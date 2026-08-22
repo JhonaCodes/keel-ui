@@ -86,11 +86,18 @@ sesión de media hora — el tamaño del punto es el multiplicador del costo. Y
 por eso un paso que falla corta el ciclo en vez de arrastrar el error por
 los pasos restantes.
 
-## Ledger de costos (lo que se ve, se controla)
+## El ledger sigue, pero ya no se muestra
 
-- `StationTask.costUsd` + `costByProfileId`: acumulados de cada
-  `TaskTurnCompleted`, persistidos con la sesión.
-- UI: el header de la sesión muestra el total (`US$X.XX`) junto al contexto;
-  el tooltip del subtítulo desglosa por miembro.
+- `Session.costUsd` + `costByProfileId`: acumulados de cada turno,
+  persistidos con la sesión, y expuestos en la API local (F12).
+- **La UI ya no muestra dinero.** Estaba en el pie de cada burbuja, en el
+  encabezado de la sesión y en una columna del estado del proyecto, y no
+  cambiaba ninguna decisión que se tomara mirando esas pantallas: cuando
+  querés saber si un turno salió caro, lo que mirás es el modelo y el
+  esfuerzo (F18), no el número después de que ya pasó.
+- Lo que ocupó ese lugar es lo que sí decide algo: **el contexto**. Una
+  sesión al 90% está por quedarse sin aire; el encabezado dice el
+  porcentaje y su tooltip, los tokens contra el techo del modelo. En el pie
+  de cada mensaje queda solo cuánto tardó.
 - Limitación conocida: los turnos codex reportan costo 0 (su JSONL no lo
   emite).

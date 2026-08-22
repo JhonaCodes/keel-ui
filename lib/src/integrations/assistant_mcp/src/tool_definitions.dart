@@ -163,20 +163,30 @@ final List<Tool> keelAiTools = [
     ),
   ),
   Tool(
-    name: 'export_catalog',
+    name: 'backup_system',
     description:
-        'Exporta TODO el catálogo (skills, reglas, tools, workflows, MCPs, '
-        'agentes, estaciones) al repo git configurado en Configuración → '
-        'Sincronización, y lo pushea. Sin secrets ni rutas de trabajo.',
-    inputSchema: ObjectSchema(properties: {}),
+        'Respalda TODO el sistema (skills, reglas, tools, workflows, MCPs, '
+        'agentes, estaciones, bases de saber y ajustes) en el '
+        'keel-backup.zip de la carpeta del vault. Con push=true además lo '
+        'commitea y lo sube al repo del vault. De los secrets viajan solo '
+        'los nombres, nunca los valores; los hilos de chat no viajan.',
+    inputSchema: ObjectSchema(
+      properties: {
+        'push': Schema.bool(
+          description:
+              'Si además de escribir el zip hay que commitear y pushear el '
+              'vault. Por defecto false.',
+        ),
+      },
+    ),
   ),
   Tool(
-    name: 'refresh_catalog',
+    name: 'restore_system',
     description:
-        'Trae el catálogo del repo git configurado y lo fusiona por nombre '
-        '(crea lo que falta, actualiza lo existente). Las estaciones nuevas '
-        'quedan sin carpeta de trabajo hasta que el usuario la elija en la '
-        'UI.',
+        'Lee el keel-backup.zip del vault y fusiona TODO por nombre (crea lo '
+        'que falta, actualiza lo existente), más los ajustes y los secrets '
+        'que falten (sin valor). Las estaciones nuevas quedan sin carpeta de '
+        'trabajo hasta que el usuario la elija en la UI.',
     inputSchema: ObjectSchema(properties: {}),
   ),
   Tool(

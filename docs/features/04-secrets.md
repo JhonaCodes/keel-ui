@@ -69,5 +69,6 @@ task_runner.
 ## Almacenamiento
 
 LMDB local (prefijo `secret_`), mismo storage que el resto del catálogo.
-Los secrets NUNCA entran al export de catálogo (F9). `Secret.toString()`
+Los secrets NUNCA entran al catálogo portable, y sus VALORES nunca entran
+al vault (F21) — solo al respaldo en un archivo, con opt-in (F20). `Secret.toString()`
 no imprime el valor.

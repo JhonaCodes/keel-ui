@@ -27,9 +27,14 @@ class AppSettings {
   final double chatFontScale;
   final List<String> extraAllowedTools;
 
-  /// Git repo the catalog syncs with (export/refresh). Empty = not
-  /// configured. Always set from the UI, never hardcoded.
-  final String catalogRepoUrl;
+  /// La carpeta que hace de vault: ahí adentro vive `keel-backup.zip` y,
+  /// normalmente, las bases de saber locales. Es de ESTA máquina, así que
+  /// nunca viaja en un respaldo. Vacío = no configurada; se elige desde la
+  /// UI, nunca hardcodeada.
+  final String vaultPath;
+
+  /// El repo remoto al que se sube el vault. Vacío = solo local.
+  final String vaultRepoUrl;
 
   /// Git repo the Knowledge section pulls docs from. Empty = not
   /// configured.
@@ -43,7 +48,8 @@ class AppSettings {
   const AppSettings({
     this.chatFontScale = kDefaultChatFontScale,
     this.extraAllowedTools = const [],
-    this.catalogRepoUrl = '',
+    this.vaultPath = '',
+    this.vaultRepoUrl = '',
     this.knowledgeRepoUrl = '',
     this.windowWidth = kDefaultWindowWidth,
     this.windowHeight = kDefaultWindowHeight,
@@ -52,7 +58,8 @@ class AppSettings {
   AppSettings copyWith({
     double? chatFontScale,
     List<String>? extraAllowedTools,
-    String? catalogRepoUrl,
+    String? vaultPath,
+    String? vaultRepoUrl,
     String? knowledgeRepoUrl,
     double? windowWidth,
     double? windowHeight,
@@ -60,7 +67,8 @@ class AppSettings {
     return AppSettings(
       chatFontScale: chatFontScale ?? this.chatFontScale,
       extraAllowedTools: extraAllowedTools ?? this.extraAllowedTools,
-      catalogRepoUrl: catalogRepoUrl ?? this.catalogRepoUrl,
+      vaultPath: vaultPath ?? this.vaultPath,
+      vaultRepoUrl: vaultRepoUrl ?? this.vaultRepoUrl,
       knowledgeRepoUrl: knowledgeRepoUrl ?? this.knowledgeRepoUrl,
       windowWidth: windowWidth ?? this.windowWidth,
       windowHeight: windowHeight ?? this.windowHeight,
@@ -70,7 +78,8 @@ class AppSettings {
   Map<String, dynamic> toJson() => {
     'chatFontScale': chatFontScale,
     'extraAllowedTools': extraAllowedTools,
-    'catalogRepoUrl': catalogRepoUrl,
+    'vaultPath': vaultPath,
+    'vaultRepoUrl': vaultRepoUrl,
     'knowledgeRepoUrl': knowledgeRepoUrl,
     'windowWidth': windowWidth,
     'windowHeight': windowHeight,
@@ -82,7 +91,8 @@ class AppSettings {
           (json['chatFontScale'] as num?)?.toDouble() ?? kDefaultChatFontScale,
       extraAllowedTools:
           (json['extraAllowedTools'] as List?)?.cast<String>() ?? const [],
-      catalogRepoUrl: json['catalogRepoUrl'] as String? ?? '',
+      vaultPath: json['vaultPath'] as String? ?? '',
+      vaultRepoUrl: json['vaultRepoUrl'] as String? ?? '',
       knowledgeRepoUrl: json['knowledgeRepoUrl'] as String? ?? '',
       windowWidth:
           (json['windowWidth'] as num?)?.toDouble() ?? kDefaultWindowWidth,
@@ -97,7 +107,8 @@ class AppSettings {
       other is AppSettings &&
           runtimeType == other.runtimeType &&
           chatFontScale == other.chatFontScale &&
-          catalogRepoUrl == other.catalogRepoUrl &&
+          vaultPath == other.vaultPath &&
+          vaultRepoUrl == other.vaultRepoUrl &&
           knowledgeRepoUrl == other.knowledgeRepoUrl &&
           extraAllowedTools.length == other.extraAllowedTools.length &&
           extraAllowedTools.every(other.extraAllowedTools.contains);
@@ -106,7 +117,8 @@ class AppSettings {
   int get hashCode => Object.hash(
     chatFontScale,
     Object.hashAll(extraAllowedTools),
-    catalogRepoUrl,
+    vaultPath,
+    vaultRepoUrl,
     knowledgeRepoUrl,
   );
 
@@ -114,6 +126,7 @@ class AppSettings {
   String toString() =>
       'AppSettings(chatFontScale: $chatFontScale, '
       'extraAllowedTools: $extraAllowedTools, '
-      'catalogRepoUrl: $catalogRepoUrl, '
+      'vaultPath: $vaultPath, '
+      'vaultRepoUrl: $vaultRepoUrl, '
       'knowledgeRepoUrl: $knowledgeRepoUrl)';
 }

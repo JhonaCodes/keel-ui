@@ -1,6 +1,7 @@
-part of '../catalog_sync.dart';
+part of '../catalog_shape.dart';
 
-const _kCatalogDirs = [
+/// Las categorías del catálogo portable, en el orden en que se escriben.
+const kCatalogCategories = [
   'skills',
   'rules',
   'tools',
@@ -11,46 +12,17 @@ const _kCatalogDirs = [
   'stations',
 ];
 
-String _fileNameFor(String name) =>
+/// El nombre de archivo de una entidad dentro de su categoría. Los
+/// separadores de ruta se neutralizan: un nombre no puede abrir una carpeta.
+String catalogFileNameFor(String name) =>
     '${name.replaceAll(RegExp(r'[/\\:]'), '_')}.json';
 
-Future<void> _writeEntity(
-  Directory catalogDir,
-  String category,
-  String name,
-  Map<String, dynamic> json,
-) async {
-  final file = File('${catalogDir.path}/$category/${_fileNameFor(name)}');
-  await file.create(recursive: true);
-  await file.writeAsString(const JsonEncoder.withIndent('  ').convert(json));
-}
-
-/// Serializes the live catalog into `<mirror>/catalog/…`, everything BY
-/// NAME. Returns how many entities were written. The catalog dir is
-/// recreated from scratch so deletions propagate too.
-Future<int> _writeCatalog(Directory mirror) async {
-  final catalogDir = Directory('${mirror.path}/catalog');
-  if (catalogDir.existsSync()) await catalogDir.delete(recursive: true);
-  for (final category in _kCatalogDirs) {
-    await Directory('${catalogDir.path}/$category').create(recursive: true);
-  }
-
-  var written = 0;
-  for (final entry in catalogAsJson().entries) {
-    for (final json in entry.value) {
-      await _writeEntity(catalogDir, entry.key, json['name'] as String, json);
-      written++;
-    }
-  }
-  return written;
-}
-
 /// El catálogo vivo serializado POR NOMBRE, categoría → entidades. Única
-/// fuente de la forma portable: el mirror git la escribe en archivos y el
-/// respaldo local la mete en un solo JSON — dos destinos, una forma.
+/// fuente de la forma portable: el vault la mete en un zip y el respaldo en
+/// un solo JSON — dos destinos, una forma.
 Map<String, List<Map<String, dynamic>>> catalogAsJson() {
   final byCategory = {
-    for (final category in _kCatalogDirs) category: <Map<String, dynamic>>[],
+    for (final category in kCatalogCategories) category: <Map<String, dynamic>>[],
   };
 
   for (final skill in SkillsService.instance.notifier.data.skills) {
@@ -109,15 +81,20 @@ Map<String, List<Map<String, dynamic>>> catalogAsJson() {
   }
 
   for (final base in KnowledgeService.instance.notifier.data.bases) {
+    final relative = base.source == KnowledgeSource.local
+        ? vaultRelativeOf(base.localPath)
+        : null;
     byCategory['knowledge_bases']!.add({
       'name': base.name,
       'description': base.description,
       'source': base.source.alias,
       'gitUrl': base.gitUrl,
       'gitBranch': base.gitBranch,
-      // La ruta local NO viaja, igual que el directorio de una estación: al
-      // importar la base queda sin carpeta y la UI la pide. El CONTENIDO
-      // tampoco — un repo git se recupera clonando.
+      // La ruta ABSOLUTA no viaja, igual que el directorio de una estación.
+      // La relativa al vault sí: del otro lado el vault existe y la base se
+      // reengancha sola. Una base fuera del vault sigue llegando sin
+      // carpeta y la UI la pide.
+      'vaultPath': ?relative,
     });
   }
 
@@ -173,7 +150,7 @@ Map<String, List<Map<String, dynamic>>> catalogAsJson() {
 }
 
 /// Los ajustes de motor de [station] rekeyados por handle. Un ajuste de un
-/// perfil que ya no existe no se escribe: el mirror es portable y un id
+/// perfil que ya no existe no se escribe: la forma es portable y un id
 /// suelto no significa nada del otro lado.
 Map<String, dynamic> _engineMirror(
   Station station,
@@ -191,7 +168,7 @@ Map<String, dynamic> _engineMirror(
   return mirror;
 }
 
-/// Los ajustes de motor de un archivo de estación, por handle. Un mirror
+/// Los ajustes de motor de un archivo de estación, por handle. Un archivo
 /// escrito antes de que esto existiera simplemente no trae la clave.
 List<MapEntry<String, MemberTuning>> _readEngines(Object? value) {
   if (value is! Map) return const [];
@@ -209,32 +186,22 @@ List<MapEntry<String, MemberTuning>> _readEngines(Object? value) {
   return engines;
 }
 
-List<Map<String, dynamic>> _readCategory(Directory mirror, String category) {
-  final dir = Directory('${mirror.path}/catalog/$category');
-  if (!dir.existsSync()) return const [];
-  final entries = <Map<String, dynamic>>[];
-  for (final entity in dir.listSync()) {
-    if (entity is! File || !entity.path.endsWith('.json')) continue;
-    try {
-      entries.add(
-        jsonDecode(entity.readAsStringSync()) as Map<String, dynamic>,
-      );
-    } catch (error) {
-      Log.w('Catálogo: no pude leer ${entity.path}: $error');
-    }
-  }
-  return entries;
+/// La carpeta que le toca a una base local del archivo en ESTA máquina.
+///
+/// Si el archivo trae una ruta relativa al vault y acá hay vault, la base se
+/// reengancha sola (y la carpeta se crea si el repo llegó sin ella). Si no,
+/// se respeta la que ya tenga acá: una ruta absoluta ajena nunca se inventa.
+String _resolveLocalPath(Map<String, dynamic> json, KnowledgeBase? existing) {
+  final relative = json['vaultPath'] as String?;
+  final absolute = relative == null ? null : vaultAbsoluteOf(relative);
+  if (absolute == null) return existing?.localPath ?? '';
+
+  Directory(absolute).createSync(recursive: true);
+  return absolute;
 }
 
-/// Merges the repo catalog into the live one, by name: create if missing,
-/// update in place if present. Returns the human summary.
-Future<String> _readAndMergeCatalog(Directory mirror) => mergeCatalogJson({
-  for (final category in _kCatalogDirs)
-    category: _readCategory(mirror, category),
-});
-
 /// El merge por nombre sobre el catálogo vivo, desde la forma portable de
-/// [catalogAsJson] — venga del mirror git o de un respaldo en un archivo.
+/// [catalogAsJson] — venga del zip del vault o de un respaldo en un archivo.
 /// Solo toca las categorías presentes en [byCategory].
 Future<String> mergeCatalogJson(
   Map<String, List<Map<String, dynamic>>> byCategory,
@@ -418,6 +385,7 @@ Future<String> mergeCatalogJson(
       continue;
     }
     final existing = knowledge.baseByName(name);
+    final localPath = _resolveLocalPath(json, existing);
     final error = existing == null
         ? knowledge.createBase(
             name: name,
@@ -425,6 +393,7 @@ Future<String> mergeCatalogJson(
             source: source,
             gitUrl: json['gitUrl'] as String? ?? '',
             gitBranch: json['gitBranch'] as String? ?? '',
+            localPath: localPath,
           )
         : knowledge.updateBase(
             existing.id,
@@ -433,9 +402,7 @@ Future<String> mergeCatalogJson(
             source: source,
             gitUrl: json['gitUrl'] as String? ?? '',
             gitBranch: json['gitBranch'] as String? ?? '',
-            // La carpeta que ya tenga en ESTA máquina se respeta: la ruta
-            // nunca viaja, así que la del repo sería siempre vacía.
-            localPath: existing.localPath,
+            localPath: localPath,
           );
     track(error, existed: existing != null, label: 'base de saber $name');
   }
@@ -569,8 +536,8 @@ Future<String> mergeCatalogJson(
   final parts = [
     'Importé el catálogo: $created creados, $updated actualizados.',
     if (problems.isNotEmpty) 'Problemas:\n- ${problems.join('\n- ')}',
-    'Las estaciones nuevas necesitan su carpeta de trabajo, y las bases de '
-        'saber locales su carpeta: se piden al abrirlas.',
+    'Las estaciones nuevas necesitan su carpeta de trabajo: se pide al '
+        'abrirlas.',
   ];
   return parts.join('\n');
 }

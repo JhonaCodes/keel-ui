@@ -52,6 +52,7 @@ dependencies:
   dart_mcp: ^0.5.2
   stream_channel: ^2.1.4
   desktop_drop: ^0.8.0
+  archive: ^4.1.0
 
 dev_dependencies:
   flutter_test:

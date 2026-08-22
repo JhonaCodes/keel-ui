@@ -37,5 +37,5 @@
   (4 claves: handle/rol/proposito/instrucciones, ver F8), y un miembro
   codex escribe el plan con ```plan/```cumplido (ver F6/F17). Son parsers
   distintos con claves distintas.
-- `canManageSystem` no viaja al export sin revisión (ver F9): al importar se
+- `canManageSystem` no viaja al export sin revisión (ver F21): al importar se
   respeta lo que diga el JSON, que el usuario revisa.

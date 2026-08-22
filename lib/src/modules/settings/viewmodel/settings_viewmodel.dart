@@ -33,8 +33,13 @@ class SettingsViewModel extends ViewModel<AppSettings> {
     }
   }
 
-  void setCatalogRepoUrl(String url) {
-    updateState(data.copyWith(catalogRepoUrl: url.trim()));
+  void setVaultPath(String path) {
+    updateState(data.copyWith(vaultPath: path.trim()));
+    unawaited(_repository.save(data));
+  }
+
+  void setVaultRepoUrl(String url) {
+    updateState(data.copyWith(vaultRepoUrl: url.trim()));
     unawaited(_repository.save(data));
   }
 
@@ -45,6 +50,28 @@ class SettingsViewModel extends ViewModel<AppSettings> {
 
   void setChatFontScale(double scale) {
     updateState(data.copyWith(chatFontScale: scale));
+    unawaited(_repository.save(data));
+  }
+
+  /// Aplica los ajustes que venían en un respaldo.
+  ///
+  /// Solo lo que tiene sentido en cualquier máquina: el tamaño del texto,
+  /// los permisos de escritura y el repo de saber. La carpeta del vault y el
+  /// tamaño de ventana son de ESTA máquina y se conservan. El remoto del
+  /// vault se completa únicamente si acá todavía no hay ninguno: en una
+  /// instalación nueva es exactamente el dato que falta, y en una que ya lo
+  /// tiene, pisarlo sería cambiarle el destino a los respaldos.
+  void applyRestored(AppSettings restored) {
+    updateState(
+      data.copyWith(
+        chatFontScale: restored.chatFontScale,
+        extraAllowedTools: restored.extraAllowedTools,
+        knowledgeRepoUrl: restored.knowledgeRepoUrl,
+        vaultRepoUrl: data.vaultRepoUrl.isEmpty
+            ? restored.vaultRepoUrl
+            : data.vaultRepoUrl,
+      ),
+    );
     unawaited(_repository.save(data));
   }
 

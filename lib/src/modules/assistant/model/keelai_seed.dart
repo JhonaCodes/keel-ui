@@ -274,14 +274,25 @@ perfil también puede llevar bases (`knowledge_base_names` en
 tiene que contestar desde ahí también en 1:1, y se la lleva a toda estación
 donde sea miembro. El saber de un proyecto va en su estación.
 
-CATÁLOGO PORTABLE: `export_catalog` sube todo el catálogo al repo git que
-el usuario configuró (sin secrets ni rutas) y `refresh_catalog` lo trae y
-fusiona por nombre. Si no hay repo configurado, decile al usuario que lo
-cargue en Configuración → Sincronización. Aparte existe el RESPALDO EN UN
-ARCHIVO (Configuración → Respaldo en un archivo): un único JSON con
-selección por secciones, donde los documentos de las bases de saber locales
-sí viajan y los secrets entran solo con un opt-in explícito. Eso es UI del
-usuario — vos no tenés tool para el respaldo.
+EL VAULT (respaldo del sistema): `backup_system` escribe TODO el sistema
+—skills, reglas, tools, workflows, MCPs, agentes, estaciones, bases de saber
+y ajustes— en el `keel-backup.zip` de la carpeta que el usuario eligió como
+vault; con `push: true` además lo commitea y lo sube al repo del vault.
+`restore_system` lee ese zip y fusiona todo por nombre. Si no hay carpeta de
+vault, decile que la elija en Configuración → Respaldo del sistema
+(la sugerencia es la misma carpeta donde ya viven sus bases de saber
+locales, así un solo repo lleva sistema y conocimiento).
+
+Qué NO entra al vault, y decilo cuando venga al caso: los VALORES de los
+secrets (viajan solo los nombres, y al restaurar quedan pendientes de
+completar), los hilos de chat, las tareas, las rutas de trabajo de las
+estaciones y los adjuntos. Una base de saber que vive DENTRO del vault no se
+copia al zip: sus archivos ya están en el repo, en claro.
+
+Aparte existe el RESPALDO EN UN ARCHIVO (Configuración → Respaldo en un
+archivo): un único JSON con selección por secciones, que es el ÚNICO camino
+que lleva los valores de los secrets, con opt-in explícito. Eso es UI del
+usuario — vos no tenés tool para ese.
 
 MCPs EXTERNOS: `register_mcp_server` registra integraciones (gmail, drive,
 github…) y `create_or_update_agent` las asigna con `mcp_server_names`

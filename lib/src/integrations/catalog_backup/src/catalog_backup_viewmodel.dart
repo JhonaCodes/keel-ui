@@ -49,10 +49,10 @@ class CatalogBackupState {
 
 /// Export/import del catálogo a UN archivo, con selección por secciones.
 ///
-/// Reusa la forma portable de `catalog_sync` ([catalogAsJson] /
-/// [mergeCatalogJson]) — dos destinos, una forma — y le suma lo que el
-/// mirror git nunca lleva: los DOCUMENTOS de las bases de saber locales, y
-/// los secrets cuando el usuario los pide explícitamente.
+/// Reusa la forma portable de `catalog_shape` ([catalogAsJson] /
+/// [mergeCatalogJson]) — varios destinos, una forma — y le suma lo que el
+/// vault nunca lleva: los VALORES de los secrets, cuando el usuario los pide
+/// explícitamente.
 class CatalogBackupViewModel extends ViewModel<CatalogBackupState> {
   CatalogBackupViewModel() : super(const CatalogBackupState());
 
@@ -79,6 +79,9 @@ class CatalogBackupViewModel extends ViewModel<CatalogBackupState> {
     if (data.busy) return;
     updateState(data.copyWith(busy: true, log: ''));
     try {
+      // Serializar con una carga en vuelo escribiría un archivo vacío que
+      // parece un respaldo. Mismo guardado que usa el vault.
+      await awaitCatalogsReady();
       final catalog = catalogAsJson();
       final selected = {
         for (final section in sections)
@@ -225,30 +228,10 @@ class CatalogBackupViewModel extends ViewModel<CatalogBackupState> {
   }
 
   BackupPreview _previewOf(Map<String, dynamic> parsed) {
-    final catalog = (parsed['catalog'] as Map?)?.cast<String, dynamic>() ?? {};
-    final names = <BackupSection, List<String>>{};
-    final conflicts = <BackupSection, List<String>>{};
-
-    for (final entry in catalog.entries) {
-      final section = BackupSection.byCategory(entry.key);
-      if (section == null) continue;
-      final inFile = [
-        for (final json in (entry.value as List? ?? const []))
-          if (json is Map && json['name'] is String) json['name'] as String,
-      ];
-      if (inFile.isEmpty) continue;
-      names[section] = inFile;
-      final existing = _existingNamesOf(section);
-      conflicts[section] = inFile
-          .where((name) => existing.contains(name))
-          .toList();
-    }
-
     final docs = (parsed['knowledgeDocs'] as Map?)?.cast<String, dynamic>();
     final secretList = (parsed['secrets'] as List?) ?? const [];
-    return BackupPreview(
-      names: names,
-      conflicts: conflicts,
+    return backupPreviewOf(
+      (parsed['catalog'] as Map?)?.cast<String, dynamic>() ?? {},
       knowledgeDocCounts: {
         for (final entry in (docs ?? const {}).entries)
           entry.key: (entry.value as Map?)?.length ?? 0,
@@ -263,43 +246,6 @@ class CatalogBackupViewModel extends ViewModel<CatalogBackupState> {
     );
   }
 
-  Set<String> _existingNamesOf(BackupSection section) {
-    return switch (section) {
-      BackupSection.skills => {
-        for (final skill in SkillsService.instance.notifier.data.skills)
-          skill.name,
-      },
-      BackupSection.rules => {
-        for (final rule in RulesService.instance.notifier.data.rules) rule.name,
-      },
-      BackupSection.tools => {
-        for (final tool in ToolsService.instance.notifier.data.tools) tool.name,
-      },
-      BackupSection.workflows => {
-        for (final workflow
-            in WorkflowsService.instance.notifier.data.workflows)
-          workflow.name,
-      },
-      BackupSection.mcpServers => {
-        for (final server in McpServersService.instance.notifier.data.servers)
-          server.name,
-      },
-      BackupSection.knowledgeBases => {
-        for (final base in KnowledgeService.instance.notifier.data.bases)
-          base.name,
-      },
-      BackupSection.agents => {
-        for (final profile
-            in AgentProfilesService.instance.notifier.data.profiles)
-          profile.name,
-      },
-      BackupSection.stations => {
-        for (final station in StationsService.instance.notifier.data.stations)
-          station.name,
-      },
-    };
-  }
-
   /// Aplica el archivo ya inspeccionado: solo las [sections] elegidas, y los
   /// secrets solo si [includeSecrets]. Merge por nombre, como el catálogo.
   Future<void> applyLoaded({
@@ -310,6 +256,7 @@ class CatalogBackupViewModel extends ViewModel<CatalogBackupState> {
     if (loaded == null || data.busy) return;
     updateState(data.copyWith(busy: true, log: ''));
     try {
+      await awaitCatalogsReady();
       final catalog =
           (loaded['catalog'] as Map?)?.cast<String, dynamic>() ?? {};
       final byCategory = {

@@ -2,11 +2,11 @@
 
 ## Qué problema resuelve
 
-El catálogo ya viajaba por el repo git (F9), pero eso es TODO-o-nada, exige
-un repo configurado, y nunca lleva ni el contenido de las bases de saber ni
-los secrets. Faltaba la otra mitad: "quiero llevarme ESTO a otra máquina en
-un archivo" — elegir qué, ver qué pisa antes de aplicar, y que el
-conocimiento viaje con su contenido, no como referencia hueca.
+El respaldo del sistema (F21) es TODO-o-nada, va siempre a la carpeta del
+vault y nunca lleva los valores de los secrets, porque ese repo se sube.
+Faltaba la otra mitad: "quiero llevarme ESTO a otra máquina en un archivo" —
+elegir qué, ver qué pisa antes de aplicar, que el conocimiento viaje con su
+contenido, y poder mover credenciales entre máquinas propias.
 
 ## Qué es
 
@@ -22,15 +22,15 @@ conocimiento viaje con su contenido, no como referencia hueca.
 
 ## La forma es la del catálogo git — a propósito
 
-`catalog_sync` expone su serialización como `catalogAsJson()` y su merge
+`catalog_shape` expone su serialización como `catalogAsJson()` y su merge
 por nombre como `mergeCatalogJson()`; el respaldo los reusa tal cual. Dos
-destinos (archivos del mirror git / un solo JSON), UNA forma — dos copias
-de "cómo se serializa un perfil" divergiendo en silencio es exactamente lo
-que no puede pasar. Mismas reglas de siempre: referencias por NOMBRE, merge
+destinos (el zip del vault / un solo JSON), UNA forma — dos copias de "cómo
+se serializa un perfil" divergiendo en silencio es exactamente lo que no
+puede pasar. Mismas reglas de siempre: referencias por NOMBRE, merge
 crea-o-actualiza, rutas de trabajo y tareas jamás viajan, el mapa de Keel
 AI tampoco (se recompila en cada arranque).
 
-## Lo que el mirror git nunca lleva y este archivo sí
+## Lo que el vault nunca lleva y este archivo sí
 
 - **Documentos de saber**: con la sección "Bases de saber" viajan los
   archivos de cada base LOCAL con carpeta (ruta relativa → contenido; los
@@ -39,7 +39,8 @@ AI tampoco (se recompila en cada arranque).
   que ya tienen carpeta en esta máquina — las rutas no viajan y no se
   inventan: una base sin carpeta queda anotada en el resultado ("asignale
   una y volvé a importar"). Después de escribir, la base se reindexa.
-- **Secrets, solo por decisión explícita**: el checkbox lo dice sin
+- **Secrets con sus VALORES, solo por decisión explícita** — y este es el
+  único camino que los lleva, porque el vault jamás los sube: el checkbox lo dice sin
   eufemismos — el archivo lleva los VALORES en texto plano; es para mover
   credenciales entre máquinas propias, nunca para compartir. Al importar:
   se crean los que falten y se completa el valor SOLO de los que acá están

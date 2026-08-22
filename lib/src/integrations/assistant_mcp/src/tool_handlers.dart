@@ -29,11 +29,9 @@ Future<CallToolResult> dispatchKeelAiTool(
     );
   }
 
-  if (request.name == 'export_catalog' || request.name == 'refresh_catalog') {
-    final sync = CatalogSyncService.instance.notifier;
-    final message = request.name == 'export_catalog'
-        ? await sync.exportCatalog()
-        : await sync.refreshCatalog();
+  if (request.name == 'backup_system' || request.name == 'restore_system') {
+    final vault = SystemVaultService.instance.notifier;
+    final message = await _runVaultTool(vault, request);
     AgentsService.instance.notifier.appendSystemNote(agentId, message);
     return CallToolResult(
       content: [
@@ -744,6 +742,26 @@ String _describeCatalog(String kind) {
 String _orNone(List<String> values) =>
     values.isEmpty ? 'ninguno' : values.join(', ');
 
+String _orMissing(String value) =>
+    value.trim().isEmpty ? 'sin configurar' : value.trim();
+
+/// Respaldar o restaurar el sistema entero desde una tool.
+///
+/// Restaurar acá aplica TODAS las secciones: el preview por secciones es una
+/// pregunta para el usuario, y una tool no tiene a quién hacérsela. Por eso
+/// primero lee —si no hay respaldo, devuelve eso y no toca nada.
+Future<String> _runVaultTool(
+  SystemVaultViewModel vault,
+  CallToolRequest request,
+) async {
+  if (request.name == 'backup_system') {
+    return vault.backup(push: request.arguments?['push'] as bool? ?? false);
+  }
+  final read = await vault.inspectVault();
+  if (vault.data.preview == null) return read;
+  return vault.applyLoaded(sections: BackupSection.values.toSet());
+}
+
 String _mcpTarget(McpServerConfig server) {
   return switch (server.transport) {
     McpTransport.stdio => '${server.command} ${server.args.join(' ')}'.trim(),
@@ -971,9 +989,11 @@ String _describeSystem() {
   ];
 
   return [
-    'Sincronización:',
-    '- Repo de catálogo: '
-        '${settings.catalogRepoUrl.isEmpty ? 'sin configurar' : settings.catalogRepoUrl}',
+    'Respaldo:',
+    '- Vault: ${_orMissing(settings.vaultPath)}',
+    '- Repo del vault: ${_orMissing(settings.vaultRepoUrl)}',
+    '- Último respaldo: '
+        '${SystemVaultService.instance.notifier.data.lastBackupAt?.toLocal().toString() ?? 'nunca'}',
     '- Bases de saber: '
         '${_orNone([for (final base in KnowledgeService.instance.notifier.data.bases) base.name])}',
     '',

@@ -9,7 +9,8 @@ import 'package:dart_mcp/server.dart';
 import 'package:logger_rs/logger_rs.dart';
 import 'package:stream_channel/stream_channel.dart';
 
-import 'package:keel_ui/src/integrations/catalog_sync/catalog_sync.dart';
+import 'package:keel_ui/src/integrations/catalog_shape/catalog_shape.dart';
+import 'package:keel_ui/src/integrations/system_vault/system_vault.dart';
 import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
 import 'package:keel_ui/src/modules/knowledge/model/knowledge_base.dart';
 import 'package:keel_ui/src/modules/knowledge/viewmodel/knowledge_viewmodel.dart';
@@ -57,8 +58,8 @@ const kKeelAiMcpToolNames = [
   'mcp__keelai-actions__open_station_task',
   'mcp__keelai-actions__register_mcp_server',
   'mcp__keelai-actions__delete_mcp_server',
-  'mcp__keelai-actions__export_catalog',
-  'mcp__keelai-actions__refresh_catalog',
+  'mcp__keelai-actions__backup_system',
+  'mcp__keelai-actions__restore_system',
   'mcp__keelai-actions__sync_knowledge',
   'mcp__keelai-actions__create_knowledge_base',
   'mcp__keelai-actions__update_knowledge_base',

@@ -52,7 +52,10 @@ void main() {
 
       await migrateStationsToProjects(store: store);
 
-      expect(store.records.keys.where((k) => k.startsWith('station_')), isEmpty);
+      expect(
+        store.records.keys.where((k) => k.startsWith('station_')),
+        isEmpty,
+      );
       expect(store.records.keys.where((k) => k.startsWith('task_')), isEmpty);
 
       final project = store.records['project_p1']!;
@@ -66,14 +69,17 @@ void main() {
       expect(store.records['session_p1_t2']!['title'], 'goldens');
     });
 
-    test('las claves de los mensajes y de otros catálogos no se tocan', () async {
-      final store = _FakeStore(_poblada());
+    test(
+      'las claves de los mensajes y de otros catálogos no se tocan',
+      () async {
+        final store = _FakeStore(_poblada());
 
-      await migrateStationsToProjects(store: store);
+        await migrateStationsToProjects(store: store);
 
-      expect(store.records['msg_t1_0']!['text'], 'dale');
-      expect(store.records['skill_s1']!['name'], 'algo');
-    });
+        expect(store.records['msg_t1_0']!['text'], 'dale');
+        expect(store.records['skill_s1']!['name'], 'algo');
+      },
+    );
 
     test('correrla dos veces no duplica ni rompe', () async {
       final store = _FakeStore(_poblada());
@@ -131,7 +137,10 @@ void main() {
     });
 
     test('no muta el original', () {
-      final data = {'id': 'p1', 'taskIds': ['t1']};
+      final data = {
+        'id': 'p1',
+        'taskIds': ['t1'],
+      };
 
       renamedProjectPayload(data);
 

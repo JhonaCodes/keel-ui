@@ -16,7 +16,10 @@ VaultContents _sampleContents() => VaultContents(
       {'name': 'keel-ui', 'purpose': 'La app'},
     ],
   },
-  settings: const {'chatFontScale': 0.9, 'extraAllowedTools': ['Bash']},
+  settings: const {
+    'chatFontScale': 0.9,
+    'extraAllowedTools': ['Bash'],
+  },
   secrets: const [
     {'name': 'LINEAR_API_KEY', 'description': 'Para el bot de tickets'},
   ],

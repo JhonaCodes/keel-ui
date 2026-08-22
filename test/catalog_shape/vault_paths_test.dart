@@ -8,14 +8,14 @@ void main() {
   group('relativeToRoot', () {
     test('una carpeta de adentro se vuelve relativa', () {
       expect(relativeToRoot(_root, '$_root/ux-ui-catalog'), 'ux-ui-catalog');
-      expect(
-        relativeToRoot(_root, '$_root/notas/stacks'),
-        'notas/stacks',
-      );
+      expect(relativeToRoot(_root, '$_root/notas/stacks'), 'notas/stacks');
     });
 
     test('una barra de más en la raíz no cambia el resultado', () {
-      expect(relativeToRoot('$_root/', '$_root/ux-ui-catalog'), 'ux-ui-catalog');
+      expect(
+        relativeToRoot('$_root/', '$_root/ux-ui-catalog'),
+        'ux-ui-catalog',
+      );
     });
 
     test('algo de afuera no es relativo al vault', () {
@@ -39,10 +39,7 @@ void main() {
 
   group('absoluteFromRoot', () {
     test('rearma la ruta contra la raíz de esta máquina', () {
-      expect(
-        absoluteFromRoot(_root, 'ux-ui-catalog'),
-        '$_root/ux-ui-catalog',
-      );
+      expect(absoluteFromRoot(_root, 'ux-ui-catalog'), '$_root/ux-ui-catalog');
       expect(
         absoluteFromRoot('$_root/', 'notas/stacks'),
         '$_root/notas/stacks',

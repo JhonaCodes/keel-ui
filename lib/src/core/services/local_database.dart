@@ -1,6 +1,8 @@
 import 'package:flutter_local_db/flutter_local_db.dart';
 import 'package:logger_rs/logger_rs.dart';
 
+import 'package:keel_ui/src/core/services/key_index.dart';
+
 /// Thrown when a database operation fails. Repositories let this propagate
 /// exactly like the file-based repositories they replace let I/O exceptions
 /// propagate — callers already catch and log at the ViewModel layer.
@@ -16,11 +18,32 @@ class LocalDatabaseException implements Exception {
 /// The only file in this project that imports `flutter_local_db`. Every
 /// repository goes through this key-value wrapper so the storage backend
 /// stays swappable and no module needs to know about `LocalDbResult`.
+///
+/// **La base se lee UNA vez y queda en memoria.** El paquete no tiene
+/// consulta por prefijo: solo `GetById` (una clave) o `GetAll` (todo). Y
+/// `GetAll` serializa la base entera a JSON, la cruza por FFI, la decodifica
+/// y después re-serializa y re-parsea registro por registro — sin ceder el
+/// hilo ni una vez. Llamarlo por cada consulta por prefijo era leer 5,5 MB
+/// unas veinte veces seguidas para poder arrancar, con la UI congelada.
+///
+/// Que la copia en memoria pueda quedarse vieja no es un riesgo real acá:
+/// este archivo es la única puerta a la base, y las sub-ventanas ni siquiera
+/// escriben ([markUnavailable]). No hay quién la haga divergir.
+///
+/// Lo que sí cuesta es memoria: la base entera queda residente. Si algún día
+/// molesta, la salida es podar los mensajes viejos — no volver a escanear.
 class LocalDatabase {
   static const _migrationFlagKey = '_migrated_from_json_v1';
 
   static bool _initialized = false;
   static bool _unavailable = false;
+
+  static KeyIndex? _index;
+  static Future<KeyIndex>? _loading;
+
+  /// Escrituras que ocurrieron mientras el índice se estaba cargando. Se
+  /// aplican encima cuando llega, para que no se pierdan en la rendija.
+  static final Map<String, Map<String, dynamic>?> _pending = {};
 
   LocalDatabase._();
 
@@ -43,10 +66,68 @@ class LocalDatabase {
   /// — a stated contract, not a swallowed failure. Without it (main
   /// engine), an uninitialized database still throws, because there the
   /// same call really is a bug.
-  static void markUnavailable() => _unavailable = true;
+  static void markUnavailable() {
+    _unavailable = true;
+    _index = KeyIndex();
+  }
 
   /// Whether this engine can actually persist. False in sub-windows.
   static bool get isAvailable => _initialized;
+
+  /// El índice, cargándolo si hace falta.
+  ///
+  /// La memoización es la misma que usan los ViewModels para su `ready`: sin
+  /// ella, los once catálogos que arrancan a la vez dispararían once lecturas
+  /// completas en paralelo, que es exactamente lo que esto viene a evitar.
+  static Future<KeyIndex> _ensureIndex() {
+    final loaded = _index;
+    if (loaded != null) return Future.value(loaded);
+    return _loading ??= _load();
+  }
+
+  static Future<KeyIndex> _load() async {
+    if (_unavailable) return _index = KeyIndex();
+
+    final watch = Stopwatch()..start();
+    final result = await LocalDB.GetAll();
+    return result.when(
+      ok: (models) {
+        final index = KeyIndex({
+          for (final model in models) model.id: model.data,
+        });
+        index.applyPending(_pending);
+        _pending.clear();
+        _index = index;
+        Log.i(
+          'Base local en memoria: ${index.length} registros en '
+          '${watch.elapsedMilliseconds} ms',
+        );
+        return index;
+      },
+      err: (error) {
+        _loading = null;
+        Log.e('LocalDatabase could not read the database: $error');
+        throw LocalDatabaseException(error.toString());
+      },
+    );
+  }
+
+  /// Anota el cambio en el índice, o lo guarda para cuando el índice llegue.
+  ///
+  /// Escribir NO fuerza la carga: una escritura temprana no tiene por qué
+  /// pagar la lectura de toda la base.
+  static void _remember(String key, Map<String, dynamic>? data) {
+    final index = _index;
+    if (index == null) {
+      _pending[key] = data;
+      return;
+    }
+    if (data == null) {
+      index.remove(key);
+    } else {
+      index.put(key, data);
+    }
+  }
 
   static Future<void> put(String key, Map<String, dynamic> data) async {
     if (_unavailable) return;
@@ -58,18 +139,14 @@ class LocalDatabase {
         throw LocalDatabaseException(error.toString());
       },
     );
+    // Después de que la base confirmó, nunca antes: una escritura que falla
+    // no puede dejar el índice diciendo que salió bien.
+    _remember(key, data);
   }
 
   static Future<Map<String, dynamic>?> get(String key) async {
     if (_unavailable) return null;
-    final result = await LocalDB.GetById(key);
-    return result.when(
-      ok: (model) => model?.data,
-      err: (error) {
-        Log.e('LocalDatabase.get($key) failed: $error');
-        throw LocalDatabaseException(error.toString());
-      },
-    );
+    return (await _ensureIndex()).get(key);
   }
 
   static Future<void> delete(String key) async {
@@ -82,6 +159,7 @@ class LocalDatabase {
         throw LocalDatabaseException(error.toString());
       },
     );
+    _remember(key, null);
   }
 
   /// All records whose key starts with [prefix], in no particular order.
@@ -89,17 +167,7 @@ class LocalDatabase {
     String prefix,
   ) async {
     if (_unavailable) return const [];
-    final result = await LocalDB.GetAll();
-    return result.when(
-      ok: (models) => models
-          .where((model) => model.id.startsWith(prefix))
-          .map((model) => model.data)
-          .toList(),
-      err: (error) {
-        Log.e('LocalDatabase.getAllWithPrefix($prefix) failed: $error');
-        throw LocalDatabaseException(error.toString());
-      },
-    );
+    return (await _ensureIndex()).withPrefix(prefix);
   }
 
   /// Every record under [prefix] junto con SU CLAVE.
@@ -110,17 +178,7 @@ class LocalDatabase {
   static Future<List<({String key, Map<String, dynamic> data})>>
   entriesWithPrefix(String prefix) async {
     if (_unavailable) return const [];
-    final result = await LocalDB.GetAll();
-    return result.when(
-      ok: (models) => models
-          .where((model) => model.id.startsWith(prefix))
-          .map((model) => (key: model.id, data: model.data))
-          .toList(),
-      err: (error) {
-        Log.e('LocalDatabase.entriesWithPrefix($prefix) failed: $error');
-        throw LocalDatabaseException(error.toString());
-      },
-    );
+    return (await _ensureIndex()).entriesWithPrefix(prefix);
   }
 
   /// Replaces every record under [prefix] with exactly [items] — upserts

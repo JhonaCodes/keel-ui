@@ -875,7 +875,7 @@ Future<String> _runVaultTool(
 String _mcpTarget(McpServerConfig server) {
   return switch (server.transport) {
     McpTransport.stdio => '${server.command} ${server.args.join(' ')}'.trim(),
-    McpTransport.http => server.url,
+    McpTransport.http || McpTransport.sse => server.url,
   };
 }
 

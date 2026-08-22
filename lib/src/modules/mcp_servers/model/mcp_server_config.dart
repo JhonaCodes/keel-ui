@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 
+import 'package:keel_ui/src/modules/mcp_servers/model/mcp_probe_result.dart';
+
 final RegExp _mcpServerNameFormat = RegExp(r'^[a-z0-9_-]{1,32}$');
 
 /// Returns a human error message if [value] can't be used as a
@@ -15,7 +17,13 @@ String? validateMcpServerName(String value) {
 
 enum McpTransport {
   stdio(alias: 'stdio', label: 'Local (stdio)'),
-  http(alias: 'http', label: 'Remoto (HTTP)');
+  http(alias: 'http', label: 'Remoto (HTTP)'),
+
+  /// Server-sent events. Sigue siendo el transporte de varios servidores
+  /// remotos publicados (Atlassian, entre otros), así que el catálogo no
+  /// puede describirlos sin él. Para todo lo demás se comporta como http:
+  /// una URL y headers.
+  sse(alias: 'sse', label: 'Remoto (SSE)');
 
   final String alias;
   final String label;
@@ -36,6 +44,33 @@ enum McpTransport {
     }
     return transport;
   }
+}
+
+final RegExp _secretPlaceholder = RegExp(r'\{\{([A-Z][A-Z0-9_]{0,63})\}\}');
+
+/// Every secret NAME referenced as `{{NOMBRE}}` inside [value], in the order
+/// they appear. Used for header values, where the secret is almost never the
+/// whole thing: an `Authorization` needs `Bearer ` in front of it, so a map
+/// of key→secret couldn't express it.
+List<String> secretPlaceholdersIn(String value) => [
+  for (final match in _secretPlaceholder.allMatches(value)) match.group(1)!,
+];
+
+/// Replaces every `{{NOMBRE}}` in [value] with its secret. Returns null when
+/// any referenced secret is missing: half-resolved is worse than absent — an
+/// `Authorization: Bearer ` with nothing after it makes a server answer 400
+/// where the missing header would have answered a legible 401.
+String? resolveSecretPlaceholders(
+  String value,
+  Map<String, String> secretValues,
+) {
+  var resolved = value;
+  for (final name in secretPlaceholdersIn(value)) {
+    final secret = secretValues[name];
+    if (secret == null) return null;
+    resolved = resolved.replaceAll('{{$name}}', secret);
+  }
+  return resolved;
 }
 
 /// A registered EXTERNAL MCP server (gmail, drive, github, …) agents can be
@@ -59,9 +94,16 @@ class McpServerConfig {
   /// stdio only: env KEY → registered secret NAME (resolved at turn time).
   final Map<String, String> secretEnv;
 
-  /// http only.
+  /// Remoto (http/sse). A header VALUE may reference a secret as
+  /// `{{NOMBRE}}`;
+  /// it resolves at turn time, inside the mcp-config temp file.
   final String url;
   final Map<String, String> headers;
+
+  /// The catalog entry this was installed from (`github`, `linear`, …), or
+  /// empty when it was registered by hand. Only decorates the UI — the
+  /// config is the truth, and stays editable after installing.
+  final String catalogId;
 
   final DateTime createdAt;
 
@@ -76,6 +118,7 @@ class McpServerConfig {
     this.secretEnv = const {},
     this.url = '',
     this.headers = const {},
+    this.catalogId = '',
   });
 
   /// The `mcpServers` entry the claude CLI understands, with secret
@@ -94,12 +137,23 @@ class McpServerConfig {
               entry.key: secretValues[entry.value]!,
         },
       },
-      McpTransport.http => {'type': 'http', 'url': url, 'headers': headers},
+      McpTransport.http || McpTransport.sse => {
+        'type': transport.alias,
+        'url': url,
+        'headers': {
+          for (final entry in headers.entries)
+            entry.key: ?resolveSecretPlaceholders(entry.value, secretValues),
+        },
+      },
     };
   }
 
-  /// Every secret NAME this server references.
-  List<String> get secretNames => secretEnv.values.toList();
+  /// Every secret NAME this server references, from both places it can:
+  /// the env map of a stdio server and the header templates of an http one.
+  List<String> get secretNames => {
+    ...secretEnv.values,
+    for (final value in headers.values) ...secretPlaceholdersIn(value),
+  }.toList();
 
   McpServerConfig copyWith({
     String? name,
@@ -110,6 +164,7 @@ class McpServerConfig {
     Map<String, String>? secretEnv,
     String? url,
     Map<String, String>? headers,
+    String? catalogId,
   }) {
     return McpServerConfig(
       id: id,
@@ -121,6 +176,7 @@ class McpServerConfig {
       secretEnv: secretEnv ?? this.secretEnv,
       url: url ?? this.url,
       headers: headers ?? this.headers,
+      catalogId: catalogId ?? this.catalogId,
       createdAt: createdAt,
     );
   }
@@ -135,6 +191,7 @@ class McpServerConfig {
     'secretEnv': secretEnv,
     'url': url,
     'headers': headers,
+    'catalogId': catalogId,
     'createdAt': createdAt.toIso8601String(),
   };
 
@@ -150,6 +207,7 @@ class McpServerConfig {
           (json['secretEnv'] as Map?)?.cast<String, String>() ?? const {},
       url: json['url'] as String? ?? '',
       headers: (json['headers'] as Map?)?.cast<String, String>() ?? const {},
+      catalogId: json['catalogId'] as String? ?? '',
       createdAt: DateTime.parse(json['createdAt'] as String),
     );
   }
@@ -168,6 +226,7 @@ class McpServerConfig {
           mapEquals(secretEnv, other.secretEnv) &&
           url == other.url &&
           mapEquals(headers, other.headers) &&
+          catalogId == other.catalogId &&
           createdAt == other.createdAt;
 
   @override
@@ -181,6 +240,7 @@ class McpServerConfig {
     Object.hashAll(secretEnv.entries.map((e) => Object.hash(e.key, e.value))),
     url,
     Object.hashAll(headers.entries.map((e) => Object.hash(e.key, e.value))),
+    catalogId,
     createdAt,
   );
 
@@ -212,10 +272,30 @@ String formatKeyValueLines(Map<String, String> map) =>
 class McpServersState {
   final List<McpServerConfig> servers;
 
-  const McpServersState({this.servers = const []});
+  /// El último probe de cada servidor, por id. No es configuración: es lo
+  /// que contestó esta máquina la última vez que se preguntó.
+  final Map<String, McpProbeResult> probes;
 
-  McpServersState copyWith({List<McpServerConfig>? servers}) {
-    return McpServersState(servers: servers ?? this.servers);
+  /// Los que se están probando ahora. Un `Set` y no un bool porque probar
+  /// tres a la vez es lo normal cuando acabás de restaurar un respaldo.
+  final Set<String> probing;
+
+  const McpServersState({
+    this.servers = const [],
+    this.probes = const {},
+    this.probing = const {},
+  });
+
+  McpServersState copyWith({
+    List<McpServerConfig>? servers,
+    Map<String, McpProbeResult>? probes,
+    Set<String>? probing,
+  }) {
+    return McpServersState(
+      servers: servers ?? this.servers,
+      probes: probes ?? this.probes,
+      probing: probing ?? this.probing,
+    );
   }
 
   @override
@@ -223,11 +303,19 @@ class McpServersState {
       identical(this, other) ||
       other is McpServersState &&
           runtimeType == other.runtimeType &&
-          listEquals(servers, other.servers);
+          listEquals(servers, other.servers) &&
+          mapEquals(probes, other.probes) &&
+          setEquals(probing, other.probing);
 
   @override
-  int get hashCode => Object.hashAll(servers);
+  int get hashCode => Object.hash(
+    Object.hashAll(servers),
+    Object.hashAll(probes.keys),
+    Object.hashAll(probing),
+  );
 
   @override
-  String toString() => 'McpServersState(servers: ${servers.length})';
+  String toString() =>
+      'McpServersState(servers: ${servers.length}, '
+      'probes: ${probes.length}, probing: ${probing.length})';
 }

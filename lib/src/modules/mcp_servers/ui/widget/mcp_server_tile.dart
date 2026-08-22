@@ -41,7 +41,7 @@ class McpServerTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final detail = switch (server.transport) {
       McpTransport.stdio => '${server.command} ${server.args.join(' ')}'.trim(),
-      McpTransport.http => server.url,
+      McpTransport.http || McpTransport.sse => server.url,
     };
 
     return ListTile(

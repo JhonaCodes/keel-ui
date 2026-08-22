@@ -88,7 +88,9 @@ class SystemVaultState {
       busy: busy ?? this.busy,
       log: log ?? this.log,
       configured: configured ?? this.configured,
-      lastBackupAt: clearLastBackup ? null : (lastBackupAt ?? this.lastBackupAt),
+      lastBackupAt: clearLastBackup
+          ? null
+          : (lastBackupAt ?? this.lastBackupAt),
       isRepo: isRepo ?? this.isRepo,
       hasRemote: hasRemote ?? this.hasRemote,
       unpushedCommits: unpushedCommits ?? this.unpushedCommits,
@@ -196,8 +198,9 @@ class SystemVaultViewModel extends ViewModel<SystemVaultState> {
 
   /// Escribe `keel-backup.zip` en el vault y llega hasta donde diga [reach].
   /// Devuelve el resumen (también queda en [SystemVaultState.log]).
-  Future<String> backup({VaultReach reach = VaultReach.write}) =>
-      _guarded(() async {
+  Future<String> backup({
+    VaultReach reach = VaultReach.write,
+  }) => _guarded(() async {
     final dir = _vaultDirectory;
     if (dir == null) {
       throw const _VaultException(
@@ -348,7 +351,9 @@ class SystemVaultViewModel extends ViewModel<SystemVaultState> {
     required String destination,
   }) => _guarded(() async {
     if (url.trim().isEmpty || destination.trim().isEmpty) {
-      throw const _VaultException('Faltan la URL del repo y la carpeta destino.');
+      throw const _VaultException(
+        'Faltan la URL del repo y la carpeta destino.',
+      );
     }
     await cloneVaultRepo(url.trim(), destination.trim());
 

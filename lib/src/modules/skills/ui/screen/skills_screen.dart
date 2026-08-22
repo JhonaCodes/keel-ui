@@ -52,7 +52,6 @@ class SkillsScreen extends StatelessWidget {
   }
 }
 
-
 /// Deterministic "you keep asking for this" suggestions — creating one
 /// opens the skill form prefilled as GLOBAL with the samples as a draft.
 class _SuggestionsBand extends StatelessWidget {
@@ -60,8 +59,10 @@ class _SuggestionsBand extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ReactiveViewModelBuilder<PromptInsightsViewModel,
-        PromptInsightsState>(
+    return ReactiveViewModelBuilder<
+      PromptInsightsViewModel,
+      PromptInsightsState
+    >(
       viewmodel: PromptInsightsService.instance.notifier,
       build: (state, viewmodel, keep) {
         final pending = state.pending;

@@ -28,6 +28,7 @@ class _ToolFormScreenState extends State<ToolFormScreen> {
   late final _descriptionController = TextEditingController(
     text: widget.initial?.description,
   );
+
   /// Pinta la sintaxis mientras se edita, en vez de dejar el script como un
   /// bloque de texto plano: es código, y leerlo sin colores es lo que hace
   /// que un `fi` de más pase desapercibido.
@@ -167,9 +168,7 @@ class _ToolFormScreenState extends State<ToolFormScreen> {
                         decoration: const InputDecoration(
                           labelText: 'Runtime',
                           border: OutlineInputBorder(
-                            borderRadius: BorderRadius.all(
-                              Radius.circular(16),
-                            ),
+                            borderRadius: BorderRadius.all(Radius.circular(16)),
                           ),
                         ),
                         items: [
@@ -198,9 +197,7 @@ class _ToolFormScreenState extends State<ToolFormScreen> {
                               'Timeout en segundos (máx. '
                               '$kMaxToolTimeoutSeconds)',
                           border: OutlineInputBorder(
-                            borderRadius: BorderRadius.all(
-                              Radius.circular(16),
-                            ),
+                            borderRadius: BorderRadius.all(Radius.circular(16)),
                           ),
                         ),
                       ),
@@ -233,11 +230,10 @@ class _ToolFormScreenState extends State<ToolFormScreen> {
                       // Fondo propio: el script se lee como un editor, no
                       // como un campo de formulario más.
                       filled: true,
-                      fillColor: Theme.of(
-                        context,
-                      ).colorScheme.surfaceContainerHighest.withValues(
-                        alpha: 0.4,
-                      ),
+                      fillColor: Theme.of(context)
+                          .colorScheme
+                          .surfaceContainerHighest
+                          .withValues(alpha: 0.4),
                       border: const OutlineInputBorder(
                         borderRadius: BorderRadius.all(Radius.circular(16)),
                       ),

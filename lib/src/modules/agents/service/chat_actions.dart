@@ -20,6 +20,7 @@ abstract class ChatActions {
     String text, {
     List<String> imagePaths = const [],
   });
+
   /// Sends what is queued right now, without waiting for a turn to end —
   /// the escape hatch after stopping an agent mid-turn.
   void sendQueuedMessages(String agentId);

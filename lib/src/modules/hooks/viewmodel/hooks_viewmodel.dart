@@ -59,11 +59,7 @@ class HooksViewModel extends ViewModel<HooksState> {
     bool isGlobal = false,
     bool enabled = true,
   }) {
-    final error = _validate(
-      name,
-      body: body,
-      timeoutSeconds: timeoutSeconds,
-    );
+    final error = _validate(name, body: body, timeoutSeconds: timeoutSeconds);
     if (error != null) return error;
 
     final hook = Hook(

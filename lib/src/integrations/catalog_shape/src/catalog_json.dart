@@ -23,7 +23,8 @@ String catalogFileNameFor(String name) =>
 /// un solo JSON — dos destinos, una forma.
 Map<String, List<Map<String, dynamic>>> catalogAsJson() {
   final byCategory = {
-    for (final category in kCatalogCategories) category: <Map<String, dynamic>>[],
+    for (final category in kCatalogCategories)
+      category: <Map<String, dynamic>>[],
   };
 
   for (final skill in SkillsService.instance.notifier.data.skills) {
@@ -154,8 +155,10 @@ Map<String, List<Map<String, dynamic>>> catalogAsJson() {
       'ruleNames': project.ruleNames,
       'hookNames': project.hookNames,
       'knowledgeBaseNames': project.knowledgeBaseNames,
-      // Con qué motor corre cada miembro acá, por handle: es configuración de
-      // el proyecto, así que viaja con ella o se pierde en el import.
+      // Quién mantiene el repo no es de esta máquina: viaja.
+      'maintained': project.maintained,
+      // Con qué motor corre cada miembro acá, por handle: es configuración
+      // del proyecto, así que viaja con él o se pierde en el import.
       'memberEngines': _engineMirror(project, profiles),
       'activeWorkflowName': project.activeWorkflowId == null
           ? null
@@ -542,6 +545,7 @@ Future<String> mergeCatalogJson(
     final knowledgeBaseNames =
         (json['knowledgeBaseNames'] as List?)?.cast<String>() ??
         const <String>[];
+    final maintained = json['maintained'] as bool? ?? true;
 
     final existing = projects.data.projects
         .where((project) => project.name == name)
@@ -558,6 +562,7 @@ Future<String> mergeCatalogJson(
             ruleNames: ruleNames,
             hookNames: hookNames,
             knowledgeBaseNames: knowledgeBaseNames,
+            maintained: maintained,
           )
         : projects.updateProject(
             existing.id,
@@ -569,6 +574,7 @@ Future<String> mergeCatalogJson(
             ruleNames: ruleNames,
             hookNames: hookNames,
             knowledgeBaseNames: knowledgeBaseNames,
+            maintained: maintained,
           );
     track(error, existed: existing != null, label: 'proyecto $name');
     if (error != null) continue;

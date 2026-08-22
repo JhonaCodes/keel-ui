@@ -225,7 +225,9 @@ class _NodeRow extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: Container(
-        color: selected ? theme.colorScheme.primary.withValues(alpha: 0.14) : null,
+        color: selected
+            ? theme.colorScheme.primary.withValues(alpha: 0.14)
+            : null,
         padding: EdgeInsets.fromLTRB(6.0 + depth * 14, 4, 6, 4),
         child: Row(
           children: [

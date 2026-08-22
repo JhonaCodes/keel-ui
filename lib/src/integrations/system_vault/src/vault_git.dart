@@ -111,11 +111,7 @@ Future<VaultRepoStatus> vaultRepoStatus(String dir) async {
   final remote = await _git(['remote', 'get-url', 'origin'], cwd: dir);
   if (!remote.ok) return (isRepo: true, hasRemote: false, unpushed: 0);
 
-  final ahead = await _git([
-    'rev-list',
-    '--count',
-    '@{u}..HEAD',
-  ], cwd: dir);
+  final ahead = await _git(['rev-list', '--count', '@{u}..HEAD'], cwd: dir);
   if (ahead.ok) {
     return (
       isRepo: true,

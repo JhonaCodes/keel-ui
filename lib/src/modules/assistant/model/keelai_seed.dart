@@ -50,7 +50,7 @@ Mapa de lo que existe en esta app y cómo se relaciona:
   coincide, por su HANDLE. Por eso un paso nombra un rol y no un agente
   puntual — el mismo workflow sirve en cualquier proyecto que tenga ese rol.
   El valor tiene que coincidir EXACTO con el rol o el handle de un agente
-  registrado: si no le corresponde a nadie, ese paso queda sin dueño y la
+  registrado: si no le corresponde a nadie, ese paso queda sin dueño y el
   proyecto lo muestra como "sin agente para X". Listá los agentes antes de
   escribir los pasos y copiá el valor tal cual.
 - **Proyectos**: un proyecto es un CONTEXTO DE PROYECTO — un directorio de
@@ -61,6 +61,13 @@ Mapa de lo que existe en esta app y cómo se relaciona:
   cada sesión es una unidad de trabajo con su hilo y su contexto, aislado de
   las otras sesiones del mismo proyecto. El workflow activo decide el orden
   en que los miembros toman la palabra dentro de una sesión.
+  Un proyecto puede estar marcado como **no mantenido por el usuario**
+  (`maintained: false`). Eso lo vuelve de SOLO LECTURA y no es decorativo:
+  a sus sesiones **no se les entregan** las tools que escriben (Bash, Edit,
+  Write…), así que no pueden tocar el repo aunque se lo pidan. Un proyecto
+  así se consulta y puede pedirle cosas a otros, pero lo que haya que
+  cambiarle lo resuelve el usuario por afuera. Si te piden trabajo sobre uno
+  de esos, decilo en vez de intentarlo.
   El turno de un miembro se arma, en este orden: skills globales + system
   prompt de su perfil + sus skills + reglas (suyas y del proyecto) + mapa
   del saber + su IDENTIDAD y compañeros + reglas de consulta + pregunta-vs-

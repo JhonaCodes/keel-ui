@@ -120,7 +120,8 @@ class Session {
       createdAt: createdAt,
       status: status ?? this.status,
       messages: messages ?? this.messages,
-      cliSessionsByProfileId: cliSessionsByProfileId ?? this.cliSessionsByProfileId,
+      cliSessionsByProfileId:
+          cliSessionsByProfileId ?? this.cliSessionsByProfileId,
       extraProfileIds: extraProfileIds ?? this.extraProfileIds,
       plan: plan ?? this.plan,
       request: request ?? this.request,
@@ -170,7 +171,9 @@ class Session {
       extraProfileIds:
           (json['extraProfileIds'] as List?)?.cast<String>() ?? const [],
       plan: (json['plan'] as List? ?? const [])
-          .map((entry) => SessionPlanItem.fromJson(entry as Map<String, dynamic>))
+          .map(
+            (entry) => SessionPlanItem.fromJson(entry as Map<String, dynamic>),
+          )
           .toList(),
       request: json['request'] as String? ?? '',
       currentStepIndex: json['currentStepIndex'] as int? ?? 0,

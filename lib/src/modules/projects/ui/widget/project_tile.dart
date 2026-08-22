@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
+import 'package:keel_ui/src/core/ui/typed_deletion_dialog.dart';
 import 'package:keel_ui/src/modules/projects/model/project.dart';
+import 'package:keel_ui/src/modules/roadmap/viewmodel/task_claims_viewmodel.dart';
 import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
 import 'package:keel_ui/src/modules/projects/ui/screen/project_form_screen.dart';
 
@@ -10,31 +12,43 @@ class ProjectTile extends StatelessWidget {
   final Project project;
 
   Future<void> _confirmAndDelete(BuildContext context) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Eliminar proyecto'),
-        content: Text(
-          'Se eliminará "#${project.name}" y todas sus sesiones. Esta acción '
-          'no se puede deshacer.',
+    final messages = project.sessions.fold<int>(
+      0,
+      (total, session) => total + session.messages.length,
+    );
+    final claims = TaskClaimsService.instance.notifier
+        .activeClaimsFor(project.workingDirectory)
+        .length;
+
+    final confirmed = await confirmTypedDeletion(
+      context,
+      title: 'Eliminar el proyecto #${project.name}',
+      expected: project.name,
+      consequences: [
+        (
+          lead:
+              '${project.sessions.length} ${_plural(project.sessions.length, 'sesión', 'sesiones')}',
+          rest: 'con sus hilos y su contexto',
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancelar'),
+        (
+          lead: '$messages ${_plural(messages, 'mensaje', 'mensajes')}',
+          rest: '',
+        ),
+        if (claims > 0)
+          (
+            lead: '$claims ${_plural(claims, 'toma', 'tomas')} de tareas',
+            rest: 'del roadmap se liberan',
           ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Eliminar'),
-          ),
-        ],
-      ),
+      ],
+      reassurance: 'La carpeta del repo no se toca.',
     );
 
-    if (confirmed ?? false) {
+    if (confirmed) {
       ProjectsService.instance.notifier.deleteProject(project.id);
     }
   }
+
+  static String _plural(int n, String one, String many) => n == 1 ? one : many;
 
   @override
   Widget build(BuildContext context) {

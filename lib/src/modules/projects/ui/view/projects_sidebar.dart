@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import 'package:keel_ui/src/core/ui/inline_rename_field.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
 
 import 'package:keel_ui/src/modules/agents/model/agent.dart';
@@ -321,7 +323,7 @@ class _GroupHead extends StatelessWidget {
   }
 }
 
-class _ProjectRow extends StatelessWidget {
+class _ProjectRow extends StatefulWidget {
   const _ProjectRow({
     required this.project,
     required this.selected,
@@ -333,10 +335,27 @@ class _ProjectRow extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
+  State<_ProjectRow> createState() => _ProjectRowState();
+}
+
+class _ProjectRowState extends State<_ProjectRow> {
+  final _rename = InlineRenameHandle();
+
+  Project get project => widget.project;
+  bool get selected => widget.selected;
+
+  @override
+  void dispose() {
+    _rename.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return InkWell(
-      onTap: onTap,
+      onTap: widget.onTap,
+      onDoubleTap: _rename.start,
       child: Container(
         decoration: BoxDecoration(
           color: selected ? scheme.surfaceContainerHighest : null,
@@ -360,15 +379,34 @@ class _ProjectRow extends StatelessWidget {
             ),
             const SizedBox(width: 6),
             Expanded(
-              child: Text(
-                project.name,
-                overflow: TextOverflow.ellipsis,
+              child: InlineRenameField(
+                value: project.name,
+                handle: _rename,
+                hintText: 'Nombre del proyecto',
+                validate: validateProjectName,
+                onRename: (name) => ProjectsService.instance.notifier
+                    .renameProject(project.id, name),
                 style: TextStyle(
                   fontSize: 13,
+                  color: scheme.onSurface,
                   fontWeight: selected ? FontWeight.bold : FontWeight.normal,
                 ),
               ),
             ),
+            // La marca de que este proyecto no es tuyo para decidir. Va acá,
+            // en la lista, y no escondida en su ficha: es lo que cambia lo
+            // que podés pedirle antes de abrirlo.
+            if (!project.maintained) ...[
+              const SizedBox(width: 4),
+              Tooltip(
+                message: 'No lo mantengo: solo lectura',
+                child: Icon(
+                  Icons.lock_outline,
+                  size: 12,
+                  color: scheme.outline,
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -397,9 +435,7 @@ class _SessionRow extends StatefulWidget {
 /// un rename, no un formulario, y mandarlo a un panel por un campo de texto
 /// sería más ceremonia que la que el gesto merece.
 class _SessionRowState extends State<_SessionRow> {
-  bool _editing = false;
-  late final _controller = TextEditingController(text: widget.session.title);
-  final _focusNode = FocusNode();
+  final _rename = InlineRenameHandle();
 
   Session get session => widget.session;
   String get projectId => widget.projectId;
@@ -408,25 +444,8 @@ class _SessionRowState extends State<_SessionRow> {
 
   @override
   void dispose() {
-    _controller.dispose();
-    _focusNode.dispose();
+    _rename.dispose();
     super.dispose();
-  }
-
-  void _startEditing() {
-    _controller.text = session.title == kDefaultSessionTitle ? '' : session.title;
-    setState(() => _editing = true);
-    _focusNode.requestFocus();
-  }
-
-  void _commit() {
-    if (!_editing) return;
-    setState(() => _editing = false);
-    ProjectsService.instance.notifier.renameSession(
-      projectId,
-      session.id,
-      _controller.text,
-    );
   }
 
   Future<void> _confirmAndClose(BuildContext context) async {
@@ -485,9 +504,11 @@ class _SessionRowState extends State<_SessionRow> {
     };
 
     return InkWell(
-      onTap: () =>
-          ProjectsService.instance.notifier.selectSession(projectId, session.id),
-      onDoubleTap: _startEditing,
+      onTap: () => ProjectsService.instance.notifier.selectSession(
+        projectId,
+        session.id,
+      ),
+      onDoubleTap: _rename.start,
       child: Container(
         color: selected ? scheme.primary.withValues(alpha: 0.07) : null,
         padding: const EdgeInsets.fromLTRB(30, 4, 6, 4),
@@ -500,37 +521,24 @@ class _SessionRowState extends State<_SessionRow> {
             ),
             const SizedBox(width: 7),
             Expanded(
-              child: _editing
-                  ? Focus(
-                      onFocusChange: (hasFocus) {
-                        if (!hasFocus) _commit();
-                      },
-                      child: TextField(
-                        controller: _controller,
-                        focusNode: _focusNode,
-                        onSubmitted: (_) => _commit(),
-                        style: const TextStyle(fontSize: 12),
-                        decoration: const InputDecoration(
-                          isDense: true,
-                          isCollapsed: true,
-                          border: InputBorder.none,
-                          hintText: 'Nombre de la sesión',
-                          hintStyle: TextStyle(fontSize: 12),
-                        ),
-                      ),
-                    )
-                  : Tooltip(
-                      message: 'Doble click para renombrar',
-                      waitDuration: const Duration(milliseconds: 900),
-                      child: Text(
-                        session.title,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: selected ? scheme.onSurface : scheme.outline,
-                        ),
-                      ),
-                    ),
+              child: InlineRenameField(
+                value: session.title,
+                handle: _rename,
+                hintText: 'Nombre de la sesión',
+                openEmptyWhen: kDefaultSessionTitle,
+                onRename: (name) {
+                  ProjectsService.instance.notifier.renameSession(
+                    projectId,
+                    session.id,
+                    name,
+                  );
+                  return null;
+                },
+                style: TextStyle(
+                  fontSize: 12,
+                  color: selected ? scheme.onSurface : scheme.outline,
+                ),
+              ),
             ),
             const SizedBox(width: 4),
             trailing,

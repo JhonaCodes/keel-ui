@@ -130,8 +130,11 @@ class _PickerBody extends StatelessWidget {
                 leading: const Icon(Icons.add, size: 18),
                 title: Text(profile.name),
                 subtitle: profile.role.isEmpty ? null : Text(profile.role),
-                onTap: () =>
-                    projects.addAgentToSession(project.id, session.id, profile.id),
+                onTap: () => projects.addAgentToSession(
+                  project.id,
+                  session.id,
+                  profile.id,
+                ),
               ),
           ],
         );

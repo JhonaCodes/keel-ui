@@ -86,7 +86,9 @@ class KnowledgeState {
   @override
   int get hashCode => Object.hash(
     Object.hashAll(bases),
-    Object.hashAll(indexes.entries.map((entry) => Object.hash(entry.key, entry.value))),
+    Object.hashAll(
+      indexes.entries.map((entry) => Object.hash(entry.key, entry.value)),
+    ),
     Object.hashAll(syncing),
     selectedDocument,
     status,
@@ -356,7 +358,12 @@ class KnowledgeViewModel extends ViewModel<KnowledgeState> {
 
     try {
       var budget = _maxIndexedFiles;
-      final nodes = _scan(directory, root, () => budget, (used) => budget = used);
+      final nodes = _scan(
+        directory,
+        root,
+        () => budget,
+        (used) => budget = used,
+      );
       var portada = '';
       for (final candidate in kKnowledgeIndexFileNames) {
         final file = File('$root/$candidate');
@@ -390,7 +397,8 @@ class KnowledgeViewModel extends ViewModel<KnowledgeState> {
     int Function() budget,
     void Function(int) spend,
   ) {
-    final entities = directory.listSync()..sort((a, b) => a.path.compareTo(b.path));
+    final entities = directory.listSync()
+      ..sort((a, b) => a.path.compareTo(b.path));
     final directories = <KnowledgeNode>[];
     final files = <KnowledgeNode>[];
 
@@ -457,20 +465,14 @@ class KnowledgeViewModel extends ViewModel<KnowledgeState> {
       final message = await _pullOrClone(base);
       await reindexBase(id);
       updateState(
-        data.copyWith(
-          syncing: {...data.syncing}..remove(id),
-          status: message,
-        ),
+        data.copyWith(syncing: {...data.syncing}..remove(id), status: message),
       );
       return message;
     } catch (error) {
       final message = 'Base "${base.name}": $error';
       Log.e('Knowledge sync failed for ${base.name}', error: error);
       updateState(
-        data.copyWith(
-          syncing: {...data.syncing}..remove(id),
-          status: message,
-        ),
+        data.copyWith(syncing: {...data.syncing}..remove(id), status: message),
       );
       return message;
     }

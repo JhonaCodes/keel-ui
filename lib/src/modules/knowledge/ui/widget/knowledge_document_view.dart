@@ -138,10 +138,7 @@ class _UnsupportedDocument extends StatelessWidget {
             style: Theme.of(context).textTheme.titleSmall,
           ),
           const SizedBox(height: 4),
-          Text(
-            document.fileName,
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
+          Text(document.fileName, style: Theme.of(context).textTheme.bodySmall),
           const SizedBox(height: 16),
           FilledButton.icon(
             onPressed: () => KnowledgeService.instance.notifier.openWithSystem(

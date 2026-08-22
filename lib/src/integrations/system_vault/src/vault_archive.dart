@@ -169,9 +169,10 @@ VaultContents decodeVault(Uint8List bytes) {
       final parts = path.split('/');
       if (parts.length < 3) continue;
       final relative = parts.sublist(2).join('/');
-      knowledgeDocs
-          .putIfAbsent(parts[1], () => <String, Uint8List>{})[relative] =
-          entry.value;
+      knowledgeDocs.putIfAbsent(
+        parts[1],
+        () => <String, Uint8List>{},
+      )[relative] = entry.value;
     }
   }
 

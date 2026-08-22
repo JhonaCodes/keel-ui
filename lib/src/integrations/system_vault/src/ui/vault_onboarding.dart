@@ -85,9 +85,7 @@ class _VaultWelcomeScreenState extends State<VaultWelcomeScreen> {
   }
 
   Future<void> _pickDestination() async {
-    final path = await getDirectoryPath(
-      confirmButtonText: 'Usar esta carpeta',
-    );
+    final path = await getDirectoryPath(confirmButtonText: 'Usar esta carpeta');
     if (path == null) return;
     setState(() => _destination = path);
   }
@@ -110,10 +108,7 @@ class _VaultWelcomeScreenState extends State<VaultWelcomeScreen> {
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 560),
-          child: ReactiveViewModelBuilder<
-            SystemVaultViewModel,
-            SystemVaultState
-          >(
+          child: ReactiveViewModelBuilder<SystemVaultViewModel, SystemVaultState>(
             viewmodel: SystemVaultService.instance.notifier,
             build: (vault, viewmodel, keep) {
               return ListView(

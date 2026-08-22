@@ -17,7 +17,9 @@ const _newSessionPrefix = 'session_';
 /// Existe para poder inyectarla: es la parte del sistema que puede perder
 /// datos del usuario, y probarla contra LMDB de verdad no se puede.
 abstract interface class MigrationStore {
-  Future<List<({String key, Map<String, dynamic> data})>> entries(String prefix);
+  Future<List<({String key, Map<String, dynamic> data})>> entries(
+    String prefix,
+  );
   Future<Map<String, dynamic>?> get(String key);
   Future<void> put(String key, Map<String, dynamic> data);
   Future<void> delete(String key);

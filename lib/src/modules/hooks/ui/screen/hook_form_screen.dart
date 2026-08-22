@@ -25,7 +25,9 @@ class HookFormScreen extends StatefulWidget {
 }
 
 class _HookFormScreenState extends State<HookFormScreen> {
-  late final _nameController = TextEditingController(text: widget.initial?.name);
+  late final _nameController = TextEditingController(
+    text: widget.initial?.name,
+  );
   late final _descriptionController = TextEditingController(
     text: widget.initial?.description,
   );

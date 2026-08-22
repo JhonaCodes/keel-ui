@@ -48,7 +48,9 @@ Future<CallToolResult> dispatchKeelAiTool(
     AgentsService.instance.notifier.appendSystemNote(agentId, message);
   }
   return CallToolResult(
-    content: [TextContent(text: jsonEncode({'ok': ok, 'message': message}))],
+    content: [
+      TextContent(text: jsonEncode({'ok': ok, 'message': message})),
+    ],
     isError: !ok,
   );
 }
@@ -508,7 +510,8 @@ String _describeCatalog(String kind) {
 
   section('projects', 'Proyectos', [
     for (final project in ProjectsService.instance.notifier.data.projects)
-      '- ${project.name} — ${_firstLine(project.purpose)}',
+      '- ${project.name}${project.maintained ? '' : ' [solo lectura]'} — '
+          '${_firstLine(project.purpose)}',
   ]);
 
   section('mcp_servers', 'MCPs externos', [
@@ -702,7 +705,8 @@ String _describeCatalog(String kind) {
             'Workflow activo: $active\n'
             'Reglas: ${_orNone(project.ruleNames)}\n'
             'Saber: ${_orNone(project.knowledgeBaseNames)}\n'
-            'Sesiones: ${project.sessions.length}',
+            'Sesiones: ${project.sessions.length}\n'
+            'Lo mantiene el usuario: ${project.maintained ? 'sí' : 'NO — solo lectura'}',
       );
 
     case 'knowledge_base':
@@ -718,12 +722,8 @@ String _describeCatalog(String kind) {
             'Documentos: ${index?.documentCount ?? 0}\n'
             '${index == null || index.problem.isEmpty ? '' : 'Problema: ${index.problem}\n'}'
             'Usada por proyectos: '
-            '${_orNone([
-              for (final project
-                  in ProjectsService.instance.notifier.data.projects)
-                if (project.knowledgeBaseNames.contains(base.name))
-                  project.name,
-            ])}',
+            '${_orNone([for (final project in ProjectsService.instance.notifier.data.projects)
+              if (project.knowledgeBaseNames.contains(base.name)) project.name])}',
       );
 
     case 'mcp_server':
@@ -782,8 +782,10 @@ String _orNone(List<String> values) =>
           body: body,
           matcher: arguments['matcher'] as String? ?? '',
           timeoutSeconds:
-              arguments['timeout_seconds'] as int? ?? kDefaultHookTimeoutSeconds,
-          enforces: (arguments['enforces'] as List?)?.cast<String>() ?? const [],
+              arguments['timeout_seconds'] as int? ??
+              kDefaultHookTimeoutSeconds,
+          enforces:
+              (arguments['enforces'] as List?)?.cast<String>() ?? const [],
           isGlobal: arguments['is_global'] as bool? ?? false,
           enabled: arguments['enabled'] as bool? ?? true,
         )
@@ -795,8 +797,10 @@ String _orNone(List<String> values) =>
           body: body,
           matcher: arguments['matcher'] as String? ?? '',
           timeoutSeconds:
-              arguments['timeout_seconds'] as int? ?? kDefaultHookTimeoutSeconds,
-          enforces: (arguments['enforces'] as List?)?.cast<String>() ?? const [],
+              arguments['timeout_seconds'] as int? ??
+              kDefaultHookTimeoutSeconds,
+          enforces:
+              (arguments['enforces'] as List?)?.cast<String>() ?? const [],
           isGlobal: arguments['is_global'] as bool? ?? false,
           enabled: arguments['enabled'] as bool? ?? true,
         );
@@ -889,10 +893,7 @@ String _mcpTarget(McpServerConfig server) {
       .firstOrNull;
   if (profile == null) return (false, 'No existe el agente "@$cleanHandle".');
 
-  if (skills.isEmpty &&
-      rules.isEmpty &&
-      tools.isEmpty &&
-      mcpServers.isEmpty) {
+  if (skills.isEmpty && rules.isEmpty && tools.isEmpty && mcpServers.isEmpty) {
     return (false, 'No me dijiste qué sacarle a "@$cleanHandle".');
   }
 
@@ -1002,7 +1003,12 @@ List<String> _without(List<String> current, List<String> removed) {
     profileIds: profileIds,
     workflowIds: workflowIds,
     ruleNames: ruleNames,
+    // Reenviados a propósito: `updateProject` reemplaza la lista entera, así
+    // que omitirlos acá borraba los guardarraíles del proyecto en cada
+    // update que no los mencionara — y la marca de mantenedor haría lo mismo.
+    hookNames: project.hookNames,
     knowledgeBaseNames: knowledgeBaseNames,
+    maintained: arguments['maintained'] as bool? ?? project.maintained,
   );
   if (error != null) return (false, error);
 

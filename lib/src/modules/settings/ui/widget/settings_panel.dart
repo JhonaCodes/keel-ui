@@ -255,14 +255,18 @@ class _VaultWarning extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.warning_amber_rounded, size: 18, color: colors.onErrorContainer),
+          Icon(
+            Icons.warning_amber_rounded,
+            size: 18,
+            color: colors.onErrorContainer,
+          ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               message,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: colors.onErrorContainer,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: colors.onErrorContainer),
             ),
           ),
         ],

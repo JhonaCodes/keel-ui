@@ -51,6 +51,7 @@ class _AgentProfileFormScreenState extends State<AgentProfileFormScreen> {
   late bool _canManageSystem = widget.initial?.canManageSystem ?? false;
   late AgentProvider _provider =
       widget.initial?.provider ?? AgentProvider.claude;
+
   /// Normalized against the provider: a codex agent created before the
   /// catalogs were split still carries a Claude alias, and offering it back
   /// would keep a value codex cannot run.
@@ -215,8 +216,7 @@ class _AgentProfileFormScreenState extends State<AgentProfileFormScreen> {
                 const SizedBox(height: 16),
                 McpServerMultiSelect(
                   selectedNames: _mcpServers,
-                  onChanged: (servers) =>
-                      setState(() => _mcpServers = servers),
+                  onChanged: (servers) => setState(() => _mcpServers = servers),
                 ),
                 const SizedBox(height: 16),
                 SwitchListTile(

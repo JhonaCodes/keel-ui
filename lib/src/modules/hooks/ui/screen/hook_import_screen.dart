@@ -102,7 +102,7 @@ class _HookImportScreenState extends State<HookImportScreen> {
                   'Encontré ${_found.length} hooks escritos a mano en tu '
                   'configuración de Claude Code'
                   '${broken == 0 ? '' : ', y $broken apuntan a archivos que ya '
-                        'no existen'}. '
+                            'no existen'}. '
                   'Entran todos APAGADOS: recuperás qué guardabas y en qué '
                   'momento, sin que se prenda nada roto.',
                   style: Theme.of(context).textTheme.bodySmall,

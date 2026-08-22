@@ -61,9 +61,7 @@ class _KnowledgeBaseFormScreenState extends State<KnowledgeBaseFormScreen> {
   }
 
   Future<void> _pickFolder() async {
-    final path = await getDirectoryPath(
-      confirmButtonText: 'Usar esta carpeta',
-    );
+    final path = await getDirectoryPath(confirmButtonText: 'Usar esta carpeta');
     if (path == null) return;
     setState(() {
       _localPath = path;

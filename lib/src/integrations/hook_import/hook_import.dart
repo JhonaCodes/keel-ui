@@ -75,8 +75,7 @@ List<ImportableHook> readAllClaudeHooks() {
 
 /// Saca el sufijo numérico que agrega [_uniqueName] dentro de un archivo,
 /// para que la unicidad se recalcule sobre el conjunto y no se acumule.
-String _baseName(String name) =>
-    name.replaceFirst(RegExp(r'-\d+\$'), '');
+String _baseName(String name) => name.replaceFirst(RegExp(r'-\d+\$'), '');
 
 /// Los archivos donde suele estar la configuración manual, del más nuevo al
 /// más viejo. Los `.bak` entran a propósito: es donde termina la config
@@ -87,7 +86,9 @@ List<File> claudeSettingsCandidates() {
 
   final claudeDir = Directory('$home/.claude');
   final backups =
-      (claudeDir.existsSync() ? claudeDir.listSync() : const <FileSystemEntity>[])
+      (claudeDir.existsSync()
+              ? claudeDir.listSync()
+              : const <FileSystemEntity>[])
           .whereType<File>()
           .where((file) => file.path.contains('settings.json.bak'))
           .toList()
@@ -160,9 +161,7 @@ List<ImportableHook> readClaudeHooks(File file) {
 /// `if` o `cmd=`, y un hook llamado "if" es peor que uno llamado por su
 /// evento. Queda `<evento>-inline` y el usuario lo renombra sabiendo qué es.
 String _nameFor(String command, HookEvent event) {
-  final script = RegExp(
-    r'([\w.-]+)\.(sh|py|dart|rb|js)\b',
-  ).firstMatch(command);
+  final script = RegExp(r'([\w.-]+)\.(sh|py|dart|rb|js)\b').firstMatch(command);
   if (script != null) return _slug(script.group(1)!);
 
   final binary = RegExp(r'^([\w-]+)\s').firstMatch(command.trim());

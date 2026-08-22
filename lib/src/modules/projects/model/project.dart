@@ -51,6 +51,15 @@ class Project {
   /// global; el modelo con el que trabaja es una decisión de este proyecto,
   /// donde se sabe qué tan cara es la sesión. Lo que no está en el mapa corre
   /// con lo que dice su perfil.
+  /// Si este proyecto es tuyo para decidir.
+  ///
+  /// En falso es de SOLO LECTURA: se puede consultar desde otro proyecto y
+  /// puede abrir requerimientos hacia afuera, pero no toma los que le llegan
+  /// ni corre sesiones que escriban en el repo. No es una traba de
+  /// conveniencia: es la diferencia entre un repo que mantenés y uno que
+  /// mirás, y hasta ahora la app no tenía dónde anotarla.
+  final bool maintained;
+
   final Map<String, MemberTuning> memberTuning;
   final String? activeWorkflowId;
   final List<Session> sessions;
@@ -68,6 +77,7 @@ class Project {
     this.ruleNames = const [],
     this.hookNames = const [],
     this.knowledgeBaseNames = const [],
+    this.maintained = true,
     this.memberTuning = const {},
     this.activeWorkflowId,
     this.sessions = const [],
@@ -97,6 +107,7 @@ class Project {
     List<String>? ruleNames,
     List<String>? hookNames,
     List<String>? knowledgeBaseNames,
+    bool? maintained,
     Map<String, MemberTuning>? memberTuning,
     String? activeWorkflowId,
     bool clearActiveWorkflow = false,
@@ -114,6 +125,7 @@ class Project {
       ruleNames: ruleNames ?? this.ruleNames,
       hookNames: hookNames ?? this.hookNames,
       knowledgeBaseNames: knowledgeBaseNames ?? this.knowledgeBaseNames,
+      maintained: maintained ?? this.maintained,
       memberTuning: memberTuning ?? this.memberTuning,
       activeWorkflowId: clearActiveWorkflow
           ? null
@@ -136,6 +148,7 @@ class Project {
     'ruleNames': ruleNames,
     'hookNames': hookNames,
     'knowledgeBaseNames': knowledgeBaseNames,
+    'maintained': maintained,
     'memberTuning': {
       for (final entry in memberTuning.entries) entry.key: entry.value.toJson(),
     },
@@ -157,6 +170,7 @@ class Project {
       hookNames: (json['hookNames'] as List?)?.cast<String>() ?? const [],
       knowledgeBaseNames:
           (json['knowledgeBaseNames'] as List?)?.cast<String>() ?? const [],
+      maintained: json['maintained'] as bool? ?? true,
       memberTuning: _memberTuningFromJson(json['memberTuning']),
       activeWorkflowId: json['activeWorkflowId'] as String?,
       sessions: (json['sessions'] as List? ?? const [])
@@ -180,6 +194,7 @@ class Project {
           listEquals(workflowIds, other.workflowIds) &&
           listEquals(ruleNames, other.ruleNames) &&
           listEquals(knowledgeBaseNames, other.knowledgeBaseNames) &&
+          maintained == other.maintained &&
           mapEquals(memberTuning, other.memberTuning) &&
           activeWorkflowId == other.activeWorkflowId &&
           listEquals(sessions, other.sessions) &&
@@ -196,6 +211,7 @@ class Project {
     Object.hashAll(workflowIds),
     Object.hashAll(ruleNames),
     Object.hashAll(knowledgeBaseNames),
+    maintained,
     Object.hashAll([
       for (final entry in memberTuning.entries)
         Object.hash(entry.key, entry.value),

@@ -225,6 +225,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     required List<String> ruleNames,
     List<String> hookNames = const [],
     required List<String> knowledgeBaseNames,
+    bool maintained = true,
   }) {
     final error = _validateName(name);
     if (error != null) return error;
@@ -239,6 +240,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
       ruleNames: ruleNames,
       hookNames: hookNames,
       knowledgeBaseNames: knowledgeBaseNames,
+      maintained: maintained,
       activeWorkflowId: workflowIds.isEmpty ? null : workflowIds.first,
       createdAt: DateTime.now(),
     );
@@ -262,6 +264,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     required List<String> ruleNames,
     List<String> hookNames = const [],
     required List<String> knowledgeBaseNames,
+    bool maintained = true,
   }) {
     final error = _validateName(name, excludingId: id);
     if (error != null) return error;
@@ -278,8 +281,9 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
         profileIds: profileIds,
         workflowIds: workflowIds,
         ruleNames: ruleNames,
-      hookNames: hookNames,
+        hookNames: hookNames,
         knowledgeBaseNames: knowledgeBaseNames,
+        maintained: maintained,
         activeWorkflowId: keepsActive
             ? project.activeWorkflowId
             : (workflowIds.isEmpty ? null : workflowIds.first),
@@ -287,6 +291,30 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
       );
     }).toList();
 
+    updateState(data.copyWith(projects: projects));
+    unawaited(_repository.save(projects));
+    return null;
+  }
+
+  /// Le cambia el nombre y nada más.
+  ///
+  /// Aparte de [updateProject] a propósito: renombrar es un gesto de una
+  /// línea en el sidebar, y pasar por el formulario entero obligaría a
+  /// reenviar agentes, workflows y reglas para mover un string.
+  ///
+  /// Es seguro por construcción: nada apunta a un proyecto por nombre salvo
+  /// la ruta de la jobs API y las tomas del roadmap, que vencen solas.
+  String? renameProject(String id, String name) {
+    final trimmed = name.trim();
+    final error = _validateName(trimmed, excludingId: id);
+    if (error != null) return error;
+
+    final projects = data.projects
+        .map(
+          (project) =>
+              project.id == id ? project.copyWith(name: trimmed) : project,
+        )
+        .toList();
     updateState(data.copyWith(projects: projects));
     unawaited(_repository.save(projects));
     return null;
@@ -395,7 +423,11 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
   /// —qué falta ahora, en dos palabras por punto— y el hilo, el plan tal como
   /// se acordó en ese momento: si a los diez turnos cambió, la conversación
   /// conserva las dos versiones y se ve qué se replanificó.
-  void setSessionPlan(String projectId, String sessionId, List<PlanEntry> entries) {
+  void setSessionPlan(
+    String projectId,
+    String sessionId,
+    List<PlanEntry> entries,
+  ) {
     final anterior = planOf(projectId, sessionId);
 
     _updateSession(projectId, sessionId, (session) {
@@ -488,7 +520,11 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
           item,
     ];
 
-    _updateSession(projectId, sessionId, (current) => current.copyWith(plan: plan));
+    _updateSession(
+      projectId,
+      sessionId,
+      (current) => current.copyWith(plan: plan),
+    );
 
     // El avance también se cuenta en el hilo, y no como un número suelto: si
     // el paso dice que hizo algo y acá no aparece tildado, la diferencia se
@@ -555,8 +591,9 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     _updateSession(
       projectId,
       sessionId,
-      (session) =>
-          session.copyWith(title: limpio.isEmpty ? kDefaultSessionTitle : limpio),
+      (session) => session.copyWith(
+        title: limpio.isEmpty ? kDefaultSessionTitle : limpio,
+      ),
     );
     unawaited(_persist());
   }
@@ -618,7 +655,9 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     _stoppedSessionIds.add(sessionId);
 
     _updateProject(projectId, (project) {
-      final sessions = project.sessions.where((session) => session.id != sessionId).toList();
+      final sessions = project.sessions
+          .where((session) => session.id != sessionId)
+          .toList();
       final wasActive = project.activeSessionId == sessionId;
       return project.copyWith(
         sessions: sessions,
@@ -891,7 +930,11 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
   /// Entre los candidatos se prefiere uno que NO corra con codex: el
   /// verificador claude tiene las tools del plan de verdad. Un codex
   /// verifica con los bloques ```cumplido, pero solo si no hay alternativa.
-  AgentProfile? _planCloser(Project project, String sessionId, Workflow workflow) {
+  AgentProfile? _planCloser(
+    Project project,
+    String sessionId,
+    Workflow workflow,
+  ) {
     final session = _sessionById(project, sessionId);
     final candidatos = [
       for (final step in [workflow.steps.first, workflow.steps.last])
@@ -1085,7 +1128,8 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     // esto el flujo termina y no hay forma de volver a planificar — que es
     // exactamente donde se trababa.
     final invited =
-        session.messages.lastOrNull?.text.startsWith(_cycleInvitePrefix) ?? false;
+        session.messages.lastOrNull?.text.startsWith(_cycleInvitePrefix) ??
+        false;
     if (_looksLikeContinue(trimmed, invitedToContinue: invited) &&
         _nextPendingItem(session) != null) {
       _appendMessage(
@@ -1184,7 +1228,10 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
   /// que quedaban. El implementador pedía charters que solo el paso 1 podía
   /// dar, y el paso 1 ya había pasado — nadie estaba equivocado y la sesión no
   /// avanzaba. Cada punto del plan es ahora una vuelta completa del flujo.
-  Future<void> continueWithNextPlanItem(String projectId, String sessionId) async {
+  Future<void> continueWithNextPlanItem(
+    String projectId,
+    String sessionId,
+  ) async {
     final project = _projectById(projectId);
     if (project == null) return;
 
@@ -1318,7 +1365,9 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     final request = session?.pendingPermission;
     if (session == null || request == null) return;
 
-    final blockedProfileId = _permissionBlockedProfileBySession.remove(sessionId);
+    final blockedProfileId = _permissionBlockedProfileBySession.remove(
+      sessionId,
+    );
     _updateSession(
       projectId,
       sessionId,
@@ -1437,7 +1486,11 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     required String instruction,
   }) async {
     _stoppedSessionIds.remove(sessionId);
-    _updateSession(projectId, sessionId, (session) => session.copyWith(isRunning: true));
+    _updateSession(
+      projectId,
+      sessionId,
+      (session) => session.copyWith(isRunning: true),
+    );
     await _persist();
 
     // `finally`, because a turn that throws must still hand the channel back.
@@ -1641,7 +1694,14 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
         fullFileSystemAccess: false,
         effort: engine.effort,
         extraAllowedTools: [
-          ...SettingsService.instance.notifier.data.extraAllowedTools,
+          // Un proyecto que no mantenés es de SOLO LECTURA, y eso se hace
+          // sacándole las tools que escriben — no pidiéndoselo por prompt.
+          // Un pedido se puede ignorar; una tool que no está, no.
+          //
+          // Las tools propias del usuario sí siguen: son suyas, y marcar el
+          // proyecto como ajeno no dice nada sobre ellas.
+          if (project.maintained)
+            ...SettingsService.instance.notifier.data.extraAllowedTools,
           if (planEntry != null) ...kSessionPlanMcpToolNames,
           if (roadmapEntry != null) ...kRoadmapMcpToolNames,
           if (toolsEntry != null)
@@ -1673,7 +1733,8 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     _updateSession(
       projectId,
       sessionId,
-      (session) => session.copyWith(liveTurn: SessionLiveTurn(profileId: member.id)),
+      (session) =>
+          session.copyWith(liveTurn: SessionLiveTurn(profileId: member.id)),
     );
 
     await for (final event in run.events) {
@@ -1683,7 +1744,9 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
         case TaskSessionStarted(sessionId: final id):
           sessionConfirmed = true;
           _updateSession(projectId, sessionId, (session) {
-            final sessions = Map<String, String>.from(session.cliSessionsByProfileId);
+            final sessions = Map<String, String>.from(
+              session.cliSessionsByProfileId,
+            );
             sessions[member.id] = id;
             return session.copyWith(cliSessionsByProfileId: sessions);
           });
@@ -1831,8 +1894,9 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
         !retriedWithoutSession &&
         !_stoppedSessionIds.contains(sessionId)) {
       _updateSession(projectId, sessionId, (session) {
-        final sessions = Map<String, String>.from(session.cliSessionsByProfileId)
-          ..remove(member.id);
+        final sessions = Map<String, String>.from(
+          session.cliSessionsByProfileId,
+        )..remove(member.id);
         return session.copyWith(cliSessionsByProfileId: sessions);
       });
       return _runTurn(
@@ -1917,7 +1981,10 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
   }) {
     final project = _projectById(projectId);
     if (project == null) return;
-    final members = membersOf(project, session: _sessionById(project, sessionId));
+    final members = membersOf(
+      project,
+      session: _sessionById(project, sessionId),
+    );
     final mentioned = <String>{};
     for (final match in _mentionPattern.allMatches(stripCodeSpans(text))) {
       final handle = match.group(1);
@@ -2123,7 +2190,10 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     final project = _projectById(projectId);
     if (project == null) return;
 
-    final members = membersOf(project, session: _sessionById(project, sessionId));
+    final members = membersOf(
+      project,
+      session: _sessionById(project, sessionId),
+    );
     final workflow = activeWorkflowOf(project);
     final asked = <String>{};
 
@@ -2604,6 +2674,18 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
       'discutas identidades — leé la firma.',
     );
 
+    if (!project.maintained) {
+      buffer.writeln();
+      buffer.writeln(
+        'ESTE PROYECTO NO ES TUYO PARA DECIDIR. No lo mantiene quien te está '
+        'usando, así que es de SOLO LECTURA: leelo, entendelo y contestá, '
+        'pero no lo cambies. Las tools que escriben no te fueron entregadas '
+        'en este turno; si hace falta un cambio, decilo con precisión —qué '
+        'archivo, qué cambio y por qué— para que lo pida quien sí lo '
+        'mantiene, en vez de intentarlo vos.',
+      );
+    }
+
     if (companions.isNotEmpty) {
       buffer.writeln('Tus compañeros en el canal son:');
       for (final companion in companions) {
@@ -2729,7 +2811,11 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
 
   /// Removes a TASK-scoped extra. Project members can't be removed from
   /// here — that's the project form's job.
-  void removeAgentFromSession(String projectId, String sessionId, String profileId) {
+  void removeAgentFromSession(
+    String projectId,
+    String sessionId,
+    String profileId,
+  ) {
     _updateSession(projectId, sessionId, (session) {
       return session.copyWith(
         extraProfileIds: session.extraProfileIds
@@ -2765,14 +2851,21 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     return null;
   }
 
-  void _finishSession(String projectId, String sessionId, SessionStatus status) {
+  void _finishSession(
+    String projectId,
+    String sessionId,
+    SessionStatus status,
+  ) {
     _runningSessions.remove(sessionId);
     _purgeConsultLedgerIfIdle();
     _updateSession(
       projectId,
       sessionId,
-      (session) =>
-          session.copyWith(status: status, isRunning: false, clearLiveTurn: true),
+      (session) => session.copyWith(
+        status: status,
+        isRunning: false,
+        clearLiveTurn: true,
+      ),
     );
   }
 
@@ -2834,7 +2927,9 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
   ) {
     _updateProject(projectId, (project) {
       final sessions = project.sessions
-          .map((session) => session.id == sessionId ? transform(session) : session)
+          .map(
+            (session) => session.id == sessionId ? transform(session) : session,
+          )
           .toList();
       return project.copyWith(sessions: sessions);
     });

@@ -48,6 +48,7 @@ class _ProjectFormScreenState extends State<ProjectFormScreen> {
   late List<String> _knowledgeBaseNames = [
     ...?widget.initial?.knowledgeBaseNames,
   ];
+  late bool _maintained = widget.initial?.maintained ?? true;
   String? _nameError;
   String? _formError;
 
@@ -130,6 +131,7 @@ class _ProjectFormScreenState extends State<ProjectFormScreen> {
             ruleNames: _ruleNames,
             hookNames: _hookNames,
             knowledgeBaseNames: _knowledgeBaseNames,
+            maintained: _maintained,
           )
         : viewmodel.updateProject(
             initial.id,
@@ -141,6 +143,7 @@ class _ProjectFormScreenState extends State<ProjectFormScreen> {
             ruleNames: _ruleNames,
             hookNames: _hookNames,
             knowledgeBaseNames: _knowledgeBaseNames,
+            maintained: _maintained,
           );
 
     if (error != null) {
@@ -226,6 +229,22 @@ class _ProjectFormScreenState extends State<ProjectFormScreen> {
                     'Todos los agentes del proyecto trabajan sobre esta '
                     'carpeta.',
                     style: TextStyle(fontSize: 11),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                SwitchListTile(
+                  value: _maintained,
+                  onChanged: (value) => setState(() => _maintained = value),
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Lo mantengo yo'),
+                  subtitle: Text(
+                    _maintained
+                        ? 'Sus sesiones pueden escribir en el repo y puede '
+                              'tomar requerimientos de otros proyectos.'
+                        : 'Solo lectura: se puede consultar y puede pedirle '
+                              'cosas a otros, pero no toma requerimientos '
+                              'entrantes ni escribe en el repo.',
+                    style: const TextStyle(fontSize: 11),
                   ),
                 ),
                 const _SectionDivider('Ingredientes'),

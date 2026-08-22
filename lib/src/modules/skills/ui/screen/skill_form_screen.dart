@@ -46,8 +46,7 @@ class _SkillFormScreenState extends State<SkillFormScreen> {
   late final _contentController = TextEditingController(
     text: widget.initial?.content ?? widget.draftContent,
   );
-  late bool _isGlobal =
-      widget.initial?.isGlobal ?? widget.draftGlobal;
+  late bool _isGlobal = widget.initial?.isGlobal ?? widget.draftGlobal;
   String? _nameError;
   String? _formError;
 

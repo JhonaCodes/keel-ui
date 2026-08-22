@@ -107,17 +107,11 @@ class TaskClaim {
           expiresAt == other.expiresAt;
 
   @override
-  int get hashCode => Object.hash(
-    projectPath,
-    taskPath,
-    profileHandle,
-    claimedAt,
-    expiresAt,
-  );
+  int get hashCode =>
+      Object.hash(projectPath, taskPath, profileHandle, claimedAt, expiresAt);
 
   @override
-  String toString() =>
-      'TaskClaim($projectName/$taskPath por $profileHandle)';
+  String toString() => 'TaskClaim($projectName/$taskPath por $profileHandle)';
 }
 
 /// La clave con la que se guarda una toma.

@@ -34,8 +34,7 @@ class ToolsScreen extends StatelessWidget {
             padding: const EdgeInsets.symmetric(vertical: 8),
             itemCount: state.tools.length,
             separatorBuilder: (context, index) => const Divider(height: 1),
-            itemBuilder: (context, index) =>
-                ToolTile(tool: state.tools[index]),
+            itemBuilder: (context, index) => ToolTile(tool: state.tools[index]),
           );
         },
       ),

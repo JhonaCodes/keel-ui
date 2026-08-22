@@ -68,7 +68,8 @@ TurnHooks prepareTurnHooks({
 
   final notes = [
     ...resolved.notes,
-    for (final issue in rendered.issues) 'Hook "${issue.hookName}" sin aplicar: ${issue.message}.',
+    for (final issue in rendered.issues)
+      'Hook "${issue.hookName}" sin aplicar: ${issue.message}.',
   ];
 
   if (usable.isEmpty) return TurnHooks(notes: notes);

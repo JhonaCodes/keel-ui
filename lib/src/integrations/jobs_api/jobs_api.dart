@@ -70,8 +70,7 @@ class JobsApiViewModel extends ViewModel<JobsApiState> {
   Future<void> start() async {
     if (_server != null) return;
 
-    var token =
-        (await LocalDatabase.get(_dbKey))?['token'] as String? ?? '';
+    var token = (await LocalDatabase.get(_dbKey))?['token'] as String? ?? '';
     if (token.isEmpty) {
       token = _generateToken();
       await LocalDatabase.put(_dbKey, {'id': _dbKey, 'token': token});
@@ -145,8 +144,7 @@ class JobsApiViewModel extends ViewModel<JobsApiState> {
       final body = await utf8.decoder.bind(request).join();
       final String prompt;
       try {
-        prompt =
-            (jsonDecode(body) as Map<String, dynamic>)['prompt'] as String;
+        prompt = (jsonDecode(body) as Map<String, dynamic>)['prompt'] as String;
       } catch (_) {
         _respond(request, HttpStatus.badRequest, {
           'error': 'body must be {"prompt": "..."}',

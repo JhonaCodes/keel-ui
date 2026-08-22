@@ -166,7 +166,9 @@ enum HookEvent {
 
   factory HookEvent.fromAlias(String alias) {
     final event = tryFromAlias(alias);
-    if (event == null) throw ArgumentError('Evento de hook desconocido: $alias');
+    if (event == null) {
+      throw ArgumentError('Evento de hook desconocido: $alias');
+    }
     return event;
   }
 

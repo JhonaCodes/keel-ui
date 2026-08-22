@@ -276,9 +276,7 @@ final List<Tool> keelAiTools = [
         'local) y la reindexa. Sin `base`, actualiza todas.',
     inputSchema: ObjectSchema(
       properties: {
-        'base': Schema.string(
-          description: 'Nombre de la base. Vacío = todas.',
-        ),
+        'base': Schema.string(description: 'Nombre de la base. Vacío = todas.'),
       },
     ),
   ),
@@ -425,9 +423,10 @@ final List<Tool> keelAiTools = [
     name: 'update_project',
     description:
         'Actualiza un proyecto existente: propósito, directorio de '
-        'trabajo, miembros, workflows disponibles, reglas propias y cuál es '
-        'el workflow ACTIVO. Solo cambia lo que mandes; los miembros y '
-        'workflows que envíes REEMPLAZAN a los actuales.',
+        'trabajo, miembros, workflows disponibles, reglas propias, si lo '
+        'mantiene el usuario y cuál es el workflow ACTIVO. Solo cambia lo '
+        'que mandes; los miembros y workflows que envíes REEMPLAZAN a los '
+        'actuales.',
     inputSchema: ObjectSchema(
       properties: {
         'name': Schema.string(description: 'Nombre del proyecto.'),
@@ -452,6 +451,13 @@ final List<Tool> keelAiTools = [
           description:
               'Bases de saber que ve este proyecto. Reemplazan a las '
               'actuales.',
+        ),
+        'maintained': Schema.bool(
+          description:
+              'Si el usuario mantiene este proyecto. En false queda de SOLO '
+              'LECTURA: sus sesiones no reciben las tools que escriben y no '
+              'toma requerimientos de otros proyectos. Omitilo para dejarlo '
+              'como está.',
         ),
         'active_workflow': Schema.string(
           description:
@@ -647,7 +653,8 @@ final List<Tool> keelAiTools = [
     inputSchema: ObjectSchema(
       properties: {
         'name': Schema.string(
-          description: 'Nombre único. Letras, números, "-" y "_"; sin espacios.',
+          description:
+              'Nombre único. Letras, números, "-" y "_"; sin espacios.',
         ),
         'description': Schema.string(
           description:
@@ -688,9 +695,7 @@ final List<Tool> keelAiTools = [
         'Da de baja una base de saber del catálogo. NO borra sus documentos '
         'del disco: saca el registro y deja de llegarles a los agentes.',
     inputSchema: ObjectSchema(
-      properties: {
-        'name': Schema.string(description: 'Nombre de la base.'),
-      },
+      properties: {'name': Schema.string(description: 'Nombre de la base.')},
       required: ['name'],
     ),
   ),
@@ -731,9 +736,7 @@ final List<Tool> keelAiTools = [
         'reservado y no se puede eliminar.',
     inputSchema: ObjectSchema(
       properties: {
-        'handle': Schema.string(
-          description: 'Handle del agente a eliminar.',
-        ),
+        'handle': Schema.string(description: 'Handle del agente a eliminar.'),
       },
       required: ['handle'],
     ),
@@ -743,9 +746,7 @@ final List<Tool> keelAiTools = [
     description: 'Elimina un workflow por nombre.',
     inputSchema: ObjectSchema(
       properties: {
-        'name': Schema.string(
-          description: 'Nombre del workflow a eliminar.',
-        ),
+        'name': Schema.string(description: 'Nombre del workflow a eliminar.'),
       },
       required: ['name'],
     ),
@@ -756,9 +757,7 @@ final List<Tool> keelAiTools = [
         'Elimina un proyecto por nombre, junto con sus sesiones en curso.',
     inputSchema: ObjectSchema(
       properties: {
-        'name': Schema.string(
-          description: 'Nombre del proyecto a eliminar.',
-        ),
+        'name': Schema.string(description: 'Nombre del proyecto a eliminar.'),
       },
       required: ['name'],
     ),

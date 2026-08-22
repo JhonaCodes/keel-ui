@@ -305,9 +305,7 @@ final class _RoadmapMcpServer extends mcp.MCPServer with mcp.ToolsSupport {
         'tomadas por otro.',
       );
     }
-    return _text(
-      jsonEncode({'proyecto': project.name, 'tareas': salida}),
-    );
+    return _text(jsonEncode({'proyecto': project.name, 'tareas': salida}));
   }
 
   Future<mcp.CallToolResult> _claim(mcp.CallToolRequest request) async {

@@ -148,10 +148,7 @@ class TaskClaimsViewModel extends ViewModel<RoadmapClaimsState> {
   }
 
   void _replace(String id, TaskClaim claim) {
-    final claims = [
-      ...data.claims.where((entry) => entry.id != id),
-      claim,
-    ];
+    final claims = [...data.claims.where((entry) => entry.id != id), claim];
     updateState(data.copyWith(claims: claims));
     unawaited(_repository.save(claims));
   }

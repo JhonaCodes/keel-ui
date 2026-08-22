@@ -55,8 +55,6 @@ class VaultAutoBackup {
     // Sin carpeta elegida no hay dónde respaldar, y no es un error: es una
     // instalación que todavía no configuró el vault.
     if (SettingsService.instance.notifier.data.vaultPath.trim().isEmpty) return;
-    await SystemVaultService.instance.notifier.backup(
-      reach: VaultReach.commit,
-    );
+    await SystemVaultService.instance.notifier.backup(reach: VaultReach.commit);
   }
 }

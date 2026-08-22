@@ -90,8 +90,14 @@ class Secret {
           requestedByProfileId == other.requestedByProfileId;
 
   @override
-  int get hashCode =>
-      Object.hash(id, name, description, value, createdAt, requestedByProfileId);
+  int get hashCode => Object.hash(
+    id,
+    name,
+    description,
+    value,
+    createdAt,
+    requestedByProfileId,
+  );
 
   // The value NEVER appears in logs — toString reports only whether one is
   // set.

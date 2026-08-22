@@ -181,9 +181,7 @@ class CodexCliService {
                   ]
                 : const [];
           case 'file_change':
-            return isCompleted
-                ? const []
-                : [const ClaudeToolUse('Edit', null)];
+            return isCompleted ? const [] : [const ClaudeToolUse('Edit', null)];
           case 'mcp_tool_call':
             final name = item['tool'] as String? ?? 'mcp';
             return isCompleted ? const [] : [ClaudeToolUse(name, null)];

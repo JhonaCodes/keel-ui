@@ -92,9 +92,7 @@ class _VaultClonePanelState extends State<VaultClonePanel> {
   }
 
   Future<void> _pickDestination() async {
-    final path = await getDirectoryPath(
-      confirmButtonText: 'Usar esta carpeta',
-    );
+    final path = await getDirectoryPath(confirmButtonText: 'Usar esta carpeta');
     if (path == null) return;
     setState(() => _destination = path);
   }

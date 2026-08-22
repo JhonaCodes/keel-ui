@@ -224,7 +224,7 @@ class _AgentProfileFormScreenState extends State<AgentProfileFormScreen> {
                   subtitle: const Text(
                     'Agente constructor: recibe las mismas tools de creación '
                     'que Keel AI (skills, reglas, tools, agentes, workflows, '
-                    'estaciones) en sus chats 1:1.',
+                    'proyectos) en sus chats 1:1.',
                   ),
                   contentPadding: EdgeInsets.zero,
                   value: _canManageSystem,

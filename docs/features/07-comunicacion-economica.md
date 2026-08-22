@@ -3,11 +3,11 @@
 ## El contrato de direccionamiento (ya estructural, ahora documentado)
 
 - **Identidad**: el handle del perfil (`@nombre`) es único en toda la app.
-- **Ámbito**: una mención solo resuelve contra los MIEMBROS de la estación
-  de esa tarea (`membersOf`) — un handle de otra estación o un agente suelto
+- **Ámbito**: una mención solo resuelve contra los MIEMBROS del proyecto
+  de esa tarea (`membersOf`) — un handle de otro proyecto o un agente suelto
   jamás recibe el turno. Cada miembro además tiene su PROPIA sesión CLI por
   tarea (`sessionsByProfileId`), así que la dirección efectiva es
-  `handle + sesión + estación/tarea` y dos estaciones no pueden pisarse.
+  `handle + sesión + proyecto/tarea` y dos proyectos no pueden pisarse.
 - **Coordinación a costo cero**: el ruteo de menciones es DETERMINISTA
   (regex + tabla de miembros en `_resolveConsultations`), local y sin pasar
   por ningún modelo — no existe un "orquestador LLM" cobrando tokens por

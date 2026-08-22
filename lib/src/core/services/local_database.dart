@@ -102,6 +102,27 @@ class LocalDatabase {
     );
   }
 
+  /// Every record under [prefix] junto con SU CLAVE.
+  ///
+  /// [getAllWithPrefix] la descarta porque los repositorios la reconstruyen
+  /// desde el `id` del payload. Una migración que renombra prefijos no
+  /// puede: la clave vieja es justamente lo único que tiene para leer.
+  static Future<List<({String key, Map<String, dynamic> data})>>
+  entriesWithPrefix(String prefix) async {
+    if (_unavailable) return const [];
+    final result = await LocalDB.GetAll();
+    return result.when(
+      ok: (models) => models
+          .where((model) => model.id.startsWith(prefix))
+          .map((model) => (key: model.id, data: model.data))
+          .toList(),
+      err: (error) {
+        Log.e('LocalDatabase.entriesWithPrefix($prefix) failed: $error');
+        throw LocalDatabaseException(error.toString());
+      },
+    );
+  }
+
   /// Replaces every record under [prefix] with exactly [items] — upserts
   /// each one (each map must carry an `id` field), then deletes whatever
   /// was under that prefix and is no longer present. Mirrors the "overwrite

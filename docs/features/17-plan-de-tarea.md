@@ -27,8 +27,8 @@ a trabajar lo que ya estaba hecho. `complete_plan_items` compara igual.
 ## Cómo lo escribe un agente
 
 Un servidor MCP local (`keel-plan`) montado en **todos** los turnos de
-estación, sin depender de que el perfil tenga tools asignadas: el plan es
-del canal, no del agente. La ruta lleva estación, tarea y perfil, así que un
+proyecto, sin depender de que el perfil tenga tools asignadas: el plan es
+del canal, no del agente. La ruta lleva proyecto, tarea y perfil, así que un
 turno solo puede tocar el plan de la tarea en la que corre.
 
 | Tool | Cuándo |
@@ -114,7 +114,7 @@ Dos mecánicas más del ciclo:
 ## A quién le toca cada punto
 
 `set_task_plan` acepta `{texto, puesto}`. El **puesto**, no el handle — igual
-que en los pasos del workflow, así el mismo plan sirve en la estación de Rust
+que en los pasos del workflow, así el mismo plan sirve en el proyecto de Rust
 y en la de Flutter, donde ese puesto lo ocupa otro agente. Se ve en el
 sidebar bajo cada punto y viaja en el turno como `[ ] (implementador) …`.
 
@@ -177,7 +177,7 @@ el momento y no tres turnos después.
 ahora.
 
 Debajo de la tarea abierta, en el sidebar. Solo la abierta: con cuatro
-tareas en la estación, cuatro planes desplegados convierten la columna en
+tareas en el proyecto, cuatro planes desplegados convierten la columna en
 una pared.
 
 - `✓` cumplido (tachado), `▸` el primer pendiente (lo que se está haciendo),

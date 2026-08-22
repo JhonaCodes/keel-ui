@@ -3,7 +3,7 @@
 ## Qué problema resuelve
 
 Todo el sistema vivía en un LMDB dentro de `Application Support`: skills,
-reglas, tools, workflows, MCPs, agentes, estaciones, bases y ajustes.
+reglas, tools, workflows, MCPs, agentes, proyectos, bases y ajustes.
 Desinstalar la app se lo llevaba entero. Las dos piezas que había no
 alcanzaban: `catalog_sync` (F9) empujaba el catálogo a un repo clonado
 **dentro de la misma carpeta que la desinstalación borra**, y el respaldo en
@@ -32,7 +32,7 @@ Keel AI lo maneja con `backup_system` (con `push` opcional) y
 ## Lo que pasa sin que aprietes nada
 
 **Al primer arranque**, si el sistema está vacío de verdad —cero skills,
-cero agentes, cero estaciones, sin contar el mapa de Keel AI que se
+cero agentes, cero proyectos, sin contar el mapa de Keel AI que se
 resiembra siempre— la app no muestra el sistema: muestra una pantalla que
 pide la URL del vault y la carpeta destino, clona, restaura TODO y entra.
 Un campo y un botón. Con el sistema poblado no aparece nunca, y restaurar
@@ -108,7 +108,7 @@ keel-backup.zip
 
 Lo que NO viaja, a propósito: hilos de chat (`agent_`, `task_`, `msg_`),
 adjuntos, registros de prompts, el token de la API de trabajos, las rutas de
-trabajo de las estaciones, el tamaño de ventana, la carpeta del vault, los
+trabajo de los proyectos, el tamaño de ventana, la carpeta del vault, los
 espejos git re-clonables y el mapa compilado de Keel AI.
 
 **Los valores de los secrets tampoco.** El vault se sube a un remoto, y lo

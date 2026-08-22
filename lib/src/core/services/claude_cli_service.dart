@@ -79,7 +79,7 @@ const _codeEditSystemPromptHint =
     'primero respondé.';
 
 /// Los dos consejos que encabezan el system prompt de TODO turno claude —
-/// 1:1, estación o asistente. Públicos por la misma razón que
+/// 1:1, proyecto o asistente. Públicos por la misma razón que
 /// [kAlwaysAllowedTools]: el isolate del task runner los necesita y dos
 /// copias divergiendo en silencio es exactamente lo que no puede pasar.
 /// En español, como el resto del corpus: abrían en inglés un prompt que
@@ -89,7 +89,7 @@ const kCliSystemHints =
 
 /// Tools every agent gets, no setting required. They are all read-only or
 /// network reads: an agent that cannot open a file is blind, and the whole
-/// point of a station is that its agents look at the real code before they
+/// point of a project is that its agents look at the real code before they
 /// say anything about it. Anything that *writes* stays opt-in — see
 /// `kAvailableExtraTools`.
 const kAlwaysAllowedTools = <String>[

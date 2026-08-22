@@ -79,7 +79,6 @@ class TaskClaimsViewModel extends ViewModel<RoadmapClaimsState> {
     required String taskPath,
     required String title,
     required String profileHandle,
-    required String stationName,
   }) {
     final now = DateTime.now();
     final id = claimIdFor(projectPath, taskPath);
@@ -88,8 +87,7 @@ class TaskClaimsViewModel extends ViewModel<RoadmapClaimsState> {
     if (existing != null && !existing.isExpiredAt(now)) {
       // Volver a tomar lo propio no es un choque: es renovar. Un turno largo
       // que sigue trabajando no tiene que perder su tarea por el reloj.
-      if (existing.profileHandle == profileHandle &&
-          existing.stationName == stationName) {
+      if (existing.profileHandle == profileHandle) {
         final renewed = existing.renewedAt(now);
         _replace(id, renewed);
         return (claim: renewed, error: null);
@@ -98,7 +96,7 @@ class TaskClaimsViewModel extends ViewModel<RoadmapClaimsState> {
       return (
         claim: null,
         error:
-            'La tiene ${existing.profileHandle} desde ${existing.stationName}. '
+            'La tiene ${existing.profileHandle}. '
             'Se libera sola en $resta min si no la renueva. Tomá la siguiente.',
       );
     }
@@ -109,7 +107,6 @@ class TaskClaimsViewModel extends ViewModel<RoadmapClaimsState> {
       taskPath: taskPath,
       title: title,
       profileHandle: profileHandle,
-      stationName: stationName,
       claimedAt: now,
       expiresAt: now.add(kClaimTtl),
     );

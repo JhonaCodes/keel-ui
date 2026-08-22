@@ -47,11 +47,11 @@ dependencia de YAML. La plantilla está en `docs/plantillas/TASKS/`.
 
 El alcance **no es un argumento que manda el modelo**: sale de la URL con la
 que se le entregó el servidor MCP a ese turno
-(`/roadmap/<estación>/<perfil>`), igual que ya hacía el MCP del plan. De la
-estación sale su directorio de trabajo, y ese directorio es la identidad del
+(`/roadmap/<proyecto>/<perfil>`), igual que ya hacía el MCP del plan. De la
+proyecto sale su directorio de trabajo, y ese directorio es la identidad del
 proyecto.
 
-Un turno de la estación A no puede tomar una tarea del proyecto B aunque lo
+Un turno del proyecto A no puede tomar una tarea del proyecto B aunque lo
 pida: no tiene cómo nombrarlo. Y la clave de la toma lleva la ruta del
 proyecto adentro, así que `02-shell.md` de un repo y `02-shell.md` de otro
 son cosas distintas.
@@ -132,7 +132,7 @@ El ciclo cierra en el repo: lo último que hace el turno es marcar
 3. `claim_task` sobre una ya tomada falla y nombra a quién la tiene.
 4. Volver a llamar `claim_task` sobre la propia la renueva, no falla.
 5. `release_task` sobre una ajena se rechaza.
-6. Dos estaciones con proyectos distintos y una tarea del mismo nombre: tomar
+6. Dos proyectos con proyectos distintos y una tarea del mismo nombre: tomar
    una no bloquea la otra.
 7. Un proyecto sin `TASKS/` no recibe las tools.
 8. Un bloqueante que apunta a una tarea inexistente marca la tarea como no

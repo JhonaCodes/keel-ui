@@ -3,7 +3,7 @@
 ## Qué es
 
 Un endpoint HTTP en loopback para que schedulers EXTERNOS (cron, keel,
-scripts) abran tareas en una estación. El scheduling vive fuera de la app —
+scripts) abran tareas en un proyecto. El scheduling vive fuera de la app —
 esto es el enchufe.
 
 ## Contrato
@@ -13,8 +13,8 @@ esto es el enchufe.
 - Auth: `Authorization: Bearer <token>` — token persistido, visible y
   regenerable en Configuración → API de trabajos programados.
 - `POST /stations/<nombre>/tasks` con `{"prompt": "..."}` → crea una tarea
-  NUEVA en esa estación, manda el prompt (el workflow activo arranca) y
-  responde 202 con `{taskId}`. 409 si la estación no tiene carpeta de
+  NUEVA en ese proyecto, manda el prompt (el workflow activo arranca) y
+  responde 202 con `{taskId}`. 409 si el proyecto no tiene carpeta de
   trabajo; 404 si no existe.
 - `GET /tasks/<id>` → `{status, isRunning, costUsd, messages}`.
 
@@ -30,4 +30,4 @@ esto es el enchufe.
 ## Límites
 
 - Solo loopback (nunca expuesto a la red).
-- Crear la tarea la vuelve la tarea ACTIVA de esa estación en la UI.
+- Crear la tarea la vuelve la tarea ACTIVA de ese proyecto en la UI.

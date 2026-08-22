@@ -368,7 +368,7 @@ List<Map<String, dynamic>> _parseEventToMessages(Map<String, dynamic> event) {
     // Espejo de ClaudeCliService: un hook que bloquea llega como el
     // resultado con error de la herramienta que frenó, no como
     // `permission_denied`. Sin esto los guardarraíles bloquearían en las
-    // estaciones sin que el canal pudiera decir cuál fue.
+    // proyectos sin que el canal pudiera decir cuál fue.
     case 'user':
       return _parseHookBlockMessage(event);
 

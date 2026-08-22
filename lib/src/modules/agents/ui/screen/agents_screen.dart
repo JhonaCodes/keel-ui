@@ -14,19 +14,19 @@ import 'package:keel_ui/src/modules/mcp_servers/ui/screen/mcp_servers_screen.dar
 import 'package:keel_ui/src/modules/rules/ui/screen/rules_screen.dart';
 import 'package:keel_ui/src/modules/secrets/ui/screen/secrets_screen.dart';
 import 'package:keel_ui/src/modules/skills/ui/screen/skills_screen.dart';
-import 'package:keel_ui/src/modules/stations/model/station.dart';
-import 'package:keel_ui/src/modules/stations/ui/screen/station_form_screen.dart';
-import 'package:keel_ui/src/modules/stations/ui/screen/stations_screen.dart';
-import 'package:keel_ui/src/modules/stations/ui/view/station_chat_view.dart';
-import 'package:keel_ui/src/modules/stations/ui/view/stations_sidebar.dart';
-import 'package:keel_ui/src/modules/stations/viewmodel/stations_viewmodel.dart';
+import 'package:keel_ui/src/modules/projects/model/project.dart';
+import 'package:keel_ui/src/modules/projects/ui/screen/project_form_screen.dart';
+import 'package:keel_ui/src/modules/projects/ui/screen/projects_screen.dart';
+import 'package:keel_ui/src/modules/projects/ui/view/session_chat_view.dart';
+import 'package:keel_ui/src/modules/projects/ui/view/projects_sidebar.dart';
+import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
 import 'package:keel_ui/src/modules/tools/ui/screen/tools_screen.dart';
 import 'package:keel_ui/src/modules/workflows/ui/screen/workflows_screen.dart';
 
-/// Which conversation the content area shows: a 1:1 agent chat or a station
+/// Which conversation the content area shows: a 1:1 agent chat or a project
 /// channel. Registries and forms never take the content area over — they open
 /// as a side panel, so the conversation stays on screen behind them.
-enum _Focus { agent, station }
+enum _Focus { agent, project }
 
 class AgentsScreen extends StatefulWidget {
   const AgentsScreen({super.key});
@@ -40,9 +40,9 @@ class _AgentsScreenState extends State<AgentsScreen> {
 
   void _focusAgent() => setState(() => _focus = _Focus.agent);
 
-  void _focusStation(String stationId) {
-    StationsService.instance.notifier.selectStation(stationId);
-    setState(() => _focus = _Focus.station);
+  void _focusProject(String projectId) {
+    ProjectsService.instance.notifier.selectProject(projectId);
+    setState(() => _focus = _Focus.project);
   }
 
   @override
@@ -51,9 +51,9 @@ class _AgentsScreenState extends State<AgentsScreen> {
       body: ReactiveViewModelBuilder<AgentsViewModel, AgentsState>(
         viewmodel: AgentsService.instance.notifier,
         build: (agentsState, agentsViewModel, keepAgents) {
-          return ReactiveViewModelBuilder<StationsViewModel, StationsState>(
-            viewmodel: StationsService.instance.notifier,
-            build: (stationsState, stationsViewModel, keepStations) {
+          return ReactiveViewModelBuilder<ProjectsViewModel, ProjectsState>(
+            viewmodel: ProjectsService.instance.notifier,
+            build: (projectsState, projectsViewModel, keepProjects) {
               return Row(
                 children: [
                   AgentRail(
@@ -85,17 +85,17 @@ class _AgentsScreenState extends State<AgentsScreen> {
                         showFormPanel(context, child: const WorkflowsScreen()),
                   ),
                   const VerticalDivider(width: 1),
-                  StationsSidebar(
-                    state: stationsState,
-                    stationFocused: _focus == _Focus.station,
-                    onSelectStation: _focusStation,
+                  ProjectsSidebar(
+                    state: projectsState,
+                    projectFocused: _focus == _Focus.project,
+                    onSelectProject: _focusProject,
                     onSelectAgent: (agentId) {
                       AgentsService.instance.notifier.selectAgent(agentId);
                       _focusAgent();
                     },
-                    onNewStation: () => openStationFormScreen(context),
-                    onManageStations: () =>
-                        showFormPanel(context, child: const StationsScreen()),
+                    onNewProject: () => openProjectFormScreen(context),
+                    onManageProjects: () =>
+                        showFormPanel(context, child: const ProjectsScreen()),
                     onManageAgents: () => showFormPanel(
                       context,
                       child: const AgentProfilesScreen(),
@@ -106,7 +106,7 @@ class _AgentsScreenState extends State<AgentsScreen> {
                     child: _ConversationArea(
                       focus: _focus,
                       agent: agentsState.selectedAgent,
-                      station: stationsState.selectedStation,
+                      project: projectsState.selectedProject,
                     ),
                   ),
                 ],
@@ -124,20 +124,20 @@ class _ConversationArea extends StatelessWidget {
   const _ConversationArea({
     required this.focus,
     required this.agent,
-    required this.station,
+    required this.project,
   });
 
   final _Focus focus;
   final Agent? agent;
-  final Station? station;
+  final Project? project;
 
   @override
   Widget build(BuildContext context) {
-    final openStation = station;
-    if (focus == _Focus.station && openStation != null) {
-      return StationChatView(
-        key: ValueKey(openStation.id),
-        station: openStation,
+    final openProject = project;
+    if (focus == _Focus.project && openProject != null) {
+      return SessionChatView(
+        key: ValueKey(openProject.id),
+        project: openProject,
       );
     }
 

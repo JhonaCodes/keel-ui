@@ -30,7 +30,7 @@ import 'package:keel_ui/src/modules/settings/viewmodel/settings_viewmodel.dart';
 // de tool ejecutable del proyecto.
 import 'package:keel_ui/src/modules/tools/model/tool.dart' show ToolRuntime;
 import 'package:keel_ui/src/modules/skills/viewmodel/skills_viewmodel.dart';
-import 'package:keel_ui/src/modules/stations/viewmodel/stations_viewmodel.dart';
+import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
 import 'package:keel_ui/src/modules/tools/viewmodel/tools_viewmodel.dart';
 import 'package:keel_ui/src/modules/workflows/model/workflow.dart';
 import 'package:keel_ui/src/modules/workflows/viewmodel/workflows_viewmodel.dart';
@@ -57,8 +57,8 @@ const kKeelAiMcpToolNames = [
   'mcp__keelai-actions__update_tool',
   'mcp__keelai-actions__update_workflow',
   'mcp__keelai-actions__unassign_from_agent',
-  'mcp__keelai-actions__update_station',
-  'mcp__keelai-actions__open_station_task',
+  'mcp__keelai-actions__update_project',
+  'mcp__keelai-actions__open_project_session',
   'mcp__keelai-actions__register_mcp_server',
   'mcp__keelai-actions__delete_mcp_server',
   'mcp__keelai-actions__create_hook',
@@ -72,13 +72,13 @@ const kKeelAiMcpToolNames = [
   'mcp__keelai-actions__delete_knowledge_base',
   'mcp__keelai-actions__create_or_update_agent',
   'mcp__keelai-actions__create_workflow',
-  'mcp__keelai-actions__create_station',
+  'mcp__keelai-actions__create_project',
   'mcp__keelai-actions__delete_skill',
   'mcp__keelai-actions__delete_rule',
   'mcp__keelai-actions__delete_tool',
   'mcp__keelai-actions__delete_agent',
   'mcp__keelai-actions__delete_workflow',
-  'mcp__keelai-actions__delete_station',
+  'mcp__keelai-actions__delete_project',
 ];
 
 /// Local MCP server exposing Keel AI's create/update tools over HTTP on

@@ -110,7 +110,7 @@ final List<Tool> keelAiTools = [
   Tool(
     name: 'delete_hook',
     description:
-        'Elimina un hook del catálogo Y de todos los agentes y estaciones '
+        'Elimina un hook del catálogo Y de todos los agentes y proyectos '
         'que lo tenían asignado. Lo que dejaba de pasar vuelve a poder pasar.',
     inputSchema: ObjectSchema(
       properties: {
@@ -246,7 +246,7 @@ final List<Tool> keelAiTools = [
     name: 'backup_system',
     description:
         'Respalda TODO el sistema (skills, reglas, tools, workflows, MCPs, '
-        'agentes, estaciones, bases de saber y ajustes) en el '
+        'agentes, proyectos, bases de saber y ajustes) en el '
         'keel-backup.zip de la carpeta del vault. Con push=true además lo '
         'commitea y lo sube al repo del vault. De los secrets viajan solo '
         'los nombres, nunca los valores; los hilos de chat no viajan.',
@@ -265,7 +265,7 @@ final List<Tool> keelAiTools = [
     description:
         'Lee el keel-backup.zip del vault y fusiona TODO por nombre (crea lo '
         'que falta, actualiza lo existente), más los ajustes y los secrets '
-        'que falten (sin valor). Las estaciones nuevas quedan sin carpeta de '
+        'que falten (sin valor). Los proyectos nuevos quedan sin carpeta de '
         'trabajo hasta que el usuario la elija en la UI.',
     inputSchema: ObjectSchema(properties: {}),
   ),
@@ -286,9 +286,9 @@ final List<Tool> keelAiTools = [
     name: 'list_catalog',
     description:
         'Lista lo que YA existe en el sistema: skills, reglas, tools, '
-        'agentes, workflows, estaciones y MCPs registrados, con su nombre y '
+        'agentes, workflows, proyectos y MCPs registrados, con su nombre y '
         'para qué sirve cada uno. USALA ANTES de asignarle cualquier cosa a '
-        'un agente o a una estación: los nombres se referencian tal cual, y '
+        'un agente o a un proyecto: los nombres se referencian tal cual, y '
         'un nombre inventado se descarta. Sin `kind` devuelve todo el '
         'catálogo.',
     inputSchema: ObjectSchema(
@@ -296,7 +296,7 @@ final List<Tool> keelAiTools = [
         'kind': Schema.string(
           description:
               'Qué listar: skills, rules, tools, agents, workflows, '
-              'stations, mcp_servers, knowledge_bases, o all (default).',
+              'projects, mcp_servers, knowledge_bases, o all (default).',
         ),
       },
     ),
@@ -306,14 +306,14 @@ final List<Tool> keelAiTools = [
     description:
         'Devuelve el CONTENIDO COMPLETO de una cosa registrada: el texto '
         'entero de una skill o regla, el código de una tool, los pasos de '
-        'un workflow, la configuración de un agente o de una estación. '
+        'un workflow, la configuración de un agente o de un proyecto. '
         'Usala ANTES de actualizar cualquier cosa: los update reemplazan el '
         'contenido, así que sin leerlo primero pisás lo que había.',
     inputSchema: ObjectSchema(
       properties: {
         'kind': Schema.string(
           description:
-              'Tipo: skill, rule, tool, agent, workflow, station, '
+              'Tipo: skill, rule, tool, agent, workflow, project, '
               'mcp_server o knowledge_base.',
         ),
         'name': Schema.string(
@@ -422,15 +422,15 @@ final List<Tool> keelAiTools = [
     ),
   ),
   Tool(
-    name: 'update_station',
+    name: 'update_project',
     description:
-        'Actualiza una estación existente: propósito, directorio de '
+        'Actualiza un proyecto existente: propósito, directorio de '
         'trabajo, miembros, workflows disponibles, reglas propias y cuál es '
         'el workflow ACTIVO. Solo cambia lo que mandes; los miembros y '
         'workflows que envíes REEMPLAZAN a los actuales.',
     inputSchema: ObjectSchema(
       properties: {
-        'name': Schema.string(description: 'Nombre de la estación.'),
+        'name': Schema.string(description: 'Nombre del proyecto.'),
         'purpose': Schema.string(description: 'Propósito nuevo.'),
         'working_directory': Schema.string(
           description: 'Ruta absoluta del directorio de trabajo.',
@@ -445,12 +445,12 @@ final List<Tool> keelAiTools = [
         ),
         'rule_names': Schema.list(
           items: Schema.string(),
-          description: 'Reglas de la estación. Reemplazan a las actuales.',
+          description: 'Reglas del proyecto. Reemplazan a las actuales.',
         ),
         'knowledge_base_names': Schema.list(
           items: Schema.string(),
           description:
-              'Bases de saber que ve esta estación. Reemplazan a las '
+              'Bases de saber que ve este proyecto. Reemplazan a las '
               'actuales.',
         ),
         'active_workflow': Schema.string(
@@ -464,19 +464,19 @@ final List<Tool> keelAiTools = [
     ),
   ),
   Tool(
-    name: 'open_station_task',
+    name: 'open_project_session',
     description:
-        'Abre una TAREA en una estación y le manda el prompt inicial al '
+        'Abre una SESIÓN en un proyecto y le manda el prompt inicial al '
         'canal: sus miembros empiezan a trabajar según el workflow activo. '
-        'La tarea corre sola, no bloquea tu respuesta.',
+        'La sesión corre sola, no bloquea tu respuesta.',
     inputSchema: ObjectSchema(
       properties: {
-        'station': Schema.string(description: 'Nombre de la estación.'),
+        'project': Schema.string(description: 'Nombre del proyecto.'),
         'prompt': Schema.string(
-          description: 'Qué tiene que hacer la estación, en detalle.',
+          description: 'Qué tiene que hacer el proyecto, en detalle.',
         ),
       },
-      required: ['station', 'prompt'],
+      required: ['project', 'prompt'],
     ),
   ),
   Tool(
@@ -485,7 +485,7 @@ final List<Tool> keelAiTools = [
         'Estado actual del sistema: qué está configurado (repos de catálogo '
         'y conocimiento), qué secrets faltan cargar, qué MCPs no van a '
         'levantar por falta de clave, qué agentes tienen conversación '
-        'abierta y qué estaciones tienen tareas corriendo. Usalo cuando el '
+        'abierta y qué proyectos tienen sesiones corriendo. Usalo cuando el '
         'usuario pregunte "cómo está esto" o antes de diagnosticar algo que '
         'no funciona.',
     inputSchema: ObjectSchema(properties: {}),
@@ -537,7 +537,7 @@ final List<Tool> keelAiTools = [
               'Bases de saber que este agente lleva consigo a donde vaya, '
               'incluido el chat 1:1 — el caso ORÁCULO, para un agente que ES '
               'de ese dominio. El saber de un proyecto se pone en su '
-              'estación, no acá.',
+              'proyecto, no acá.',
         ),
         'provider': Schema.string(
           description:
@@ -577,12 +577,12 @@ final List<Tool> keelAiTools = [
               'role': Schema.string(
                 description:
                     'A quién le toca el paso. Se busca entre los miembros de '
-                    'la estación: primero por su ROL, y si nadie lo tiene, '
+                    'el proyecto: primero por su ROL, y si nadie lo tiene, '
                     'por su HANDLE. Tiene que coincidir EXACTO con uno de '
                     'los dos de un agente ya registrado — corré '
                     'list_catalog(kind: "agents") y copiá el valor, no lo '
                     'redactes. Un rol que no le corresponde a nadie deja el '
-                    'paso sin dueño y la estación lo muestra como "sin '
+                    'paso sin dueño y el proyecto lo muestra como "sin '
                     'agente para X".',
               ),
               'instruction': Schema.string(
@@ -597,19 +597,19 @@ final List<Tool> keelAiTools = [
     ),
   ),
   Tool(
-    name: 'create_station',
+    name: 'create_project',
     description:
-        'Crea una estación: el contexto de un proyecto (un repo/producto) '
+        'Crea un proyecto: el contexto de un proyecto (un repo/producto) '
         'con su directorio de trabajo, sus miembros, sus workflows '
         'disponibles y sus reglas. Resuelve handles de agente y nombres de '
         'workflow a sus ids reales, y reporta qué referencias no se pudieron '
         'resolver.',
     inputSchema: ObjectSchema(
       properties: {
-        'name': Schema.string(description: 'Nombre único de la estación.'),
-        'purpose': Schema.string(description: 'Propósito de la estación.'),
+        'name': Schema.string(description: 'Nombre único del proyecto.'),
+        'purpose': Schema.string(description: 'Propósito del proyecto.'),
         'working_directory': Schema.string(
-          description: 'Directorio de trabajo absoluto de la estación.',
+          description: 'Directorio de trabajo absoluto del proyecto.',
         ),
         'agent_handles': Schema.list(
           items: Schema.string(),
@@ -627,7 +627,7 @@ final List<Tool> keelAiTools = [
           items: Schema.string(),
           description:
               'Bases de saber del proyecto. Sus miembros reciben el mapa de '
-              'cada una y las consultan solos; ninguna otra estación las ve.',
+              'cada una y las consultan solos; ningún otro proyecto las ve.',
         ),
       },
       required: ['name', 'purpose', 'working_directory'],
@@ -637,7 +637,7 @@ final List<Tool> keelAiTools = [
     name: 'create_knowledge_base',
     description:
         'Registra una base de saber: un cuerpo de documentación con nombre '
-        'propio (NUI, CONNECT) que después se le asigna a una estación con '
+        'propio (NUI, CONNECT) que después se le asigna a un proyecto con '
         'knowledge_base_names. source "local" apunta a una carpeta del disco '
         '(se crea si no existe, y es donde ESCRIBÍS los documentos con tus '
         'herramientas de archivo); source "git" clona un repo a un espejo '
@@ -751,13 +751,13 @@ final List<Tool> keelAiTools = [
     ),
   ),
   Tool(
-    name: 'delete_station',
+    name: 'delete_project',
     description:
-        'Elimina una estación por nombre, junto con sus tareas en curso.',
+        'Elimina un proyecto por nombre, junto con sus sesiones en curso.',
     inputSchema: ObjectSchema(
       properties: {
         'name': Schema.string(
-          description: 'Nombre de la estación a eliminar.',
+          description: 'Nombre del proyecto a eliminar.',
         ),
       },
       required: ['name'],

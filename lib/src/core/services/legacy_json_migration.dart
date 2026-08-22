@@ -15,8 +15,8 @@ import 'package:keel_ui/src/modules/settings/model/app_settings.dart';
 import 'package:keel_ui/src/modules/settings/repository/settings_repository.dart';
 import 'package:keel_ui/src/modules/skills/model/skill.dart';
 import 'package:keel_ui/src/modules/skills/repository/skills_repository.dart';
-import 'package:keel_ui/src/modules/stations/model/station.dart';
-import 'package:keel_ui/src/modules/stations/repository/stations_repository.dart';
+import 'package:keel_ui/src/modules/projects/model/project.dart';
+import 'package:keel_ui/src/modules/projects/repository/projects_repository.dart';
 import 'package:keel_ui/src/modules/workflows/model/workflow.dart';
 import 'package:keel_ui/src/modules/workflows/repository/workflows_repository.dart';
 
@@ -53,10 +53,12 @@ Future<void> migrateLegacyJsonIfNeeded() async {
     decode: Workflow.fromJson,
     save: WorkflowsRepository().save,
   );
-  await _migrateList<Station>(
+  await _migrateList<Project>(
+    // El archivo en disco se escribió cuando esto se llamaba
+    // estación: su nombre es historia, no una decisión de hoy.
     file: File('${dir.path}/stations.json'),
-    decode: Station.fromJson,
-    save: StationsRepository().save,
+    decode: Project.fromJson,
+    save: ProjectsRepository().save,
   );
   await _migrateSettings(File('${dir.path}/settings.json'));
 

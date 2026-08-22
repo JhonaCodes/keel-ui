@@ -10,7 +10,7 @@ String? validateWorkflowName(String value) {
 
 /// One step of a [Workflow]. [role] names a role to fill (compared against
 /// an [AgentProfile]'s role by whoever runs the workflow) — not a specific
-/// agent — so the same workflow can be reused across different stations.
+/// agent — so the same workflow can be reused across different projects.
 class WorkflowStep {
   final String id;
   final String title;

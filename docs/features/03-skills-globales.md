@@ -4,14 +4,14 @@
 
 Una skill marcada como **global** (`Skill.isGlobal`) se inyecta en el system
 prompt de TODOS los agentes en cada turno — chats 1:1 (con o sin perfil) y
-miembros de estación por igual — sin necesidad de asignarla a nadie.
+miembros de proyecto por igual — sin necesidad de asignarla a nadie.
 
 ## Dónde se inyecta
 
 - 1:1: `AgentsViewModel._resolveProfileSystemPrompt` — las globales van
   PRIMERO, después el system prompt del perfil, sus skills asignadas y sus
   reglas. Una skill global que además esté asignada se inyecta UNA sola vez.
-- Estaciones: `StationsViewModel._turnSystemPrompt` — mismo orden y misma
+- Proyectos: `StationsViewModel._turnSystemPrompt` — mismo orden y misma
   regla de deduplicación.
 
 ## Cómo se crea

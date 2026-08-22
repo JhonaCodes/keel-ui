@@ -40,7 +40,7 @@ en el hilo.
 Hasta acá la app solo garantizaba el click; qué era "entregar" no estaba
 escrito en ningún lado, y cada flujo lo inventaba — mergear, no abrir PR, o
 abrir uno nuevo por ciclo. Ahora es una sección del system prompt de todo
-turno de estación cuyo directorio de trabajo tiene git (`_deliveryPrompt`):
+turno de proyecto cuyo directorio de trabajo tiene git (`_deliveryPrompt`):
 
 - El resultado se entrega como **pull request en DRAFT** — nunca mergeado ni
   marcado listo para review: eso lo decide el usuario.
@@ -51,7 +51,7 @@ turno de estación cuyo directorio de trabajo tiene git (`_deliveryPrompt`):
 - "Cerrar el último ciclo sin la URL del PR en el hilo es cerrar sin
   entregar."
 
-En una estación sin `.git` la sección no aparece y nada exige PR. Los turnos
+En un proyecto sin `.git` la sección no aparece y nada exige PR. Los turnos
 de consulta tampoco la llevan: la entrega es del que trabaja.
 
 ## Lo que esto NO hace

@@ -9,7 +9,7 @@ import 'package:logger_rs/logger_rs.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
 
 import 'package:keel_ui/src/core/services/local_database.dart';
-import 'package:keel_ui/src/modules/stations/viewmodel/stations_viewmodel.dart';
+import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
 
 class JobsApiState {
   final int? port;
@@ -40,13 +40,13 @@ class JobsApiState {
 }
 
 /// Local HTTP API for EXTERNAL schedulers (cron, keel, scripts): open a
-/// task in a station and check its status, over loopback with a persisted
+/// session in a project and check its status, over loopback with a persisted
 /// Bearer token. This is the plug for scheduled work — the scheduling
 /// itself lives outside the app.
 ///
-/// - `POST /stations/<name>/tasks` body `{"prompt": "..."}` → creates a
-///   fresh task in that station and sends the prompt into it.
-/// - `GET  /tasks/<id>` → `{status, isRunning, costUsd, messages}`.
+/// - `POST /projects/<name>/sessions` body `{"prompt": "..."}` → creates a
+///   fresh session in that project and sends the prompt into it.
+/// - `GET  /sessions/<id>` → `{status, isRunning, costUsd, messages}`.
 class JobsApiViewModel extends ViewModel<JobsApiState> {
   JobsApiViewModel() : super(const JobsApiState());
 
@@ -116,23 +116,28 @@ class JobsApiViewModel extends ViewModel<JobsApiState> {
     }
 
     final segments = request.uri.pathSegments;
-    final stations = StationsService.instance.notifier;
+    final projects = ProjectsService.instance.notifier;
 
-    // POST /stations/<name>/tasks
-    if (request.method == 'POST' &&
-        segments.length == 3 &&
-        segments[0] == 'stations' &&
-        segments[2] == 'tasks') {
-      final station = stations.data.stations
+    // POST /projects/<name>/sessions
+    //
+    // `/stations/<name>/tasks` sigue contestando: es la única superficie
+    // HTTP de la app, y un script de afuera no tiene por qué enterarse de
+    // que acá adentro cambiamos las palabras. Queda como alias obsoleto.
+    final isSessionPost =
+        (segments.length == 3) &&
+        ((segments[0] == 'projects' && segments[2] == 'sessions') ||
+            (segments[0] == 'stations' && segments[2] == 'tasks'));
+    if (request.method == 'POST' && isSessionPost) {
+      final project = projects.data.projects
           .where((entry) => entry.name == segments[1])
           .firstOrNull;
-      if (station == null) {
-        _respond(request, HttpStatus.notFound, {'error': 'station not found'});
+      if (project == null) {
+        _respond(request, HttpStatus.notFound, {'error': 'project not found'});
         return;
       }
-      if (station.workingDirectory.trim().isEmpty) {
+      if (project.workingDirectory.trim().isEmpty) {
         _respond(request, HttpStatus.conflict, {
-          'error': 'station has no working directory yet',
+          'error': 'project has no working directory yet',
         });
         return;
       }
@@ -153,46 +158,46 @@ class JobsApiViewModel extends ViewModel<JobsApiState> {
         return;
       }
 
-      stations.createTask(station.id);
-      final task = stations.data.stations
-          .firstWhere((entry) => entry.id == station.id)
-          .activeTask;
-      if (task == null) {
+      projects.createSession(project.id);
+      final session = projects.data.projects
+          .firstWhere((entry) => entry.id == project.id)
+          .activeSession;
+      if (session == null) {
         _respond(request, HttpStatus.internalServerError, {
-          'error': 'task not created',
+          'error': 'session not created',
         });
         return;
       }
       // Fire-and-forget: the turn outlives the HTTP request on purpose.
-      unawaited(stations.sendToChannel(station.id, prompt));
+      unawaited(projects.sendToChannel(project.id, prompt));
       _respond(request, HttpStatus.accepted, {
-        'taskId': task.id,
-        'station': station.name,
+        'sessionId': session.id,
+        'project': project.name,
       });
       return;
     }
 
-    // GET /tasks/<id>
+    // GET /sessions/<id>
     if (request.method == 'GET' &&
         segments.length == 2 &&
-        segments[0] == 'tasks') {
-      for (final station in stations.data.stations) {
-        final task = station.tasks
+        segments[0] == 'sessions') {
+      for (final project in projects.data.projects) {
+        final session = project.sessions
             .where((entry) => entry.id == segments[1])
             .firstOrNull;
-        if (task != null) {
+        if (session != null) {
           _respond(request, HttpStatus.ok, {
-            'taskId': task.id,
-            'station': station.name,
-            'status': task.status.name,
-            'isRunning': task.isRunning,
-            'costUsd': task.costUsd,
-            'messages': task.messages.length,
+            'sessionId': session.id,
+            'project': project.name,
+            'status': session.status.name,
+            'isRunning': session.isRunning,
+            'costUsd': session.costUsd,
+            'messages': session.messages.length,
           });
           return;
         }
       }
-      _respond(request, HttpStatus.notFound, {'error': 'task not found'});
+      _respond(request, HttpStatus.notFound, {'error': 'session not found'});
       return;
     }
 

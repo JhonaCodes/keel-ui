@@ -20,9 +20,9 @@ class HookTile extends StatelessWidget {
       if (assignments.profiles > 0)
         '${assignments.profiles} '
             '${assignments.profiles == 1 ? 'agente' : 'agentes'}',
-      if (assignments.stations > 0)
-        '${assignments.stations} '
-            '${assignments.stations == 1 ? 'estación' : 'estaciones'}',
+      if (assignments.projects > 0)
+        '${assignments.projects} '
+            '${assignments.projects == 1 ? 'proyecto' : 'proyectos'}',
     ];
 
     final confirmed = await showDialog<bool>(

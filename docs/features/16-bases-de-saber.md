@@ -9,7 +9,7 @@ nadie, así que ningún agente sabía que el saber existía.
 
 El saber deja de ser una carpeta y pasa a ser un catálogo de **bases**, cada
 una con nombre propio y frontera de contexto: `NUI`, `CONNECT`, `KIWIO`.
-Una estación ve las suyas y ninguna más.
+Un proyecto ve las suyas y ninguna más.
 
 ## El modelo
 
@@ -29,7 +29,7 @@ export y al `list_catalog`.
 
 - `Station.knowledgeBaseNames` — por nombre, igual que `ruleNames`.
 - `AgentProfile.knowledgeBaseNames` — el caso **oráculo**: un agente cuyo
-  trabajo es contestar desde una base, usable en 1:1 fuera de toda estación.
+  trabajo es contestar desde una base, usable en 1:1 fuera de toda proyecto.
   Es una excepción deliberada al aislamiento — esa base viaja con él.
 
 `Station.documentPaths` **desaparece**: un documento suelto es una base
@@ -55,7 +55,7 @@ convierte "sabe dónde consultar" en "sabe qué consultar".
 No hace falta una tool MCP para leer: leer y buscar archivos ya está
 siempre permitido (`kAlwaysAllowedTools`), así que funciona igual con
 `claude` y con `codex`. El mismo resumen lo arma una sola función,
-consumida por `_turnSystemPrompt` (estaciones) y por
+consumida por `_turnSystemPrompt` (proyectos) y por
 `_resolveProfileSystemPrompt` (1:1).
 
 ## La pantalla
@@ -91,8 +91,8 @@ como tool de Keel AI, para pedirlo hablando. Nada corre en background.
 | `delete_knowledge_base` | Saca el registro. **No borra los documentos del disco.** |
 | `sync_knowledge(base?)` | Pull + reindexado; sin `base`, todas. |
 | `list_catalog(kind: "knowledge_bases")` | Nombre, cantidad de documentos y descripción. |
-| `get_item(kind: "knowledge_base")` | Raíz en disco, tamaño, problemas y qué estaciones la usan. |
-| `update_station(knowledge_base_names)` | Se la da a una estación. La lista reemplaza a la actual. |
+| `get_item(kind: "knowledge_base")` | Raíz en disco, tamaño, problemas y qué proyectos la usan. |
+| `update_station(knowledge_base_names)` | Se la da a un proyecto. La lista reemplaza a la actual. |
 | `create_or_update_agent(knowledge_base_names)` | El caso oráculo. |
 
 El contenido lo escribe el agente con sus propias herramientas de archivo
@@ -106,7 +106,7 @@ escriba ahí se pierde en el próximo pull; los cambios van al repo.
 Dos niveles, y el segundo se elige por base:
 
 1. **La definición** — nombre, descripción, fuente git (url + rama), y qué
-   estaciones y perfiles la usan, por nombre. Chica, siempre va.
+   proyectos y perfiles la usan, por nombre. Chica, siempre va.
 2. **El contenido** — los documentos mismos, embebidos en el archivo de
    respaldo. Opcional por base, porque no todas lo necesitan:
    - una base `git` se recupera clonando, así que su contenido es
@@ -115,7 +115,7 @@ Dos niveles, y el segundo se elige por base:
      el respaldo no respalda nada.
 
 Las rutas nunca viajan (misma convención que el `workingDirectory` de una
-estación). Al importar:
+proyecto). Al importar:
 
 - si el contenido vino en el archivo y la base no tiene una carpeta con
   documentos, se restaura en `AppSupport/knowledge/<nombre>/` y la base

@@ -13,7 +13,7 @@ contenido, y poder mover credenciales entre máquinas propias.
 `Configuración → Respaldo en un archivo`, dos paneles laterales:
 
 - **Exportar**: checkboxes por sección (skills, reglas, tools, workflows,
-  MCPs, bases de saber, agentes, estaciones) y un opt-in aparte para
+  MCPs, bases de saber, agentes, proyectos) y un opt-in aparte para
   secrets. Elegís destino con el diálogo del sistema y sale UN `.json`.
 - **Importar**: elegís el archivo, la app lo INSPECCIONA y muestra qué trae
   y qué pisa ("Skills: 12 en el archivo, 3 pisan existentes: …") con

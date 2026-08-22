@@ -21,7 +21,7 @@ const _railLabelStyle = TextStyle(
 
 /// La columna de la izquierda: el asistente y los registros de la app.
 ///
-/// Conversaciones NO — ni las estaciones ni los agentes sueltos. Esa lista
+/// Conversaciones NO — ni los proyectos ni los agentes sueltos. Esa lista
 /// vive en el sidebar, y estuvo un tiempo también acá: dos columnas pegadas
 /// mostrando los mismos agentes, con dos formas distintas de seleccionarlos.
 /// Acá quedó lo que se abre como panel y vuelve a cerrarse.

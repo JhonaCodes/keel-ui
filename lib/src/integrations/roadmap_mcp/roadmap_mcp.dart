@@ -8,7 +8,7 @@
 /// del momento.
 ///
 /// El alcance no es un argumento que manda el modelo: sale de la URL con la
-/// que se le entregó este servidor al turno. Un turno de la estación A no
+/// que se le entregó este servidor al turno. Un turno del proyecto A no
 /// puede tomar una tarea del proyecto B aunque lo pida — no tiene cómo
 /// nombrarlo.
 library;
@@ -24,7 +24,7 @@ import 'package:stream_channel/stream_channel.dart';
 
 import 'package:keel_ui/src/modules/agent_profiles/viewmodel/agent_profiles_viewmodel.dart';
 import 'package:keel_ui/src/modules/roadmap/viewmodel/task_claims_viewmodel.dart';
-import 'package:keel_ui/src/modules/stations/viewmodel/stations_viewmodel.dart';
+import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
 
 part 'src/roadmap_reader.dart';
 part 'src/roadmap_mcp_server.dart';

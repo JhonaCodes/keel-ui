@@ -7,7 +7,7 @@ import 'package:keel_ui/src/modules/agent_profiles/viewmodel/agent_profiles_view
 import 'package:keel_ui/src/modules/hooks/model/hook.dart';
 import 'package:keel_ui/src/modules/hooks/model/hook_event.dart';
 import 'package:keel_ui/src/modules/hooks/repository/hooks_repository.dart';
-import 'package:keel_ui/src/modules/stations/viewmodel/stations_viewmodel.dart';
+import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
 import 'package:keel_ui/src/shared/shared.dart';
 
 class HooksViewModel extends ViewModel<HooksState> {
@@ -131,7 +131,7 @@ class HooksViewModel extends ViewModel<HooksState> {
     // referencia muerta.
     if (previous != null && previous.name != name) {
       AgentProfilesService.instance.notifier.renameHook(previous.name, name);
-      StationsService.instance.notifier.renameHook(previous.name, name);
+      ProjectsService.instance.notifier.renameHook(previous.name, name);
     }
     return null;
   }
@@ -151,22 +151,22 @@ class HooksViewModel extends ViewModel<HooksState> {
     return null;
   }
 
-  /// Cuántos perfiles y estaciones tienen asignado [hookName]. Es lo que se
+  /// Cuántos perfiles y proyectos tienen asignado [hookName]. Es lo que se
   /// le muestra al usuario ANTES de borrar, para que sepa qué está soltando.
-  ({int profiles, int stations}) assignmentsOf(String hookName) {
+  ({int profiles, int projects}) assignmentsOf(String hookName) {
     final profiles = AgentProfilesService.instance.notifier.data.profiles
         .where((profile) => profile.hooks.contains(hookName))
         .length;
-    final stations = StationsService.instance.notifier.data.stations
-        .where((station) => station.hookNames.contains(hookName))
+    final projects = ProjectsService.instance.notifier.data.projects
+        .where((project) => project.hookNames.contains(hookName))
         .length;
-    return (profiles: profiles, stations: stations);
+    return (profiles: profiles, projects: projects);
   }
 
   /// Borra el hook del catálogo Y de todo lo que lo tenía asignado.
   ///
   /// Acá el módulo se aparta a propósito de cómo se borra una regla, que
-  /// deja el nombre colgado en perfiles y estaciones y se saltea en silencio
+  /// deja el nombre colgado en perfiles y proyectos y se saltea en silencio
   /// al armar el turno. Para un guardarraíl eso no sirve: una asignación que
   /// apunta a un hook borrado hace creer que algo está protegido cuando ya
   /// no lo está. Borrar acá es borrar en todos lados.
@@ -179,7 +179,7 @@ class HooksViewModel extends ViewModel<HooksState> {
     unawaited(_repository.save(hooks));
 
     AgentProfilesService.instance.notifier.detachHook(hook.name);
-    StationsService.instance.notifier.detachHook(hook.name);
+    ProjectsService.instance.notifier.detachHook(hook.name);
   }
 
   String? _validate(

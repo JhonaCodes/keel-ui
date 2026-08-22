@@ -15,7 +15,7 @@ const kClaimTtl = Duration(minutes: 30);
 /// local y no se respalda: restaurarlo en otra máquina reviviría candados de
 /// tareas que nadie está haciendo.
 class TaskClaim {
-  /// Raíz del proyecto: el directorio de trabajo de la estación.
+  /// Raíz del proyecto: el directorio de trabajo del proyecto.
   ///
   /// Es lo que impide que dos proyectos con una tarea llamada igual se pisen.
   /// No lo manda el modelo: sale de la URL con la que se le entregó el
@@ -32,9 +32,8 @@ class TaskClaim {
   /// El título que declara el propio archivo de la tarea.
   final String title;
 
-  /// Quién la tomó: el handle del perfil y la estación desde donde trabaja.
+  /// Quién la tomó: el handle del perfil que corre el turno.
   final String profileHandle;
-  final String stationName;
 
   final DateTime claimedAt;
   final DateTime expiresAt;
@@ -45,7 +44,6 @@ class TaskClaim {
     required this.taskPath,
     required this.title,
     required this.profileHandle,
-    required this.stationName,
     required this.claimedAt,
     required this.expiresAt,
   });
@@ -64,7 +62,6 @@ class TaskClaim {
     taskPath: taskPath,
     title: title,
     profileHandle: profileHandle,
-    stationName: stationName,
     claimedAt: claimedAt,
     expiresAt: now.add(kClaimTtl),
   );
@@ -82,7 +79,6 @@ class TaskClaim {
     'taskPath': taskPath,
     'title': title,
     'profileHandle': profileHandle,
-    'stationName': stationName,
     'claimedAt': claimedAt.toIso8601String(),
     'expiresAt': expiresAt.toIso8601String(),
   };
@@ -94,7 +90,6 @@ class TaskClaim {
       taskPath: json['taskPath'] as String? ?? '',
       title: json['title'] as String? ?? '',
       profileHandle: json['profileHandle'] as String? ?? '',
-      stationName: json['stationName'] as String? ?? '',
       claimedAt: DateTime.parse(json['claimedAt'] as String),
       expiresAt: DateTime.parse(json['expiresAt'] as String),
     );
@@ -108,7 +103,6 @@ class TaskClaim {
           projectPath == other.projectPath &&
           taskPath == other.taskPath &&
           profileHandle == other.profileHandle &&
-          stationName == other.stationName &&
           claimedAt == other.claimedAt &&
           expiresAt == other.expiresAt;
 
@@ -117,7 +111,6 @@ class TaskClaim {
     projectPath,
     taskPath,
     profileHandle,
-    stationName,
     claimedAt,
     expiresAt,
   );

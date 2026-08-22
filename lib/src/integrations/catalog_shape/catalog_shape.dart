@@ -8,7 +8,7 @@
 ///
 /// Reglas que valen para cualquier destino: las referencias van por NOMBRE
 /// y nunca por id, el merge crea-o-actualiza, y las rutas de trabajo, las
-/// tareas y los hilos jamás viajan.
+/// sesiones y los hilos jamás viajan.
 library;
 
 import 'dart:io';
@@ -26,9 +26,9 @@ import 'package:keel_ui/src/modules/mcp_servers/viewmodel/mcp_servers_viewmodel.
 import 'package:keel_ui/src/modules/rules/viewmodel/rules_viewmodel.dart';
 import 'package:keel_ui/src/modules/settings/viewmodel/settings_viewmodel.dart';
 import 'package:keel_ui/src/modules/skills/viewmodel/skills_viewmodel.dart';
-import 'package:keel_ui/src/modules/stations/model/member_tuning.dart';
-import 'package:keel_ui/src/modules/stations/model/station.dart';
-import 'package:keel_ui/src/modules/stations/viewmodel/stations_viewmodel.dart';
+import 'package:keel_ui/src/modules/projects/model/member_tuning.dart';
+import 'package:keel_ui/src/modules/projects/model/project.dart';
+import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
 import 'package:keel_ui/src/modules/tools/model/tool.dart';
 import 'package:keel_ui/src/modules/tools/viewmodel/tools_viewmodel.dart';
 import 'package:keel_ui/src/modules/workflows/model/workflow.dart';

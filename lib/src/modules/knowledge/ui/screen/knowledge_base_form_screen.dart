@@ -134,7 +134,7 @@ class _KnowledgeBaseFormScreenState extends State<KnowledgeBaseFormScreen> {
             decoration: InputDecoration(
               labelText: 'Nombre',
               hintText: 'NUI, CONNECT, KIWIO…',
-              helperText: 'Con este nombre la citan las estaciones.',
+              helperText: 'Con este nombre la citan los proyectos.',
               errorText: _nameError,
               border: const OutlineInputBorder(
                 borderRadius: BorderRadius.all(Radius.circular(16)),

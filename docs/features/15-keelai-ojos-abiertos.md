@@ -21,8 +21,8 @@ colgada — el agente creía tener esa skill y en el turno no le llegaba nada.
 
 | Tool | Devuelve |
 |---|---|
-| `list_catalog(kind?)` | Nombre + para qué sirve de skills, reglas, tools, agentes, workflows, estaciones y MCPs. Sin `kind`, todo |
-| `get_item(kind, name)` | El contenido **completo**: el texto de una skill, el código de una tool, la config de un agente o una estación |
+| `list_catalog(kind?)` | Nombre + para qué sirve de skills, reglas, tools, agentes, workflows, proyectos y MCPs. Sin `kind`, todo |
+| `get_item(kind, name)` | El contenido **completo**: el texto de una skill, el código de una tool, la config de un agente o un proyecto |
 | `describe_system()` | Estado: repos configurados, secrets sin valor, MCPs que no van a levantar, agentes respondiendo, tareas corriendo |
 
 **Manos** — corregir sin destruir:
@@ -34,7 +34,7 @@ colgada — el agente creía tener esa skill y en el turno no le llegaba nada.
 | `update_workflow` | Cambiar cuándo aplica y/o los pasos |
 | `unassign_from_agent` | **Sacar** skills/reglas/tools/MCPs. `create_or_update_agent` solo SUMA |
 
-**Estaciones** — el límite que el propio prompt declaraba:
+**Proyectos** — el límite que el propio prompt declaraba:
 
 | Tool | Para qué |
 |---|---|
@@ -60,7 +60,7 @@ burbuja solo ensucia. El conjunto `_readOnlyTools` marca cuáles se saltean.
 **Nada de asignaciones colgadas.** `executeAgentAction` filtra
 skills/reglas/tools/MCPs contra el catálogo real: asigna las que existen,
 descarta las que no y **las nombra en la respuesta**, para que el modelo se
-entere de que inventó un nombre. Lo mismo para las reglas de una estación,
+entere de que inventó un nombre. Lo mismo para las reglas de un proyecto,
 que también pasaban sin verificar.
 
 **Los updates reemplazan, no fusionan.** Por eso el prompt ordena leer con
@@ -84,6 +84,6 @@ ahora abre con **"mirá antes de actuar"** y tres reglas:
 3. Antes de decir **"no puedo"**, fijarse si hay tool. Casi siempre la hay.
 
 Y el mapa del sistema cambió su cierre: donde decía *"no hay forma de sumar
-documentos a una estación desde una conversación"* ahora dice que todo se
+documentos a un proyecto desde una conversación"* ahora dice que todo se
 puede leer, crear, actualizar y corregir hablando — sin depender de que
 alguien abra un formulario.

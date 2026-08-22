@@ -298,12 +298,12 @@ const _readOnlyTools = {
         mcpServers: _stringList(arguments['mcp_server_names']),
       );
 
-    case 'update_station':
-      return _updateStation(arguments);
+    case 'update_project':
+      return _updateProject(arguments);
 
-    case 'open_station_task':
-      return _openStationTask(
-        station: (arguments['station'] as String).trim(),
+    case 'open_project_session':
+      return _openProjectSession(
+        project: (arguments['project'] as String).trim(),
         prompt: (arguments['prompt'] as String).trim(),
       );
 
@@ -345,9 +345,9 @@ const _readOnlyTools = {
       );
       return (result.ok, result.message);
 
-    case 'create_station':
-      final result = executeStationAction(
-        CreateStationAction(
+    case 'create_project':
+      final result = executeProjectAction(
+        CreateProjectAction(
           name: arguments['name'] as String,
           purpose: arguments['purpose'] as String? ?? '',
           workingDirectory: arguments['working_directory'] as String? ?? '',
@@ -415,14 +415,14 @@ const _readOnlyTools = {
         label: 'workflow',
       );
 
-    case 'delete_station':
+    case 'delete_project':
       return _deleteByName(
         name: arguments['name'] as String,
-        items: StationsService.instance.notifier.data.stations,
-        idOf: (station) => station.id,
-        nameOf: (station) => station.name,
-        delete: StationsService.instance.notifier.deleteStation,
-        label: 'estación',
+        items: ProjectsService.instance.notifier.data.projects,
+        idOf: (project) => project.id,
+        nameOf: (project) => project.name,
+        delete: ProjectsService.instance.notifier.deleteProject,
+        label: 'proyecto',
       );
 
     case 'delete_agent':
@@ -506,9 +506,9 @@ String _describeCatalog(String kind) {
           '${_firstLine(workflow.whenToApply)}',
   ]);
 
-  section('stations', 'Estaciones', [
-    for (final station in StationsService.instance.notifier.data.stations)
-      '- ${station.name} — ${_firstLine(station.purpose)}',
+  section('projects', 'Proyectos', [
+    for (final project in ProjectsService.instance.notifier.data.projects)
+      '- ${project.name} — ${_firstLine(project.purpose)}',
   ]);
 
   section('mcp_servers', 'MCPs externos', [
@@ -526,7 +526,7 @@ String _describeCatalog(String kind) {
 
   if (sections.isEmpty) {
     return 'No conozco el tipo "$kind". Válidos: skills, rules, tools, '
-        'agents, workflows, stations, mcp_servers, knowledge_bases, all.';
+        'agents, workflows, projects, mcp_servers, knowledge_bases, all.';
   }
   return sections.join('\n\n');
 }
@@ -565,11 +565,11 @@ String _describeCatalog(String kind) {
     source == KnowledgeSource.local
         ? 'Registré la base de saber "$name" en $root. Escribí sus '
               'documentos ahí (empezá por INDEX.md, que es la portada que '
-              'reciben los agentes) y asignásela a una estación con '
-              'update_station(knowledge_base_names).'
+              'reciben los agentes) y asignásela a un proyecto con '
+              'update_project(knowledge_base_names).'
         : 'Registré la base de saber "$name". Corré sync_knowledge(base: '
-              '"$name") para clonarla, y asignásela a una estación con '
-              'update_station(knowledge_base_names).',
+              '"$name") para clonarla, y asignásela a un proyecto con '
+              'update_project(knowledge_base_names).',
   );
 }
 
@@ -670,39 +670,39 @@ String _describeCatalog(String kind) {
             '${steps.isEmpty ? '(sin pasos)' : steps.join('\n')}',
       );
 
-    case 'station':
-      final station = StationsService.instance.notifier.data.stations
+    case 'project':
+      final project = ProjectsService.instance.notifier.data.projects
           .where((entry) => entry.name == name)
           .firstOrNull;
-      if (station == null) return (false, 'No existe la estación "$name".');
+      if (project == null) return (false, 'No existe el proyecto "$name".');
       final profiles = AgentProfilesService.instance.notifier.data.profiles;
       final workflows = WorkflowsService.instance.notifier.data.workflows;
       final members = [
-        for (final id in station.profileIds)
+        for (final id in project.profileIds)
           '@${profiles.where((p) => p.id == id).firstOrNull?.name ?? id}',
       ];
       final available = [
-        for (final id in station.workflowIds)
+        for (final id in project.workflowIds)
           workflows.where((w) => w.id == id).firstOrNull?.name ?? id,
       ];
-      final active = station.activeWorkflowId == null
+      final active = project.activeWorkflowId == null
           ? 'ninguno'
           : workflows
-                    .where((w) => w.id == station.activeWorkflowId)
+                    .where((w) => w.id == project.activeWorkflowId)
                     .firstOrNull
                     ?.name ??
-                station.activeWorkflowId!;
+                project.activeWorkflowId!;
       return (
         true,
-        'Estación "${station.name}"\n'
-            'Propósito: ${station.purpose}\n'
-            'Directorio: ${station.workingDirectory}\n'
+        'Proyecto "${project.name}"\n'
+            'Propósito: ${project.purpose}\n'
+            'Directorio: ${project.workingDirectory}\n'
             'Miembros: ${_orNone(members)}\n'
             'Workflows disponibles: ${_orNone(available)}\n'
             'Workflow activo: $active\n'
-            'Reglas: ${_orNone(station.ruleNames)}\n'
-            'Saber: ${_orNone(station.knowledgeBaseNames)}\n'
-            'Tareas: ${station.tasks.length}',
+            'Reglas: ${_orNone(project.ruleNames)}\n'
+            'Saber: ${_orNone(project.knowledgeBaseNames)}\n'
+            'Sesiones: ${project.sessions.length}',
       );
 
     case 'knowledge_base':
@@ -717,12 +717,12 @@ String _describeCatalog(String kind) {
             'Raíz: ${knowledge.rootPathOf(base)}\n'
             'Documentos: ${index?.documentCount ?? 0}\n'
             '${index == null || index.problem.isEmpty ? '' : 'Problema: ${index.problem}\n'}'
-            'Usada por estaciones: '
+            'Usada por proyectos: '
             '${_orNone([
-              for (final station
-                  in StationsService.instance.notifier.data.stations)
-                if (station.knowledgeBaseNames.contains(base.name))
-                  station.name,
+              for (final project
+                  in ProjectsService.instance.notifier.data.projects)
+                if (project.knowledgeBaseNames.contains(base.name))
+                  project.name,
             ])}',
       );
 
@@ -743,7 +743,7 @@ String _describeCatalog(String kind) {
       return (
         false,
         'No conozco el tipo "$kind". Válidos: skill, rule, tool, agent, '
-            'workflow, station, mcp_server.',
+            'workflow, project, mcp_server.',
       );
   }
 }
@@ -805,7 +805,7 @@ String _orNone(List<String> values) =>
   final verb = existing == null ? 'Creé' : 'Actualicé';
   final scope = (arguments['is_global'] as bool? ?? false)
       ? ' Corre para todos los agentes.'
-      : ' Falta asignárselo a un agente o a una estación.';
+      : ' Falta asignárselo a un agente o a un proyecto.';
   return (true, '$verb el hook "$name" en ${event.label}.$scope');
 }
 
@@ -836,7 +836,7 @@ String _orNone(List<String> values) =>
   return (
     true,
     'Eliminé el hook "$name" y lo saqué de ${assignments.profiles} '
-        'agente(s) y ${assignments.stations} estación(es).',
+        'agente(s) y ${assignments.projects} proyecto(es).',
   );
 }
 
@@ -924,21 +924,21 @@ List<String> _without(List<String> current, List<String> removed) {
   return current.where((entry) => !drop.contains(entry)).toList();
 }
 
-/// Actualiza una estación. Los miembros y workflows viajan por nombre y se
+/// Actualiza un proyecto. Los miembros y workflows viajan por nombre y se
 /// resuelven a ids acá; lo que no venga en los argumentos queda como estaba.
-(bool, String) _updateStation(Map<String, Object?> arguments) {
-  final stations = StationsService.instance.notifier;
+(bool, String) _updateProject(Map<String, Object?> arguments) {
+  final projects = ProjectsService.instance.notifier;
   final name = (arguments['name'] as String).trim();
-  final station = stations.data.stations
+  final project = projects.data.projects
       .where((entry) => entry.name == name)
       .firstOrNull;
-  if (station == null) return (false, 'No existe la estación "$name".');
+  if (project == null) return (false, 'No existe el proyecto "$name".');
 
   final profiles = AgentProfilesService.instance.notifier.data.profiles;
   final workflows = WorkflowsService.instance.notifier.data.workflows;
   final warnings = <String>[];
 
-  var profileIds = station.profileIds;
+  var profileIds = project.profileIds;
   if (arguments['agent_handles'] != null) {
     profileIds = [];
     for (final handle in _stringList(arguments['agent_handles'])) {
@@ -952,7 +952,7 @@ List<String> _without(List<String> current, List<String> removed) {
     }
   }
 
-  var workflowIds = station.workflowIds;
+  var workflowIds = project.workflowIds;
   if (arguments['workflow_names'] != null) {
     workflowIds = [];
     for (final workflowName in _stringList(arguments['workflow_names'])) {
@@ -965,7 +965,7 @@ List<String> _without(List<String> current, List<String> removed) {
     }
   }
 
-  var ruleNames = station.ruleNames;
+  var ruleNames = project.ruleNames;
   if (arguments['rule_names'] != null) {
     final rules = _keepKnownNames(
       _stringList(arguments['rule_names']),
@@ -977,7 +977,7 @@ List<String> _without(List<String> current, List<String> removed) {
     }
   }
 
-  var knowledgeBaseNames = station.knowledgeBaseNames;
+  var knowledgeBaseNames = project.knowledgeBaseNames;
   if (arguments['knowledge_base_names'] != null) {
     final bases = _keepKnownNames(
       _stringList(arguments['knowledge_base_names']),
@@ -991,14 +991,14 @@ List<String> _without(List<String> current, List<String> removed) {
     }
   }
 
-  final error = stations.updateStation(
-    station.id,
+  final error = projects.updateProject(
+    project.id,
     name: (arguments['new_name'] as String?)?.trim().isNotEmpty ?? false
         ? (arguments['new_name'] as String).trim()
-        : station.name,
-    purpose: arguments['purpose'] as String? ?? station.purpose,
+        : project.name,
+    purpose: arguments['purpose'] as String? ?? project.purpose,
     workingDirectory:
-        arguments['working_directory'] as String? ?? station.workingDirectory,
+        arguments['working_directory'] as String? ?? project.workingDirectory,
     profileIds: profileIds,
     workflowIds: workflowIds,
     ruleNames: ruleNames,
@@ -1016,41 +1016,41 @@ List<String> _without(List<String> current, List<String> removed) {
         'no pude activar "$activeName" (no está entre los disponibles)',
       );
     } else {
-      stations.setActiveWorkflow(station.id, active.id);
+      projects.setActiveWorkflow(project.id, active.id);
     }
   }
 
   final suffix = warnings.isEmpty ? '' : ' (${warnings.join('; ')})';
-  return (true, 'Actualicé la estación "${station.name}"$suffix.');
+  return (true, 'Actualicé el proyecto "${project.name}"$suffix.');
 }
 
-(bool, String) _openStationTask({
-  required String station,
+(bool, String) _openProjectSession({
+  required String project,
   required String prompt,
 }) {
-  final stations = StationsService.instance.notifier;
-  final target = stations.data.stations
-      .where((entry) => entry.name == station)
+  final projects = ProjectsService.instance.notifier;
+  final target = projects.data.projects
+      .where((entry) => entry.name == project)
       .firstOrNull;
-  if (target == null) return (false, 'No existe la estación "$station".');
+  if (target == null) return (false, 'No existe el proyecto "$project".');
   if (target.profileIds.isEmpty) {
     return (
       false,
-      'La estación "$station" no tiene miembros: nadie puede tomar la tarea.',
+      'El proyecto "$project" no tiene miembros: nadie puede tomar la sesión.',
     );
   }
-  if (prompt.isEmpty) return (false, 'La tarea necesita un prompt.');
+  if (prompt.isEmpty) return (false, 'La sesión necesita un prompt.');
 
-  stations.createTask(target.id);
-  final task = stations.data.stations
+  projects.createSession(target.id);
+  final session = projects.data.projects
       .firstWhere((entry) => entry.id == target.id)
-      .activeTask;
-  if (task == null) return (false, 'No se pudo crear la tarea.');
+      .activeSession;
+  if (session == null) return (false, 'No se pudo crear la sesión.');
 
-  unawaited(stations.sendToChannel(target.id, prompt));
+  unawaited(projects.sendToChannel(target.id, prompt));
   return (
     true,
-    'Abrí una tarea en "${target.name}" y le pasé el pedido. Sus miembros '
+    'Abrí una sesión en "${target.name}" y le pasé el pedido. Sus miembros '
         'ya están trabajando.',
   );
 }
@@ -1062,7 +1062,7 @@ String _describeSystem() {
   final secrets = SecretsService.instance.notifier;
   final servers = McpServersService.instance.notifier.data.servers;
   final agents = AgentsService.instance.notifier.data.agents;
-  final stations = StationsService.instance.notifier.data.stations;
+  final projects = ProjectsService.instance.notifier.data.projects;
 
   final pendingSecrets = [
     for (final secret in secrets.data.secrets)
@@ -1081,10 +1081,10 @@ String _describeSystem() {
       if (agent.isStreaming) agent.name,
   ];
 
-  final runningTasks = [
-    for (final station in stations)
-      for (final task in station.tasks)
-        if (task.isRunning) '${station.name}/${task.title}',
+  final runningSessions = [
+    for (final project in projects)
+      for (final session in project.sessions)
+        if (session.isRunning) '${project.name}/${session.title}',
   ];
 
   final hooks = HooksService.instance.notifier.data.hooks;
@@ -1114,7 +1114,7 @@ String _describeSystem() {
     '',
     'Ahora mismo:',
     '- Agentes respondiendo: ${_orNone(busyAgents)}',
-    '- Tareas corriendo: ${_orNone(runningTasks)}',
+    '- Sesiones corriendo: ${_orNone(runningSessions)}',
     '- Conversaciones abiertas: ${agents.length}',
   ].join('\n');
 }

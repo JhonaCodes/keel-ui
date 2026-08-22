@@ -14,7 +14,7 @@ Future<void> openUseAgentPanel(BuildContext context) {
 }
 
 /// Picks one of the registered agents to talk to on its own. Agents are
-/// registered once and reused everywhere — in a station, in a workflow step,
+/// registered once and reused everywhere — in a project, in a workflow step,
 /// or here as a 1:1 chat — so this panel never creates a new identity, it
 /// only opens a conversation with one that already exists.
 class UseAgentPanel extends StatefulWidget {
@@ -161,7 +161,7 @@ class _NoRegisteredAgents extends StatelessWidget {
             const SizedBox(height: 6),
             Text(
               'Registrá uno y queda disponible en todos lados: para hablarle '
-              'directo, para sumarlo a una estación y para que un paso de '
+              'directo, para sumarlo a un proyecto y para que un paso de '
               'workflow lo busque por su rol.',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodySmall,

@@ -20,7 +20,7 @@ class ResolvedHooks {
 }
 
 /// Los hooks de este turno: los globales, más los del perfil, más los de la
-/// estación — por nombre y sin repetir.
+/// proyecto — por nombre y sin repetir.
 ///
 /// Tres exclusiones, todas deliberadas:
 ///
@@ -37,7 +37,7 @@ ResolvedHooks resolveHooks({
   required List<Hook> catalog,
   required HookProvider provider,
   AgentProfile? profile,
-  Station? station,
+  Project? project,
 }) {
   if (profile?.name == kKeelAiHandleForHooks) {
     return const ResolvedHooks(
@@ -52,7 +52,7 @@ ResolvedHooks resolveHooks({
     for (final hook in catalog)
       if (hook.isGlobal) hook.name,
     ...?profile?.hooks,
-    ...?station?.hookNames,
+    ...?project?.hookNames,
   };
 
   final hooks = <Hook>[];

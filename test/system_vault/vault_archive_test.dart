@@ -12,7 +12,7 @@ VaultContents _sampleContents() => VaultContents(
       {'name': 'revisión-de-código', 'content': 'Mirá el diff, no el archivo.'},
       {'name': 'ux/ui', 'content': 'Nombre con barra: no abre carpeta.'},
     ],
-    'stations': [
+    'projects': [
       {'name': 'keel-ui', 'purpose': 'La app'},
     ],
   },
@@ -36,7 +36,7 @@ void main() {
       final restored = decodeVault(encodeVault(original));
 
       expect(restored.catalog['skills'], original.catalog['skills']);
-      expect(restored.catalog['stations'], original.catalog['stations']);
+      expect(restored.catalog['projects'], original.catalog['projects']);
       expect(restored.settings, original.settings);
       expect(restored.secrets, original.secrets);
       expect(

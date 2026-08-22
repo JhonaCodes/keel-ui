@@ -79,7 +79,7 @@ class SettingsPanel extends StatelessWidget {
               Text(
                 'Una carpeta tuya que hace de vault: adentro queda '
                 '$kVaultBackupFileName con TODO el sistema (skills, reglas, '
-                'tools, workflows, MCPs, agentes, estaciones, bases y '
+                'tools, workflows, MCPs, agentes, proyectos, bases y '
                 'ajustes). Versionala con git y desinstalar la app deja de '
                 'costarte nada. Los hilos de chat no entran, y de los '
                 'secrets solo viajan los nombres.',
@@ -133,7 +133,7 @@ class SettingsPanel extends StatelessWidget {
               const SizedBox(height: 4),
               Text(
                 'Para schedulers externos (cron, keel): '
-                'POST /stations/<nombre>/tasks {"prompt": "..."} con el '
+                'POST /projects/<nombre>/tasks {"prompt": "..."} con el '
                 'token Bearer. Solo loopback.',
                 style: Theme.of(context).textTheme.bodySmall,
               ),

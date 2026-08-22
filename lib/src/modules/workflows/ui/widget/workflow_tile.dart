@@ -15,7 +15,7 @@ class WorkflowTile extends StatelessWidget {
       builder: (context) => AlertDialog(
         title: const Text('Eliminar workflow'),
         content: Text(
-          'Se eliminará el workflow "${workflow.name}". Las estaciones que lo '
+          'Se eliminará el workflow "${workflow.name}". Los proyectos que lo '
           'tenían asignado dejarán de aplicarlo.',
         ),
         actions: [

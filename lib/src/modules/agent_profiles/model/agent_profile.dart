@@ -6,7 +6,7 @@ final RegExp _agentProfileNameFormat = RegExp(r'^[a-z0-9_-]{1,16}$');
 
 /// The handle reserved for the built-in system assistant, seeded once at
 /// startup. Rejected everywhere a handle is written — created, updated, or
-/// declared mid-conversation by a station member — so nothing can shadow or
+/// declared mid-conversation by a project member — so nothing can shadow or
 /// delete it by picking the same name.
 const kKeelAiHandle = 'keelai';
 
@@ -28,11 +28,11 @@ String? validateAgentProfileName(String value) {
 /// El miembro que le toca a un paso que pide [role].
 ///
 /// Empareja primero por ROL —que es lo que un paso nombra a propósito, para
-/// que el mismo workflow sirva en cualquier estación que tenga ese rol— y si
+/// que el mismo workflow sirva en cualquier proyecto que tenga ese rol— y si
 /// nadie lo tiene, por HANDLE. El handle es único en toda la app, así que un
 /// paso que dice "auditor" y el agente `@auditor` son inequívocamente lo
 /// mismo; sin esta segunda pasada, un workflow escrito con handles queda con
-/// todos sus pasos huérfanos aunque la estación tenga a los nueve miembros.
+/// todos sus pasos huérfanos aunque el proyecto tenga a los nueve miembros.
 AgentProfile? memberForRole(Iterable<AgentProfile> members, String role) {
   final wanted = role.trim().toLowerCase();
   if (wanted.isEmpty) return null;
@@ -72,15 +72,15 @@ class AgentProfile {
 
   /// Bases de saber que este perfil lleva consigo, por nombre — el caso
   /// ORÁCULO: un agente cuyo trabajo es contestar desde esa documentación,
-  /// también en 1:1, fuera de toda estación. Es una excepción deliberada al
-  /// aislamiento por estación: la base viaja con el perfil a donde vaya, así
+  /// también en 1:1, fuera de toda proyecto. Es una excepción deliberada al
+  /// aislamiento por proyecto: la base viaja con el perfil a donde vaya, así
   /// que se usa para el agente que ES de ese dominio, no como atajo para
   /// darle documentación a un especialista general.
   final List<String> knowledgeBaseNames;
 
   /// A "builder" profile: its 1:1 agents receive the same `keelai-actions`
   /// MCP that Keel AI has, so they can create skills/rules/tools/agents/
-  /// workflows/stations themselves. Off by default — creation power is an
+  /// workflows/projects themselves. Off by default — creation power is an
   /// explicit grant, never ambient.
   final bool canManageSystem;
 
@@ -92,7 +92,7 @@ class AgentProfile {
   final DateTime createdAt;
 
   /// The member that asked for this agent to exist, when it was not you.
-  /// An agent that needs a specialist the station lacks does not get to spawn
+  /// An agent that needs a specialist the project lacks does not get to spawn
   /// it in the background — it declares it, the app registers it here, and the
   /// map shows who brought it in. Null means you registered it yourself.
   final String? createdByProfileId;

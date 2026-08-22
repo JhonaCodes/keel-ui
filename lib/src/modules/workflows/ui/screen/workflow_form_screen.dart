@@ -178,7 +178,7 @@ class _WorkflowFormScreenState extends State<WorkflowFormScreen> {
                 const Padding(
                   padding: EdgeInsets.only(top: 6, left: 4),
                   child: Text(
-                    'Así la estación sabe cuál de sus workflows corresponde '
+                    'Así el proyecto sabe cuál de sus workflows corresponde '
                     'a lo que pediste.',
                     style: TextStyle(fontSize: 11),
                   ),

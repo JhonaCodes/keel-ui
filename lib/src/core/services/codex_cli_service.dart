@@ -10,7 +10,7 @@ import 'package:keel_ui/src/modules/agents/model/agent_model_option.dart';
 
 /// Drives the local `codex` CLI (OpenAI Codex) as a subprocess, emitting the
 /// SAME [ClaudeEvent] stream the claude adapter emits so every consumer
-/// (1:1 chat, stations) stays provider-agnostic.
+/// (1:1 chat, projects) stays provider-agnostic.
 ///
 /// Verified against `codex-cli 0.142.3` (`codex exec --json`): events are
 /// JSONL of the `thread.started` / `turn.*` / `item.*` family. Known

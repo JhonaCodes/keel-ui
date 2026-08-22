@@ -11,7 +11,7 @@ formulario del perfil (dropdown Proveedor) y Keel AI lo setea con
 ## Adaptador (`core/services/codex_cli_service.dart`)
 
 Emite el MISMO stream de eventos (`ClaudeEvent`) que el adaptador claude —
-los consumidores (chat 1:1, estaciones) son agnósticos del proveedor.
+los consumidores (chat 1:1, proyectos) son agnósticos del proveedor.
 
 Verificado contra `codex-cli 0.142.3` con una corrida real:
 
@@ -49,7 +49,7 @@ Ahora:
   pasa `-m` y codex resuelve el modelo de su `~/.codex/config.toml`. Es el
   default porque nunca queda obsoleta.
 - El modelo SÍ viaja ahora: `codex exec -m <slug>`, tanto en el chat 1:1
-  (`CodexCliService`) como en estaciones (el isolate arma sus propios
+  (`CodexCliService`) como en proyectos (el isolate arma sus propios
   argumentos y usa la misma regla).
 - **Compatibilidad**: un agente codex creado antes de esta partición lleva
   un alias de Claude (`sonnet`). `codexModelArgument()` lo trata como "sin
@@ -65,7 +65,7 @@ Ahora:
   sin arreglar.
 - El costo por turno se reporta 0 (codex no lo emite en el JSONL).
 
-## Estaciones
+## Proyectos
 
 `TaskRunSpec.provider` viaja al isolate, que elige ejecutable, argumentos y
 dialecto de parseo (`_parseCodexEventToMessages`, espejo del servicio — el
@@ -94,5 +94,5 @@ arreglan:
 
 Y el cierre con plan vacío ya no es un éxito automático: si el ciclo
 terminó sin plan y sin producir un solo mensaje de trabajo, la tarea queda
-como NO terminada en vez de "finished" — el falso éxito de una estación
+como NO terminada en vez de "finished" — el falso éxito de un proyecto
 codex muda desapareció.

@@ -30,7 +30,7 @@ class TurnHooks {
 
 /// Arma los hooks de un turno leyendo el catálogo vivo.
 ///
-/// Corre SIEMPRE en el isolate principal, incluso para una estación: acá
+/// Corre SIEMPRE en el isolate principal, incluso para un proyecto: acá
 /// están el catálogo, las tools y los valores de los secrets, y el isolate
 /// del task runner no alcanza ninguno de los tres. Lo que cruza la frontera
 /// es el resultado, que son puras Strings.
@@ -40,13 +40,13 @@ TurnHooks prepareTurnHooks({
   required Map<String, String> secretValues,
   required HookProvider provider,
   AgentProfile? profile,
-  Station? station,
+  Project? project,
 }) {
   final resolved = resolveHooks(
     catalog: catalog,
     provider: provider,
     profile: profile,
-    station: station,
+    project: project,
   );
   if (resolved.hooks.isEmpty) {
     return TurnHooks(notes: resolved.notes);

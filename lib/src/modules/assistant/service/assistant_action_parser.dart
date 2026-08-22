@@ -2,7 +2,7 @@ import 'package:keel_ui/src/modules/assistant/model/assistant_action.dart';
 import 'package:keel_ui/src/modules/workflows/model/workflow.dart';
 import 'package:keel_ui/src/shared/shared.dart';
 
-const _stationKeys = {
+const _projectKeys = {
   'nombre',
   'proposito',
   'carpeta',
@@ -27,10 +27,10 @@ const _ruleKeys = {'nombre', 'contenido'};
 
 /// Reads every action block Keel AI wrote in [text] and returns them ready to
 /// execute, in a fixed dependency order — skills and rules first, then
-/// agents (which may reference them by name), then workflows, then stations
+/// agents (which may reference them by name), then workflows, then projects
 /// (which may reference agents and workflows by name and need their real
 /// ids to already exist). This is NOT the order the blocks appeared in the
-/// reply: a station block written before the agent block that creates one of
+/// reply: a project block written before the agent block that creates one of
 /// its members must still resolve that member correctly.
 List<AssistantAction> parseAssistantActions(String text) {
   final actions = <AssistantAction>[];
@@ -99,24 +99,30 @@ List<AssistantAction> parseAssistantActions(String text) {
     );
   }
 
-  for (final fields in parseFencedBlocks(
-    text,
-    tag: 'estacion',
-    keys: _stationKeys,
-  )) {
-    final name = fields['nombre'];
-    if (name == null || name.isEmpty) continue;
-    actions.add(
-      CreateStationAction(
-        name: name,
-        purpose: fields['proposito'] ?? '',
-        workingDirectory: fields['carpeta'] ?? '',
-        agentHandles: _splitList(fields['agentes']),
-        workflowNames: _splitList(fields['workflows']),
-        ruleNames: _splitList(fields['reglas']),
-        knowledgeBaseNames: _splitList(fields['saber']),
-      ),
-    );
+  // `estacion` se sigue aceptando a propósito: un turno de codex arrastra el
+  // system prompt del primer mensaje de su sesión, así que puede escribir el
+  // nombre viejo un buen rato después de que acá se llame proyecto. Es de
+  // ENTRADA solamente — lo que se le enseña a escribir es `proyecto`.
+  for (final tag in const ['proyecto', 'estacion']) {
+    for (final fields in parseFencedBlocks(
+      text,
+      tag: tag,
+      keys: _projectKeys,
+    )) {
+      final name = fields['nombre'];
+      if (name == null || name.isEmpty) continue;
+      actions.add(
+        CreateProjectAction(
+          name: name,
+          purpose: fields['proposito'] ?? '',
+          workingDirectory: fields['carpeta'] ?? '',
+          agentHandles: _splitList(fields['agentes']),
+          workflowNames: _splitList(fields['workflows']),
+          ruleNames: _splitList(fields['reglas']),
+          knowledgeBaseNames: _splitList(fields['saber']),
+        ),
+      );
+    }
   }
 
   return actions;

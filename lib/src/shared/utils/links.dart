@@ -67,7 +67,7 @@ String linkifyBareUrls(String markdown) {
 
 /// El último pull request de GitHub nombrado en [text], o null.
 ///
-/// El último y no el primero: si una tarea abrió el PR y después lo rehízo,
+/// El último y no el primero: si una sesión abrió el PR y después lo rehízo,
 /// el vigente es el de más abajo en el hilo.
 ({int number, String url})? lastPullRequestIn(String text) {
   final matches = _pullRequestUrl.allMatches(text).toList();

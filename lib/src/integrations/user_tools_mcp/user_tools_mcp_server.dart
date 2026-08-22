@@ -25,7 +25,7 @@ const kUserToolsMcpToolPrefix = 'mcp__${kUserToolsMcpServerKey}__';
 /// Local MCP server exposing the user-registered deterministic tools to any
 /// agent whose profile has them assigned. Runs in-process on loopback HTTP —
 /// reachable from the CLI subprocess of a 1:1 chat AND from the one a
-/// station turn spawns inside its worker isolate, since both are plain
+/// project turn spawns inside its worker isolate, since both are plain
 /// processes talking to 127.0.0.1.
 ///
 /// A fresh [_UserToolsMcpServer] is created for every incoming HTTP POST and

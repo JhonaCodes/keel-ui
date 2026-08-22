@@ -17,7 +17,7 @@ const kKnowledgeIndexPromptLimit = 4000;
 const kKnowledgeIndexFileNames = ['INDEX.md', 'README.md'];
 
 /// Devuelve un mensaje de error si [value] no sirve como nombre de base, o
-/// null si es válido. El nombre viaja por referencia desde estaciones y
+/// null si es válido. El nombre viaja por referencia desde proyectos y
 /// perfiles, y además es el nombre de la carpeta del espejo git, así que no
 /// admite espacios ni separadores de ruta.
 String? validateKnowledgeBaseName(String value) {
@@ -54,7 +54,7 @@ enum KnowledgeSource {
 }
 
 /// Un cuerpo de documentación con frontera de contexto: `NUI`, `CONNECT`,
-/// `KIWIO`. Una estación (o un perfil oráculo) declara qué bases ve, y en el
+/// `KIWIO`. Un proyecto (o un perfil oráculo) declara qué bases ve, y en el
 /// turno de sus agentes entra el MAPA de esas bases —ruta, tamaño, carpetas
 /// de primer nivel y su `INDEX.md`—, nunca los documentos enteros: el agente
 /// los abre con sus propias herramientas cuando le hacen falta.

@@ -3,7 +3,7 @@
 ## Qué problema resuelve
 
 keel-ui administraba skills, reglas, tools, workflows, MCPs, agentes,
-estaciones y bases de saber. De hooks, nada: `grep -i hook` sobre `lib/` no
+proyectos y bases de saber. De hooks, nada: `grep -i hook` sobre `lib/` no
 devolvía un solo resultado.
 
 Lo que había estaba escrito a mano en `~/.claude/settings.json` y se aplicaba
@@ -90,7 +90,7 @@ botón de conceder.
 
 ## Dónde se asigna
 
-Global, por agente (`AgentProfile.hooks`) y por estación
+Global, por agente (`AgentProfile.hooks`) y por proyecto
 (`Station.hookNames`), igual que las reglas.
 
 **Keel AI queda afuera, siempre.** No es conveniencia: es la salida de
@@ -102,7 +102,7 @@ trabado, no habría salida. Por eso Keel AI corre sin restricciones y tiene
 ## Borrar es borrar en todos lados
 
 Acá el módulo se aparta a propósito de cómo se borra una regla, que deja el
-nombre colgado en perfiles y estaciones. `deleteHook` **cascadea**, y
+nombre colgado en perfiles y proyectos. `deleteHook` **cascadea**, y
 renombrar arrastra las asignaciones. Una referencia muerta a un guardarraíl
 miente sobre qué está protegido. El diálogo dice qué va a soltar antes de
 hacerlo.
@@ -117,7 +117,7 @@ respaldos, deduplica por evento + matcher + comando, y trae las entidades
 
 1. Un hook `PreToolUse`/`Bash` que deniega `rm -rf`: el comando no corre y la
    UI dice qué hook lo frenó, sin ofrecer "conceder permiso".
-2. El mismo hook en una **estación** — prueba que el camino del isolate quedó
+2. El mismo hook en una **proyecto** — prueba que el camino del isolate quedó
    cubierto.
 3. El mismo hook con un agente **codex**.
 4. Un hook "solo Claude" con un agente codex: el formulario lo marca y el
@@ -127,7 +127,7 @@ respaldos, deduplica por evento + matcher + comando, y trae las entidades
 6. Un hook apagado no se escribe en la config generada.
 7. **La salida de emergencia**: un hook global que deniega todo. Los agentes
    quedan trabados; Keel AI sigue y lo apaga.
-8. **Cascada**: asignarlo a 2 agentes y 1 estación, borrarlo, y verificar que
+8. **Cascada**: asignarlo a 2 agentes y 1 proyecto, borrarlo, y verificar que
    no queda el nombre en ninguna lista.
 9. Respaldar el vault: `catalog/hooks/*.json`; restaurar en limpio los
    devuelve.

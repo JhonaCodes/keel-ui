@@ -8,7 +8,7 @@ de la imagen en el composer). Cada adjunto se ve en la burbuja como un
 al hacer clic.
 
 Aplica al chat 1:1 (`ChatView`), que es el mismo widget que usa el panel del
-asistente. Las estaciones (`StationChatView`) tienen su propio composer y
+asistente. Los proyectos (`StationChatView`) tienen su propio composer y
 **todavía no** aceptan adjuntos.
 
 ## Flujo
@@ -64,7 +64,7 @@ bloque de rutas es solo para el modelo.
 ## UI del preview
 
 `ChatImageAttachments` (arriba del texto en `ChatMessageBody`, así que sirve
-igual a la burbuja 1:1 y a la de estación cuando esta acepte adjuntos):
+igual a la burbuja 1:1 y a la de proyecto cuando esta acepte adjuntos):
 
 - Tarjeta fija de 200×140 con `BoxFit.cover`. Una imagen de 3000px cruda
   reventaría el ancho de la burbuja y empujaría el texto fuera de pantalla.
@@ -89,7 +89,7 @@ el agente ve lo mismo.
 - En la ventana dedicada del asistente el drop nativo depende de que
   `desktop_drop` funcione en una sub-ventana de `desktop_multi_window`;
   sin verificar. El botón de adjuntar sí funciona en ambas.
-- Las estaciones no aceptan adjuntos todavía.
+- Los proyectos no aceptan adjuntos todavía.
 - Pegar desde el portapapeles (⌘V) no está: el feature es soltar o elegir.
 - `desktop_drop` es un plugin nativo nuevo — al actualizar hace falta
   reiniciar la app (no alcanza el hot reload).

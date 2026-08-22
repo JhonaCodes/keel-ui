@@ -18,7 +18,7 @@ import 'package:keel_ui/src/core/services/cli_turn_workspace.dart';
 import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
 import 'package:keel_ui/src/modules/hooks/model/hook.dart';
 import 'package:keel_ui/src/modules/hooks/model/hook_event.dart';
-import 'package:keel_ui/src/modules/stations/model/station.dart';
+import 'package:keel_ui/src/modules/projects/model/project.dart';
 import 'package:keel_ui/src/modules/tools/model/tool.dart';
 
 part 'src/hook_resolution.dart';

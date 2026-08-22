@@ -33,7 +33,7 @@ class _BackupExportPanelState extends State<BackupExportPanel> {
             children: [
               Text(
                 'Un solo archivo con lo que elijas. Las referencias van por '
-                'nombre; las rutas de trabajo y las tareas nunca viajan.',
+                'nombre; las rutas de trabajo y las sesiones nunca viajan.',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
               const SizedBox(height: 12),

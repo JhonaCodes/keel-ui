@@ -14,7 +14,7 @@ import 'package:keel_ui/src/core/services/cli_turn_workspace.dart';
 import 'package:keel_ui/src/core/services/claude_cli_service.dart'
     show kAlwaysAllowedTools, kCliSystemHints;
 // Same reason: which model names belong to which CLI is decided in ONE
-// place, so a station turn cannot hand codex a Claude alias the 1:1 path
+// place, so a project turn cannot hand codex a Claude alias the 1:1 path
 // already knows to withhold.
 import 'package:keel_ui/src/modules/agents/model/agent_model_option.dart'
     show codexModelArgument;

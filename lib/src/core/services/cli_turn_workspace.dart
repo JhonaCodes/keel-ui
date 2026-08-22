@@ -7,7 +7,7 @@ import 'package:logger_rs/logger_rs.dart';
 ///
 /// La configuración de hooks se renderiza en el isolate principal —ahí están
 /// los secrets y el catálogo— pero la carpeta donde van a vivir los scripts
-/// recién existe cuando arranca el turno, y en el caso de una estación eso
+/// recién existe cuando arranca el turno, y en el caso de un proyecto eso
 /// pasa del otro lado de un `Isolate.spawn`. Así que se renderiza con este
 /// marcador y [CliTurnWorkspace] lo reemplaza al escribir.
 const kHookDirPlaceholder = '__KEEL_HOOK_DIR__';
@@ -92,7 +92,7 @@ class CliTurnWorkspace {
     File? codexProfileFile;
     if (codexHooksConfig != null) {
       // El nombre lleva el sufijo del temporal, que ya es único: dos
-      // estaciones corriendo a la vez no pueden pisarse el perfil.
+      // proyectos corriendo a la vez no pueden pisarse el perfil.
       codexProfileName = 'keel-${directory.path.split('_').last}';
       codexProfileFile = File('${_codexHome()}/$codexProfileName.config.toml');
       await codexProfileFile.parent.create(recursive: true);

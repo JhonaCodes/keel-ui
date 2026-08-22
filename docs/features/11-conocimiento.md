@@ -2,7 +2,7 @@
 
 > **Superada por [F16 — Bases de saber](16-bases-de-saber.md).** Lo que
 > describe acá —una única carpeta global, indexada plana y sin vínculo con
-> ninguna estación— ya no existe en el código. Queda como registro de por
+> ningún proyecto— ya no existe en el código. Queda como registro de por
 > dónde empezó.
 
 ## Qué es

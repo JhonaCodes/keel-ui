@@ -7,7 +7,7 @@ sealed class AssistantAction {
   const AssistantAction();
 }
 
-class CreateStationAction extends AssistantAction {
+class CreateProjectAction extends AssistantAction {
   final String name;
   final String purpose;
   final String workingDirectory;
@@ -16,7 +16,7 @@ class CreateStationAction extends AssistantAction {
   final List<String> ruleNames;
   final List<String> knowledgeBaseNames;
 
-  const CreateStationAction({
+  const CreateProjectAction({
     required this.name,
     required this.purpose,
     required this.workingDirectory,

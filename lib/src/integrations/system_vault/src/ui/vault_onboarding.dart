@@ -3,7 +3,7 @@ part of '../../system_vault.dart';
 /// Decide qué se ve al abrir la app: la bienvenida del vault o el sistema.
 ///
 /// La bienvenida aparece SOLO cuando no hay nada que perder —cero skills,
-/// cero agentes, cero estaciones— y el usuario no la contestó antes. Es el
+/// cero agentes, cero proyectos— y el usuario no la contestó antes. Es el
 /// caso exacto de "reinstalé y quiero todo de vuelta": con el sistema
 /// poblado, restaurar vuelve a ser una decisión con preview.
 class VaultBootGate extends StatefulWidget {
@@ -128,7 +128,7 @@ class _VaultWelcomeScreenState extends State<VaultWelcomeScreen> {
                   Text(
                     'Si ya tenías keel en otra máquina, tu vault trae todo de '
                     'vuelta: skills, reglas, tools, workflows, MCPs, agentes, '
-                    'estaciones, bases de saber y ajustes. Los hilos de chat '
+                    'proyectos, bases de saber y ajustes. Los hilos de chat '
                     'no vuelven, y los secrets vuelven por nombre — sin sus '
                     'valores.',
                     style: Theme.of(context).textTheme.bodyMedium,

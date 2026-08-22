@@ -23,7 +23,7 @@ final class KeelAiMcpServer extends MCPServer with ToolsSupport {
          ),
          instructions:
              'Tools to create and update Keel AI objects: skills, rules, '
-             'agents, workflows and stations.',
+             'agents, workflows and projects.',
        ) {
     for (final tool in keelAiTools) {
       registerTool(tool, (request) => dispatchKeelAiTool(agentId, request));

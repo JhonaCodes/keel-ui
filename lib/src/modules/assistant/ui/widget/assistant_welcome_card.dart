@@ -18,8 +18,8 @@ class _AssistantCapability {
 const _capabilities = [
   _AssistantCapability(
     icon: Icons.forum_outlined,
-    title: 'Estaciones',
-    example: 'Creá una estación para revisar PRs con dos agentes.',
+    title: 'Proyectos',
+    example: 'Creá un proyecto para revisar PRs con dos agentes.',
   ),
   _AssistantCapability(
     icon: Icons.badge_outlined,

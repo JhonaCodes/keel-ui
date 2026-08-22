@@ -367,7 +367,7 @@ class AgentsViewModel extends ViewModel<AgentsState> {
     await _persist();
 
     final workingDirectory = looseAgentWorkingDirectory;
-    // El mismo colector que usa una estación: resuelve contra el directorio
+    // El mismo colector que usa un proyecto: resuelve contra el directorio
     // del turno las rutas relativas que reporta la CLI.
     final fileEdits = FileEditCollector(workingDirectory: workingDirectory);
     final assistantTextBuffer = StringBuffer();
@@ -377,7 +377,7 @@ class AgentsViewModel extends ViewModel<AgentsState> {
     // (Keel AI's reserved profile, plus any profile the user marked as a
     // builder) and whatever executable tools this agent's profile has
     // assigned.
-    // Mismo motivo que en el turno de una estación: el mapa de las bases
+    // Mismo motivo que en el turno de un proyecto: el mapa de las bases
     // sale del disco, y sin esperar la carga el agente arrancaría sin saber
     // que su base existe.
     await KnowledgeService.instance.notifier.ready;
@@ -709,7 +709,7 @@ class AgentsViewModel extends ViewModel<AgentsState> {
   /// by the model at runtime.
   /// Los hooks que corren en el turno de [agent].
   ///
-  /// En 1:1 no hay estación, así que solo cuentan los globales y los del
+  /// En 1:1 no hay proyecto, así que solo cuentan los globales y los del
   /// perfil. Keel AI queda afuera de todo esto —lo decide `resolveHooks`—
   /// porque es a quien se le pide apagar un hook que trabó al resto.
   Future<TurnHooks> _resolveTurnHooks(Agent agent) async {
@@ -774,7 +774,7 @@ class AgentsViewModel extends ViewModel<AgentsState> {
         buffer.writeln(rule.content);
       }
 
-      // El caso oráculo: en 1:1 no hay estación que aporte bases, así que
+      // El caso oráculo: en 1:1 no hay proyecto que aporte bases, así que
       // las únicas que llegan son las del propio perfil.
       final saber = KnowledgeService.instance.notifier.briefFor(
         profile.knowledgeBaseNames,

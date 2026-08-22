@@ -14,7 +14,7 @@ String? validateSkillName(String value) {
 /// profile is configured), never inferred by the model at runtime.
 ///
 /// A skill marked [isGlobal] is injected into EVERY agent's prompt (1:1 and
-/// station turns alike) without any assignment.
+/// project turns alike) without any assignment.
 class Skill {
   final String id;
   final String name;

@@ -62,7 +62,7 @@ todo snapshot es completo e idempotente.
 
 Sus sesiones se filtran en las dos superficies que listan agentes: el rail
 (por `keelAiProfileId`) y la sección "Agentes sueltos" del sidebar de
-estaciones (por `AgentsViewModel.listableAgents`, que es la regla en un
+proyectos (por `AgentsViewModel.listableAgents`, que es la regla en un
 solo lugar). Keel AI vive en su ventana flotante y en ningún otro lado —
 mezclar sus sesiones con los agentes que registró el usuario es
 exactamente la confusión que esa ventana existe para evitar.

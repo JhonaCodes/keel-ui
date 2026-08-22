@@ -109,7 +109,7 @@ class _ChatMessageBubbleContent extends StatelessWidget {
             text: message.text,
             typeInfoLabel: TypeInfoLabel.neutral,
             // Estas notas van de una línea (una mención que no llegó) a doce
-            // (el plan de la tarea). Con el icono centrado, un bloque largo lo
+            // (el plan de la sesión). Con el icono centrado, un bloque largo lo
             // deja flotando en el medio, lejos del renglón que encabeza.
             crossAxisAlignment: CrossAxisAlignment.start,
             leftIcon: Icon(
@@ -135,7 +135,7 @@ class _ChatMessageBubbleContent extends StatelessWidget {
     // Your own messages sit on the cool blue the palette reserves for them,
     // not on the brass container: brass on brass-deep measures 3.6:1, under
     // the 4.5:1 floor for body text, and the letters sink into their own
-    // bubble. Ink on this blue is 10.3:1. Same two tokens the station thread
+    // bubble. Ink on this blue is 10.3:1. Same two tokens the project thread
     // already uses, so "you" reads identically in a 1:1 chat and a channel.
     final background = switch (message.role) {
       ChatRole.user => AppColors.userBubble,

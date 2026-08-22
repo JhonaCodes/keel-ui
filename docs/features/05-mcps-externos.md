@@ -23,7 +23,7 @@ turno, que viaja como archivo temporal 0700 (nunca inline en argv).
 - 1:1: `AgentsViewModel.sendMessage` resuelve los servers del perfil y los
   fusiona al mapa `mcpServers` junto con `keelai-actions` y `keel-tools`;
   `extraAllowedTools += mcp__<nombre>` (grant a nivel server).
-- Estaciones: `StationsViewModel._runTurn` hace el mismo merge por miembro.
+- Proyectos: `StationsViewModel._runTurn` hace el mismo merge por miembro.
 
 ## Keel AI
 

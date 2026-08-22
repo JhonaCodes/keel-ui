@@ -5,7 +5,7 @@ import 'package:keel_ui/src/modules/workflows/model/workflow.dart';
 import 'package:keel_ui/src/modules/workflows/viewmodel/workflows_viewmodel.dart';
 
 /// The role is how a workflow step finds its agent: the step names a role, and
-/// the station looks for the member whose role matches. Both sides are free
+/// the project looks for the member whose role matches. Both sides are free
 /// text, so typing them independently is how you end up with
 /// `sin agente para "Revisor"`.
 ///

@@ -10,7 +10,7 @@ const kCatalogCategories = [
   'mcp_servers',
   'knowledge_bases',
   'profiles',
-  'stations',
+  'projects',
 ];
 
 /// El nombre de archivo de una entidad dentro de su categoría. Los
@@ -105,7 +105,7 @@ Map<String, List<Map<String, dynamic>>> catalogAsJson() {
       'source': base.source.alias,
       'gitUrl': base.gitUrl,
       'gitBranch': base.gitBranch,
-      // La ruta ABSOLUTA no viaja, igual que el directorio de una estación.
+      // La ruta ABSOLUTA no viaja, igual que el directorio de un proyecto.
       // La relativa al vault sí: del otro lado el vault existe y la base se
       // reengancha sola. Una base fuera del vault sigue llegando sin
       // carpeta y la UI la pide.
@@ -133,48 +133,48 @@ Map<String, List<Map<String, dynamic>>> catalogAsJson() {
     });
   }
 
-  final stationsViewModel = StationsService.instance.notifier;
-  for (final station in stationsViewModel.data.stations) {
+  final projectsViewModel = ProjectsService.instance.notifier;
+  for (final project in projectsViewModel.data.projects) {
     final workflows = WorkflowsService.instance.notifier.data.workflows;
     String? workflowNameOf(String id) =>
         workflows.where((workflow) => workflow.id == id).firstOrNull?.name;
-    byCategory['stations']!.add({
-      'name': station.name,
-      'purpose': station.purpose,
+    byCategory['projects']!.add({
+      'name': project.name,
+      'purpose': project.purpose,
       // Portable references only: handles and names. Working directory and
-      // tasks are machine-local and NEVER exported.
+      // sessions are machine-local and NEVER exported.
       'agentHandles': [
-        for (final id in station.profileIds)
+        for (final id in project.profileIds)
           profiles.where((profile) => profile.id == id).firstOrNull?.name,
       ].whereType<String>().toList(),
-      'workflowNames': station.workflowIds
+      'workflowNames': project.workflowIds
           .map(workflowNameOf)
           .whereType<String>()
           .toList(),
-      'ruleNames': station.ruleNames,
-      'hookNames': station.hookNames,
-      'knowledgeBaseNames': station.knowledgeBaseNames,
+      'ruleNames': project.ruleNames,
+      'hookNames': project.hookNames,
+      'knowledgeBaseNames': project.knowledgeBaseNames,
       // Con qué motor corre cada miembro acá, por handle: es configuración de
-      // la estación, así que viaja con ella o se pierde en el import.
-      'memberEngines': _engineMirror(station, profiles),
-      'activeWorkflowName': station.activeWorkflowId == null
+      // el proyecto, así que viaja con ella o se pierde en el import.
+      'memberEngines': _engineMirror(project, profiles),
+      'activeWorkflowName': project.activeWorkflowId == null
           ? null
-          : workflowNameOf(station.activeWorkflowId!),
+          : workflowNameOf(project.activeWorkflowId!),
     });
   }
 
   return byCategory;
 }
 
-/// Los ajustes de motor de [station] rekeyados por handle. Un ajuste de un
+/// Los ajustes de motor de [project] rekeyados por handle. Un ajuste de un
 /// perfil que ya no existe no se escribe: la forma es portable y un id
 /// suelto no significa nada del otro lado.
 Map<String, dynamic> _engineMirror(
-  Station station,
+  Project project,
   List<AgentProfile> profiles,
 ) {
   final mirror = <String, dynamic>{};
-  for (final entry in station.memberTuning.entries) {
+  for (final entry in project.memberTuning.entries) {
     final handle = profiles
         .where((profile) => profile.id == entry.key)
         .firstOrNull
@@ -185,7 +185,7 @@ Map<String, dynamic> _engineMirror(
   return mirror;
 }
 
-/// Los ajustes de motor de un archivo de estación, por handle. Un archivo
+/// Los ajustes de motor de un archivo de proyecto, por handle. Un archivo
 /// escrito antes de que esto existiera simplemente no trae la clave.
 List<MapEntry<String, MemberTuning>> _readEngines(Object? value) {
   if (value is! Map) return const [];
@@ -219,10 +219,11 @@ String _resolveLocalPath(Map<String, dynamic> json, KnowledgeBase? existing) {
 
 /// El merge por nombre sobre el catálogo vivo, desde la forma portable de
 /// [catalogAsJson] — venga del zip del vault o de un respaldo en un archivo.
-/// Solo toca las categorías presentes en [byCategory].
+/// Solo toca las categorías presentes en [rawByCategory].
 Future<String> mergeCatalogJson(
-  Map<String, List<Map<String, dynamic>>> byCategory,
+  Map<String, List<Map<String, dynamic>>> rawByCategory,
 ) async {
+  final byCategory = withLegacyCategoryNames(rawByCategory);
   var created = 0;
   var updated = 0;
   final problems = <String>[];
@@ -516,10 +517,10 @@ Future<String> mergeCatalogJson(
     track(error, existed: existing != null, label: 'agente $name');
   }
 
-  final stations = StationsService.instance.notifier;
+  final projects = ProjectsService.instance.notifier;
   final liveProfiles = profiles.data.profiles;
   final liveWorkflows = workflows.data.workflows;
-  for (final json in byCategory['stations'] ?? const <Map<String, dynamic>>[]) {
+  for (final json in byCategory['projects'] ?? const <Map<String, dynamic>>[]) {
     final name = json['name'] as String;
     final profileIds = [
       for (final handle
@@ -542,13 +543,13 @@ Future<String> mergeCatalogJson(
         (json['knowledgeBaseNames'] as List?)?.cast<String>() ??
         const <String>[];
 
-    final existing = stations.data.stations
-        .where((station) => station.name == name)
+    final existing = projects.data.projects
+        .where((project) => project.name == name)
         .firstOrNull;
     final error = existing == null
-        // Imported stations arrive WITHOUT a working directory — the UI
-        // asks for one when the station is opened (paths never travel).
-        ? stations.createStation(
+        // Imported projects arrive WITHOUT a working directory — the UI
+        // asks for one when the project is opened (paths never travel).
+        ? projects.createProject(
             name: name,
             purpose: json['purpose'] as String? ?? '',
             workingDirectory: '',
@@ -558,7 +559,7 @@ Future<String> mergeCatalogJson(
             hookNames: hookNames,
             knowledgeBaseNames: knowledgeBaseNames,
           )
-        : stations.updateStation(
+        : projects.updateProject(
             existing.id,
             name: name,
             purpose: json['purpose'] as String? ?? '',
@@ -569,26 +570,26 @@ Future<String> mergeCatalogJson(
             hookNames: hookNames,
             knowledgeBaseNames: knowledgeBaseNames,
           );
-    track(error, existed: existing != null, label: 'estación $name');
+    track(error, existed: existing != null, label: 'proyecto $name');
     if (error != null) continue;
 
     // Los ajustes de motor van después de crear/actualizar: se guardan por
     // id de perfil, que de este lado es otro.
-    final stationId =
+    final projectId =
         existing?.id ??
-        stations.data.stations
-            .where((station) => station.name == name)
+        projects.data.projects
+            .where((project) => project.name == name)
             .firstOrNull
             ?.id;
-    if (stationId == null) continue;
+    if (projectId == null) continue;
     for (final entry in _readEngines(json['memberEngines'])) {
       final profileId = liveProfiles
           .where((profile) => profile.name == entry.key)
           .firstOrNull
           ?.id;
       if (profileId == null) continue;
-      stations.setMemberTuning(
-        stationId,
+      projects.setMemberTuning(
+        projectId,
         profileId,
         provider: entry.value.provider,
         model: entry.value.model,
@@ -600,8 +601,8 @@ Future<String> mergeCatalogJson(
   final parts = [
     'Importé el catálogo: $created creados, $updated actualizados.',
     if (problems.isNotEmpty) 'Problemas:\n- ${problems.join('\n- ')}',
-    'Las estaciones nuevas necesitan su carpeta de trabajo: se pide al '
-        'abrirlas.',
+    'Los proyectos nuevos necesitan su carpeta de trabajo: se pide al '
+        'abrirlos.',
   ];
   return parts.join('\n');
 }
@@ -611,3 +612,28 @@ Future<String> mergeCatalogJson(
 /// the seed. Kept here to avoid a modules→assistant dependency for one
 /// constant.
 const kKeelAiSkillNameForExport = 'keelai-mapa-del-sistema';
+
+/// El respaldo escribió `stations` hasta que un proyecto pasó a llamarse
+/// proyecto.
+///
+/// Un `.zip` hecho antes de ese cambio sigue siendo un respaldo válido, así
+/// que su categoría vieja se lee bajo el nombre nuevo. Es un alias de
+/// LECTURA solamente: al escribir siempre sale `projects`, para que el
+/// formato viejo se apague solo en vez de quedar para siempre.
+const kLegacyCategoryAliases = <String, String>{'stations': 'projects'};
+
+/// [byCategory] con las categorías viejas renombradas a las de hoy. Si el
+/// nombre nuevo ya viene en el mapa, gana ese: nunca pisa lo actual.
+Map<String, T> withLegacyCategoryNames<T>(Map<String, T> byCategory) {
+  if (!kLegacyCategoryAliases.keys.any(byCategory.containsKey)) {
+    return byCategory;
+  }
+  final renamed = Map<String, T>.from(byCategory);
+  for (final alias in kLegacyCategoryAliases.entries) {
+    final legacy = renamed.remove(alias.key);
+    if (legacy != null && !renamed.containsKey(alias.value)) {
+      renamed[alias.value] = legacy;
+    }
+  }
+  return renamed;
+}

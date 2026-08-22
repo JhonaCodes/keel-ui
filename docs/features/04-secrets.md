@@ -60,7 +60,7 @@ usable se ve sin abrir el formulario.
 
 ## Anti-leak `ps`
 
-Desde este feature el `--mcp-config` de CADA turno (1:1 y estaciones) se
+Desde este feature el `--mcp-config` de CADA turno (1:1 y proyectos) se
 escribe a un ARCHIVO temporal en un directorio 0700 y se pasa la ruta al
 CLI, en vez de JSON inline en argv (visible en `ps`). El directorio se borra
 al terminar el turno. Aplica en `ClaudeCliService` y en el isolate del

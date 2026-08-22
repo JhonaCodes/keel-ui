@@ -12,7 +12,7 @@ enum BackupSection {
   mcpServers('mcp_servers', 'Integraciones MCP'),
   knowledgeBases('knowledge_bases', 'Bases de saber'),
   agents('profiles', 'Agentes'),
-  stations('stations', 'Estaciones');
+  projects('projects', 'Proyectos');
 
   const BackupSection(this.category, this.label);
 
@@ -63,11 +63,12 @@ class BackupPreview {
 /// vivo. Vive acá y no en cada destino porque "qué pisa esto" se contesta
 /// igual venga de un zip o de un archivo suelto.
 BackupPreview backupPreviewOf(
-  Map<String, dynamic> catalog, {
+  Map<String, dynamic> rawCatalog, {
   Map<String, int> knowledgeDocCounts = const {},
   int secretCount = 0,
   int secretsWithValue = 0,
 }) {
+  final catalog = withLegacyCategoryNames(rawCatalog);
   final names = <BackupSection, List<String>>{};
   final conflicts = <BackupSection, List<String>>{};
 
@@ -128,9 +129,9 @@ Set<String> existingCatalogNames(BackupSection section) {
           in AgentProfilesService.instance.notifier.data.profiles)
         profile.name,
     },
-    BackupSection.stations => {
-      for (final station in StationsService.instance.notifier.data.stations)
-        station.name,
+    BackupSection.projects => {
+      for (final project in ProjectsService.instance.notifier.data.projects)
+        project.name,
     },
   };
 }
@@ -153,7 +154,7 @@ Future<void> awaitCatalogsReady() => Future.wait([
   McpServersService.instance.notifier.ready,
   AgentProfilesService.instance.notifier.ready,
   KnowledgeService.instance.notifier.ready,
-  StationsService.instance.notifier.ready,
+  ProjectsService.instance.notifier.ready,
 ]);
 
 /// Si el sistema está vacío de verdad: nada que un respaldo pueda pisar.

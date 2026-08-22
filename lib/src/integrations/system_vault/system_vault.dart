@@ -2,12 +2,12 @@
 /// `keel-backup.zip` dentro de una carpeta que vos versionás con git.
 ///
 /// El problema que resuelve es de supervivencia: hoy skills, agentes,
-/// estaciones, tools y bases viven en un LMDB dentro de Application Support,
+/// proyectos, tools y bases viven en un LMDB dentro de Application Support,
 /// y desinstalar la app se los lleva a todos. El vault los pone donde una
 /// desinstalación no llega, y `clonar → restaurar` los devuelve enteros en
 /// una máquina nueva.
 ///
-/// Lo efímero NO entra, a propósito: hilos de chat, tareas, adjuntos,
+/// Lo efímero NO entra, a propósito: hilos de chat, sesiones, adjuntos,
 /// registros de prompts y el token de la API de trabajos. Los VALORES de los
 /// secrets tampoco — el vault va a un remoto, y un valor en la historia de
 /// git no se borra nunca. Viajan solo sus nombres, y del otro lado quedan

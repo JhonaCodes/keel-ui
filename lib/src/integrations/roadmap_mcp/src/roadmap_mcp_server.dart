@@ -3,7 +3,7 @@ part of '../roadmap_mcp.dart';
 const kRoadmapMcpServerKey = 'keel-roadmap';
 const kRoadmapMcpToolPrefix = 'mcp__${kRoadmapMcpServerKey}__';
 
-/// Las tres tools que ve un miembro de estación cuyo proyecto tiene roadmap.
+/// Las tres tools que ve un miembro de proyecto cuyo proyecto tiene roadmap.
 const kRoadmapMcpToolNames = [
   '${kRoadmapMcpToolPrefix}list_roadmap_tasks',
   '${kRoadmapMcpToolPrefix}claim_task',
@@ -12,7 +12,7 @@ const kRoadmapMcpToolNames = [
 
 /// Servidor MCP local que le da a un turno el roadmap de SU proyecto.
 ///
-/// La ruta lleva estación y perfil, así que el proyecto queda fijado del lado
+/// La ruta lleva proyecto y perfil, así que el proyecto queda fijado del lado
 /// de la app: el modelo no manda una ruta de proyecto y por lo tanto no puede
 /// equivocarse de repo ni cruzar tareas de otro.
 ///
@@ -33,13 +33,13 @@ class RoadmapMcpServer {
     Log.i('Roadmap MCP server on 127.0.0.1:${server.port}');
   }
 
-  /// La entrada de config para el turno de [profileId] en [stationId], o null
+  /// La entrada de config para el turno de [profileId] en [projectId], o null
   /// si el servidor no levantó o el proyecto no tiene carpeta de roadmap.
   ///
   /// Devolver null cuando no hay `TASKS/` es deliberado: un proyecto sin
   /// roadmap no debería ver tres tools que no aplican.
   static Map<String, dynamic>? mcpServerEntryFor({
-    required String stationId,
+    required String projectId,
     required String profileId,
     required String workingDirectory,
   }) {
@@ -55,7 +55,7 @@ class RoadmapMcpServer {
       scheme: 'http',
       host: '127.0.0.1',
       port: server.port,
-      pathSegments: ['roadmap', stationId, profileId],
+      pathSegments: ['roadmap', projectId, profileId],
     );
     return {
       'type': 'http',
@@ -119,7 +119,7 @@ class RoadmapMcpServer {
     final controller = StreamChannelController<String>();
     _RoadmapMcpServer(
       controller.foreign,
-      stationId: segments[1],
+      projectId: segments[1],
       profileId: segments[2],
       willInitialize: method == mcp.InitializeRequest.methodName,
     );
@@ -162,7 +162,7 @@ class RoadmapMcpServer {
 final class _RoadmapMcpServer extends mcp.MCPServer with mcp.ToolsSupport {
   _RoadmapMcpServer(
     super.channel, {
-    required this.stationId,
+    required this.projectId,
     required this.profileId,
     required bool willInitialize,
   }) : super.fromStreamChannel(
@@ -183,19 +183,19 @@ final class _RoadmapMcpServer extends mcp.MCPServer with mcp.ToolsSupport {
     }
   }
 
-  final String stationId;
+  final String projectId;
   final String profileId;
 
   TaskClaimsViewModel get _claims => TaskClaimsService.instance.notifier;
 
   ({String path, String name})? get _project {
-    final station = StationsService.instance.notifier.data.stations
-        .where((entry) => entry.id == stationId)
+    final project = ProjectsService.instance.notifier.data.projects
+        .where((entry) => entry.id == projectId)
         .firstOrNull;
-    if (station == null) return null;
-    final path = station.workingDirectory.trim();
+    if (project == null) return null;
+    final path = project.workingDirectory.trim();
     if (path.isEmpty) return null;
-    return (path: path, name: station.name);
+    return (path: path, name: project.name);
   }
 
   String get _handle =>
@@ -258,7 +258,7 @@ final class _RoadmapMcpServer extends mcp.MCPServer with mcp.ToolsSupport {
   Future<mcp.CallToolResult> _list(mcp.CallToolRequest request) async {
     final project = _project;
     if (project == null) {
-      return _text('Esta estación no tiene carpeta de trabajo asignada.');
+      return _text('Este proyecto no tiene carpeta de trabajo asignada.');
     }
 
     _claims.pruneExpired();
@@ -291,7 +291,7 @@ final class _RoadmapMcpServer extends mcp.MCPServer with mcp.ToolsSupport {
               '${blocker.reference} (${blocker.target.name})',
           ],
         if (claim != null)
-          'tomada_por': '${claim.profileHandle} (${claim.stationName})',
+          'tomada_por': '${claim.profileHandle} (${claim.projectName})',
         if (task.blockers.isNotEmpty)
           'bloqueantes': [
             for (final blocker in task.blockers) blocker.toJson(),
@@ -313,7 +313,7 @@ final class _RoadmapMcpServer extends mcp.MCPServer with mcp.ToolsSupport {
   Future<mcp.CallToolResult> _claim(mcp.CallToolRequest request) async {
     final project = _project;
     if (project == null) {
-      return _text('Esta estación no tiene carpeta de trabajo asignada.');
+      return _text('Este proyecto no tiene carpeta de trabajo asignada.');
     }
 
     final taskPath = (request.arguments?['task_path'] as String? ?? '').trim();
@@ -369,7 +369,6 @@ final class _RoadmapMcpServer extends mcp.MCPServer with mcp.ToolsSupport {
       taskPath: taskPath,
       title: task.title,
       profileHandle: _handle,
-      stationName: project.name,
     );
     if (result.error != null) return _text(result.error!);
 
@@ -383,7 +382,7 @@ final class _RoadmapMcpServer extends mcp.MCPServer with mcp.ToolsSupport {
   Future<mcp.CallToolResult> _release(mcp.CallToolRequest request) async {
     final project = _project;
     if (project == null) {
-      return _text('Esta estación no tiene carpeta de trabajo asignada.');
+      return _text('Este proyecto no tiene carpeta de trabajo asignada.');
     }
 
     final taskPath = (request.arguments?['task_path'] as String? ?? '').trim();

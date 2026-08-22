@@ -7,7 +7,7 @@ usuario repite, con propuesta de convertirlos en skill global.
 
 ## Mecánica (`integrations/prompt_insights/`)
 
-1. Cada prompt del usuario (chats 1:1 y canal de estación; nunca los
+1. Cada prompt del usuario (chats 1:1 y canal de proyecto; nunca los
    auto-retries) se registra normalizado: minúsculas, sin acentos ni
    puntuación, sin stopwords ES/EN, tokens >2 chars. Log con tope FIFO de
    500 entradas (`promptlog_`).

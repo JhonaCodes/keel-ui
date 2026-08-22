@@ -58,5 +58,5 @@ tira.
 
 ## Límite
 
-Las estaciones no tienen cola: su composer es otro y sus turnos los maneja
+Los proyectos no tienen cola: su composer es otro y sus turnos los maneja
 `StationsViewModel`.

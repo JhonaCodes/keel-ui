@@ -8,7 +8,7 @@ import 'package:keel_ui/src/modules/knowledge/viewmodel/knowledge_viewmodel.dart
 import 'package:keel_ui/src/modules/mcp_servers/viewmodel/mcp_servers_viewmodel.dart';
 import 'package:keel_ui/src/modules/rules/viewmodel/rules_viewmodel.dart';
 import 'package:keel_ui/src/modules/skills/viewmodel/skills_viewmodel.dart';
-import 'package:keel_ui/src/modules/stations/viewmodel/stations_viewmodel.dart';
+import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
 import 'package:keel_ui/src/modules/tools/model/tool.dart';
 import 'package:keel_ui/src/modules/tools/viewmodel/tools_viewmodel.dart';
 import 'package:keel_ui/src/modules/workflows/viewmodel/workflows_viewmodel.dart';
@@ -16,7 +16,7 @@ import 'package:keel_ui/src/modules/workflows/viewmodel/workflows_viewmodel.dart
 /// Runs every parsed action against the same ViewModels the app's own forms
 /// use — nothing here talks to a repository directly. [actions] must already
 /// be in dependency order (skills/rules, then agents, then workflows, then
-/// stations) — see `assistant_action_parser.dart`.
+/// projects) — see `assistant_action_parser.dart`.
 List<AssistantActionResult> executeAssistantActions(
   List<AssistantAction> actions,
 ) {
@@ -28,7 +28,7 @@ List<AssistantActionResult> executeAssistantActions(
         CreateToolAction() => executeToolAction(action),
         CreateAgentAction() => executeAgentAction(action),
         CreateWorkflowAction() => executeWorkflowAction(action),
-        CreateStationAction() => executeStationAction(action),
+        CreateProjectAction() => executeProjectAction(action),
       },
   ];
 }
@@ -197,8 +197,8 @@ AssistantActionResult executeAgentAction(CreateAgentAction action) {
       // model its own CLI has never heard of.
       model: defaultModelFor(provider ?? AgentProvider.claude),
       effort: kDefaultEffortAlias,
-      // Not attributed to keelai: this agent isn't spawned inside a station
-      // task, so a "spawn" edge in a station's map view would be spurious.
+      // Not attributed to keelai: this agent isn't spawned inside a project
+      // session, so a "spawn" edge in a project's map view would be spurious.
       createdByProfileId: null,
     );
     return AssistantActionResult(
@@ -308,10 +308,10 @@ AssistantActionResult executeWorkflowAction(CreateWorkflowAction action) {
 
   // Un paso encuentra a su agente por rol (o, si nadie lo tiene, por
   // handle). Un rol que no le corresponde a NINGÚN perfil registrado deja al
-  // paso huérfano: la estación lo muestra como "sin agente para X" y ese
+  // paso huérfano: el proyecto lo muestra como "sin agente para X" y ese
   // paso no lo ejecuta nadie. No se rechaza el workflow —el agente que falta
   // puede registrarse después— pero se nombra, porque en silencio se
-  // descubre recién cuando la tarea se traba.
+  // descubre recién cuando la sesión se traba.
   final profiles = AgentProfilesService.instance.notifier.data.profiles;
   final huerfanos = <String>{
     for (final step in action.steps)
@@ -330,7 +330,7 @@ AssistantActionResult executeWorkflowAction(CreateWorkflowAction action) {
   );
 }
 
-AssistantActionResult executeStationAction(CreateStationAction action) {
+AssistantActionResult executeProjectAction(CreateProjectAction action) {
   final profiles = AgentProfilesService.instance.notifier.data.profiles;
   final workflows = WorkflowsService.instance.notifier.data.workflows;
 
@@ -358,7 +358,7 @@ AssistantActionResult executeStationAction(CreateStationAction action) {
 
   // Los agentes y workflows ya se resuelven arriba por id; las reglas van
   // por nombre y hasta acá pasaban sin verificar, así que una regla
-  // inventada quedaba declarada en la estación sin existir.
+  // inventada quedaba declarada en el proyecto sin existir.
   final rules = _keepKnown(
     action.ruleNames,
     known: RulesService.instance.notifier.data.rules.map((rule) => rule.name),
@@ -371,7 +371,7 @@ AssistantActionResult executeStationAction(CreateStationAction action) {
     ),
   );
 
-  final error = StationsService.instance.notifier.createStation(
+  final error = ProjectsService.instance.notifier.createProject(
     name: action.name,
     purpose: action.purpose,
     workingDirectory: action.workingDirectory,
@@ -395,8 +395,8 @@ AssistantActionResult executeStationAction(CreateStationAction action) {
       'no encontré la base de saber ${bases.dropped.join(', ')}',
   ];
   final message = warnings.isEmpty
-      ? 'Creé la estación "${action.name}".'
-      : 'Creé la estación "${action.name}" (${warnings.join('; ')}).';
+      ? 'Creé el proyecto "${action.name}".'
+      : 'Creé el proyecto "${action.name}" (${warnings.join('; ')}).';
   return AssistantActionResult(action: action, ok: true, message: message);
 }
 

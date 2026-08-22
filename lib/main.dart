@@ -7,6 +7,7 @@ import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:keel_ui/src/core/services/agent_bridge_channel.dart';
 import 'package:keel_ui/src/core/services/app_window_arguments.dart';
 import 'package:keel_ui/src/core/services/legacy_json_migration.dart';
+import 'package:keel_ui/src/core/services/station_to_project_migration.dart';
 import 'package:keel_ui/src/core/services/local_database.dart';
 import 'package:keel_ui/src/core/services/main_window_size.dart';
 import 'package:keel_ui/src/core/ui/app_theme.dart';
@@ -14,7 +15,7 @@ import 'package:keel_ui/src/integrations/assistant_mcp/assistant_mcp_server.dart
 import 'package:keel_ui/src/integrations/jobs_api/jobs_api.dart';
 import 'package:keel_ui/src/integrations/roadmap_mcp/roadmap_mcp.dart';
 import 'package:keel_ui/src/integrations/system_vault/system_vault.dart';
-import 'package:keel_ui/src/integrations/task_plan_mcp/task_plan_mcp_server.dart';
+import 'package:keel_ui/src/integrations/session_plan_mcp/session_plan_mcp_server.dart';
 import 'package:keel_ui/src/integrations/user_tools_mcp/user_tools_mcp_server.dart';
 import 'package:keel_ui/src/modules/agents/model/file_edit.dart';
 import 'package:keel_ui/src/modules/agents/model/file_editor_window_arguments.dart';
@@ -62,6 +63,7 @@ Future<void> main(List<String> rawArgs) async {
     default:
       await LocalDatabase.ensureInitialized();
       await migrateLegacyJsonIfNeeded();
+      await migrateStationsToProjects();
       // Después de la base (lee el tamaño guardado) y antes de runApp: la
       // ventana nativa abre con el tamaño del xib, que es demasiado chico
       // para las tres columnas.
@@ -69,7 +71,7 @@ Future<void> main(List<String> rawArgs) async {
       await seedKeelAi();
       await AssistantMcpServer.start();
       await UserToolsMcpServer.start();
-      await TaskPlanMcpServer.ensureStarted();
+      await SessionPlanMcpServer.ensureStarted();
       await RoadmapMcpServer.ensureStarted();
       await JobsApiService.instance.notifier.start();
       _registerAgentBridgeHandler();

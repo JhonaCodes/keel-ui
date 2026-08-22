@@ -9,6 +9,12 @@ class FileEdit {
     required this.afterContent,
   });
 
+  FileEdit copyWith({String? path}) => FileEdit(
+    path: path ?? this.path,
+    beforeContent: beforeContent,
+    afterContent: afterContent,
+  );
+
   Map<String, dynamic> toJson() => {
     'path': path,
     'beforeContent': beforeContent,

@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:gpt_markdown/custom_widgets/code_field.dart';
 import 'package:gpt_markdown/gpt_markdown.dart';
 
+import 'package:keel_ui/src/core/services/external_link_service.dart';
 import 'package:keel_ui/src/modules/agents/model/chat_message.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/chat_image_attachments.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/mermaid_diagram.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/svg_diagram.dart';
+import 'package:keel_ui/src/shared/shared.dart';
 
 /// The rendered contents of a chat message — markdown with diagram-aware code
 /// blocks, plus the cost/duration footer. Shared by the 1:1 agent bubble and
@@ -53,8 +55,12 @@ class ChatMessageBody extends StatelessWidget {
             linkHoverColor: Theme.of(context).colorScheme.primary,
           ),
           child: GptMarkdown(
-            message.text,
+            // El renderer solo hace clickeable lo que ya trae sintaxis de
+            // enlace, y las URLs que importan llegan peladas: el PR que abre
+            // el último paso viene tal como lo imprime `gh`.
+            linkifyBareUrls(message.text),
             style: TextStyle(color: foreground, fontSize: base),
+            onLinkTap: (url, _) => openExternalUrl(url),
             codeBuilder: (context, name, code, closed) {
               if (closed) {
                 switch (name.toLowerCase()) {

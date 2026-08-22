@@ -8,6 +8,7 @@ import 'package:reactive_notifier/reactive_notifier.dart';
 
 import 'package:keel_ui/src/core/services/claude_cli_service.dart';
 import 'package:keel_ui/src/core/services/codex_cli_service.dart';
+import 'package:keel_ui/src/core/services/file_edit_collector.dart';
 import 'package:keel_ui/src/integrations/assistant_mcp/assistant_mcp_server.dart';
 import 'package:keel_ui/src/integrations/prompt_insights/prompt_insights.dart';
 import 'package:keel_ui/src/integrations/user_tools_mcp/user_tools_mcp_server.dart';
@@ -45,6 +46,11 @@ class AgentsViewModel extends ViewModel<AgentsState> {
 
   final Map<String, Process> _runningProcesses = {};
   final Set<String> _stoppedAgentIds = {};
+
+  /// Dónde corre un agente 1:1: su casa, porque no tiene proyecto asignado.
+  /// Sirve además para resolver las rutas relativas que reporte su CLI.
+  String get looseAgentWorkingDirectory =>
+      Platform.environment['HOME'] ?? Directory.current.path;
 
   @override
   void init() {
@@ -357,9 +363,10 @@ class AgentsViewModel extends ViewModel<AgentsState> {
     _setStreaming(agentId, true);
     await _persist();
 
-    final workingDirectory =
-        Platform.environment['HOME'] ?? Directory.current.path;
-    final pendingFileBeforeContent = <String, String?>{};
+    final workingDirectory = looseAgentWorkingDirectory;
+    // El mismo colector que usa una estación: resuelve contra el directorio
+    // del turno las rutas relativas que reporta la CLI.
+    final fileEdits = FileEditCollector(workingDirectory: workingDirectory);
     final assistantTextBuffer = StringBuffer();
     final isKeelAi = _isKeelAi(target.profileId);
 
@@ -411,30 +418,31 @@ class AgentsViewModel extends ViewModel<AgentsState> {
             additionalSystemPrompt: _resolveProfileSystemPrompt(
               target.profileId,
             ),
-            onProcessStarted: (process) =>
-                _runningProcesses[agentId] = process,
+            onProcessStarted: (process) => _runningProcesses[agentId] = process,
           )
         : _claude.run(
-      prompt: promptForModel,
-      sessionId: target.sessionId,
-      model: target.model,
-      fullFileSystemAccess: target.fullFileSystemAccess,
-      effort: target.effort,
-      extraAllowedTools: [
-        ...SettingsService.instance.notifier.data.extraAllowedTools,
-        if (keelAiEntry != null) ...kKeelAiMcpToolNames,
-        if (toolsEntry != null)
-          ...profileTools.map(
-            (tool) => '$kUserToolsMcpToolPrefix${tool.name}',
-          ),
-        // Server-level grant: every tool an external MCP exposes.
-        ...externalServers.map((server) => 'mcp__${server.name}'),
-      ],
-      workingDirectory: workingDirectory,
-      additionalSystemPrompt: _resolveProfileSystemPrompt(target.profileId),
-      mcpConfig: mcpConfig,
-      onProcessStarted: (process) => _runningProcesses[agentId] = process,
-    );
+            prompt: promptForModel,
+            sessionId: target.sessionId,
+            model: target.model,
+            fullFileSystemAccess: target.fullFileSystemAccess,
+            effort: target.effort,
+            extraAllowedTools: [
+              ...SettingsService.instance.notifier.data.extraAllowedTools,
+              if (keelAiEntry != null) ...kKeelAiMcpToolNames,
+              if (toolsEntry != null)
+                ...profileTools.map(
+                  (tool) => '$kUserToolsMcpToolPrefix${tool.name}',
+                ),
+              // Server-level grant: every tool an external MCP exposes.
+              ...externalServers.map((server) => 'mcp__${server.name}'),
+            ],
+            workingDirectory: workingDirectory,
+            additionalSystemPrompt: _resolveProfileSystemPrompt(
+              target.profileId,
+            ),
+            mcpConfig: mcpConfig,
+            onProcessStarted: (process) => _runningProcesses[agentId] = process,
+          );
 
     var wasStopped = false;
     await for (final event in events) {
@@ -459,23 +467,17 @@ class AgentsViewModel extends ViewModel<AgentsState> {
               text: chunk,
               timestamp: DateTime.now(),
               reasoning: _consumeLiveReasoning(agentId),
-              fileEdits: await _collectFileEdits(pendingFileBeforeContent),
+              fileEdits: await fileEdits.collect(),
             ),
           );
-          pendingFileBeforeContent.clear();
 
         case ClaudeToolUse(name: final name, input: final input):
           _setCurrentActivity(
             agentId,
             AgentToolActivity.fromToolUse(name, input),
           );
-          final filePath = _filePathFor(name, input);
-          if (filePath != null &&
-              !pendingFileBeforeContent.containsKey(filePath)) {
-            pendingFileBeforeContent[filePath] = await _readFileSafely(
-              filePath,
-            );
-          }
+          final filePath = FileEditCollector.filePathFor(name, input);
+          if (filePath != null) await fileEdits.noteBeforeEdit(filePath);
 
         case ClaudeReasoningChunk(text: final chunk):
           _appendLiveReasoning(agentId, chunk);
@@ -787,46 +789,6 @@ class AgentsViewModel extends ViewModel<AgentsState> {
     }
     buffer.writeln('```');
     return buffer.toString();
-  }
-
-  String? _filePathFor(String toolName, Map<String, dynamic>? input) {
-    return switch (toolName) {
-      'Write' || 'Edit' || 'MultiEdit' => input?['file_path'] as String?,
-      'NotebookEdit' => input?['notebook_path'] as String?,
-      _ => null,
-    };
-  }
-
-  static const _maxDiffableFileBytes = 300000;
-
-  Future<String?> _readFileSafely(String path) async {
-    try {
-      final file = File(path);
-      if (!await file.exists()) return null;
-      final stat = await file.stat();
-      if (stat.size > _maxDiffableFileBytes) return null;
-      return await file.readAsString();
-    } catch (error) {
-      Log.w('Could not read $path for diff capture: $error');
-      return null;
-    }
-  }
-
-  Future<List<FileEdit>> _collectFileEdits(
-    Map<String, String?> beforeContentByPath,
-  ) async {
-    final edits = <FileEdit>[];
-    for (final path in beforeContentByPath.keys) {
-      final after = await _readFileSafely(path);
-      edits.add(
-        FileEdit(
-          path: path,
-          beforeContent: beforeContentByPath[path],
-          afterContent: after ?? '',
-        ),
-      );
-    }
-    return edits;
   }
 
   void _setCurrentActivity(String agentId, AgentToolActivity? activity) {

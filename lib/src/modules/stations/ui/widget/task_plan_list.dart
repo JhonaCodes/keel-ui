@@ -15,11 +15,15 @@ class TaskPlanList extends StatelessWidget {
     required this.stationId,
     required this.taskId,
     required this.plan,
+    required this.taskIsRunning,
   });
 
   final String stationId;
   final String taskId;
   final List<TaskPlanItem> plan;
+
+  /// Con la tarea corriendo no se ofrece arrancar otro ciclo: ya hay uno.
+  final bool taskIsRunning;
 
   @override
   Widget build(BuildContext context) {
@@ -53,6 +57,34 @@ class TaskPlanList extends StatelessWidget {
               child: Text(
                 'plan completo',
                 style: TextStyle(fontSize: 10, color: scheme.tertiary),
+              ),
+            )
+          // Cada punto pendiente es otra vuelta entera del workflow, desde el
+          // paso 1. Estaba solo como palabra escrita en el chat ("continuar"),
+          // que es pedirle al usuario que adivine el conjuro.
+          else if (!taskIsRunning && current != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 6, left: 16, bottom: 2),
+              child: TextButton.icon(
+                onPressed: () => StationsService.instance.notifier
+                    .continueWithNextPlanItem(stationId, taskId),
+                icon: const Icon(Icons.play_circle_outline, size: 14),
+                label: Text(
+                  'Seguir con "${current.text}"',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.left,
+                  style: const TextStyle(fontSize: 10.5, height: 1.2),
+                ),
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  alignment: Alignment.centerLeft,
+                ),
               ),
             ),
         ],
@@ -109,20 +141,41 @@ class _PlanRowState extends State<_PlanRow> {
               ),
               const SizedBox(width: 6),
               Expanded(
-                child: Text(
-                  item.text,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 11,
-                    height: 1.25,
-                    color: item.done ? scheme.outline : scheme.onSurface,
-                    decoration: item.done ? TextDecoration.lineThrough : null,
-                    decorationColor: scheme.outline,
-                    fontWeight: widget.isCurrent
-                        ? FontWeight.w600
-                        : FontWeight.w400,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.text,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 11,
+                        height: 1.25,
+                        color: item.done ? scheme.outline : scheme.onSurface,
+                        decoration: item.done
+                            ? TextDecoration.lineThrough
+                            : null,
+                        decorationColor: scheme.outline,
+                        fontWeight: widget.isCurrent
+                            ? FontWeight.w600
+                            : FontWeight.w400,
+                      ),
+                    ),
+                    // A qué PUESTO le toca — no a qué agente: el mismo plan
+                    // sirve en la estación de Rust y en la de Flutter, donde
+                    // ese puesto lo ocupa otro.
+                    if (item.ownerRole != null && !item.done)
+                      Text(
+                        item.ownerRole!,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 9.5,
+                          fontFamily: 'monospace',
+                          color: scheme.outline,
+                        ),
+                      ),
+                  ],
                 ),
               ),
               // La cruz aparece solo bajo el mouse: con doce puntos en la

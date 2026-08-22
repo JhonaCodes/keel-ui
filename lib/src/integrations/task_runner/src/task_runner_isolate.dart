@@ -1,26 +1,5 @@
 part of '../task_runner.dart';
 
-const _diagramSystemPromptHint =
-    'When you need to show a diagram, hierarchy, timeline, or flowchart, '
-    'prefer a ```mermaid fenced code block over generating raw SVG — it is '
-    'far cheaper in tokens and renders just as well in this chat client. '
-    'Only fall back to raw ```svg when mermaid genuinely cannot express the '
-    'shape you need (e.g. precise custom illustrations).';
-
-const _codeEditSystemPromptHint =
-    'When the user asks you to write, rewrite, convert, fix, or refactor '
-    'code for a real file on disk — especially when they reference a '
-    'specific file or line — actually make the change with your file tools '
-    '(Write/Edit/MultiEdit) instead of only printing the new code in your '
-    'reply. This client renders real file edits as an interactive '
-    'diff/edit card the user can review, tweak, and save directly, which is '
-    'far more useful to them than a code block in prose. Only print code '
-    'inline when the user is explicitly asking to see/discuss a snippet, '
-    'not asking for a change to be made.';
-
-const _appendedSystemPrompt =
-    '$_diagramSystemPromptHint\n\n$_codeEditSystemPromptHint';
-
 /// Bundles the two things `Isolate.spawn` can hand its entry point in one
 /// message: where to reply, and the turn to run.
 class _IsolateBootstrap {
@@ -69,8 +48,8 @@ Future<void> _runInIsolate({
   final allowedTools = [...kAlwaysAllowedTools, ...spec.extraAllowedTools];
   final additionalPrompt = spec.additionalSystemPrompt;
   final systemPrompt = (additionalPrompt == null || additionalPrompt.isEmpty)
-      ? _appendedSystemPrompt
-      : '$_appendedSystemPrompt\n\n$additionalPrompt';
+      ? kCliSystemHints
+      : '$kCliSystemHints\n\n$additionalPrompt';
 
   // File, never inline: the config may embed resolved secret values and an
   // inline argument is world-readable via `ps` — same rule as
@@ -302,8 +281,12 @@ List<Map<String, dynamic>> _parseCodexEventToMessages(
 
     case 'turn.completed':
       return const [
-        {'type': 'turnCompleted', 'isError': false, 'costUsd': 0.0,
-          'durationMs': 0},
+        {
+          'type': 'turnCompleted',
+          'isError': false,
+          'costUsd': 0.0,
+          'durationMs': 0,
+        },
       ];
 
     case 'turn.failed':

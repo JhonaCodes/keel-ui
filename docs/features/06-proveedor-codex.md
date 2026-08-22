@@ -70,3 +70,29 @@ Ahora:
 `TaskRunSpec.provider` viaja al isolate, que elige ejecutable, argumentos y
 dialecto de parseo (`_parseCodexEventToMessages`, espejo del servicio — el
 isolate es auto-contenido por diseño).
+
+## El plan de la tarea con codex
+
+Codex no recibe servidores MCP, así que las tools del plan no existen para
+él — y eso rompía el contrato central: si el dueño del paso 1 era codex, la
+tarea corría sin plan y el cierre la sellaba "terminada". Tres piezas lo
+arreglan:
+
+- **Bloques fenced**: un miembro codex escribe el plan con un bloque
+  ```` ```plan ```` (`puntos:` con líneas `texto | puesto`) y marca con
+  ```` ```cumplido ```` — mismo patrón que ```` ```agente ````. La app los
+  parsea al cerrar su turno (`_applyDeclaredPlanBlocks`) y aplica
+  `setTaskPlan`/`completePlanItems` de verdad. La sección PLAN de su prompt
+  documenta los bloques en vez de las tools.
+- **Plan fresco en turnos resumidos**: codex recibe system prompt solo en
+  el PRIMER turno de su sesión, así que el estado del plan quedaba congelado
+  en el turno 1. Ahora, en turnos resumidos, la sección PLAN viva viaja
+  antepuesta al pedido del turno, que sí llega siempre.
+- **El verificador del cierre prefiere claude** (`_planCloser`): entre el
+  dueño del primer y del último paso, va el que no corra con codex — tiene
+  las tools de verdad. Si solo hay codex, verifica igual con los bloques.
+
+Y el cierre con plan vacío ya no es un éxito automático: si el ciclo
+terminó sin plan y sin producir un solo mensaje de trabajo, la tarea queda
+como NO terminada en vez de "finished" — el falso éxito de una estación
+codex muda desapareció.

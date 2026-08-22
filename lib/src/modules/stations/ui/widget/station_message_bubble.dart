@@ -122,7 +122,9 @@ class _Content extends StatelessWidget {
               ),
               for (final fileEdit in message.fileEdits)
                 InlineFileEditor(
-                  fileEdit: fileEdit,
+                  editAsReported: fileEdit,
+                  workingDirectory: StationsService.instance.notifier
+                      .workingDirectoryOf(bubble.stationId),
                   onAskAboutLine:
                       ({
                         required filePath,

@@ -37,6 +37,12 @@ class StationTask {
   /// dependa de scrollear.
   final List<TaskPlanItem> plan;
 
+  /// El pedido con el que arrancó la tarea, tal como lo escribió el usuario.
+  /// Se guarda porque los ciclos 2..N corren con el punto del plan como
+  /// pedido — sin esto, un miembro que entra recién en el ciclo 3 nunca ve
+  /// qué se pidió en realidad.
+  final String request;
+
   final int currentStepIndex;
   final bool isRunning;
 
@@ -70,6 +76,7 @@ class StationTask {
     this.sessionsByProfileId = const {},
     this.extraProfileIds = const [],
     this.plan = const [],
+    this.request = '',
     this.currentStepIndex = 0,
     this.isRunning = false,
     this.costUsd = 0,
@@ -95,6 +102,7 @@ class StationTask {
     Map<String, String>? sessionsByProfileId,
     List<String>? extraProfileIds,
     List<TaskPlanItem>? plan,
+    String? request,
     int? currentStepIndex,
     bool? isRunning,
     double? costUsd,
@@ -115,6 +123,7 @@ class StationTask {
       sessionsByProfileId: sessionsByProfileId ?? this.sessionsByProfileId,
       extraProfileIds: extraProfileIds ?? this.extraProfileIds,
       plan: plan ?? this.plan,
+      request: request ?? this.request,
       currentStepIndex: currentStepIndex ?? this.currentStepIndex,
       isRunning: isRunning ?? this.isRunning,
       costUsd: costUsd ?? this.costUsd,
@@ -137,6 +146,7 @@ class StationTask {
     'sessionsByProfileId': sessionsByProfileId,
     'extraProfileIds': extraProfileIds,
     'plan': plan.map((item) => item.toJson()).toList(),
+    'request': request,
     'currentStepIndex': currentStepIndex,
     'isRunning': isRunning,
     'costUsd': costUsd,
@@ -162,6 +172,7 @@ class StationTask {
       plan: (json['plan'] as List? ?? const [])
           .map((entry) => TaskPlanItem.fromJson(entry as Map<String, dynamic>))
           .toList(),
+      request: json['request'] as String? ?? '',
       currentStepIndex: json['currentStepIndex'] as int? ?? 0,
       isRunning: json['isRunning'] as bool? ?? false,
       costUsd: (json['costUsd'] as num?)?.toDouble() ?? 0,
@@ -188,6 +199,7 @@ class StationTask {
           mapEquals(sessionsByProfileId, other.sessionsByProfileId) &&
           listEquals(extraProfileIds, other.extraProfileIds) &&
           listEquals(plan, other.plan) &&
+          request == other.request &&
           currentStepIndex == other.currentStepIndex &&
           isRunning == other.isRunning &&
           costUsd == other.costUsd &&
@@ -209,6 +221,7 @@ class StationTask {
     ),
     Object.hashAll(extraProfileIds),
     Object.hashAll(plan),
+    request,
     currentStepIndex,
     isRunning,
     costUsd,

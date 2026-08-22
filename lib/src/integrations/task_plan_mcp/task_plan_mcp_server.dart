@@ -177,9 +177,11 @@ final class _TaskPlanMcpServer extends mcp.MCPServer with mcp.ToolsSupport {
            name: kTaskPlanMcpServerKey,
            version: '1.0.0',
          ),
-         instructions:
-             'El plan de trabajo de la tarea en la que estás. Es lo que el '
-             'usuario mira para saber qué falta.',
+         // La prosa de proceso (para qué es el plan, cuándo escribirlo) vive
+         // en la sección PLAN del system prompt del turno; acá solo la
+         // mecánica de la llamada, para no repetir la misma regla en dos
+         // lugares que después divergen.
+         instructions: 'El plan de trabajo de la tarea en la que estás.',
        ) {
     registerTool(_setPlanTool, _setPlan);
     registerTool(_completeTool, _complete);
@@ -198,16 +200,27 @@ final class _TaskPlanMcpServer extends mcp.MCPServer with mcp.ToolsSupport {
   static final _setPlanTool = mcp.Tool(
     name: 'set_task_plan',
     description:
-        'Fija el plan de trabajo de esta tarea: la lista de puntos concretos '
-        'que hay que cumplir para darla por terminada. Reemplaza el plan '
-        'anterior, conservando marcado lo que ya estaba hecho y sigue igual. '
-        'Usala cuando planificás, y volvé a usarla si el plan cambia a mitad '
-        'de camino. Un punto es una frase corta y verificable, no una etapa '
-        'del workflow.',
+        'Fija el plan de la tarea: reemplaza el anterior. Un punto cuyo '
+        'texto no cambie conserva su estado de cumplido (la comparación '
+        'ignora mayúsculas, acentos y puntuación). Cada item lleva `texto` '
+        'y, opcionalmente, `puesto`.',
     inputSchema: mcp.ObjectSchema(
       properties: {
         'items': mcp.Schema.list(
-          items: mcp.Schema.string(),
+          items: mcp.ObjectSchema(
+            properties: {
+              'texto': mcp.Schema.string(
+                description: 'El punto, en una frase verificable.',
+              ),
+              'puesto': mcp.Schema.string(
+                description:
+                    'El ROL que lo tiene que hacer (implementador, revisor, '
+                    'auditor…), igual que lo nombra un paso del workflow. '
+                    'Nunca un @handle. Omitilo si todavía no está claro.',
+              ),
+            },
+            required: ['texto'],
+          ),
           description: 'Los puntos del plan, en orden.',
         ),
       },
@@ -218,15 +231,14 @@ final class _TaskPlanMcpServer extends mcp.MCPServer with mcp.ToolsSupport {
   static final _completeTool = mcp.Tool(
     name: 'complete_plan_items',
     description:
-        'Marca como cumplidos los puntos del plan que tu paso resolvió. '
-        'Llamala al terminar tu turno, con el texto exacto de cada punto (o '
-        'su id). Marcá solo lo que efectivamente hiciste: el usuario lee '
-        'esto para saber qué falta.',
+        'Marca puntos del plan como cumplidos. Pasá el texto de cada punto '
+        '(la comparación ignora mayúsculas, acentos y puntuación) o su id. '
+        'Marcá solo lo que tu turno resolvió.',
     inputSchema: mcp.ObjectSchema(
       properties: {
         'items': mcp.Schema.list(
           items: mcp.Schema.string(),
-          description: 'Texto exacto o id de cada punto cumplido.',
+          description: 'Texto o id de cada punto cumplido.',
         ),
       },
       required: ['items'],
@@ -234,12 +246,40 @@ final class _TaskPlanMcpServer extends mcp.MCPServer with mcp.ToolsSupport {
   );
 
   Future<mcp.CallToolResult> _setPlan(mcp.CallToolRequest request) async {
-    final items = _stringList(request.arguments?['items']);
+    final items = _planEntries(request.arguments?['items']);
     if (items.isEmpty) {
       return _text('El plan tiene que tener al menos un punto.');
     }
     _stations.setTaskPlan(stationId, taskId, items);
-    return _text('Plan fijado: ${items.length} puntos.');
+    final asignados = items.where((entry) => entry.ownerRole != null).length;
+    return _text(
+      'Plan fijado: ${items.length} puntos, $asignados con puesto asignado.',
+    );
+  }
+
+  /// Los puntos del plan. Acepta el objeto `{texto, puesto}` y también un
+  /// string pelado: el modelo tiene los dos a la vista en el historial de la
+  /// tarea, y rechazar el formato viejo convierte un acierto en un fallo.
+  static List<PlanEntry> _planEntries(Object? value) {
+    if (value is! List) return const [];
+    final entries = <PlanEntry>[];
+    for (final raw in value) {
+      if (raw is String) {
+        entries.add((text: raw, ownerRole: null));
+        continue;
+      }
+      if (raw is! Map) continue;
+      final text = raw['texto'] ?? raw['text'];
+      if (text == null) continue;
+      final owner = (raw['puesto'] ?? raw['rol'] ?? raw['ownerRole'])
+          ?.toString()
+          .trim();
+      entries.add((
+        text: text.toString(),
+        ownerRole: owner == null || owner.isEmpty ? null : owner,
+      ));
+    }
+    return entries;
   }
 
   Future<mcp.CallToolResult> _complete(mcp.CallToolRequest request) async {
@@ -260,7 +300,9 @@ final class _TaskPlanMcpServer extends mcp.MCPServer with mcp.ToolsSupport {
           ? 'Marqué $marcados. Van ${plan.doneCount} de ${plan.length}.'
           : 'Marqué $marcados. No encontré en el plan: '
                 '${noEncontrados.join(' | ')}. Van ${plan.doneCount} de '
-                '${plan.length} — revisá el texto exacto de los puntos.',
+                '${plan.length} — copiá el texto del punto tal como figura '
+                'en el plan (mayúsculas, acentos y puntuación no importan; '
+                'las palabras sí).',
     );
   }
 

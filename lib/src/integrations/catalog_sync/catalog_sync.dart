@@ -57,8 +57,7 @@ class CatalogSyncState {
   int get hashCode => Object.hash(busy, log, lastSyncAt);
 
   @override
-  String toString() =>
-      'CatalogSyncState(busy: $busy, lastSyncAt: $lastSyncAt)';
+  String toString() => 'CatalogSyncState(busy: $busy, lastSyncAt: $lastSyncAt)';
 }
 
 /// Exports the whole catalog (skills, rules, tools, workflows, MCPs,

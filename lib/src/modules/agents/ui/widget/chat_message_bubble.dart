@@ -10,6 +10,7 @@ import 'package:keel_ui/src/modules/agents/ui/widget/bubble_width.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/chat_message_body.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/inline_file_editor.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/reasoning_panel.dart';
+import 'package:keel_ui/src/modules/agents/viewmodel/agents_viewmodel.dart';
 import 'package:keel_ui/src/modules/settings/model/app_settings.dart';
 import 'package:keel_ui/src/modules/settings/viewmodel/settings_viewmodel.dart';
 import 'package:keel_ui/src/shared/shared.dart';
@@ -186,7 +187,11 @@ class _ChatMessageBubbleContent extends StatelessWidget {
                   ),
                   for (final fileEdit in message.fileEdits)
                     InlineFileEditor(
-                      fileEdit: fileEdit,
+                      editAsReported: fileEdit,
+                      workingDirectory: AgentsService
+                          .instance
+                          .notifier
+                          .looseAgentWorkingDirectory,
                       windowAgentId: agentId,
                       onAskAboutLine:
                           ({

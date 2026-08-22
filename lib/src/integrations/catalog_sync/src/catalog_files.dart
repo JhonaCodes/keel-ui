@@ -36,29 +36,40 @@ Future<int> _writeCatalog(Directory mirror) async {
   }
 
   var written = 0;
+  for (final entry in catalogAsJson().entries) {
+    for (final json in entry.value) {
+      await _writeEntity(catalogDir, entry.key, json['name'] as String, json);
+      written++;
+    }
+  }
+  return written;
+}
+
+/// El catálogo vivo serializado POR NOMBRE, categoría → entidades. Única
+/// fuente de la forma portable: el mirror git la escribe en archivos y el
+/// respaldo local la mete en un solo JSON — dos destinos, una forma.
+Map<String, List<Map<String, dynamic>>> catalogAsJson() {
+  final byCategory = {
+    for (final category in _kCatalogDirs) category: <Map<String, dynamic>>[],
+  };
 
   for (final skill in SkillsService.instance.notifier.data.skills) {
     // The system map is compiled app knowledge, re-seeded on every launch —
     // exporting it would just ship a stale copy.
     if (skill.name == kKeelAiSkillNameForExport) continue;
-    await _writeEntity(catalogDir, 'skills', skill.name, {
+    byCategory['skills']!.add({
       'name': skill.name,
       'content': skill.content,
       'isGlobal': skill.isGlobal,
     });
-    written++;
   }
 
   for (final rule in RulesService.instance.notifier.data.rules) {
-    await _writeEntity(catalogDir, 'rules', rule.name, {
-      'name': rule.name,
-      'content': rule.content,
-    });
-    written++;
+    byCategory['rules']!.add({'name': rule.name, 'content': rule.content});
   }
 
   for (final tool in ToolsService.instance.notifier.data.tools) {
-    await _writeEntity(catalogDir, 'tools', tool.name, {
+    byCategory['tools']!.add({
       'name': tool.name,
       'description': tool.description,
       'runtime': tool.runtime.alias,
@@ -66,11 +77,10 @@ Future<int> _writeCatalog(Directory mirror) async {
       'timeoutSeconds': tool.timeoutSeconds,
       'secretNames': tool.secretNames,
     });
-    written++;
   }
 
   for (final workflow in WorkflowsService.instance.notifier.data.workflows) {
-    await _writeEntity(catalogDir, 'workflows', workflow.name, {
+    byCategory['workflows']!.add({
       'name': workflow.name,
       'whenToApply': workflow.whenToApply,
       'steps': [
@@ -82,11 +92,10 @@ Future<int> _writeCatalog(Directory mirror) async {
           },
       ],
     });
-    written++;
   }
 
   for (final server in McpServersService.instance.notifier.data.servers) {
-    await _writeEntity(catalogDir, 'mcp_servers', server.name, {
+    byCategory['mcp_servers']!.add({
       'name': server.name,
       'transport': server.transport.alias,
       'command': server.command,
@@ -97,11 +106,10 @@ Future<int> _writeCatalog(Directory mirror) async {
       'url': server.url,
       'headers': server.headers,
     });
-    written++;
   }
 
   for (final base in KnowledgeService.instance.notifier.data.bases) {
-    await _writeEntity(catalogDir, 'knowledge_bases', base.name, {
+    byCategory['knowledge_bases']!.add({
       'name': base.name,
       'description': base.description,
       'source': base.source.alias,
@@ -111,13 +119,12 @@ Future<int> _writeCatalog(Directory mirror) async {
       // importar la base queda sin carpeta y la UI la pide. El CONTENIDO
       // tampoco — un repo git se recupera clonando.
     });
-    written++;
   }
 
   final profiles = AgentProfilesService.instance.notifier.data.profiles;
   for (final profile in profiles) {
     if (profile.name == kKeelAiHandle) continue;
-    await _writeEntity(catalogDir, 'profiles', profile.name, {
+    byCategory['profiles']!.add({
       'name': profile.name,
       'role': profile.role,
       'systemPrompt': profile.systemPrompt,
@@ -131,7 +138,6 @@ Future<int> _writeCatalog(Directory mirror) async {
       'model': profile.model,
       'effort': profile.effort,
     });
-    written++;
   }
 
   final stationsViewModel = StationsService.instance.notifier;
@@ -139,7 +145,7 @@ Future<int> _writeCatalog(Directory mirror) async {
     final workflows = WorkflowsService.instance.notifier.data.workflows;
     String? workflowNameOf(String id) =>
         workflows.where((workflow) => workflow.id == id).firstOrNull?.name;
-    await _writeEntity(catalogDir, 'stations', station.name, {
+    byCategory['stations']!.add({
       'name': station.name,
       'purpose': station.purpose,
       // Portable references only: handles and names. Working directory and
@@ -161,10 +167,9 @@ Future<int> _writeCatalog(Directory mirror) async {
           ? null
           : workflowNameOf(station.activeWorkflowId!),
     });
-    written++;
   }
 
-  return written;
+  return byCategory;
 }
 
 /// Los ajustes de motor de [station] rekeyados por handle. Un ajuste de un
@@ -223,7 +228,17 @@ List<Map<String, dynamic>> _readCategory(Directory mirror, String category) {
 
 /// Merges the repo catalog into the live one, by name: create if missing,
 /// update in place if present. Returns the human summary.
-Future<String> _readAndMergeCatalog(Directory mirror) async {
+Future<String> _readAndMergeCatalog(Directory mirror) => mergeCatalogJson({
+  for (final category in _kCatalogDirs)
+    category: _readCategory(mirror, category),
+});
+
+/// El merge por nombre sobre el catálogo vivo, desde la forma portable de
+/// [catalogAsJson] — venga del mirror git o de un respaldo en un archivo.
+/// Solo toca las categorías presentes en [byCategory].
+Future<String> mergeCatalogJson(
+  Map<String, List<Map<String, dynamic>>> byCategory,
+) async {
   var created = 0;
   var updated = 0;
   final problems = <String>[];
@@ -239,7 +254,7 @@ Future<String> _readAndMergeCatalog(Directory mirror) async {
   }
 
   final skills = SkillsService.instance.notifier;
-  for (final json in _readCategory(mirror, 'skills')) {
+  for (final json in byCategory['skills'] ?? const <Map<String, dynamic>>[]) {
     final name = json['name'] as String;
     if (name == kKeelAiSkillNameForExport) continue;
     final existing = skills.data.skills
@@ -261,7 +276,7 @@ Future<String> _readAndMergeCatalog(Directory mirror) async {
   }
 
   final rules = RulesService.instance.notifier;
-  for (final json in _readCategory(mirror, 'rules')) {
+  for (final json in byCategory['rules'] ?? const <Map<String, dynamic>>[]) {
     final name = json['name'] as String;
     final existing = rules.data.rules
         .where((rule) => rule.name == name)
@@ -280,7 +295,7 @@ Future<String> _readAndMergeCatalog(Directory mirror) async {
   }
 
   final tools = ToolsService.instance.notifier;
-  for (final json in _readCategory(mirror, 'tools')) {
+  for (final json in byCategory['tools'] ?? const <Map<String, dynamic>>[]) {
     final name = json['name'] as String;
     final runtime = ToolRuntime.tryFromAlias(json['runtime'] as String? ?? '');
     if (runtime == null) {
@@ -316,7 +331,8 @@ Future<String> _readAndMergeCatalog(Directory mirror) async {
   }
 
   final workflows = WorkflowsService.instance.notifier;
-  for (final json in _readCategory(mirror, 'workflows')) {
+  for (final json
+      in byCategory['workflows'] ?? const <Map<String, dynamic>>[]) {
     final name = json['name'] as String;
     final steps = [
       for (final step
@@ -348,7 +364,8 @@ Future<String> _readAndMergeCatalog(Directory mirror) async {
   }
 
   final servers = McpServersService.instance.notifier;
-  for (final json in _readCategory(mirror, 'mcp_servers')) {
+  for (final json
+      in byCategory['mcp_servers'] ?? const <Map<String, dynamic>>[]) {
     final name = json['name'] as String;
     final transport = McpTransport.tryFromAlias(
       json['transport'] as String? ?? '',
@@ -390,7 +407,8 @@ Future<String> _readAndMergeCatalog(Directory mirror) async {
   }
 
   final knowledge = KnowledgeService.instance.notifier;
-  for (final json in _readCategory(mirror, 'knowledge_bases')) {
+  for (final json
+      in byCategory['knowledge_bases'] ?? const <Map<String, dynamic>>[]) {
     final name = json['name'] as String;
     final source = KnowledgeSource.tryFromAlias(
       json['source'] as String? ?? '',
@@ -423,7 +441,7 @@ Future<String> _readAndMergeCatalog(Directory mirror) async {
   }
 
   final profiles = AgentProfilesService.instance.notifier;
-  for (final json in _readCategory(mirror, 'profiles')) {
+  for (final json in byCategory['profiles'] ?? const <Map<String, dynamic>>[]) {
     final name = json['name'] as String;
     if (name == kKeelAiHandle) continue;
     final provider =
@@ -474,7 +492,7 @@ Future<String> _readAndMergeCatalog(Directory mirror) async {
   final stations = StationsService.instance.notifier;
   final liveProfiles = profiles.data.profiles;
   final liveWorkflows = workflows.data.workflows;
-  for (final json in _readCategory(mirror, 'stations')) {
+  for (final json in byCategory['stations'] ?? const <Map<String, dynamic>>[]) {
     final name = json['name'] as String;
     final profileIds = [
       for (final handle

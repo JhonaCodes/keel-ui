@@ -60,24 +60,29 @@ class ClaudeContextUsage extends ClaudeEvent {
 }
 
 const _diagramSystemPromptHint =
-    'When you need to show a diagram, hierarchy, timeline, or flowchart, '
-    'prefer a ```mermaid fenced code block over generating raw SVG — it is '
-    'far cheaper in tokens and renders just as well in this chat client. '
-    'Only fall back to raw ```svg when mermaid genuinely cannot express the '
-    'shape you need (e.g. precise custom illustrations).';
+    'Para mostrar un diagrama, una jerarquía, una línea de tiempo o un '
+    'flujo, preferí un bloque ```mermaid antes que SVG crudo: cuesta muchos '
+    'menos tokens y en este cliente se ve igual de bien. Caé a ```svg solo '
+    'cuando mermaid no pueda expresar la forma (ilustraciones precisas a '
+    'medida).';
 
 const _codeEditSystemPromptHint =
-    'When the user asks you to write, rewrite, convert, fix, or refactor '
-    'code for a real file on disk — especially when they reference a '
-    'specific file or line — actually make the change with your file tools '
-    '(Write/Edit/MultiEdit) instead of only printing the new code in your '
-    'reply. This client renders real file edits as an interactive '
-    'diff/edit card the user can review, tweak, and save directly, which is '
-    'far more useful to them than a code block in prose. Only print code '
-    'inline when the user is explicitly asking to see/discuss a snippet, '
-    'not asking for a change to be made.';
+    'Cuando el mensaje ES un pedido de cambiar código de un archivo real '
+    'del disco —escribir, corregir, convertir, refactorizar—, hacé el '
+    'cambio con tus herramientas de archivo (Write/Edit) en vez de imprimir '
+    'el código en la respuesta: este cliente muestra la edición real como '
+    'una tarjeta de diff que el usuario revisa, ajusta y guarda. Imprimí '
+    'código inline solo cuando te piden VER o discutir un fragmento. Y si '
+    'el mensaje era una pregunta y no un pedido, esta regla no aplica: '
+    'primero respondé.';
 
-const _appendedSystemPrompt =
+/// Los dos consejos que encabezan el system prompt de TODO turno claude —
+/// 1:1, estación o asistente. Públicos por la misma razón que
+/// [kAlwaysAllowedTools]: el isolate del task runner los necesita y dos
+/// copias divergiendo en silencio es exactamente lo que no puede pasar.
+/// En español, como el resto del corpus: abrían en inglés un prompt que
+/// después habla todo en castellano.
+const kCliSystemHints =
     '$_diagramSystemPromptHint\n\n$_codeEditSystemPromptHint';
 
 /// Tools every agent gets, no setting required. They are all read-only or
@@ -112,8 +117,8 @@ class ClaudeCliService {
     final allowedTools = [...kAlwaysAllowedTools, ...extraAllowedTools];
     final systemPrompt =
         (additionalSystemPrompt == null || additionalSystemPrompt.isEmpty)
-        ? _appendedSystemPrompt
-        : '$_appendedSystemPrompt\n\n$additionalSystemPrompt';
+        ? kCliSystemHints
+        : '$kCliSystemHints\n\n$additionalSystemPrompt';
 
     // The MCP config travels as a FILE, never inline: the JSON may embed
     // resolved secret values (external MCP servers' env), and an inline

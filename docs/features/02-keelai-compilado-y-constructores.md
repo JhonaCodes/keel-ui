@@ -30,7 +30,12 @@
 
 ## Límites
 
-- El fallback de bloques fenced (```skill etc.) sigue siendo EXCLUSIVO de
-  Keel AI — los constructores solo actúan por tools MCP reales.
+- El fallback de CREACIÓN por bloques fenced (```skill, ```regla,
+  ```workflow, ```estacion) es de Keel AI — los constructores actúan por
+  tools MCP reales. Ojo: NO es el único dialecto fenced del sistema. Un
+  miembro de estación declara especialistas con un bloque ```agente propio
+  (4 claves: handle/rol/proposito/instrucciones, ver F8), y un miembro
+  codex escribe el plan con ```plan/```cumplido (ver F6/F17). Son parsers
+  distintos con claves distintas.
 - `canManageSystem` no viaja al export sin revisión (ver F9): al importar se
   respeta lo que diga el JSON, que el usuario revisa.

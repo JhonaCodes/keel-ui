@@ -11,7 +11,7 @@ import 'package:logger_rs/logger_rs.dart';
 // copies of "what an agent is allowed to touch" drifting apart is exactly the
 // kind of divergence that must not happen silently.
 import 'package:keel_ui/src/core/services/claude_cli_service.dart'
-    show kAlwaysAllowedTools;
+    show kAlwaysAllowedTools, kCliSystemHints;
 // Same reason: which model names belong to which CLI is decided in ONE
 // place, so a station turn cannot hand codex a Claude alias the 1:1 path
 // already knows to withhold.

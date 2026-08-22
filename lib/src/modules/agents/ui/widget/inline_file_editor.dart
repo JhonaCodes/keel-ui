@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:keel_ui/src/core/services/app_window_service.dart';
+import 'package:keel_ui/src/core/services/file_edit_collector.dart';
 import 'package:keel_ui/src/modules/agents/model/file_edit.dart';
 import 'package:keel_ui/src/modules/agents/model/file_editor_window_arguments.dart';
 import 'package:keel_ui/src/modules/agents/model/line_diff.dart';
@@ -19,13 +20,33 @@ import 'package:keel_ui/src/shared/shared.dart';
 class InlineFileEditor extends StatefulWidget {
   const InlineFileEditor({
     super.key,
-    required this.fileEdit,
+    required this.editAsReported,
+    required this.workingDirectory,
     required this.onAskAboutLine,
     required this.onManualEditSaved,
     this.windowAgentId,
   });
 
-  final FileEdit fileEdit;
+  /// El cambio tal como lo registró el turno, con la ruta que reportó la CLI.
+  final FileEdit editAsReported;
+
+  /// El directorio del turno que escribió este mensaje.
+  ///
+  /// Los mensajes viejos guardaron la ruta como la reportó la CLI, que a
+  /// veces es relativa (`./src/algo.rs`). Resolverla también acá hace que el
+  /// hilo que ya está escrito se pueda abrir, no solo el que venga.
+  final String? workingDirectory;
+
+  /// El mismo cambio, con la ruta ya absoluta — que es la única con la que se
+  /// puede abrir el archivo.
+  FileEdit get fileEdit => editAsReported.path.startsWith('/')
+      ? editAsReported
+      : editAsReported.copyWith(
+          path: FileEditCollector.resolvePath(
+            editAsReported.path,
+            workingDirectory,
+          ),
+        );
   final AskAboutLineCallback onAskAboutLine;
   final ManualEditSavedCallback onManualEditSaved;
   final String? windowAgentId;

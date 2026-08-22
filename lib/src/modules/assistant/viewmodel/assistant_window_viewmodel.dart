@@ -70,8 +70,10 @@ class AssistantWindowViewModel extends ViewModel<AssistantWindowState> {
           return;
         }
       } catch (error) {
-        Log.w('attach al puente del asistente falló (intento $attempt): '
-            '$error');
+        Log.w(
+          'attach al puente del asistente falló (intento $attempt): '
+          '$error',
+        );
       }
       await Future<void>.delayed(const Duration(milliseconds: 300));
     }

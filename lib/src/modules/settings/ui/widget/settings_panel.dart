@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
 
 import 'package:keel_ui/src/core/ui/form_panel.dart';
+import 'package:keel_ui/src/integrations/catalog_backup/catalog_backup.dart';
 import 'package:keel_ui/src/integrations/catalog_sync/catalog_sync.dart';
 import 'package:keel_ui/src/integrations/jobs_api/jobs_api.dart';
 import 'package:keel_ui/src/modules/settings/model/app_settings.dart';
@@ -90,6 +91,34 @@ class SettingsPanel extends StatelessWidget {
               const _CatalogSyncControls(),
               const SizedBox(height: 24),
               Text(
+                'Respaldo en un archivo',
+                style: Theme.of(context).textTheme.labelLarge,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Todo el catálogo (o las secciones que elijas) en un único '
+                'archivo portable, con los documentos de las bases de saber '
+                'locales. Los secrets solo si los pedís explícitamente.',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  FilledButton.icon(
+                    onPressed: () => openBackupExportPanel(context),
+                    icon: const Icon(Icons.save_alt, size: 18),
+                    label: const Text('Exportar…'),
+                  ),
+                  const SizedBox(width: 8),
+                  OutlinedButton.icon(
+                    onPressed: () => openBackupImportPanel(context),
+                    icon: const Icon(Icons.folder_open, size: 18),
+                    label: const Text('Importar…'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              Text(
                 'API de trabajos programados',
                 style: Theme.of(context).textTheme.labelLarge,
               ),
@@ -109,7 +138,6 @@ class SettingsPanel extends StatelessWidget {
     );
   }
 }
-
 
 /// A settings text field that saves on submit/focus-out — the value must
 /// come from and return to the ViewModel, never live only in the widget.
@@ -202,7 +230,6 @@ class _CatalogSyncControls extends StatelessWidget {
     );
   }
 }
-
 
 class _JobsApiInfo extends StatelessWidget {
   const _JobsApiInfo();

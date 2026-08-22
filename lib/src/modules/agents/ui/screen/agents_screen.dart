@@ -56,8 +56,6 @@ class _AgentsScreenState extends State<AgentsScreen> {
               return Row(
                 children: [
                   AgentRail(
-                    state: agentsState,
-                    onSelectAgent: _focusAgent,
                     onOpenProfiles: () => showFormPanel(
                       context,
                       child: const AgentProfilesScreen(),
@@ -70,10 +68,8 @@ class _AgentsScreenState extends State<AgentsScreen> {
                         showFormPanel(context, child: const ToolsScreen()),
                     onOpenSecrets: () =>
                         showFormPanel(context, child: const SecretsScreen()),
-                    onOpenMcpServers: () => showFormPanel(
-                      context,
-                      child: const McpServersScreen(),
-                    ),
+                    onOpenMcpServers: () =>
+                        showFormPanel(context, child: const McpServersScreen()),
                     onOpenKnowledge: () => showFormPanel(
                       context,
                       // Saber no es un formulario: es un navegador de dos
@@ -97,6 +93,10 @@ class _AgentsScreenState extends State<AgentsScreen> {
                     onNewStation: () => openStationFormScreen(context),
                     onManageStations: () =>
                         showFormPanel(context, child: const StationsScreen()),
+                    onManageAgents: () => showFormPanel(
+                      context,
+                      child: const AgentProfilesScreen(),
+                    ),
                   ),
                   const VerticalDivider(width: 1),
                   Expanded(

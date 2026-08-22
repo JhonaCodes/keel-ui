@@ -43,3 +43,11 @@ importa en otra máquina con un merge idempotente.
 
 `git` instalado y con credenciales para el repo (SSH o HTTPS con helper).
 Los commits usan la identidad git global del usuario.
+
+## Relación con F20
+
+El repo git es la sincronización CONTINUA de todo el catálogo entre
+máquinas propias. Para un traslado puntual con selección por secciones —
+incluyendo los documentos de las bases de saber locales y, con opt-in, los
+secrets — está el respaldo en un archivo (F20), que reusa exactamente esta
+misma forma portable (`catalogAsJson`/`mergeCatalogJson`).

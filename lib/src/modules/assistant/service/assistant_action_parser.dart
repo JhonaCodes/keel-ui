@@ -9,6 +9,7 @@ const _stationKeys = {
   'agentes',
   'workflows',
   'reglas',
+  'saber',
 };
 const _agentKeys = {
   'handle',
@@ -113,6 +114,7 @@ List<AssistantAction> parseAssistantActions(String text) {
         agentHandles: _splitList(fields['agentes']),
         workflowNames: _splitList(fields['workflows']),
         ruleNames: _splitList(fields['reglas']),
+        knowledgeBaseNames: _splitList(fields['saber']),
       ),
     );
   }

@@ -2,6 +2,7 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
 
+import 'package:keel_ui/src/core/services/external_link_service.dart';
 import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
 import 'package:keel_ui/src/modules/agent_profiles/viewmodel/agent_profiles_viewmodel.dart';
 import 'package:keel_ui/src/modules/agents/model/chat_message.dart';
@@ -429,6 +430,21 @@ class _ChannelHeader extends StatelessWidget {
   final StationTab tab;
   final ValueChanged<StationTab> onTabChanged;
 
+  /// El pull request que abrió esta tarea, si alguno lo nombró en el hilo.
+  ///
+  /// Se lee de los mensajes y no de un campo propio: el PR lo abre un agente
+  /// con `gh` en su turno, y el hilo es donde queda dicho. Guardarlo aparte
+  /// sería un segundo lugar donde puede quedar viejo.
+  ({int number, String url})? _pullRequest() {
+    final open = task;
+    if (open == null) return null;
+    for (final message in open.messages.reversed) {
+      final pr = lastPullRequestIn(message.text);
+      if (pr != null) return pr;
+    }
+    return null;
+  }
+
   /// Per-member cost ledger of the open task, for the subtitle tooltip.
   String _costBreakdown() {
     final open = task;
@@ -499,6 +515,7 @@ class _ChannelHeader extends StatelessWidget {
               ],
             ),
           ),
+          if (_pullRequest() case final pr?) _PullRequestChip(pr: pr),
           if (open != null)
             IconButton(
               tooltip: 'Agentes de esta tarea',
@@ -535,6 +552,39 @@ class _ChannelHeader extends StatelessWidget {
             style: Theme.of(context).textTheme.bodySmall,
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// El PR de la tarea, en el encabezado. Está también en el hilo, pero a los
+/// cuarenta mensajes hay que ir a buscarlo: acá se llega de un click desde
+/// cualquier punto de la conversación.
+class _PullRequestChip extends StatelessWidget {
+  const _PullRequestChip({required this.pr});
+
+  final ({int number, String url}) pr;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return Padding(
+      padding: const EdgeInsets.only(right: 4),
+      child: Tooltip(
+        message: 'Abrir ${pr.url}',
+        child: TextButton.icon(
+          onPressed: () => openExternalUrl(pr.url),
+          icon: Icon(Icons.call_merge, size: 15, color: scheme.tertiary),
+          label: Text(
+            'PR #${pr.number}',
+            style: TextStyle(
+              fontFamily: 'monospace',
+              fontSize: 12,
+              color: scheme.tertiary,
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -652,7 +702,6 @@ class _EmptyChannel extends StatelessWidget {
   }
 }
 
-
 /// An imported station lands without a working directory (paths never
 /// travel in the catalog) — nothing can run until the user picks one here.
 class _MissingFolderBanner extends StatelessWidget {
@@ -661,9 +710,7 @@ class _MissingFolderBanner extends StatelessWidget {
   final String stationId;
 
   Future<void> _pickFolder() async {
-    final path = await getDirectoryPath(
-      confirmButtonText: 'Usar esta carpeta',
-    );
+    final path = await getDirectoryPath(confirmButtonText: 'Usar esta carpeta');
     if (path == null) return;
     StationsService.instance.notifier.setStationWorkingDirectory(
       stationId,
@@ -680,8 +727,11 @@ class _MissingFolderBanner extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(
         children: [
-          Icon(Icons.folder_off_outlined,
-              size: 18, color: scheme.onErrorContainer),
+          Icon(
+            Icons.folder_off_outlined,
+            size: 18,
+            color: scheme.onErrorContainer,
+          ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(

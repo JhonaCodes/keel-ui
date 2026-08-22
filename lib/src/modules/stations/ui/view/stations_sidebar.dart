@@ -23,6 +23,7 @@ class StationsSidebar extends StatelessWidget {
     required this.onSelectAgent,
     required this.onNewStation,
     required this.onManageStations,
+    required this.onManageAgents,
   });
 
   final StationsState state;
@@ -31,6 +32,7 @@ class StationsSidebar extends StatelessWidget {
   final ValueChanged<String> onSelectAgent;
   final VoidCallback onNewStation;
   final VoidCallback onManageStations;
+  final VoidCallback onManageAgents;
 
   @override
   Widget build(BuildContext context) {
@@ -45,6 +47,7 @@ class StationsSidebar extends StatelessWidget {
         onSelectAgent: onSelectAgent,
         onNewStation: onNewStation,
         onManageStations: onManageStations,
+        onManageAgents: onManageAgents,
       ),
     );
   }
@@ -58,6 +61,7 @@ class _SidebarList extends StatelessWidget {
     required this.onSelectAgent,
     required this.onNewStation,
     required this.onManageStations,
+    required this.onManageAgents,
   });
 
   final StationsState state;
@@ -66,6 +70,7 @@ class _SidebarList extends StatelessWidget {
   final ValueChanged<String> onSelectAgent;
   final VoidCallback onNewStation;
   final VoidCallback onManageStations;
+  final VoidCallback onManageAgents;
 
   @override
   Widget build(BuildContext context) {
@@ -115,6 +120,7 @@ class _SidebarList extends StatelessWidget {
                     stationId: station.id,
                     taskId: task.id,
                     plan: task.plan,
+                    taskIsRunning: task.isRunning,
                   ),
               ],
               _NewTaskButton(
@@ -123,7 +129,10 @@ class _SidebarList extends StatelessWidget {
               ),
             ],
           ],
-          _LooseAgentsHead(onAdd: () => openUseAgentPanel(context)),
+          _LooseAgentsHead(
+            onAdd: () => openUseAgentPanel(context),
+            onManage: onManageAgents,
+          ),
           ReactiveViewModelBuilder<AgentsViewModel, AgentsState>(
             viewmodel: AgentsService.instance.notifier,
             build: (state, viewmodel, keep) {
@@ -159,12 +168,17 @@ class _SidebarList extends StatelessWidget {
   }
 }
 
-/// The loose-agents heading. Its `+` opens a registered agent as a 1:1 chat —
-/// the same affordance the stations heading has for stations.
+/// El encabezado de los agentes sueltos, con las mismas dos aberturas que el
+/// de estaciones: `+` abre uno registrado como chat 1:1, y el otro lleva al
+/// registro para crearlos o editarlos.
+///
+/// Los agentes se manejan desde acá y solo desde acá: la lista vivía también
+/// en el rail de la izquierda, y eran dos columnas pegadas mostrando lo mismo.
 class _LooseAgentsHead extends StatelessWidget {
-  const _LooseAgentsHead({required this.onAdd});
+  const _LooseAgentsHead({required this.onAdd, required this.onManage});
 
   final VoidCallback onAdd;
+  final VoidCallback onManage;
 
   @override
   Widget build(BuildContext context) {
@@ -182,6 +196,13 @@ class _LooseAgentsHead extends StatelessWidget {
                 color: Theme.of(context).colorScheme.outline,
               ),
             ),
+          ),
+          IconButton(
+            tooltip: 'Registrar o editar agentes',
+            icon: const Icon(Icons.tune, size: 15),
+            constraints: const BoxConstraints.tightFor(width: 26, height: 26),
+            padding: EdgeInsets.zero,
+            onPressed: onManage,
           ),
           IconButton(
             tooltip: 'Usar un agente registrado',

@@ -41,11 +41,10 @@ ProjectRadar buildProjectRadar({
     }
 
     if (task.state == RoadmapState.hecho) continue;
-    for (final blocker in task.blockers) {
-      if (blocker.isBroken) {
-        stuck.add(
-          RadarStuck(
-            taskPath: task.path,
+    final issues = <RadarBlockerIssue>[
+      for (final blocker in task.blockers)
+        if (blocker.isBroken)
+          RadarBlockerIssue(
             kind: blocker.target == BlockerTarget.missing
                 ? StuckKind.missing
                 : StuckKind.ambiguous,
@@ -53,20 +52,27 @@ ProjectRadar buildProjectRadar({
             detail: blocker.target == BlockerTarget.missing
                 ? 'no existe: alguien renumeró y no arrastró la referencia'
                 : 'existe en dos carpetas: escribí la ruta completa',
-          ),
-        );
-      } else if (!blocker.resolved) {
-        stuck.add(
-          RadarStuck(
-            taskPath: task.path,
+          )
+        else if (!blocker.resolved)
+          RadarBlockerIssue(
             kind: StuckKind.blocker,
             reference: blocker.reference,
             detail: blocker.reason,
           ),
-        );
-      }
+    ];
+    if (issues.isNotEmpty) {
+      stuck.add(RadarStuck(taskPath: task.path, issues: issues));
     }
   }
+
+  // Las rotas primero: un bloqueante abierto se destraba trabajando, una
+  // referencia rota no la destraba nadie hasta que alguien la arregle.
+  stuck.sort((a, b) {
+    final byKind = (a.worst == StuckKind.blocker ? 1 : 0).compareTo(
+      b.worst == StuckKind.blocker ? 1 : 0,
+    );
+    return byKind != 0 ? byKind : a.taskPath.compareTo(b.taskPath);
+  });
 
   // Las tomas se muestran ordenadas por la que se venció antes: lo que está
   // por caerse va arriba, que es lo único accionable de esta lista.

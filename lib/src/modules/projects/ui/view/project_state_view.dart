@@ -175,7 +175,9 @@ class _Header extends StatelessWidget {
                       project.workingDirectory,
                     '${project.profileIds.length} agentes',
                     if (radar.hasRoadmap)
-                      leido < 2 ? 'recién leído' : 'leído hace $leido s',
+                      leido < 2
+                          ? 'TASKS/ recién leído'
+                          : 'TASKS/ leído hace $leido s',
                   ].join(' · '),
                   style: text.bodySmall,
                   overflow: TextOverflow.ellipsis,
@@ -199,25 +201,42 @@ class _Facepile extends StatelessWidget {
   Widget build(BuildContext context) {
     final profiles = AgentProfilesService.instance.notifier.data.profiles;
     final members = [
-      for (final id in project.profileIds.take(5))
+      for (final id in project.profileIds)
         profiles.where((profile) => profile.id == id).firstOrNull,
     ].nonNulls.toList();
     if (members.isEmpty) return const SizedBox.shrink();
 
+    // Cinco caras y el resto contado, igual que la cabecera del canal: con
+    // ocho miembros la pila se comía el ancho del encabezado.
+    final shown = members.take(5).toList();
+    final rest = members.length - shown.length;
+    final scheme = Theme.of(context).colorScheme;
+
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        for (var i = 0; i < members.length; i++)
-          Padding(
-            padding: EdgeInsets.only(left: i == 0 ? 0 : 0),
-            child: Transform.translate(
-              offset: Offset(-7.0 * i, 0),
-              child: Tooltip(
-                message: '@${members[i].name} · ${members[i].role}',
-                child: MemberAvatar(color: memberColorFor(i), size: 24),
+        for (var i = 0; i < shown.length; i++)
+          Transform.translate(
+            offset: Offset(-7.0 * i, 0),
+            child: Tooltip(
+              message: '@${shown[i].name} · ${shown[i].role}',
+              child: MemberAvatar(color: memberColorFor(i), size: 24),
+            ),
+          ),
+        Transform.translate(
+          offset: Offset(-7.0 * (shown.length - 1), 0),
+          child: Padding(
+            padding: const EdgeInsets.only(left: 8),
+            child: Text(
+              rest > 0 ? '+$rest  ${members.length}' : '${members.length}',
+              style: TextStyle(
+                fontFamily: 'monospace',
+                fontSize: 11,
+                color: scheme.outline,
               ),
             ),
           ),
+        ),
       ],
     );
   }
@@ -383,28 +402,34 @@ class _Cumplimiento extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 10),
+        // La vía va de fondo y los tramos encima: un `Expanded` de flex 0 no
+        // dibuja nada, así que con cero hechas y cero en curso la barra se
+        // armaba con dos huecos y quedaba a merced de cómo se repartiera el
+        // resto. Los tramos vacíos directamente no se ponen.
         ClipRRect(
           borderRadius: BorderRadius.circular(2),
-          child: SizedBox(
+          child: Container(
             height: 4,
+            color: scheme.outlineVariant,
             child: Row(
               children: [
-                Expanded(
-                  flex: (share(radar.done) * 1000).round(),
-                  child: ColoredBox(color: scheme.tertiary),
-                ),
-                Expanded(
-                  flex: (share(radar.running) * 1000).round(),
-                  child: ColoredBox(color: scheme.primary),
-                ),
-                Expanded(
-                  flex: (share(radar.blocked) * 1000).round(),
-                  child: ColoredBox(color: scheme.error),
-                ),
-                Expanded(
-                  flex: (share(radar.free) * 1000).round(),
-                  child: ColoredBox(color: scheme.outlineVariant),
-                ),
+                for (final tramo in <({int count, Color color})>[
+                  (count: radar.done, color: scheme.tertiary),
+                  (count: radar.running, color: scheme.primary),
+                  (count: radar.blocked, color: scheme.error),
+                ])
+                  if (tramo.count > 0)
+                    Expanded(
+                      // Un solo ítem sobre quinientos igual tiene que dejar
+                      // una marca: redondear a cero lo haría desaparecer.
+                      flex: (share(tramo.count) * 1000).round().clamp(1, 1000),
+                      child: ColoredBox(color: tramo.color),
+                    ),
+                if (radar.free > 0)
+                  Expanded(
+                    flex: (share(radar.free) * 1000).round().clamp(1, 1000),
+                    child: const SizedBox.shrink(),
+                  ),
               ],
             ),
           ),
@@ -679,6 +704,13 @@ class _Sesiones extends StatelessWidget {
   }
 }
 
+/// Cuántas tareas trabadas se listan antes de pasar a contarlas.
+///
+/// Con treinta y una, la lista entera convierte la pantalla en una pared y
+/// empuja todo lo demás fuera de la vista. El tope no es silencioso: abajo
+/// dice cuántas quedaron, que es el número que importa.
+const _kStuckShown = 6;
+
 class _Trabado extends StatelessWidget {
   const _Trabado({required this.radar});
 
@@ -687,10 +719,13 @@ class _Trabado extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final shown = radar.stuck.take(_kStuckShown).toList();
+    final rest = radar.stuck.length - shown.length;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        for (final item in radar.stuck)
+        for (final item in shown)
           Container(
             margin: const EdgeInsets.only(bottom: 8),
             padding: const EdgeInsets.fromLTRB(12, 8, 0, 8),
@@ -698,7 +733,7 @@ class _Trabado extends StatelessWidget {
               border: Border(
                 left: BorderSide(
                   width: 2,
-                  color: item.kind == StuckKind.blocker
+                  color: item.worst == StuckKind.blocker
                       ? scheme.primary
                       : scheme.error,
                 ),
@@ -715,35 +750,47 @@ class _Trabado extends StatelessWidget {
                     color: scheme.onSurface,
                   ),
                 ),
-                const SizedBox(height: 2),
-                Text.rich(
-                  TextSpan(
-                    children: [
-                      const TextSpan(text: 'bloqueante '),
+                for (final issue in item.issues)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Text.rich(
                       TextSpan(
-                        text: item.reference,
-                        style: const TextStyle(fontFamily: 'monospace'),
+                        children: [
+                          const TextSpan(text: 'bloqueante '),
+                          TextSpan(
+                            text: issue.reference,
+                            style: const TextStyle(fontFamily: 'monospace'),
+                          ),
+                          const TextSpan(text: ' → '),
+                          TextSpan(
+                            text: issue.detail,
+                            style: TextStyle(
+                              color: issue.kind == StuckKind.blocker
+                                  ? scheme.onSurfaceVariant
+                                  : scheme.onErrorContainer,
+                              fontWeight: issue.kind == StuckKind.blocker
+                                  ? FontWeight.normal
+                                  : FontWeight.w600,
+                            ),
+                          ),
+                        ],
                       ),
-                      const TextSpan(text: ' → '),
-                      TextSpan(
-                        text: item.detail,
-                        style: TextStyle(
-                          color: item.kind == StuckKind.blocker
-                              ? scheme.onSurfaceVariant
-                              : scheme.onErrorContainer,
-                          fontWeight: item.kind == StuckKind.blocker
-                              ? FontWeight.normal
-                              : FontWeight.w600,
-                        ),
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: scheme.onSurfaceVariant,
                       ),
-                    ],
+                    ),
                   ),
-                  style: TextStyle(
-                    fontSize: 11.5,
-                    color: scheme.onSurfaceVariant,
-                  ),
-                ),
               ],
+            ),
+          ),
+        if (rest > 0)
+          Padding(
+            padding: const EdgeInsets.only(top: 2, left: 14),
+            child: Text(
+              'y $rest ${rest == 1 ? 'tarea trabada más' : 'tareas trabadas más'} '
+              '— están todas en TASKS/',
+              style: TextStyle(fontSize: 11.5, color: scheme.outline),
             ),
           ),
       ],

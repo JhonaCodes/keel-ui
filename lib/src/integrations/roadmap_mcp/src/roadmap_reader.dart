@@ -304,16 +304,38 @@ List<RoadmapBlocker> _parseBlockers(String body) {
   final section = end == null ? rest : rest.substring(0, end.start);
 
   final blockers = <RoadmapBlocker>[];
+  final reasons = <StringBuffer>[];
   for (final line in section.split('\n')) {
     final match = _blockerLine.firstMatch(line);
-    if (match == null) continue;
-    blockers.add(
-      RoadmapBlocker(
-        reference: match.group(2)!.trim(),
-        reason: match.group(3)!.trim(),
-        resolved: match.group(1)!.toLowerCase() == 'x',
-      ),
-    );
+    if (match != null) {
+      blockers.add(
+        RoadmapBlocker(
+          reference: match.group(2)!.trim(),
+          reason: '',
+          resolved: match.group(1)!.toLowerCase() == 'x',
+        ),
+      );
+      reasons.add(StringBuffer(match.group(3)!.trim()));
+      continue;
+    }
+
+    // Una razón que sigue en la línea de abajo es una razón, no otra cosa.
+    // Leer solo la primera línea cortaba la explicación a la mitad —
+    // "…mismo modelo de datos: hay que"— justo donde empezaba a decir algo.
+    // Una línea en blanco o un `##` cierran la lista; ahí ya no hay a qué
+    // pegarle.
+    final continuation = line.trim();
+    if (continuation.isEmpty || reasons.isEmpty) continue;
+    if (continuation.startsWith('- ') || continuation.startsWith('#')) continue;
+    reasons.last.write(' $continuation');
   }
-  return blockers;
+
+  return [
+    for (var i = 0; i < blockers.length; i++)
+      RoadmapBlocker(
+        reference: blockers[i].reference,
+        reason: reasons[i].toString().trim(),
+        resolved: blockers[i].resolved,
+      ),
+  ];
 }

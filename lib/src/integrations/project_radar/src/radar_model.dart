@@ -76,16 +76,14 @@ class RadarSession {
   final String? claimedTaskPath;
 }
 
-/// Una tarea trabada, con el motivo nombrado.
-class RadarStuck {
-  const RadarStuck({
-    required this.taskPath,
+/// Uno de los motivos por los que una tarea está trabada.
+class RadarBlockerIssue {
+  const RadarBlockerIssue({
     required this.kind,
     required this.reference,
     required this.detail,
   });
 
-  final String taskPath;
   final StuckKind kind;
 
   /// A qué apunta el bloqueante.
@@ -93,6 +91,24 @@ class RadarStuck {
 
   /// La razón escrita en la tarea, o la explicación de por qué está rota.
   final String detail;
+}
+
+/// Una tarea trabada, con TODOS sus motivos juntos.
+///
+/// Agrupada por tarea a propósito: una fila por bloqueante repetía el mismo
+/// archivo dos y tres veces seguidas, y lo que uno quiere saber primero es
+/// cuántas tareas están trabadas, no cuántos motivos hay.
+class RadarStuck {
+  const RadarStuck({required this.taskPath, required this.issues});
+
+  final String taskPath;
+  final List<RadarBlockerIssue> issues;
+
+  /// Lo peor que le pasa: una referencia rota manda sobre un bloqueante
+  /// abierto, porque la primera nadie la puede destrabar trabajando.
+  StuckKind get worst => issues.any((issue) => issue.kind != StuckKind.blocker)
+      ? issues.firstWhere((issue) => issue.kind != StuckKind.blocker).kind
+      : StuckKind.blocker;
 }
 
 /// Todo lo que la pantalla de Estado necesita saber.

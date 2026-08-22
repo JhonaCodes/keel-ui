@@ -611,10 +611,11 @@ en que los números se mueven— y cada 15 s como piso, para que un <code>git pu
       <div class="sub">/Volumes/Data/aulamas/app &middot; 3 agentes &middot; TASKS/ leído hace 4 s</div>
     </div>
     <div class="grow"></div>
-    <div class="facepile">
+    <div class="facepile" style="align-items:center">
   <div class="face" style="color:var(--m1)"><svg><use href="#i-bot"/></svg></div>
   <div class="face" style="color:var(--m2)"><svg><use href="#i-bot"/></svg></div>
   <div class="face" style="color:var(--m3)"><svg><use href="#i-bot"/></svg></div>
+  <span style="font-family:var(--mono);font-size:11px;color:var(--ink-faint);margin-left:8px">3</span>
 </div>
   </div>
   <div class="hr"></div>
@@ -702,7 +703,11 @@ en que los números se mueven— y cada 15 s como piso, para que un <code>git pu
   </div>
 </div>
 </div></div>
-<figcaption><strong>«Trabado»</strong> es la primera vez que las referencias rotas se ven en
+<figcaption>La barra dibuja solo los tramos que existen: con cero hechas no hay verde y lo que
+se ve es la vía gris de fondo con lo bloqueado encima. <strong>«Trabado»</strong> agrupa por
+tarea —una tarea con dos bloqueantes es una fila, no dos—, pone las referencias rotas primero
+y muestra seis; si hay más las cuenta abajo, en vez de convertir la pantalla en una pared.
+Es la primera vez que las referencias rotas se ven en
 pantalla. El lector ya las detecta, pero hasta ahora solo salían en el mensaje de error de
 <code>claim_task</code>, cuando alguien ya se había chocado con ellas.</figcaption>
 </section><section>

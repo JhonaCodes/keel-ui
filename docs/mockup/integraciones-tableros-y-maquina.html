@@ -1,0 +1,1417 @@
+<title>Integraciones, tableros y máquina</title>
+<style>
+  /* Un solo mundo oscuro, igual que la app: los tokens salen tal cual de
+     lib/src/core/ui/app_theme.dart. No hay variante clara porque la app
+     tampoco la tiene, así que todo se pinta explícito. */
+  :root {
+    --void:        #0A0F15;
+    --bg:          #111925;
+    --panel:       #151F2B;
+    --raise:       #1C2735;
+    --rule:        #253141;
+    --ink:         #DEE6F0;
+    --ink-soft:    #8194A9;
+    --ink-faint:   #57687C;
+    --brass:       #D9A93C;
+    --brass-deep:  #6B5420;
+    --on-brass:    #17120A;
+    --added:       #4E9E6A;
+    --removed:     #B85C5C;
+    --err-bg:      #3A1F1F;
+    --err-ink:     #E9B4B4;
+    --user:        #23324A;
+    --user-border: #2E4260;
+
+    --m1: #4FA3D9;  --m2: #3FA38C;  --m3: #9B7BC4;  --m4: #C9A227;
+    --m5: #7FB069;  --m6: #D98E5A;  --m7: #6C8EBF;  --m8: #B57EDC;
+
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, monospace;
+    --ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    padding: 0 24px 120px;
+    background: var(--void);
+    color: var(--ink);
+    font-family: var(--ui);
+    font-size: 15px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: 1180px; margin: 0 auto; }
+
+  /* ── tipografía del documento ─────────────────────────────── */
+  header.doc { padding: 76px 0 34px; border-bottom: 1px solid var(--rule); }
+  h1 {
+    font-size: clamp(2rem, 4.4vw, 2.9rem);
+    line-height: 1.08;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    margin: 0 0 16px;
+    text-wrap: balance;
+  }
+  h1 .accent { color: var(--brass); }
+  .standfirst { font-size: 1.06rem; color: var(--ink-soft); max-width: 62ch; margin: 0; }
+
+  section { padding: 56px 0 4px; }
+  section + section { border-top: 1px solid var(--rule); }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    display: block;
+    margin-bottom: 12px;
+  }
+  h2 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    margin: 0 0 10px;
+    text-wrap: balance;
+  }
+  h3 { font-size: 0.95rem; font-weight: 650; margin: 30px 0 8px; color: var(--ink); }
+  p { max-width: 68ch; margin: 0 0 14px; color: var(--ink-soft); }
+  p strong { color: var(--ink); font-weight: 600; }
+  p code, li code {
+    font-family: var(--mono);
+    font-size: 0.86em;
+    color: var(--brass);
+    background: var(--panel);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    padding: 0.08em 0.32em;
+  }
+  ul.notes { max-width: 68ch; margin: 0 0 14px; padding-left: 1.1em; color: var(--ink-soft); }
+  ul.notes li { margin-bottom: 6px; }
+  ul.notes li strong { color: var(--ink); font-weight: 600; }
+
+  figure { margin: 26px 0 0; }
+  figcaption {
+    font-size: 0.86rem;
+    color: var(--ink-faint);
+    margin-top: 12px;
+    max-width: 70ch;
+  }
+  .scroller { overflow-x: auto; padding-bottom: 4px; }
+
+  /* ═══ CROMO DE LA APP ══════════════════════════════════════ */
+  .win {
+    display: grid;
+    grid-template-columns: 70px 1px 210px 1px 1fr;
+    min-width: 1040px;
+    height: 620px;
+    background: var(--bg);
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+    overflow: hidden;
+    font-size: 13px;
+    color: var(--ink);
+    line-height: 1.4;
+  }
+  .win.short { height: 470px; }
+  .vr { background: var(--rule); }
+
+  /* ── rail 70px ─────────────────────────────────────────── */
+  .rail {
+    background: var(--bg);
+    padding: 10px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+  .rail-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    padding: 6px 2px;
+    color: var(--ink-soft);
+  }
+  .rail-item svg { width: 20px; height: 20px; }
+  .rail-item span { font-size: 9px; font-weight: 500; line-height: 1.2; }
+  .rail-gap { height: 12px; }
+  .rail-div { height: 1px; background: var(--rule); margin: 6px 0 4px; }
+  .rail-spacer { flex: 1; }
+
+  /* ── sidebar 210px ─────────────────────────────────────── */
+  .side { background: var(--panel); padding: 14px 0; overflow: hidden; }
+  .grouphead {
+    display: flex;
+    align-items: center;
+    padding: 0 6px 6px 14px;
+    color: var(--ink-faint);
+  }
+  .grouphead .lbl {
+    flex: 1;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+  }
+  .grouphead .cnt {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--brass);
+    padding-right: 6px;
+  }
+  .grouphead svg { width: 15px; height: 15px; margin-left: 3px; opacity: 0.85; }
+  .grouphead.spaced { padding-top: 22px; }
+
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 14px 5px 12px;
+    border-left: 2px solid transparent;
+    color: var(--ink);
+  }
+  .row .hash { font-family: var(--mono); font-size: 13px; color: var(--ink-faint); }
+  .row .nm { font-size: 13px; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .row.sel { background: var(--raise); border-left-color: var(--brass); }
+  .row.sel .nm { font-weight: 700; }
+  .row.sel .hash { color: var(--brass); }
+  .row .lock { font-size: 10px; color: var(--ink-faint); }
+
+  .subrow {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 4px 6px 4px 30px;
+    font-size: 12px;
+    color: var(--ink);
+  }
+  .subrow.sel { background: rgba(217,169,60,0.07); }
+  .subrow .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--rule); flex: none; }
+  .subrow.sel .dot { background: var(--brass); }
+  .subrow .t { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .subrow .tag { font-family: var(--mono); font-size: 10px; color: var(--brass); }
+  .subrow .ok { color: var(--added); font-size: 11px; }
+  .subrow .bad { color: var(--removed); font-size: 11px; }
+  .subrow.pinned { padding-left: 26px; }
+  .subrow.pinned .caret { color: var(--brass); font-size: 10px; }
+  .subrow .x { color: var(--ink-faint); font-size: 11px; }
+
+  .sidenote { padding: 2px 14px 8px; font-size: 11.5px; color: var(--ink-faint); }
+  .newlink {
+    padding: 6px 14px 10px 30px;
+    font-size: 12px;
+    color: var(--brass);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .reqrow {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 4px 8px 4px 14px;
+    font-size: 12px;
+    border-left: 2px solid transparent;
+  }
+  .reqrow.sel { background: var(--raise); border-left-color: var(--brass); }
+  .reqrow .dir { font-family: var(--mono); font-size: 12px; width: 9px; flex: none; }
+  .reqrow .dir.in { color: var(--m6); }
+  .reqrow .dir.out { color: var(--m1); }
+  .reqrow .code { font-family: var(--mono); font-size: 10px; color: var(--ink-faint); }
+  .reqrow .t { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .reqrow.sel .t { font-weight: 700; }
+
+  /* ── área principal ────────────────────────────────────── */
+  .main { display: flex; flex-direction: column; overflow: hidden; background: var(--bg); }
+  .mainhead { padding: 12px 16px; display: flex; align-items: center; gap: 10px; }
+  .mainhead .h1 { display: flex; align-items: baseline; gap: 6px; }
+  .mainhead .hash { font-family: var(--mono); font-size: 16px; color: var(--brass); }
+  .mainhead .nm { font-size: 16px; font-weight: 500; }
+  .mainhead .sub { font-size: 12px; color: var(--ink-soft); margin-top: 2px; }
+  .mainhead .grow { flex: 1; }
+  .hr { height: 1px; background: var(--rule); }
+  .body { flex: 1; overflow: hidden; padding: 18px 22px; }
+  .body.pad0 { padding: 0; }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 4px;
+    background: var(--brass-deep);
+    color: var(--brass);
+  }
+  .chip.quiet { background: var(--panel); color: var(--ink-soft); border: 1px solid var(--rule); }
+  .chip.good { background: rgba(78,158,106,0.16); color: var(--added); }
+  .chip.bad { background: var(--err-bg); color: var(--err-ink); }
+  .chip.lock { background: var(--panel); color: var(--ink-faint); border: 1px solid var(--rule); }
+
+  .facepile { display: flex; }
+  .face {
+    width: 24px; height: 24px; border-radius: 8px;
+    background: var(--raise);
+    border: 1.5px solid var(--bg);
+    margin-left: -7px;
+    display: grid; place-items: center;
+  }
+  .face:first-child { margin-left: 0; }
+  .face svg { width: 14px; height: 14px; }
+</style>
+<style>
+  /* ── Estado: el radar ──────────────────────────────────── */
+  .radar { height: 100%; overflow: hidden; }
+  .sec-h {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin: 22px 0 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .sec-h:first-child { margin-top: 0; }
+  .sec-h .line { flex: 1; height: 1px; background: var(--rule); }
+
+  .tally { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; }
+  .tally .big { font-family: var(--mono); font-size: 26px; color: var(--ink); letter-spacing: -0.02em; }
+  .tally .pct { font-family: var(--mono); font-size: 26px; color: var(--brass); }
+  .tally .of { font-size: 12px; color: var(--ink-soft); }
+
+  .bar { display: flex; height: 4px; border-radius: 2px; overflow: hidden; background: var(--rule); }
+  .bar i { display: block; height: 100%; }
+  .bar .done { background: var(--added); }
+  .bar .live { background: var(--brass); }
+  .bar .block { background: var(--removed); }
+
+  .legend { display: flex; gap: 16px; margin-top: 9px; flex-wrap: wrap; }
+  .legend span { font-size: 11.5px; color: var(--ink-soft); display: flex; align-items: center; gap: 5px; }
+  .legend i { width: 8px; height: 8px; border-radius: 1px; display: block; }
+
+  table.grid { width: 100%; border-collapse: collapse; font-size: 12px; }
+  table.grid th {
+    text-align: left;
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: 0.9px;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    font-weight: 400;
+    padding: 0 10px 5px 0;
+  }
+  table.grid td { padding: 6px 10px 6px 0; border-top: 1px solid var(--rule); color: var(--ink); vertical-align: middle; }
+  table.grid td.soft { color: var(--ink-soft); }
+  table.grid td.mono { font-family: var(--mono); font-size: 11px; }
+  table.grid .who { display: flex; align-items: center; gap: 6px; }
+  .avatar { width: 20px; height: 20px; border-radius: 7px; display: grid; place-items: center; flex: none; }
+  .avatar svg { width: 12px; height: 12px; }
+  .handle { font-family: var(--mono); font-size: 11px; font-weight: 700; }
+
+  .pulse { width: 6px; height: 6px; border-radius: 50%; background: var(--brass); display: inline-block; }
+
+  .stuck { border-left: 2px solid var(--removed); padding: 8px 0 8px 12px; margin-bottom: 8px; }
+  .stuck .f { font-family: var(--mono); font-size: 11.5px; color: var(--ink); }
+  .stuck .r { font-size: 11.5px; color: var(--ink-soft); margin-top: 2px; }
+  .stuck .r b { color: var(--err-ink); font-weight: 600; }
+
+  /* ── vacíos ────────────────────────────────────────────── */
+  .empty { height: 100%; display: grid; place-items: center; text-align: center; }
+  .empty .in { max-width: 430px; }
+  .empty .ttl { font-size: 14px; font-weight: 500; margin: 12px 0 6px; }
+  .empty .bd { font-size: 12px; color: var(--ink-soft); margin-bottom: 4px; }
+  .checklist { text-align: left; margin: 16px auto 18px; max-width: 380px; }
+  .checklist div { display: flex; gap: 8px; font-size: 12px; padding: 3px 0; color: var(--ink-soft); }
+  .checklist .m { color: var(--removed); font-family: var(--mono); flex: none; }
+  .checklist .y { color: var(--added); font-family: var(--mono); flex: none; }
+  .checklist b { color: var(--ink); font-weight: 600; }
+
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--brass); color: var(--on-brass);
+    font-size: 12.5px; font-weight: 600;
+    padding: 7px 16px; border-radius: 20px;
+  }
+  .btn.ghost { background: transparent; color: var(--brass); padding: 7px 10px; }
+  .btn.off { background: var(--raise); color: var(--ink-faint); }
+  .btn svg { width: 14px; height: 14px; }
+
+  /* ── hilo de mensajes ──────────────────────────────────── */
+  .thread { padding: 16px; overflow: hidden; display: flex; flex-direction: column; gap: 2px; }
+  .msgrow { display: flex; gap: 10px; margin: 6px 0; align-items: flex-start; }
+  .msgrow.mine { justify-content: flex-end; }
+  .bubble {
+    background: var(--raise);
+    border: 1px solid var(--rule);
+    border-radius: 12px;
+    padding: 10px 14px;
+    max-width: 560px;
+    font-size: 12.6px;
+    color: var(--ink);
+  }
+  .bubble.mine { background: var(--user); border-color: var(--user-border); }
+  .author { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
+  .author .ts { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); }
+  .steptag {
+    font-family: var(--mono); font-size: 10px;
+    background: var(--brass-deep); color: var(--brass);
+    padding: 1px 6px; border-radius: 4px;
+  }
+  .sysnote {
+    display: flex; gap: 8px; align-items: flex-start;
+    font-size: 12px; color: var(--ink-soft);
+    padding: 8px 0;
+  }
+  .sysnote svg { width: 14px; height: 14px; flex: none; margin-top: 2px; }
+  .handoff { display: flex; align-items: center; gap: 10px; padding: 10px 0; }
+  .handoff .l { flex: 1; height: 1px; background: var(--rule); }
+  .handoff .t { font-family: var(--mono); font-size: 11px; letter-spacing: 0.4px; color: var(--ink-faint); }
+
+  .liveturn { display: flex; align-items: center; gap: 9px; padding: 8px 16px; }
+  .liveturn .av { width: 28px; height: 28px; border-radius: 9px; display: grid; place-items: center; }
+  .liveturn .av svg { width: 15px; height: 15px; }
+  .liveturn .h { font-family: var(--mono); font-size: 13px; font-weight: 600; }
+  .liveturn .ph { font-size: 12px; color: var(--ink-soft); display: flex; align-items: center; gap: 5px; }
+  .liveturn .ph svg { width: 14px; height: 14px; color: var(--brass); }
+
+  .composer { padding: 12px; display: flex; align-items: center; gap: 8px; }
+
+  /* El próximo punto del plan, pegado arriba del campo de escribir */
+  .nextitem {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px 8px 16px;
+    background: var(--panel);
+    border-top: 1px solid var(--rule);
+  }
+  .nextitem .play { color: var(--brass); font-size: 11px; }
+  .nextitem .tag {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 1.1px;
+    color: var(--ink-faint);
+  }
+  .nextitem .what { flex: 1; font-size: 12.5px; }
+  .nextitem .who { font-family: var(--mono); font-size: 10px; color: var(--ink-faint); }
+  .nextitem .go {
+    background: var(--brass-deep); color: var(--brass);
+    font-size: 12px; padding: 5px 14px; border-radius: 14px;
+  }
+  .cfield {
+    flex: 1;
+    border: 1px solid var(--ink-faint);
+    border-radius: 16px;
+    padding: 10px 14px;
+    font-size: 12.6px;
+    color: var(--ink-faint);
+  }
+  .sendbtn { width: 34px; height: 34px; border-radius: 50%; background: var(--brass); display: grid; place-items: center; flex: none; }
+  .sendbtn svg { width: 16px; height: 16px; color: var(--on-brass); }
+  .strip { height: 2px; background: var(--rule); }
+  .strip.live { background: linear-gradient(90deg, var(--brass) 0 32%, var(--rule) 32% 100%); }
+
+  /* ── panel derecho 272px (sesión) ──────────────────────── */
+  .wpanel { width: 272px; background: var(--bg); padding: 14px 0; overflow: hidden; flex: none; }
+  .step { display: flex; gap: 9px; padding: 0 14px; }
+  .step .railcol { display: flex; flex-direction: column; align-items: center; width: 11px; flex: none; }
+  .bead { width: 11px; height: 11px; border-radius: 50%; margin-top: 3px; flex: none; }
+  .bead.done { background: var(--added); }
+  .bead.now { border: 2.5px solid var(--brass); }
+  .bead.next { border: 1.5px solid var(--ink-faint); }
+  .conn { width: 1.5px; flex: 1; background: var(--rule); min-height: 22px; }
+  .step .txt { padding-bottom: 8px; flex: 1; }
+  .step .ttl { font-size: 12.5px; display: flex; align-items: baseline; gap: 6px; }
+  .step .ttl b { font-weight: 700; }
+  .step .st { font-family: var(--mono); font-size: 10px; color: var(--ink-faint); }
+  .step .own { display: flex; align-items: center; gap: 5px; margin-top: 2px; }
+  .step .own svg { width: 15px; height: 15px; }
+  .step .own span { font-family: var(--mono); font-size: 11px; }
+  .step .eng { font-family: var(--mono); font-size: 10px; color: var(--ink-faint); margin-top: 1px; }
+  .bullet { display: flex; align-items: center; gap: 8px; padding: 3px 14px; font-size: 12px; }
+  .bullet i { width: 8px; height: 8px; border-radius: 1px; background: var(--brass); flex: none; }
+
+  /* ── diálogo ───────────────────────────────────────────── */
+  .scrim {
+    background: rgba(0,0,0,0.45);
+    padding: 44px 20px;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+  }
+  .dialog {
+    width: 460px;
+    max-width: 100%;
+    background: var(--raise);
+    border-radius: 12px;
+    padding: 22px 24px 16px;
+    color: var(--ink);
+  }
+  .dialog h4 { font-size: 15px; font-weight: 500; margin: 0 0 12px; }
+  .dialog p { font-size: 12.6px; color: var(--ink-soft); margin: 0 0 12px; max-width: none; }
+  .dialog .willgo { border-left: 2px solid var(--rule); padding-left: 12px; margin-bottom: 14px; }
+  .dialog .willgo div { font-size: 12px; color: var(--ink-soft); padding: 2px 0; }
+  .dialog .willgo b { color: var(--ink); font-weight: 600; }
+  .dialog .safe { color: var(--added); }
+  .dialog label { font-size: 11.5px; color: var(--ink-faint); display: block; margin-bottom: 6px; }
+  .input {
+    border: 1px solid var(--rule);
+    border-radius: 16px;
+    padding: 10px 14px;
+    font-family: var(--mono);
+    font-size: 12.5px;
+    color: var(--ink-faint);
+  }
+  .input.typed { color: var(--ink); border-color: var(--brass); }
+  .dialog .acts { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; align-items: center; }
+
+  /* ── franjas del requerimiento ─────────────────────────── */
+  .sideband { display: flex; gap: 10px; margin: 10px 0; }
+  .sideband .flag { width: 3px; border-radius: 2px; flex: none; }
+  .sideband.origen .flag { background: var(--m1); }
+  .sideband.destino .flag { background: var(--m6); }
+  .sideband.usuario .flag { background: var(--brass); }
+  .sideband .box { flex: 1; }
+  .sideband .who2 {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 4px; flex-wrap: wrap;
+  }
+  .sideband .lbl2 { font-family: var(--mono); font-size: 10px; letter-spacing: 0.8px; text-transform: uppercase; }
+  .sideband.origen .lbl2 { color: var(--m1); }
+  .sideband.destino .lbl2 { color: var(--m6); }
+  .sideband.usuario .lbl2 { color: var(--brass); }
+  .sideband .body2 { font-size: 12.6px; color: var(--ink); }
+  .sideband .body2 .q { color: var(--ink-soft); }
+
+  .verdict {
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin: 4px 0 2px;
+    background: var(--panel);
+  }
+  .verdict .vh { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
+  .verdict .vt { font-family: var(--mono); font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--ink-faint); }
+  .verdict ul { margin: 4px 0 0; padding-left: 16px; font-size: 12px; color: var(--ink-soft); }
+
+  .closure {
+    display: flex; align-items: center; gap: 10px;
+    border-top: 1px solid var(--rule);
+    padding: 10px 16px;
+    background: var(--panel);
+  }
+  .closure .msg { flex: 1; font-size: 12px; color: var(--ink-soft); }
+  .closure .msg b { color: var(--ink); font-weight: 600; }
+</style>
+<svg style="display:none" aria-hidden="true">
+  <symbol id="i-spark" viewBox="0 0 20 20"><path d="M10 2.5l1.6 4.4 4.4 1.6-4.4 1.6L10 14.5 8.4 10.1 4 8.5l4.4-1.6z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M15.5 13.5l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7z" fill="currentColor"/></symbol>
+  <symbol id="i-badge" viewBox="0 0 20 20"><rect x="3" y="5" width="14" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M7.5 5V3.5h5V5" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="10" cy="10" r="2" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M6.5 14.5c.8-1.4 2-2 3.5-2s2.7.6 3.5 2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
+  <symbol id="i-ext" viewBox="0 0 20 20"><path d="M8 3h4v2a1.5 1.5 0 003 0V3h2v4h-1.5a1.5 1.5 0 000 3H17v4h-4v-1.5a1.5 1.5 0 00-3 0V17H6v-4H4.5a1.5 1.5 0 000-3H6V3z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></symbol>
+  <symbol id="i-tree" viewBox="0 0 20 20"><rect x="7.5" y="2.5" width="5" height="4" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="2.5" y="13.5" width="5" height="4" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="12.5" y="13.5" width="5" height="4" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M10 6.5v4M5 13.5v-3h10v3" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+  <symbol id="i-rule" viewBox="0 0 20 20"><path d="M3 5.5l2 2 3.5-3.5M3 14.5l2 2 3.5-3.5M11 6h6M11 15h6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 20 20"><path d="M10 2.5l6 2.2v5c0 4-2.6 6.6-6 7.8-3.4-1.2-6-3.8-6-7.8v-5z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M10 7.5v3.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="10" cy="13.4" r="0.9" fill="currentColor"/></symbol>
+  <symbol id="i-term" viewBox="0 0 20 20"><rect x="2.5" y="4" width="15" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M6 8l2.5 2L6 12M10.5 12.5h4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-hub" viewBox="0 0 20 20"><circle cx="10" cy="10" r="2.2" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="10" cy="3.5" r="1.6" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="4" cy="15" r="1.6" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="16" cy="15" r="1.6" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M10 5.1v2.7M8.2 11.6l-2.8 2.2M11.8 11.6l2.8 2.2" stroke="currentColor" stroke-width="1.4"/></symbol>
+  <symbol id="i-book" viewBox="0 0 20 20"><path d="M10 5.5C8.6 4.2 6.6 3.7 3.5 3.9v10.4c3.1-.2 5.1.3 6.5 1.6 1.4-1.3 3.4-1.8 6.5-1.6V3.9c-3.1-.2-5.1.3-6.5 1.6z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M10 5.5v10.4" stroke="currentColor" stroke-width="1.4"/></symbol>
+  <symbol id="i-key" viewBox="0 0 20 20"><circle cx="6.5" cy="10" r="3.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M10 10h7M14.5 10v3M16.8 10v2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
+  <symbol id="i-backup" viewBox="0 0 20 20"><path d="M5.5 15a3.5 3.5 0 01-.3-7 4.6 4.6 0 018.8-1 3.4 3.4 0 01.5 8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M10 17V9.5M7.6 11.6L10 9.2l2.4 2.4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 20 20"><circle cx="10" cy="10" r="2.6" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M10 2.6v2M10 15.4v2M17.4 10h-2M4.6 10h-2M15.2 4.8l-1.4 1.4M6.2 13.8l-1.4 1.4M15.2 15.2l-1.4-1.4M6.2 6.2L4.8 4.8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
+  <symbol id="i-add" viewBox="0 0 20 20"><path d="M10 4.5v11M4.5 10h11" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+  <symbol id="i-tune" viewBox="0 0 20 20"><path d="M3 6h9M15 6h2M3 14h3M9 14h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="13.5" cy="6" r="1.8" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="7.5" cy="14" r="1.8" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+  <symbol id="i-bot" viewBox="0 0 20 20"><rect x="3.5" y="6" width="13" height="9.5" rx="2.5" fill="currentColor"/><circle cx="7.5" cy="10.5" r="1.2" fill="var(--bg)"/><circle cx="12.5" cy="10.5" r="1.2" fill="var(--bg)"/><path d="M10 3v3M7.5 3.2h5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+  <symbol id="i-send" viewBox="0 0 20 20"><path d="M3 10l14-6-5.5 6L17 16z" fill="currentColor"/></symbol>
+  <symbol id="i-bolt" viewBox="0 0 20 20"><path d="M11 2.5L4.5 11.5H9l-1 6 6.5-9H10z" fill="currentColor"/></symbol>
+  <symbol id="i-folder-off" viewBox="0 0 20 20"><path d="M2.5 5.5h5l1.5 2h8.5v9h-15z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M3 3l14 14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 20 20"><rect x="4.5" y="8.5" width="11" height="8" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M7 8.5V6.6a3 3 0 016 0v1.9" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+  <symbol id="i-warn" viewBox="0 0 20 20"><path d="M10 3l7.5 13.5h-15z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M10 8v3.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="10" cy="14" r="0.9" fill="currentColor"/></symbol>
+</svg>
+<style>
+  /* ═══ SUPERFICIES NUEVAS ═══════════════════════════════════
+     Todo lo de arriba viene tal cual del mockup de proyectos y
+     requerimientos: mismos tokens, mismo cromo, mismas medidas.
+     Acá abajo va solo lo que estas tres pantallas agregan. */
+
+  /* ── catálogo de integraciones ─────────────────────────── */
+  .catgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 9px; }
+  .catcard {
+    border: 1px solid var(--rule); border-radius: 8px;
+    padding: 11px 12px; background: var(--panel);
+    display: flex; gap: 10px; align-items: flex-start;
+  }
+  .glyph {
+    width: 30px; height: 30px; border-radius: 9px; flex: none;
+    display: grid; place-items: center;
+    font-family: var(--mono); font-size: 11.5px; font-weight: 700;
+  }
+  .catcard .grow { min-width: 0; }
+  .catcard .nm2 { font-size: 12.5px; font-weight: 600; }
+  .catcard .tag2 { font-size: 11px; color: var(--ink-soft); margin-top: 1px; }
+  .catcard .meta {
+    font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.5px;
+    text-transform: uppercase; color: var(--ink-faint); margin-top: 6px;
+  }
+
+  .instrow {
+    display: flex; align-items: center; gap: 11px;
+    padding: 10px 12px; margin-bottom: 8px;
+    border: 1px solid var(--rule); border-radius: 8px; background: var(--panel);
+  }
+  .instrow .grow { flex: 1; min-width: 0; }
+  .instrow .nm2 { font-size: 12.5px; font-weight: 600; display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+  .instrow .sub2 { font-family: var(--mono); font-size: 10.5px; color: var(--ink-faint); margin-top: 3px; }
+  .stat { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; }
+  .stat i { width: 7px; height: 7px; border-radius: 50%; display: block; flex: none; }
+  .stat.ok { color: var(--added); }      .stat.ok i { background: var(--added); }
+  .stat.bad { color: var(--err-ink); }   .stat.bad i { background: var(--removed); }
+  .stat.unk { color: var(--ink-faint); } .stat.unk i { background: var(--ink-faint); }
+  .acts2 { display: flex; gap: 6px; flex: none; }
+  .mini {
+    font-family: var(--mono); font-size: 10.5px; padding: 4px 10px;
+    border-radius: 12px; border: 1px solid var(--rule); color: var(--ink-soft);
+  }
+  .mini.go { border-color: var(--brass-deep); background: var(--brass-deep); color: var(--brass); }
+
+  /* ── el panel lateral, dibujado solo ───────────────────── */
+  .panelfig {
+    width: 580px; max-width: 100%;
+    border: 1px solid var(--rule); border-radius: 8px;
+    overflow: hidden; background: var(--bg); font-size: 13px; line-height: 1.4;
+  }
+  .panelfig.wide { width: 1000px; }
+  .panelhead { display: flex; align-items: center; gap: 10px; padding: 12px 16px; background: var(--panel); }
+  .panelhead .t { font-size: 14px; flex: 1; }
+  .panelbody { padding: 16px 18px 20px; }
+
+  /* ── campos ────────────────────────────────────────────── */
+  .fld { margin-bottom: 13px; }
+  .fld label { display: block; font-size: 11px; color: var(--ink-faint); margin-bottom: 5px; }
+  .fld .hint { font-size: 11px; color: var(--ink-faint); margin-top: 5px; }
+  .fld .hint b { color: var(--brass); font-weight: 400; }
+  .tf {
+    border: 1px solid var(--rule); border-radius: 8px;
+    padding: 8px 12px; font-size: 12.5px; color: var(--ink); background: var(--void);
+  }
+  .tf.mono { font-family: var(--mono); font-size: 11.5px; }
+  .tf.empty { color: var(--ink-faint); }
+  .tf.pick { display: flex; align-items: center; justify-content: space-between; }
+  .tf.pick .car { color: var(--ink-faint); font-size: 10px; }
+  .tf.big { white-space: pre; overflow-x: auto; line-height: 1.55; }
+
+  .tools { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 9px; }
+  .tools span {
+    font-family: var(--mono); font-size: 10.5px; padding: 2px 7px; border-radius: 4px;
+    background: var(--raise); color: var(--ink-soft); border: 1px solid var(--rule);
+  }
+
+  /* ── un tablero corriendo ──────────────────────────────── */
+  .brow { display: flex; align-items: center; gap: 12px; margin-bottom: 9px; }
+  .brow .lb { width: 92px; flex: none; font-size: 11.5px; color: var(--ink-faint); text-align: right; }
+  .brow .in { flex: 1; min-width: 0; }
+  .sw { width: 34px; height: 18px; border-radius: 9px; background: var(--brass); position: relative; }
+  .sw i { position: absolute; top: 2px; right: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--on-brass); }
+  .resp { border: 1px solid var(--rule); border-radius: 8px; overflow: hidden; margin-top: 14px; }
+  .resphead { display: flex; align-items: center; gap: 10px; padding: 7px 12px; background: var(--panel); font-family: var(--mono); font-size: 11px; color: var(--ink-faint); }
+  .resphead .code2 { font-weight: 700; }
+  .resphead .code2.ok { color: var(--added); }
+  .resphead .code2.bad { color: var(--err-ink); }
+  .resphead .grow { flex: 1; }
+  .json { padding: 10px 13px; font-family: var(--mono); font-size: 11.5px; white-space: pre; overflow-x: auto; color: var(--ink-soft); }
+  .json .k { color: var(--m1); } .json .s { color: var(--added); } .json .n { color: var(--brass); }
+
+  /* ── pasos encadenados ─────────────────────────────────── */
+  .pstep { display: flex; gap: 11px; }
+  .pstep .col { display: flex; flex-direction: column; align-items: center; width: 22px; flex: none; }
+  .pstep .num {
+    width: 22px; height: 22px; border-radius: 50%; flex: none;
+    border: 1.5px solid var(--rule); display: grid; place-items: center;
+    font-family: var(--mono); font-size: 10px; color: var(--ink-soft);
+  }
+  .pstep .num.done { border-color: var(--added); color: var(--added); }
+  .pstep .conn2 { width: 1.5px; flex: 1; background: var(--rule); min-height: 14px; }
+  .pstep .bd { flex: 1; padding-bottom: 15px; min-width: 0; }
+  .pstep .kind { font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.9px; text-transform: uppercase; color: var(--ink-faint); margin-bottom: 5px; }
+  .cmd {
+    font-family: var(--mono); font-size: 11.5px; color: var(--ink);
+    background: var(--void); border: 1px solid var(--rule); border-radius: 6px;
+    padding: 7px 10px; overflow-x: auto; white-space: pre;
+  }
+  .cap { font-size: 11px; color: var(--ink-faint); margin-top: 6px; }
+  .cap b { font-family: var(--mono); color: var(--brass); font-weight: 400; }
+
+  /* ── máquina ───────────────────────────────────────────── */
+  .mgrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 9px; }
+  .mcard { border: 1px solid var(--rule); border-radius: 8px; padding: 11px 13px; background: var(--panel); }
+  .mcard .k2 { font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.9px; text-transform: uppercase; color: var(--ink-faint); }
+  .mcard .v2 { font-family: var(--mono); font-size: 19px; margin-top: 6px; letter-spacing: -0.02em; }
+  .mcard .v2 small { font-size: 11px; color: var(--ink-soft); letter-spacing: 0; }
+  .meter { height: 3px; border-radius: 2px; background: var(--rule); margin-top: 9px; overflow: hidden; }
+  .meter i { display: block; height: 100%; background: var(--brass); }
+  .svcrow { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-top: 1px solid var(--rule); font-size: 12px; }
+  .svcrow .n2 { width: 104px; flex: none; font-family: var(--mono); font-size: 12px; }
+  .svcrow .v3 { width: 108px; flex: none; font-family: var(--mono); font-size: 11px; color: var(--ink-soft); }
+  .svcrow .p2 { flex: 1; font-family: var(--mono); font-size: 10.5px; color: var(--ink-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+</style>
+
+<svg style="display:none" aria-hidden="true">
+  <symbol id="i-board" viewBox="0 0 20 20"><rect x="2.5" y="4" width="15" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M6 8.5v3M10 7v5M14 9.5v2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+  <symbol id="i-chip" viewBox="0 0 20 20"><rect x="5.5" y="5.5" width="9" height="9" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 2.5v3M12 2.5v3M8 14.5v3M12 14.5v3M2.5 8h3M2.5 12h3M14.5 8h3M14.5 12h3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></symbol>
+  <symbol id="i-play" viewBox="0 0 20 20"><path d="M6.5 4l9 6-9 6z" fill="currentColor"/></symbol>
+  <symbol id="i-paste" viewBox="0 0 20 20"><rect x="4.5" y="4" width="11" height="13" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M7.5 4V3a1 1 0 011-1h3a1 1 0 011 1v1" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M7.5 9h5M7.5 12.5h3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 20 20"><path d="M16 10a6 6 0 11-1.8-4.3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M16.5 2.5v4h-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+</svg>
+<div class="wrap">
+<header class="doc">
+  <h1>Un catálogo, un <span class="accent">tablero</span><br>y el estado de la máquina</h1>
+  <p class="standfirst">Tres pantallas nuevas dibujadas con los tokens exactos de
+  <code>app_theme.dart</code> y las medidas reales de la app: rail&nbsp;70 · sidebar&nbsp;210 ·
+  área flexible · panel&nbsp;580. Las integraciones dejan de ser una lista en blanco, un agente
+  te arma la UI para probar tu API, y por fin se ve qué CLI tenés instalado y cuánto gastó.</p>
+</header>
+<section>
+<span class="eyebrow">01 · dónde entran</span>
+<h2>Dos entradas en el riel, un grupo en el sidebar</h2>
+<p><strong>MCP</strong> ya existe y no se mueve: se queda en su lugar y cambia por dentro.
+Lo que se suma es <strong>Banco</strong> —junto a Tools, porque son las dos cosas del riel que
+ejecutan algo— y <strong>Máquina</strong> abajo de todo, con Respaldo y Ajustes, que es el grupo
+de lo que habla de la app y no de tu trabajo.</p>
+<p>Los tableros en sí no viven en el riel: viven <strong>bajo cada proyecto</strong>, entre Estado
+y las sesiones. Un tablero prueba la API de <em>ese</em> repo; sacarlo de ahí sería pedirte que
+te acuerdes a cuál pertenece. El riel es para verlos todos juntos cuando querés ordenarlos.</p>
+<figure>
+<div class="scroller"><div style="display:flex;gap:0;width:281px;border:1px solid var(--rule);border-radius:8px;overflow:hidden">
+<div class="rail">
+  <div class="rail-item"><svg><use href="#i-spark"/></svg><span>Keel AI</span></div>
+  <div class="rail-gap"></div>
+  <div class="rail-item"><svg><use href="#i-badge"/></svg><span>Agentes</span></div>
+  <div class="rail-item"><svg><use href="#i-ext"/></svg><span>Skills</span></div>
+  <div class="rail-item"><svg><use href="#i-tree"/></svg><span>Workflows</span></div>
+  <div class="rail-item"><svg><use href="#i-rule"/></svg><span>Reglas</span></div>
+  <div class="rail-gap"></div>
+  <div class="rail-item"><svg><use href="#i-shield"/></svg><span>Hooks</span></div>
+  <div class="rail-item"><svg><use href="#i-term"/></svg><span>Tools</span></div>
+  <div class="rail-item" style="color:var(--brass)"><svg><use href="#i-board"/></svg><span>Banco</span></div>
+  <div class="rail-item"><svg><use href="#i-hub"/></svg><span>MCP</span></div>
+  <div class="rail-item"><svg><use href="#i-book"/></svg><span>Saber</span></div>
+  <div class="rail-item"><svg><use href="#i-key"/></svg><span>Secrets</span></div>
+  <div class="rail-spacer"></div>
+  <div class="rail-div"></div>
+  <div class="rail-item" style="color:var(--brass)"><svg><use href="#i-chip"/></svg><span>Máquina</span></div>
+  <div class="rail-item"><svg><use href="#i-backup"/></svg><span>Respaldo</span></div>
+  <div class="rail-item"><svg><use href="#i-gear"/></svg><span>Ajustes</span></div>
+</div>
+<div class="vr"></div>
+<div class="side" style="width:210px">
+<div class="grouphead"><span class="lbl">Proyectos</span><svg><use href="#i-tune"/></svg><svg><use href="#i-add"/></svg></div>
+<div class="row sel"><span class="hash">#</span><span class="nm">connect-api</span></div>
+<div class="subrow pinned"><span class="caret">&#9656;</span><span class="t">Estado</span><span class="tag">62%</span></div>
+<div class="grouphead" style="padding:6px 6px 4px 26px"><span class="lbl" style="color:var(--brass)">Tableros</span><svg style="color:var(--brass)"><use href="#i-add"/></svg></div>
+<div class="subrow sel" style="padding-left:34px"><span class="dot"></span><span class="t">Lanzar oferta</span></div>
+<div class="subrow" style="padding-left:34px"><span class="dot"></span><span class="t">Push de prueba</span></div>
+<div class="subrow" style="padding-left:34px"><span class="dot"></span><span class="t">Login de un buyer</span></div>
+<div class="subrow"><span class="dot"></span><span class="t">bid que llega en cero</span><span class="tag">3/7</span><span class="x">&times;</span></div>
+<div class="subrow"><span class="dot"></span><span class="t">retry del webhook</span><span class="ok">&#10003;</span><span class="x">&times;</span></div>
+<div class="newlink"><svg width="12" height="12"><use href="#i-add"/></svg>Nueva sesión</div>
+<div class="row"><span class="hash">#</span><span class="nm">kiwio</span></div>
+<div class="grouphead"><span class="lbl">Requerimientos</span><span class="cnt">1</span><svg><use href="#i-tune"/></svg><svg><use href="#i-add"/></svg></div>
+<div class="reqrow"><span class="dir out">&rarr;</span><span class="code">0011</span><span class="t">Webhook de cobro</span></div>
+</div>
+</div></div>
+<figcaption>El grupo <strong>Tableros</strong> aparece solo con el proyecto abierto, con su
+propio <code>+</code>, y sigue la misma sangría que las sesiones. Estado sigue siendo la primera
+fila fija; los tableros van después porque son herramienta, no resumen.</figcaption>
+</figure>
+</section>
+<section>
+<span class="eyebrow">02 · integraciones</span>
+<h2>Un catálogo en vez de un campo vacío</h2>
+<p>Hoy la pantalla de MCP arranca diciéndote que no registraste nada y te deja solo con un
+formulario. Sabe lo que vos ya sabías. Lo que no te dice es <strong>qué existe</strong>, cómo se
+configura, ni si lo que registraste levanta.</p>
+<p>La pantalla se parte en dos: arriba lo que ya tenés, con su estado real; abajo el catálogo,
+agrupado por para-qué-sirve. Un clic en una ficha abre el formulario ya lleno.</p>
+<figure>
+<div class="scroller"><div class="panelfig wide">
+<div class="panelhead">
+  <svg width="18" height="18" style="color:var(--ink-soft)"><use href="#i-hub"/></svg>
+  <span class="t">Integraciones</span>
+  <span class="mini"><svg width="11" height="11" style="vertical-align:-1px"><use href="#i-paste"/></svg> Pegar config</span>
+  <span class="mini go">+ Registrar a mano</span>
+</div>
+<div class="hr"></div>
+<div class="panelbody">
+  <div class="sec-h"><span>Instaladas</span><i class="line"></i><span>3</span></div>
+
+  <div class="instrow">
+    <span class="glyph" style="background:rgba(79,163,217,0.15);color:var(--m1)">GH</span>
+    <span class="grow">
+      <span class="nm2">github <span class="chip quiet">Remoto (HTTP)</span></span>
+      <span class="sub2">api.githubcopilot.com/mcp/ · 3 agentes</span>
+    </span>
+    <span class="stat ok"><i></i>42 tools · probado hace 2 h</span>
+    <span class="acts2"><span class="mini">Probar</span><span class="mini">Editar</span></span>
+  </div>
+
+  <div class="instrow">
+    <span class="glyph" style="background:rgba(155,123,196,0.15);color:var(--m3)">LN</span>
+    <span class="grow">
+      <span class="nm2">linear <span class="chip quiet">Remoto (HTTP)</span> <span class="chip bad">falta el secret LINEAR_API_KEY</span></span>
+      <span class="sub2">mcp.linear.app/mcp · 1 agente</span>
+    </span>
+    <span class="stat unk"><i></i>sin probar</span>
+    <span class="acts2"><span class="mini">Probar</span><span class="mini">Editar</span></span>
+  </div>
+
+  <div class="instrow">
+    <span class="glyph" style="background:rgba(217,142,90,0.15);color:var(--m6)">SE</span>
+    <span class="grow">
+      <span class="nm2">sentry <span class="chip quiet">Remoto (HTTP)</span></span>
+      <span class="sub2">mcp.sentry.dev/mcp · 2 agentes</span>
+    </span>
+    <span class="stat bad"><i></i>401 · el token no autoriza</span>
+    <span class="acts2"><span class="mini">Probar</span><span class="mini">Editar</span></span>
+  </div>
+
+  <div class="sec-h"><span>Disponibles &middot; trabajo</span><i class="line"></i></div>
+  <div class="catgrid">
+    <div class="catcard"><span class="glyph" style="background:rgba(155,123,196,0.15);color:var(--m3)">JI</span><span class="grow"><span class="nm2">Atlassian</span><span class="tag2">Jira y Confluence</span><span class="meta">HTTP · token</span></span></div>
+    <div class="catcard"><span class="glyph" style="background:rgba(127,176,105,0.15);color:var(--m5)">SL</span><span class="grow"><span class="nm2">Slack</span><span class="tag2">Canales, hilos y mensajes</span><span class="meta">stdio · npx</span></span></div>
+    <div class="catcard"><span class="glyph" style="background:rgba(181,126,220,0.15);color:var(--m8)">NO</span><span class="grow"><span class="nm2">Notion</span><span class="tag2">Páginas y bases de datos</span><span class="meta">HTTP · token</span></span></div>
+    <div class="catcard"><span class="glyph" style="background:rgba(108,142,191,0.15);color:var(--m7)">GM</span><span class="grow"><span class="nm2">Gmail</span><span class="tag2">Leer y redactar correo</span><span class="meta">stdio · npx</span></span></div>
+  </div>
+
+  <div class="sec-h"><span>Disponibles &middot; datos y nube</span><i class="line"></i></div>
+  <div class="catgrid">
+    <div class="catcard"><span class="glyph" style="background:rgba(63,163,140,0.15);color:var(--m2)">PG</span><span class="grow"><span class="nm2">Postgres</span><span class="tag2">Consultas de solo lectura</span><span class="meta">stdio · npx</span></span></div>
+    <div class="catcard"><span class="glyph" style="background:rgba(201,162,39,0.15);color:var(--m4)">DR</span><span class="grow"><span class="nm2">Google Drive</span><span class="tag2">Buscar y leer documentos</span><span class="meta">stdio · npx</span></span></div>
+    <div class="catcard"><span class="glyph" style="background:rgba(181,126,220,0.15);color:var(--m8)">ST</span><span class="grow"><span class="nm2">Stripe</span><span class="tag2">Pagos, clientes, suscripciones</span><span class="meta">stdio · npx</span></span></div>
+    <div class="catcard"><span class="glyph" style="background:rgba(217,142,90,0.15);color:var(--m6)">FI</span><span class="grow"><span class="nm2">Figma</span><span class="tag2">Archivos y nodos de diseño</span><span class="meta">stdio · npx</span></span></div>
+  </div>
+
+  <div class="sec-h"><span>Disponibles &middot; código y navegador</span><i class="line"></i></div>
+  <div class="catgrid">
+    <div class="catcard"><span class="glyph" style="background:rgba(63,163,140,0.15);color:var(--m2)">PW</span><span class="grow"><span class="nm2">Playwright</span><span class="tag2">Un navegador de verdad</span><span class="meta">stdio · npx</span></span></div>
+    <div class="catcard"><span class="glyph" style="background:rgba(127,176,105,0.15);color:var(--m5)">C7</span><span class="grow"><span class="nm2">Context7</span><span class="tag2">Docs de librerías al día</span><span class="meta">stdio · npx</span></span></div>
+    <div class="catcard"><span class="glyph" style="background:rgba(201,162,39,0.15);color:var(--m4)">FS</span><span class="grow"><span class="nm2">Filesystem</span><span class="tag2">Carpetas fuera del proyecto</span><span class="meta">stdio · npx</span></span></div>
+  </div>
+</div>
+</div></div>
+<figcaption>El glifo son dos letras sobre un color de la paleta de miembros, no un logo
+descargado: cero red, cero archivo que se pudre, y se ve igual sin conexión. El
+<code>chip</code> rojo de linear es el <code>PendingSecretsBadge</code> que ya existe hoy.</figcaption>
+</figure>
+</section>
+<section>
+<span class="eyebrow">03 · la ficha</span>
+<h2>Una credencial es un secret, no un KEY=VALUE</h2>
+<p>El formulario de hoy te pide el comando, los argumentos separados por espacios y un
+textarea de <code>KEY=VALUE</code>. Funciona si ya sabés qué va; no te ayuda si no.</p>
+<p>Viniendo del catálogo, la ficha ya sabe el transporte, la URL y <strong>qué credenciales
+pide</strong>, con su nombre real y de dónde se saca cada una. Lo único que elegís es a qué
+secret registrado apunta. El valor no aparece nunca acá: se resuelve recién dentro del
+archivo temporal del turno, que es como ya funciona.</p>
+<figure>
+<div class="scroller"><div class="panelfig">
+<div class="panelhead">
+  <span class="glyph" style="background:rgba(155,123,196,0.15);color:var(--m3)">LN</span>
+  <span class="t">Linear<span style="display:block;font-size:11px;color:var(--ink-soft)">Issues, ciclos y proyectos</span></span>
+  <span class="mini">Documentación &#8599;</span>
+</div>
+<div class="hr"></div>
+<div class="panelbody">
+  <div class="fld">
+    <label>Nombre en el turno</label>
+    <div class="tf mono">linear</div>
+    <div class="hint">Es el prefijo de sus tools: <b>mcp__linear__*</b>. Minúsculas, números, <code>-</code> y <code>_</code>.</div>
+  </div>
+  <div class="fld">
+    <label>Transporte</label>
+    <div class="tf pick">Remoto (HTTP)<span class="car">&#9662;</span></div>
+  </div>
+  <div class="fld">
+    <label>URL</label>
+    <div class="tf mono">https://mcp.linear.app/mcp</div>
+  </div>
+
+  <div class="sec-h"><span>Credenciales que pide</span><i class="line"></i></div>
+
+  <div class="fld">
+    <label>Authorization &middot; Bearer</label>
+    <div class="tf pick"><span style="display:flex;align-items:center;gap:7px"><svg width="13" height="13" style="color:var(--brass)"><use href="#i-key"/></svg>LINEAR_API_KEY</span><span class="car">&#9662;</span></div>
+    <div class="hint">Se saca en Linear &rarr; Settings &rarr; API &rarr; Personal API keys. Empieza con <b>lin_api_</b>.</div>
+  </div>
+
+  <div class="sysnote" style="padding:10px 0 14px">
+    <svg style="color:var(--brass)"><use href="#i-warn"/></svg>
+    <span>Ese secret todavía no existe. Se crea desde acá y la integración queda esperándolo:
+    mientras falte, sus tools no se le entregan a nadie.</span>
+  </div>
+
+  <div class="hr"></div>
+  <div style="display:flex;align-items:center;gap:8px;padding-top:14px">
+    <span class="mini">Probar</span>
+    <span style="flex:1"></span>
+    <span class="mini">Cancelar</span>
+    <span class="btn">Registrar</span>
+  </div>
+</div>
+</div></div>
+<figcaption>La ficha del catálogo es una comodidad, no una promesa: cada campo queda editable
+y el enlace a la documentación oficial está arriba a la derecha, porque los comandos y las URLs
+de los MCP de terceros cambian y este archivo no se entera.</figcaption>
+</figure>
+</section>
+<section>
+<span class="eyebrow">04 · probar</span>
+<h2>Que te diga qué tools tiene, no que te lo prometa</h2>
+<p>Hoy no hay forma de saber si un MCP levanta. Te enterás tres turnos después, cuando el
+agente "no usó la tool" y no sabés si es que no quiso o es que nunca la tuvo.</p>
+<p><strong>Probar</strong> abre la conexión de verdad —<code>initialize</code> y
+<code>tools/list</code>, el mismo apretón de manos que hace el CLI— y te devuelve la lista.
+Con un stdio, además, te dice si el comando ni siquiera existe en la máquina.</p>
+<figure>
+<div class="scroller"><div style="display:flex;gap:12px;flex-wrap:wrap">
+
+<div class="panelfig" style="width:430px">
+<div class="panelhead"><span class="glyph" style="background:rgba(79,163,217,0.15);color:var(--m1)">GH</span><span class="t">github</span></div>
+<div class="hr"></div>
+<div class="panelbody">
+  <div class="stat ok" style="font-size:12px"><i></i>Conectó &middot; github-mcp-server 0.18.0 &middot; 340&nbsp;ms</div>
+  <div class="tools">
+    <span>create_issue</span><span>get_issue</span><span>list_issues</span>
+    <span>create_pull_request</span><span>get_pull_request</span><span>merge_pull_request</span>
+    <span>list_commits</span><span>search_code</span><span>get_file_contents</span>
+    <span>create_branch</span><span>list_workflow_runs</span>
+    <span style="border-style:dashed">+31 más</span>
+  </div>
+</div>
+</div>
+
+<div class="panelfig" style="width:430px">
+<div class="panelhead"><span class="glyph" style="background:rgba(217,142,90,0.15);color:var(--m6)">SE</span><span class="t">sentry</span></div>
+<div class="hr"></div>
+<div class="panelbody">
+  <div class="stat bad" style="font-size:12px"><i></i>401 Unauthorized</div>
+  <p style="font-size:12px;margin:9px 0 0;max-width:none">El servidor contestó, pero rechazó el
+  token. Este es de los que piden <strong>OAuth</strong> y Keel solo sabe mandar un token en el
+  header: sacá uno de API en la configuración de la organización y pegalo en su secret.</p>
+  <div class="cmd" style="margin-top:10px;color:var(--ink-soft)">Authorization: Bearer ***
+tools/list &rarr; no llegó a correr</div>
+</div>
+</div>
+
+</div></div>
+<figcaption>El resultado se guarda aparte de la configuración, en su propio registro
+(<code>mcpprobe_&lt;id&gt;</code>), y <strong>no viaja en el respaldo</strong>: es estado de esta
+máquina y de este momento, igual que las tomas de tareas del roadmap.</figcaption>
+</figure>
+<h3>Por qué un servidor con OAuth no alcanza con autenticarlo por afuera</h3>
+<p>Cada turno se corre con <code>--strict-mcp-config</code>, que le dice al CLI que use
+<em>solo</em> el archivo que le pasamos e ignore lo que el usuario tenga registrado en su
+configuración global. Eso es lo que hace que un proyecto no herede los MCP de otro. El precio
+es que un servidor que autenticaste con <code>claude mcp add</code> por fuera no se ve desde
+acá. Sacar esa bandera arreglaría un caso y rompería el aislamiento de todos, así que la
+ficha lo dice y el probe lo demuestra en dos segundos.</p>
+</section>
+<section>
+<span class="eyebrow">05 · el escape</span>
+<h2>Pegar la config, como ya se hace con los hooks</h2>
+<p>Todo servidor MCP documenta lo mismo: un bloque <code>mcpServers</code> listo para copiar.
+Los hooks ya tienen su importador; los MCP no, y por eso hoy hay que traducir ese bloque a mano
+al formulario, campo por campo.</p>
+<p>Esto es lo que vuelve al catálogo robusto a que mi lista envejezca: si la ficha quedó vieja,
+pegás la de la documentación oficial y queda registrada igual.</p>
+<figure>
+<div class="scroller"><div class="panelfig">
+<div class="panelhead"><svg width="18" height="18" style="color:var(--ink-soft)"><use href="#i-paste"/></svg><span class="t">Pegar una configuración MCP</span></div>
+<div class="hr"></div>
+<div class="panelbody">
+  <div class="fld">
+    <label>Pegá el bloque tal como está en la documentación</label>
+    <div class="tf mono big">{
+  "mcpServers": {
+    "playwright": {
+      "command": "npx",
+      "args": ["-y", "@playwright/mcp@latest"]
+    },
+    "postgres": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-postgres"],
+      "env": { "DATABASE_URL": "postgres://localhost/dev" }
+    }
+  }
+}</div>
+  </div>
+
+  <div class="sec-h"><span>Se van a registrar</span><i class="line"></i><span>2</span></div>
+  <div class="checklist" style="margin:0 0 16px;max-width:none">
+    <div><span class="y">+</span><span><b>playwright</b> &mdash; local (stdio), sin credenciales</span></div>
+    <div><span class="m">!</span><span><b>postgres</b> &mdash; local (stdio), trae <code>DATABASE_URL</code> con un valor adentro</span></div>
+  </div>
+  <div class="sysnote">
+    <svg style="color:var(--brass)"><use href="#i-key"/></svg>
+    <span>Un valor pegado en <code>env</code> queda como texto en la base. Si es una credencial
+    de verdad, conviene moverla a un secret ahora &mdash; el importador ofrece hacerlo por vos.</span>
+  </div>
+  <div class="hr"></div>
+  <div style="display:flex;align-items:center;gap:8px;padding-top:14px">
+    <span style="flex:1;font-size:11.5px;color:var(--ink-faint)">Ninguno de los dos nombres está usado.</span>
+    <span class="mini">Cancelar</span>
+    <span class="btn">Registrar los 2</span>
+  </div>
+</div>
+</div></div>
+<figcaption>Mismo idioma que el importador de hooks: preview antes de aplicar, conflictos por
+nombre a la vista, y nada se escribe hasta que apretás. Lo que suma acá es el aviso del secret:
+un token pegado en <code>env</code> es exactamente lo que la sección Secrets existe para evitar.</figcaption>
+</figure>
+</section>
+<section>
+<span class="eyebrow">06 · tableros</span>
+<h2>Un botón para lanzar la oferta, en vez de un curl</h2>
+<p>Un <strong>tablero</strong> es una pantallita para disparar algo contra tu propia app: lanzar
+un bid, cobrar, mandarte un push, pegarle a un endpoint que estás escribiendo. Tiene campos
+arriba, botones en el medio y la respuesta abajo.</p>
+<p>Lo importante es de dónde sale: no lo dibujás vos ni lo dibujo yo. Lo escribe
+<strong>un agente de los que ya tenés</strong> —el miembro del proyecto, en una sesión normal—
+leyendo el código o el OpenAPI de esa API. La app lo renderiza con widgets de verdad, así que
+después se puede leer, corregir a mano y respaldar como cualquier otra cosa.</p>
+<div class="scroller"><div class="win" style="height:660px">
+<div class="rail">
+  <div class="rail-item"><svg><use href="#i-spark"/></svg><span>Keel AI</span></div>
+  <div class="rail-gap"></div>
+  <div class="rail-item"><svg><use href="#i-badge"/></svg><span>Agentes</span></div>
+  <div class="rail-item"><svg><use href="#i-ext"/></svg><span>Skills</span></div>
+  <div class="rail-item"><svg><use href="#i-tree"/></svg><span>Workflows</span></div>
+  <div class="rail-item"><svg><use href="#i-rule"/></svg><span>Reglas</span></div>
+  <div class="rail-gap"></div>
+  <div class="rail-item"><svg><use href="#i-shield"/></svg><span>Hooks</span></div>
+  <div class="rail-item"><svg><use href="#i-term"/></svg><span>Tools</span></div>
+  <div class="rail-item"><svg><use href="#i-board"/></svg><span>Banco</span></div>
+  <div class="rail-item"><svg><use href="#i-hub"/></svg><span>MCP</span></div>
+  <div class="rail-item"><svg><use href="#i-book"/></svg><span>Saber</span></div>
+  <div class="rail-item"><svg><use href="#i-key"/></svg><span>Secrets</span></div>
+  <div class="rail-spacer"></div>
+  <div class="rail-div"></div>
+  <div class="rail-item"><svg><use href="#i-chip"/></svg><span>Máquina</span></div>
+  <div class="rail-item"><svg><use href="#i-backup"/></svg><span>Respaldo</span></div>
+  <div class="rail-item"><svg><use href="#i-gear"/></svg><span>Ajustes</span></div>
+</div>
+<div class="vr"></div>
+<div class="side">
+<div class="grouphead"><span class="lbl">Proyectos</span><svg><use href="#i-tune"/></svg><svg><use href="#i-add"/></svg></div>
+<div class="row sel"><span class="hash">#</span><span class="nm">connect-api</span></div>
+<div class="subrow pinned"><span class="caret">&#9656;</span><span class="t">Estado</span><span class="tag">62%</span></div>
+<div class="grouphead" style="padding:6px 6px 4px 26px"><span class="lbl">Tableros</span><svg><use href="#i-add"/></svg></div>
+<div class="subrow sel" style="padding-left:34px"><span class="dot"></span><span class="t">Lanzar oferta</span></div>
+<div class="subrow" style="padding-left:34px"><span class="dot"></span><span class="t">Push de prueba</span></div>
+<div class="subrow" style="padding-left:34px"><span class="dot"></span><span class="t">Login de un buyer</span></div>
+<div class="subrow"><span class="dot"></span><span class="t">bid que llega en cero</span><span class="tag">3/7</span><span class="x">&times;</span></div>
+<div class="subrow"><span class="dot"></span><span class="t">retry del webhook</span><span class="ok">&#10003;</span><span class="x">&times;</span></div>
+<div class="newlink"><svg width="12" height="12"><use href="#i-add"/></svg>Nueva sesión</div>
+<div class="row"><span class="hash">#</span><span class="nm">kiwio</span></div>
+<div class="row"><span class="hash">#</span><span class="nm">nui-app</span><svg width="12" height="12" style="color:var(--ink-faint)"><use href="#i-lock"/></svg></div>
+<div class="grouphead"><span class="lbl">Requerimientos</span><span class="cnt">1</span><svg><use href="#i-tune"/></svg><svg><use href="#i-add"/></svg></div>
+<div class="reqrow"><span class="dir out">&rarr;</span><span class="code">0011</span><span class="t">Webhook de cobro</span></div>
+<div class="grouphead"><span class="lbl">Agentes sueltos</span><svg><use href="#i-tune"/></svg><svg><use href="#i-add"/></svg></div>
+<div class="row"><span class="hash">@</span><span class="nm">flutter-expert</span></div>
+</div>
+<div class="vr"></div>
+<div class="main">
+  <div class="mainhead">
+    <svg width="18" height="18" style="color:var(--brass)"><use href="#i-board"/></svg>
+    <div>
+      <div class="h1"><span class="nm">Lanzar oferta</span></div>
+      <div class="sub">connect-api &middot; lo escribió <span style="font-family:var(--mono)">@backend-expert</span> hace 3 días</div>
+    </div>
+    <span class="grow"></span>
+    <span class="mini">Editar</span>
+  </div>
+  <div class="hr"></div>
+  <div class="body">
+    <div class="sec-h"><span>Qué mandás</span><i class="line"></i></div>
+    <div class="brow"><span class="lb">producto</span><span class="in"><div class="tf mono">SKU-1183</div></span></div>
+    <div class="brow"><span class="lb">cantidad</span><span class="in"><div class="tf mono">40</div></span></div>
+    <div class="brow"><span class="lb">precio</span><span class="in"><div class="tf mono">12.50</div></span></div>
+    <div class="brow"><span class="lb">ambiente</span><span class="in"><div class="tf pick">dev<span class="car">&#9662;</span></div></span></div>
+    <div class="brow"><span class="lb">notificar</span><span class="in"><div class="sw"><i></i></div></span></div>
+    <div class="brow"><span class="lb">buyer</span><span class="in"><div class="tf pick"><span style="display:flex;align-items:center;gap:7px"><svg width="13" height="13" style="color:var(--brass)"><use href="#i-key"/></svg>TOKEN_BUYER_DEV</span><span class="car">&#9662;</span></div></span></div>
+
+    <div class="sec-h"><span>Qué disparás</span><i class="line"></i></div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <span class="btn"><svg><use href="#i-play"/></svg>Lanzar oferta</span>
+      <span class="mini">Ver el pedido</span>
+      <span style="flex:1"></span>
+      <span style="font-size:11.5px;color:var(--ink-faint)">última corrida: hace 4 min</span>
+    </div>
+
+    <div class="resp">
+      <div class="resphead">
+        <span class="code2 ok">201 Created</span>
+        <span>340 ms</span>
+        <span class="grow"></span>
+        <span>POST /v1/offers</span>
+      </div>
+      <div class="hr"></div>
+      <div class="json">{
+  <span class="k">"offerId"</span>: <span class="s">"of_88a1c3"</span>,
+  <span class="k">"status"</span>: <span class="s">"open"</span>,
+  <span class="k">"quantity"</span>: <span class="n">40</span>,
+  <span class="k">"unitPrice"</span>: <span class="n">12.5</span>,
+  <span class="k">"expiresAt"</span>: <span class="s">"2026-08-24T09:00:00Z"</span>
+}</div>
+    </div>
+  </div>
+</div>
+</div></div>
+<figcaption>La respuesta queda a la vista con su código y su tiempo, que es lo que mirás cuando
+estás probando. Las últimas 20 corridas se guardan por tablero &mdash; y como los probes,
+<strong>no viajan en el respaldo</strong>: la definición del tablero sí, lo que te contestó tu API
+de dev no le sirve a nadie más.</figcaption>
+</section>
+<section>
+<span class="eyebrow">07 · pasos</span>
+<h2>Cuando una prueba son tres cosas seguidas</h2>
+<p>El caso que rompe la versión simple es el push. Mandar una notificación de FCM pide un token
+de acceso que sale de un comando y <strong>vence en una hora</strong>. Con un solo pedido HTTP,
+la respuesta es pegar un token nuevo cada vez que probás.</p>
+<p>Por eso una acción puede tener varios pasos, y un paso puede guardarse algo de la salida del
+anterior. Lo que se guarda se nombra, y se usa como cualquier campo.</p>
+<figure>
+<div class="scroller"><div class="panelfig" style="width:640px">
+<div class="panelhead"><svg width="18" height="18" style="color:var(--brass)"><use href="#i-play"/></svg><span class="t">Mandarme un push &middot; 3 pasos</span><span class="chip good">corrió en 1.9 s</span></div>
+<div class="hr"></div>
+<div class="panelbody">
+
+  <div class="pstep">
+    <div class="col"><div class="num done">1</div><div class="conn2"></div></div>
+    <div class="bd">
+      <div class="kind">comando</div>
+      <div class="cmd">gcloud auth print-access-token</div>
+      <div class="cap">guarda la salida en <b>{{token}}</b></div>
+    </div>
+  </div>
+
+  <div class="pstep">
+    <div class="col"><div class="num done">2</div><div class="conn2"></div></div>
+    <div class="bd">
+      <div class="kind">HTTP</div>
+      <div class="cmd">POST https://fcm.googleapis.com/v1/projects/{{proyecto}}/messages:send
+Authorization: Bearer {{token}}
+
+{ "message": { "token": "{{dispositivo}}",
+               "notification": { "title": "{{titulo}}" } } }</div>
+      <div class="cap">guarda <b>{{name}}</b> del cuerpo de la respuesta</div>
+    </div>
+  </div>
+
+  <div class="pstep">
+    <div class="col"><div class="num done">3</div></div>
+    <div class="bd">
+      <div class="kind">comando</div>
+      <div class="cmd">adb logcat -d -s FirebaseMessaging -t 20</div>
+      <div class="cap">para ver si el teléfono lo recibió, sin salir de acá</div>
+    </div>
+  </div>
+
+  <div class="hr"></div>
+  <div class="sysnote" style="padding-top:12px">
+    <svg style="color:var(--brass)"><use href="#i-warn"/></svg>
+    <span>Los pasos de comando se muestran enteros antes de correr y se confirman la primera vez.
+    Un tablero ejecuta cosas en tu máquina: lo mínimo es que lo veas escrito.</span>
+  </div>
+</div>
+</div></div>
+<figcaption>Un <code>{{campo}}</code> que no existe es un error con el nombre de la clave adentro,
+y corta antes de salir a la red. La alternativa &mdash;mandar el <code>{{campo}}</code> literal&mdash;
+es un pedido raro llegando a tu API y media hora buscando por qué.</figcaption>
+</figure>
+</section>
+<style>
+  /* etiquetas de los diagramas */
+  .dg { max-width: 100%; height: auto; color: var(--ink-soft); }
+  .dg .bx { fill: var(--panel); stroke: var(--rule); stroke-width: 1; }
+  .dg .bx.hot { fill: var(--brass-deep); stroke: var(--brass); }
+  .dg .ti { font-family: var(--ui); font-size: 12.5px; fill: var(--ink); font-weight: 600; }
+  .dg .sb { font-family: var(--mono); font-size: 10.5px; fill: var(--ink-faint); }
+  .dg .lb { font-family: var(--mono); font-size: 10.5px; fill: var(--ink-soft); }
+  .dg .lb.hot { fill: var(--brass); }
+  .dg .lb.no { fill: var(--err-ink); }
+  .dg .ln { stroke: currentColor; stroke-width: 1.3; fill: none; }
+  .dg .ln.hot { stroke: var(--brass); stroke-width: 1.8; }
+  .dg .ln.no { stroke: var(--removed); stroke-dasharray: 4 4; }
+  .dg .b.so { fill: var(--brass); }
+  .dg .b.op { fill: var(--m3); }
+  .dg .b.hk { fill: var(--m2); }
+  .dg .b.nil { fill: var(--rule); }
+  .dg .ax { font-family: var(--mono); font-size: 9.5px; fill: var(--ink-faint); }
+  .dg .gl { stroke: var(--rule); stroke-width: 1; }
+</style>
+<section>
+<span class="eyebrow">08 · quién arma y quién dispara</span>
+<h2>El agente construye el instrumento; la palanca la bajás vos</h2>
+<p>El tablero llega por una tool MCP local, con el mismo alcance-en-la-URL que ya usan el plan,
+el roadmap y los requerimientos: el agente no puede nombrar un proyecto que no sea el suyo.</p>
+<p>Lo que <strong>no</strong> hay es una tool para correrlo, y no es un olvido. Un tablero dispara
+pedidos contra tu API y comandos en tu máquina; que eso salga de una decisión tuya, y no de un
+turno que se entusiasmó a las tres de la mañana, es lo único que lo hace usable.</p>
+<figure>
+<svg class="dg" viewBox="0 0 900 300" role="img" aria-label="Un agente crea el tablero por la tool create_board del MCP local keel-boards; el tablero aparece en el sidebar del proyecto y queda esperando; solo el usuario lo dispara contra la API. No existe una tool para que el agente lo dispare.">
+  <defs>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="currentColor"/>
+    </marker>
+    <marker id="arh" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#D9A93C"/>
+    </marker>
+  </defs>
+
+  <rect class="bx" x="12" y="30" width="196" height="60" rx="8"/>
+  <text class="ti" x="110" y="55" text-anchor="middle">Sesión del proyecto</text>
+  <text class="sb" x="110" y="73" text-anchor="middle">@backend-expert</text>
+
+  <line class="ln" x1="212" y1="60" x2="292" y2="60" marker-end="url(#ar)"/>
+  <text class="lb" x="252" y="50" text-anchor="middle">create_board</text>
+
+  <rect class="bx" x="296" y="30" width="232" height="60" rx="8"/>
+  <text class="ti" x="412" y="55" text-anchor="middle">keel-boards</text>
+  <text class="sb" x="412" y="73" text-anchor="middle">/boards/&lt;proy&gt;/&lt;ses&gt;/&lt;perfil&gt;</text>
+
+  <line class="ln" x1="532" y1="60" x2="612" y2="60" marker-end="url(#ar)"/>
+  <text class="lb" x="572" y="50" text-anchor="middle">valida</text>
+
+  <rect class="bx" x="616" y="30" width="196" height="60" rx="8"/>
+  <text class="ti" x="714" y="55" text-anchor="middle">Tablero</text>
+  <text class="sb" x="714" y="73" text-anchor="middle">en el sidebar</text>
+
+  <line class="ln" x1="714" y1="94" x2="714" y2="186" marker-end="url(#ar)"/>
+  <text class="lb" x="726" y="144">queda esperando</text>
+
+  <rect class="bx hot" x="616" y="190" width="196" height="60" rx="8"/>
+  <text class="ti" x="714" y="215" text-anchor="middle" style="fill:#D9A93C">Vos</text>
+  <text class="sb" x="714" y="233" text-anchor="middle" style="fill:#D9A93C">apretando el botón</text>
+
+  <line class="ln hot" x1="612" y1="220" x2="216" y2="220" marker-end="url(#arh)"/>
+  <text class="lb hot" x="414" y="210" text-anchor="middle">lanzar oferta</text>
+
+  <rect class="bx" x="12" y="190" width="196" height="60" rx="8"/>
+  <text class="ti" x="110" y="215" text-anchor="middle">Tu API · tu máquina</text>
+  <text class="sb" x="110" y="233" text-anchor="middle">POST /v1/offers</text>
+
+  <line class="ln no" x1="110" y1="94" x2="110" y2="186"/>
+  <path class="ln no" d="M102 132 L118 148 M118 132 L102 148" stroke-dasharray="0"/>
+  <text class="lb no" x="126" y="128">no existe</text>
+  <text class="lb no" x="126" y="142">run_board</text>
+</svg>
+<figcaption>Las cinco tools del servidor son de definición: <code>list_boards</code>,
+<code>get_board</code>, <code>create_board</code>, <code>update_board</code> y
+<code>delete_board</code>. La línea cortada es la que no se cruza.</figcaption>
+</figure>
+<h3>Cómo se pide</h3>
+<figure>
+<div class="scroller"><div class="panelfig" style="width:640px">
+<div class="panelhead"><svg width="18" height="18" style="color:var(--ink-soft)"><use href="#i-bot"/></svg><span class="t">connect-api &middot; bid que llega en cero</span></div>
+<div class="hr"></div>
+<div class="thread" style="padding:14px 16px">
+  <div class="msgrow mine"><div class="bubble mine">Armame un tablero para lanzar una oferta contra dev,
+  con producto, cantidad, precio y el ambiente. El token del buyer sacalo del secret que ya está.</div></div>
+  <div class="msgrow">
+    <div class="bubble">
+      <div class="author"><span class="avatar" style="background:rgba(63,163,140,0.15);color:var(--m2)"><svg><use href="#i-bot"/></svg></span><span class="handle" style="color:var(--m2)">@backend-expert</span><span class="ts">14:22</span></div>
+      Leí <code>offers_controller.rs</code>: el endpoint pide <code>sku</code>, <code>quantity</code>,
+      <code>unitPrice</code> y el bearer del comprador. Te dejo el tablero con esos cuatro campos y
+      el ambiente como lista, porque la URL cambia entre dev y staging.
+      <div class="sysnote" style="padding:8px 0 0;border-top:1px solid var(--rule);margin-top:8px">
+        <svg style="color:var(--added)"><use href="#i-board"/></svg>
+        <span>Creó el tablero <b style="color:var(--ink)">Lanzar oferta</b> en connect-api &middot; 6 campos, 1 acción</span>
+      </div>
+    </div>
+  </div>
+</div>
+</div></div>
+<figcaption>La línea del final es la misma confirmación en vivo que ya dan las tools de Keel AI:
+aparece cuando la tool corre, no al final de la respuesta. El tablero ya está en el sidebar
+mientras el agente sigue escribiendo.</figcaption>
+</figure>
+</section>
+<section>
+<span class="eyebrow">09 · máquina</span>
+<h2>Qué tenés instalado, cuánto gastó y cómo está el fierro</h2>
+<p>Tres preguntas que hoy se contestan afuera de la app: en una terminal, en un dashboard web y
+en el Monitor de Actividad. Las tres tienen que ver con lo mismo &mdash;lo que Keel está haciendo
+en esta máquina&mdash; así que van juntas.</p>
+<p>Y una advertencia que va en la propia pantalla: <strong>el historial empieza hoy</strong>. Hasta
+ahora los tokens de cada turno se leían para calcular el porcentaje de contexto y se tiraban. De
+acá en adelante se guardan; lo de antes no existe y ningún gráfico lo puede inventar.</p>
+<div class="scroller"><div class="panelfig wide">
+<div class="panelhead">
+  <svg width="18" height="18" style="color:var(--ink-soft)"><use href="#i-chip"/></svg>
+  <span class="t">Máquina</span>
+  <span class="mini"><svg width="11" height="11" style="vertical-align:-1px"><use href="#i-refresh"/></svg> Revisar de nuevo</span>
+</div>
+<div class="hr"></div>
+<div class="panelbody">
+
+  <div class="sec-h"><span>Servicios</span><i class="line"></i><span>2 de 6 con adaptador</span></div>
+  <div class="svcrow" style="border-top:none">
+    <span class="n2">claude</span><span class="v3">2.1.14</span>
+    <span class="p2">/Users/jhonacode/.local/bin/claude</span>
+    <span class="chip good">soportado</span>
+  </div>
+  <div class="svcrow">
+    <span class="n2">codex</span><span class="v3">0.9.2</span>
+    <span class="p2">/opt/homebrew/bin/codex</span>
+    <span class="chip good">soportado</span>
+  </div>
+  <div class="svcrow">
+    <span class="n2">opencode</span><span class="v3">0.4.1</span>
+    <span class="p2">/opt/homebrew/bin/opencode</span>
+    <span class="chip quiet">detectado, sin adaptador</span>
+  </div>
+  <div class="svcrow">
+    <span class="n2" style="color:var(--ink-faint)">gemini</span><span class="v3">&mdash;</span>
+    <span class="p2">no está en el PATH</span>
+    <span class="chip lock">no instalado</span>
+  </div>
+  <p style="font-size:11.5px;color:var(--ink-faint);margin:10px 0 0;max-width:none">
+  Detectar no es integrar: los que dicen <em>sin adaptador</em> están en tu máquina pero Keel
+  todavía no sabe hablarles, y no se le pueden asignar a un agente.</p>
+
+  <div class="sec-h"><span>Consumo &middot; últimos 14 días</span><i class="line"></i><span>23,1 M tokens</span></div>
+  <figure style="margin:0">
+  <svg class="dg" viewBox="0 0 720 180" role="img" aria-label="Tokens por día en los últimos catorce días, apilados por modelo: sonnet, opus y haiku. El día 13 no hubo actividad; el pico es el día 22 con 3,6 millones de tokens.">
+    <line class="gl" x1="42" y1="22" x2="700" y2="22"/>
+    <line class="gl" x1="42" y1="86" x2="700" y2="86"/>
+    <line class="gl" x1="42" y1="150" x2="700" y2="150"/>
+    <text class="ax" x="36" y="26" text-anchor="end">3,6 M</text>
+    <text class="ax" x="36" y="90" text-anchor="end">1,8 M</text>
+    <text class="ax" x="36" y="154" text-anchor="end">0</text>
+  <rect class="b hk" x="42" y="148.6" width="34" height="1.4"/>
+  <rect class="b so" x="42" y="119.5" width="34" height="29.1"/>
+  <text class="ax" x="59" y="166" text-anchor="middle">10</text>
+  <rect class="b hk" x="88" y="147.9" width="34" height="2.1"/>
+  <rect class="b op" x="88" y="134.4" width="34" height="13.5"/>
+  <rect class="b so" x="88" y="90.4" width="34" height="44.0"/>
+  <text class="ax" x="105" y="166" text-anchor="middle">11</text>
+  <rect class="b hk" x="134" y="148.9" width="34" height="1.1"/>
+  <rect class="b op" x="134" y="141.5" width="34" height="7.4"/>
+  <rect class="b so" x="134" y="118.8" width="34" height="22.7"/>
+  <text class="ax" x="151" y="166" text-anchor="middle">12</text>
+  <rect class="b nil" x="180" y="148" width="34" height="2"/>
+  <text class="ax" x="197" y="166" text-anchor="middle">13</text>
+  <rect class="b hk" x="226" y="149.3" width="34" height="0.7"/>
+  <rect class="b so" x="226" y="138.3" width="34" height="11.0"/>
+  <text class="ax" x="243" y="166" text-anchor="middle">14</text>
+  <rect class="b hk" x="272" y="146.8" width="34" height="3.2"/>
+  <rect class="b op" x="272" y="130.5" width="34" height="16.3"/>
+  <rect class="b so" x="272" y="74.5" width="34" height="56.0"/>
+  <text class="ax" x="289" y="166" text-anchor="middle">15</text>
+  <rect class="b hk" x="318" y="146.1" width="34" height="3.9"/>
+  <rect class="b op" x="318" y="120.6" width="34" height="25.5"/>
+  <rect class="b so" x="318" y="52.5" width="34" height="68.1"/>
+  <text class="ax" x="335" y="166" text-anchor="middle">16</text>
+  <rect class="b hk" x="364" y="147.5" width="34" height="2.5"/>
+  <rect class="b op" x="364" y="136.9" width="34" height="10.6"/>
+  <rect class="b so" x="364" y="85.8" width="34" height="51.1"/>
+  <text class="ax" x="381" y="166" text-anchor="middle">17</text>
+  <rect class="b hk" x="410" y="148.9" width="34" height="1.1"/>
+  <rect class="b so" x="410" y="122.0" width="34" height="26.9"/>
+  <text class="ax" x="427" y="166" text-anchor="middle">18</text>
+  <rect class="b hk" x="456" y="145.7" width="34" height="4.3"/>
+  <rect class="b op" x="456" y="111.0" width="34" height="34.7"/>
+  <rect class="b so" x="456" y="36.5" width="34" height="74.5"/>
+  <text class="ax" x="473" y="166" text-anchor="middle">19</text>
+  <rect class="b hk" x="502" y="146.6" width="34" height="3.4"/>
+  <rect class="b op" x="502" y="127.5" width="34" height="19.1"/>
+  <rect class="b so" x="502" y="67.9" width="34" height="59.6"/>
+  <text class="ax" x="519" y="166" text-anchor="middle">20</text>
+  <rect class="b hk" x="548" y="148.4" width="34" height="1.6"/>
+  <rect class="b op" x="548" y="144.1" width="34" height="4.3"/>
+  <rect class="b so" x="548" y="109.0" width="34" height="35.1"/>
+  <text class="ax" x="565" y="166" text-anchor="middle">21</text>
+  <rect class="b hk" x="594" y="145.0" width="34" height="5.0"/>
+  <rect class="b op" x="594" y="105.0" width="34" height="40.1"/>
+  <rect class="b so" x="594" y="22.0" width="34" height="83.0"/>
+  <text class="ax" x="611" y="166" text-anchor="middle">22</text>
+  <rect class="b hk" x="640" y="147.9" width="34" height="2.1"/>
+  <rect class="b op" x="640" y="133.3" width="34" height="14.5"/>
+  <rect class="b so" x="640" y="93.6" width="34" height="39.7"/>
+  <text class="ax" x="657" y="166" text-anchor="middle">23</text>  </svg>
+  </figure>
+  <div class="legend" style="margin-top:12px">
+    <span><i style="background:#D9A93C"></i>sonnet</span>
+    <span><i style="background:#9B7BC4"></i>opus</span>
+    <span><i style="background:#3FA38C"></i>haiku</span>
+    <span style="color:var(--ink-faint)"><i style="background:#253141"></i>sin actividad</span>
+  </div>
+
+  <table class="grid" style="margin-top:18px">
+    <tr><th>Motor</th><th>Turnos</th><th>Entrada</th><th>Salida</th><th>Caché leída</th><th>Proyecto que más gastó</th></tr>
+    <tr><td class="mono">claude</td><td class="mono">218</td><td class="mono">4,1 M</td><td class="mono">610 k</td><td class="mono">18,4 M</td><td class="soft">connect-api</td></tr>
+    <tr><td class="mono">codex</td><td class="mono">31</td><td class="mono" colspan="3" style="color:var(--ink-faint)">sin medición &mdash; su CLI no informa tokens</td><td class="soft">kiwio</td></tr>
+  </table>
+  <p style="font-size:11.5px;color:var(--ink-faint);margin:10px 0 0;max-width:none">
+  Codex va como <em>sin medición</em> y nunca como cero. Un cero al lado de claude se lee
+  &laquo;salió gratis&raquo;, y lo que pasa es que no se sabe.</p>
+
+  <div class="sec-h"><span>Fierro</span><i class="line"></i><span>ahora mismo</span></div>
+  <div class="mgrid">
+    <div class="mcard">
+      <div class="k2">Procesador</div>
+      <div class="v2">M4 Pro<small> · 12 núcleos</small></div>
+      <div class="meter"><i style="width:38%"></i></div>
+    </div>
+    <div class="mcard">
+      <div class="k2">Carga</div>
+      <div class="v2">4,12<small> / 12</small></div>
+      <div class="meter"><i style="width:34%"></i></div>
+    </div>
+    <div class="mcard">
+      <div class="k2">Memoria</div>
+      <div class="v2">31,4<small> de 48 GB</small></div>
+      <div class="meter"><i style="width:65%"></i></div>
+    </div>
+    <div class="mcard">
+      <div class="k2">Keel</div>
+      <div class="v2">3<small> turnos corriendo</small></div>
+      <div class="meter"><i style="width:25%"></i></div>
+    </div>
+  </div>
+
+  <table class="grid" style="margin-top:14px">
+    <tr><th>PID</th><th>Proceso</th><th>CPU</th><th>Memoria</th><th>Quién lo largó</th></tr>
+    <tr><td class="mono">41822</td><td class="mono">claude</td><td class="mono">78,4 %</td><td class="mono">612 MB</td><td class="soft">connect-api · bid que llega en cero</td></tr>
+    <tr><td class="mono">41907</td><td class="mono">claude</td><td class="mono">31,0 %</td><td class="mono">488 MB</td><td class="soft">kiwio · sync offline</td></tr>
+    <tr><td class="mono">41955</td><td class="mono">codex</td><td class="mono">12,7 %</td><td class="mono">340 MB</td><td class="soft">Keel AI</td></tr>
+  </table>
+</div>
+</div></div>
+<figcaption>Se muestrea cada 3 segundos <strong>solo con la pantalla abierta</strong>. Un timer
+corriendo siempre para dibujar un número que nadie está mirando es exactamente lo que hacía que
+la app tardara veinte segundos en dejarse tocar.</figcaption>
+</section>
+<section>
+<span class="eyebrow">10 · lo que queda abierto</span>
+<h2>Decisiones que este dibujo no cierra</h2>
+<ul class="notes">
+<li><strong>El catálogo se queda viejo solo.</strong> Los comandos y las URLs de los MCP de
+terceros cambian sin avisar. La salida elegida es no depender de él —enlace a la documentación,
+todo editable, pegar-la-config— pero sigue habiendo un día en que una ficha miente y hay que
+enterarse apretando Probar.</li>
+<li><strong>Un tablero se respalda; sus secrets no.</strong> Si te lo llevás a otra máquina,
+llega la definición y no el token. La alternativa —arrastrar los valores— es justo lo que la
+sección Secrets existe para no hacer.</li>
+<li><strong>Falta decidir si un tablero puede vivir sin proyecto.</strong> Hoy todos cuelgan de
+uno. Un tablero suelto —probar un webhook de un servicio ajeno— no tiene dónde ir.</li>
+<li><strong>El consumo es el de Keel, no el de tu cuenta.</strong> La app solo puede sumar lo que
+salió por acá; lo que gastaste en una terminal aparte no lo ve, y prometer lo contrario sería
+inventar un número.</li>
+<li><strong>El fierro es de macOS.</strong> <code>sysctl</code> y <code>vm_stat</code> no existen
+en otro lado. Como la app hoy es solo de macOS, no es una limitación todavía, pero es una deuda
+escrita.</li>
+</ul>
+</section>
+</div>

@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
@@ -37,13 +39,13 @@ class _SessionMapViewState extends State<SessionMapView>
   @override
   void initState() {
     super.initState();
-    _retune(play: true);
+    _settle();
   }
 
   @override
   void didUpdateWidget(SessionMapView oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (_graph.edges.length != _tunedEdges) _retune(play: true);
+    if (_graph.edges.length != _tunedEdges) _advance();
   }
 
   int _tunedEdges = 0;
@@ -56,22 +58,51 @@ class _SessionMapViewState extends State<SessionMapView>
     ],
   );
 
-  void _retune({required bool play}) {
+  /// Deja el mapa en el estado de AHORA, sin recorrer nada.
+  ///
+  /// Abrirlo arrancaba la reproducción desde cero y en bucle, así que lo que
+  /// veías era el pasado dando vueltas mientras lo que te importa —dónde
+  /// están parados en este momento— pasaba de largo cada quince segundos.
+  void _settle() {
     final count = _graph.edges.length;
     _tunedEdges = count;
     _controller.duration = _perEdge * (count == 0 ? 1 : count);
-    _controller.reset();
-    if (play && count > 0) _controller.repeat();
+    _controller.value = 1;
   }
 
+  /// Llegó un salto nuevo: se anima SOLO ese tramo y se queda ahí.
+  void _advance() {
+    final previous = _tunedEdges;
+    final count = _graph.edges.length;
+    _tunedEdges = count;
+    if (count == 0) {
+      _controller.value = 1;
+      return;
+    }
+    // Menos saltos que antes es una sesión distinta, no un avance.
+    if (count < previous) {
+      _settle();
+      return;
+    }
+    _controller.duration = _perEdge * count;
+    _controller.value = previous / count;
+    _controller.animateTo(
+      1,
+      duration: _perEdge * (count - previous),
+      curve: Curves.easeOut,
+    );
+  }
+
+  /// El botón vuelve a recorrerlo entero, UNA vez, y termina donde termina el
+  /// hilo. Repetir en bucle no era una función: era no poder mirar.
   void _togglePlay() {
     setState(() {
       if (_controller.isAnimating) {
         _controller.stop();
         return;
       }
-      if (_controller.value >= 1) _controller.reset();
-      _controller.repeat();
+      _controller.duration = _perEdge * math.max(1, _graph.edges.length);
+      _controller.forward(from: 0);
     });
   }
 
@@ -113,21 +144,35 @@ class _SessionMapViewState extends State<SessionMapView>
                   scheme: Theme.of(context).colorScheme,
                   textDirection: Directionality.of(context),
                 );
-                final size = constraints.biggest;
+                // El lienzo crece con los participantes en vez de apretarlos:
+                // con seis o más, repartir el alto del panel los encimaba.
+                final size = Size(
+                  constraints.maxWidth,
+                  math.max(
+                    constraints.maxHeight,
+                    SessionGraphPainter.heightFor(graph.nodes.length),
+                  ),
+                );
 
-                return GestureDetector(
-                  onTapUp: (details) =>
-                      _openSpecs(hitTester.nodeAt(size, details.localPosition)),
-                  child: AnimatedBuilder(
-                    animation: _controller,
-                    builder: (context, child) => CustomPaint(
-                      painter: SessionGraphPainter(
-                        graph: graph,
-                        progress: _controller.value,
-                        scheme: Theme.of(context).colorScheme,
-                        textDirection: Directionality.of(context),
+                return SingleChildScrollView(
+                  child: SizedBox(
+                    height: size.height,
+                    child: GestureDetector(
+                      onTapUp: (details) => _openSpecs(
+                        hitTester.nodeAt(size, details.localPosition),
                       ),
-                      size: Size.infinite,
+                      child: AnimatedBuilder(
+                        animation: _controller,
+                        builder: (context, child) => CustomPaint(
+                          painter: SessionGraphPainter(
+                            graph: graph,
+                            progress: _controller.value,
+                            scheme: Theme.of(context).colorScheme,
+                            textDirection: Directionality.of(context),
+                          ),
+                          size: size,
+                        ),
+                      ),
                     ),
                   ),
                 );
@@ -168,7 +213,9 @@ class _MapControls extends StatelessWidget {
       child: Row(
         children: [
           IconButton.filledTonal(
-            tooltip: controller.isAnimating ? 'Pausar' : 'Reproducir',
+            tooltip: controller.isAnimating
+                ? 'Pausar'
+                : 'Volver a recorrerlo desde el principio',
             onPressed: onTogglePlay,
             icon: AnimatedBuilder(
               animation: controller,

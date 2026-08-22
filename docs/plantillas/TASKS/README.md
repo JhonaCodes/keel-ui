@@ -19,6 +19,9 @@ El número manda el orden en que hay que tomarlas.
    pasá a la siguiente, no insistas.
 3. Al terminar: `estado: hecho` en el archivo de la tarea, y `release_task`.
 
+Si tocaste la estructura de esta carpeta, `check_roadmap_format` antes de
+cerrar. No hay ningún comando `keel` que haga esto: es esa tool.
+
 No hay archivo de seguimiento ni de tomadas. El estado vive arriba de cada
 tarea —así dos agentes que terminan cosas distintas no chocan— y quién la
 tiene tomada vive en keel-ui, que es lo único que necesita ser atómico.

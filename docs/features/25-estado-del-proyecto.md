@@ -80,6 +80,34 @@ Esa sesión arranca con el diagnóstico ya adentro del pedido y con un skill
 reservado, `keel-formato-de-tareas`, que lleva la especificación entera y las
 plantillas inlineadas: el agente no depende de leer nuestro repo.
 
+### El agente tiene que poder chequearlo mientras lo arma
+
+`check_roadmap_format` es una tool del turno, y existe por un error que se vio
+en uso: el chequeo vivía SOLO en el cierre, así que quien estaba armando el
+formato trabajaba a ciegas. Salieron a buscar un comando `keel` en la
+terminal —que no existe, lo desinstalamos— y terminaron leyendo el campo
+`referencias_rotas` de `list_roadmap_tasks` como si fuera el chequeo
+completo. Es una de las siete cosas que mira, no las otras seis.
+
+Dos correcciones que salieron de ahí:
+
+- La tool devuelve exactamente lo mismo que decide el cierre, así que se
+  puede iterar hasta que dé verde en vez de cerrar para ver qué pasa.
+- El skill del formato ahora dice, con todas las letras, que no hay ningún
+  comando `keel` y que `list_roadmap_tasks` no es el checker.
+
+### Un turno de consulta también recibe el roadmap
+
+Antes no lo recibía, y el efecto era el peor posible: **al auditor —que casi
+siempre habla consultado— le aparecía «keel-roadmap desconectado» justo
+cuando le pedían verificar el roadmap**, y contestaba lo único honesto que
+podía, que no tenía con qué. Ahora lo recibe en modo LECTURA: puede listar y
+chequear, no puede tomar ni soltar tareas. Tomar es de quien ejecuta el paso;
+un consultado contesta y se va.
+
+El modo sale de la URL (`/roadmap/<proyecto>/<sesión>/<perfil>/consulta`), no
+de un argumento: un turno de consulta no tiene cómo decir que es un paso.
+
 ### El chequeo al cerrar no se puede saltear
 
 Pedirle a un agente que verifique su propio trabajo por prompt es pedir, no

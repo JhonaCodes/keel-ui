@@ -125,6 +125,27 @@ En el README raíz, tal cual:
    pasá a la siguiente, no insistas.
 3. Al terminar: `estado: hecho` en el archivo de la tarea, y `release_task`.
 
+Y si tocaste la ESTRUCTURA de la carpeta, `check_roadmap_format` antes de
+cerrar.
+
+## Cómo se chequea (y con qué NO)
+
+**`check_roadmap_format` es la tool que lo mide.** Corré esa, mirá qué falta,
+arreglalo, volvé a correrla. Es el MISMO chequeo que decide si la sesión
+cierra, así que lo que te diga es lo que va a pasar.
+
+Dos confusiones que ya costaron una discusión entera, así que quedan escritas:
+
+- **No existe ningún comando `keel`.** No lo busques en la terminal, no está
+  instalado y no va a estarlo: el chequeo es una tool de este turno, no un
+  binario. `keel: command not found` no significa "falta instalar algo",
+  significa que estás buscando en el lugar equivocado.
+- **`list_roadmap_tasks` no es el checker.** Lista las tareas y dice quién
+  tiene cada una tomada. Trae un campo `referencias_rotas` por tarea, que es
+  UNA de las siete cosas que mira el formato — no las otras seis. Que ese
+  campo dé cero no dice nada sobre los README de grupo, ni sobre los
+  frontmatter, ni sobre tareas sueltas en la raíz.
+
 ## Antes de dar por cerrado
 
 keel-ui vuelve a correr el chequeo por su cuenta cuando la sesión cierra, y

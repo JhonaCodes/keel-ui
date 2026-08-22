@@ -1866,13 +1866,24 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
             profileId: member.id,
           );
 
-    final roadmapEntry = (isCodex || consultOfProfileId != null)
+    // Un turno de CONSULTA sí recibe el roadmap, en modo lectura. Antes no
+    // recibía nada, y el efecto era el peor posible: al auditor —que casi
+    // siempre habla consultado— le aparecía "keel-roadmap desconectado"
+    // justo cuando le pedían verificar el roadmap, y contestaba lo único
+    // honesto que podía: que no tenía con qué.
+    final isConsult = consultOfProfileId != null;
+    final roadmapEntry = isCodex
         ? null
         : RoadmapMcpServer.mcpServerEntryFor(
             sessionId: sessionId,
             projectId: projectId,
             profileId: member.id,
             workingDirectory: project.workingDirectory,
+            readOnly: isConsult,
+            // La sesión que arma el formato todavía no tiene la carpeta: es
+            // justo la que necesita poder chequearlo mientras la construye.
+            evenWithoutFolder:
+                _sessionById(project, sessionId)?.isFormatSession ?? false,
           );
     final mcpServers = <String, dynamic>{
       kUserToolsMcpServerKey: ?toolsEntry,
@@ -1933,7 +1944,10 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
           if (project.maintained)
             ...SettingsService.instance.notifier.data.extraAllowedTools,
           if (planEntry != null) ...kSessionPlanMcpToolNames,
-          if (roadmapEntry != null) ...kRoadmapMcpToolNames,
+          if (roadmapEntry != null)
+            ...(isConsult
+                ? kRoadmapMcpReadOnlyToolNames
+                : kRoadmapMcpToolNames),
           if (requirementsEntry != null) ...kRequirementsMcpToolNames,
           if (toolsEntry != null)
             ...memberTools.map(

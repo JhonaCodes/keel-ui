@@ -3,11 +3,24 @@ part of '../roadmap_mcp.dart';
 const kRoadmapMcpServerKey = 'keel-roadmap';
 const kRoadmapMcpToolPrefix = 'mcp__${kRoadmapMcpServerKey}__';
 
-/// Las tres tools que ve un miembro de proyecto cuyo proyecto tiene roadmap.
+/// Lo que ve un miembro que está EJECUTANDO un paso del workflow.
 const kRoadmapMcpToolNames = [
   '${kRoadmapMcpToolPrefix}list_roadmap_tasks',
+  '${kRoadmapMcpToolPrefix}check_roadmap_format',
   '${kRoadmapMcpToolPrefix}claim_task',
   '${kRoadmapMcpToolPrefix}release_task',
+];
+
+/// Lo que ve un turno de CONSULTA: leer sí, tomar no.
+///
+/// Antes un consultado no recibía este servidor en absoluto, y el efecto era
+/// el peor posible: al auditor —que casi siempre habla consultado— le
+/// aparecía "keel-roadmap desconectado" justo cuando le pedían verificar el
+/// roadmap. Contestaba lo único honesto que podía: que no tenía con qué.
+/// Leer no le corresponde a quien ejecuta el paso; tomar y soltar, sí.
+const kRoadmapMcpReadOnlyToolNames = [
+  '${kRoadmapMcpToolPrefix}list_roadmap_tasks',
+  '${kRoadmapMcpToolPrefix}check_roadmap_format',
 ];
 
 /// Servidor MCP local que le da a un turno el roadmap de SU proyecto.
@@ -43,12 +56,17 @@ class RoadmapMcpServer {
     required String sessionId,
     required String profileId,
     required String workingDirectory,
+    bool readOnly = false,
+    bool evenWithoutFolder = false,
   }) {
     final server = _server;
     final token = _token;
     if (server == null || token == null) return null;
     if (workingDirectory.trim().isEmpty) return null;
-    if (!Directory('$workingDirectory/$kRoadmapFolder').existsSync()) {
+    // La sesión que ARMA el formato es justo la que todavía no tiene carpeta,
+    // y es la que más necesita poder chequearlo mientras la construye.
+    if (!evenWithoutFolder &&
+        !Directory('$workingDirectory/$kRoadmapFolder').existsSync()) {
       return null;
     }
 
@@ -56,7 +74,13 @@ class RoadmapMcpServer {
       scheme: 'http',
       host: '127.0.0.1',
       port: server.port,
-      pathSegments: ['roadmap', projectId, sessionId, profileId],
+      pathSegments: [
+        'roadmap',
+        projectId,
+        sessionId,
+        profileId,
+        readOnly ? 'consulta' : 'paso',
+      ],
     );
     return {
       'type': 'http',
@@ -76,7 +100,7 @@ class RoadmapMcpServer {
 
     final segments = request.uri.pathSegments;
     if (request.method != 'POST' ||
-        segments.length != 4 ||
+        segments.length != 5 ||
         segments[0] != 'roadmap') {
       request.response.statusCode = HttpStatus.notFound;
       await request.response.close();
@@ -123,6 +147,7 @@ class RoadmapMcpServer {
       projectId: segments[1],
       sessionId: segments[2],
       profileId: segments[3],
+      readOnly: segments[4] == 'consulta',
       willInitialize: method == mcp.InitializeRequest.methodName,
     );
 
@@ -167,6 +192,7 @@ final class _RoadmapMcpServer extends mcp.MCPServer with mcp.ToolsSupport {
     required this.projectId,
     required this.sessionId,
     required this.profileId,
+    required this.readOnly,
     required bool willInitialize,
   }) : super.fromStreamChannel(
          implementation: mcp.Implementation(
@@ -178,8 +204,11 @@ final class _RoadmapMcpServer extends mcp.MCPServer with mcp.ToolsSupport {
              'tomala: si otro la tiene, pasá a la siguiente.',
        ) {
     registerTool(_listTool, _list);
-    registerTool(_claimTool, _claim);
-    registerTool(_releaseTool, _release);
+    registerTool(_checkTool, _check);
+    if (!readOnly) {
+      registerTool(_claimTool, _claim);
+      registerTool(_releaseTool, _release);
+    }
     if (!willInitialize) {
       registerRequestHandler(mcp.ListToolsRequest.methodName, listTools);
       registerRequestHandler(mcp.CallToolRequest.methodName, callTool);
@@ -189,6 +218,9 @@ final class _RoadmapMcpServer extends mcp.MCPServer with mcp.ToolsSupport {
   final String projectId;
   final String sessionId;
   final String profileId;
+
+  /// Un turno de consulta lee y contesta; no toma ni suelta tareas.
+  final bool readOnly;
 
   TaskClaimsViewModel get _claims => TaskClaimsService.instance.notifier;
 
@@ -239,6 +271,43 @@ final class _RoadmapMcpServer extends mcp.MCPServer with mcp.ToolsSupport {
       },
     ),
   );
+
+  static final _checkTool = mcp.Tool(
+    name: 'check_roadmap_format',
+    description:
+        'Corre el chequeo de FORMATO de la carpeta TASKS/ y devuelve qué pasa '
+        'y qué no, archivo por archivo. Es el MISMO chequeo que keel-ui corre '
+        'solo al cerrar una sesión que arma el formato, así que lo que diga '
+        'acá es lo que va a decidir si esa sesión cierra o no.\n\n'
+        'No confundir con list_roadmap_tasks: ese lista tareas y quién las '
+        'tiene tomadas, y no mide si la carpeta está bien escrita. Y no hay '
+        'ningún comando "keel" que haga esto: es esta tool y nada más.',
+    inputSchema: mcp.ObjectSchema(properties: {}),
+  );
+
+  mcp.CallToolResult _check(mcp.CallToolRequest request) {
+    final project = _project;
+    if (project == null) {
+      return _text('Este proyecto no tiene carpeta de trabajo.');
+    }
+    final check = checkRoadmapFormat(project.path);
+    return _text(
+      jsonEncode({
+        'proyecto': project.name,
+        'cierra': check.ok,
+        'pasaron': check.passed,
+        'faltan': [
+          for (final finding in check.findings)
+            {
+              'que': finding.message,
+              if (finding.where != null) 'donde': finding.where,
+              'gravedad': finding.level.name,
+            },
+        ],
+        'tareas': check.taskCount,
+      }),
+    );
+  }
 
   static final _claimTool = mcp.Tool(
     name: 'claim_task',

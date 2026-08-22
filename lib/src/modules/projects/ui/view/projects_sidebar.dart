@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 
+import 'package:keel_ui/src/core/ui/form_panel.dart';
 import 'package:keel_ui/src/core/ui/inline_rename_field.dart';
+import 'package:keel_ui/src/modules/requirements/ui/screen/requirement_form_screen.dart';
+import 'package:keel_ui/src/modules/requirements/ui/screen/requirements_screen.dart';
+import 'package:keel_ui/src/modules/requirements/ui/widget/requirements_group.dart';
+import 'package:keel_ui/src/modules/requirements/viewmodel/requirements_viewmodel.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
 
 import 'package:keel_ui/src/modules/agents/model/agent.dart';
@@ -21,8 +26,10 @@ class ProjectsSidebar extends StatelessWidget {
     super.key,
     required this.state,
     required this.projectFocused,
+    required this.requirementFocus,
     required this.onSelectProject,
     required this.onSelectAgent,
+    required this.onSelectRequirement,
     required this.onNewProject,
     required this.onManageProjects,
     required this.onManageAgents,
@@ -30,8 +37,10 @@ class ProjectsSidebar extends StatelessWidget {
 
   final ProjectsState state;
   final bool projectFocused;
+  final bool requirementFocus;
   final ValueChanged<String> onSelectProject;
   final ValueChanged<String> onSelectAgent;
+  final ValueChanged<String> onSelectRequirement;
   final VoidCallback onNewProject;
   final VoidCallback onManageProjects;
   final VoidCallback onManageAgents;
@@ -45,8 +54,10 @@ class ProjectsSidebar extends StatelessWidget {
       build: (workflowsState, viewmodel, keep) => _SidebarList(
         state: state,
         projectFocused: projectFocused,
+        requirementFocus: requirementFocus,
         onSelectProject: onSelectProject,
         onSelectAgent: onSelectAgent,
+        onSelectRequirement: onSelectRequirement,
         onNewProject: onNewProject,
         onManageProjects: onManageProjects,
         onManageAgents: onManageAgents,
@@ -59,8 +70,10 @@ class _SidebarList extends StatelessWidget {
   const _SidebarList({
     required this.state,
     required this.projectFocused,
+    required this.requirementFocus,
     required this.onSelectProject,
     required this.onSelectAgent,
+    required this.onSelectRequirement,
     required this.onNewProject,
     required this.onManageProjects,
     required this.onManageAgents,
@@ -68,6 +81,8 @@ class _SidebarList extends StatelessWidget {
 
   final ProjectsState state;
   final bool projectFocused;
+  final bool requirementFocus;
+  final ValueChanged<String> onSelectRequirement;
   final ValueChanged<String> onSelectProject;
   final ValueChanged<String> onSelectAgent;
   final VoidCallback onNewProject;
@@ -135,6 +150,16 @@ class _SidebarList extends StatelessWidget {
               ),
             ],
           ],
+          RequirementsGroup(
+            selectedProjectId: state.selectedProjectId,
+            selectedRequirementId: requirementFocus
+                ? RequirementsService.instance.notifier.data.selectedId
+                : null,
+            onSelect: onSelectRequirement,
+            onManage: () =>
+                showFormPanel(context, child: const RequirementsScreen()),
+            onAdd: () => openRequirementFormPanel(context),
+          ),
           _LooseAgentsHead(
             onAdd: () => openUseAgentPanel(context),
             onManage: onManageAgents,

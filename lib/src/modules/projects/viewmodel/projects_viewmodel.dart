@@ -12,6 +12,7 @@ import 'package:keel_ui/src/integrations/session_plan_mcp/session_plan_mcp_serve
 import 'package:keel_ui/src/integrations/user_tools_mcp/user_tools_mcp_server.dart';
 import 'package:keel_ui/src/integrations/hook_delivery/hook_delivery.dart';
 import 'package:keel_ui/src/integrations/project_radar/project_radar.dart';
+import 'package:keel_ui/src/modules/requirements/viewmodel/requirements_viewmodel.dart';
 import 'package:keel_ui/src/modules/roadmap/viewmodel/task_claims_viewmodel.dart';
 import 'package:keel_ui/src/integrations/roadmap_mcp/roadmap_mcp.dart';
 import 'package:keel_ui/src/modules/hooks/model/hook_event.dart';
@@ -330,6 +331,11 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
   }
 
   void deleteProject(String id) {
+    // Los requerimientos que lo nombran NO se borran: son historia
+    // compartida y el otro lado sigue teniendo derecho a verla. Lo que sí
+    // pasa es que dejan de poder tomarse.
+    RequirementsService.instance.notifier.markProjectDeleted(id);
+
     for (final session in _projectById(id)?.sessions ?? const <Session>[]) {
       _runningSessions.remove(session.id)?.cancel();
       _stoppedSessionIds.remove(session.id);

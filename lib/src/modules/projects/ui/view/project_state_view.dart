@@ -11,6 +11,8 @@ import 'package:keel_ui/src/modules/projects/model/project.dart';
 import 'package:keel_ui/src/modules/projects/model/session.dart';
 import 'package:keel_ui/src/modules/projects/ui/widget/member_avatar.dart';
 import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
+import 'package:keel_ui/src/modules/requirements/model/internal_requirement.dart';
+import 'package:keel_ui/src/modules/requirements/viewmodel/requirements_viewmodel.dart';
 import 'package:keel_ui/src/modules/roadmap/model/task_claim.dart';
 import 'package:keel_ui/src/modules/roadmap/viewmodel/task_claims_viewmodel.dart';
 
@@ -327,6 +329,8 @@ class _Radar extends StatelessWidget {
             const _SectionHead('Trabado'),
             _Trabado(radar: radar),
           ],
+          const _SectionHead('Requerimientos'),
+          _Requerimientos(project: project),
         ],
       ),
     );
@@ -894,6 +898,94 @@ class _CheckLine extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Dos contadores y nada más. El detalle vive en su propio grupo del sidebar;
+/// acá lo único que importa es si hay algo esperándote.
+class _Requerimientos extends StatelessWidget {
+  const _Requerimientos({required this.project});
+
+  final Project project;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return ReactiveViewModelBuilder<RequirementsViewModel, RequirementsState>(
+      viewmodel: RequirementsService.instance.notifier,
+      build: (state, viewmodel, keep) {
+        final salientes = state.requirements
+            .where(
+              (requirement) =>
+                  requirement.fromProjectId == project.id &&
+                  requirement.status.isOpen,
+            )
+            .length;
+        final entrantes = state.requirements
+            .where(
+              (requirement) =>
+                  requirement.toProjectId == project.id &&
+                  requirement.status == RequirementStatus.abierto,
+            )
+            .length;
+
+        if (salientes == 0 && entrantes == 0) {
+          return Text(
+            'Ninguno abierto en ninguna dirección.',
+            style: Theme.of(context).textTheme.bodySmall,
+          );
+        }
+
+        return Wrap(
+          spacing: 26,
+          runSpacing: 6,
+          children: [
+            _Counter(
+              value: salientes,
+              label: 'abiertos hacia afuera',
+              color: scheme.onSurface,
+            ),
+            _Counter(
+              value: entrantes,
+              label: 'entrantes sin tomar',
+              color: scheme.primary,
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _Counter extends StatelessWidget {
+  const _Counter({
+    required this.value,
+    required this.label,
+    required this.color,
+  });
+
+  final int value;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          '$value',
+          style: TextStyle(
+            fontFamily: 'monospace',
+            fontSize: 13,
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
+        ),
+        const SizedBox(width: 6),
+        Text(label, style: Theme.of(context).textTheme.bodySmall),
+      ],
     );
   }
 }

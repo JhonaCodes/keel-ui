@@ -12,7 +12,8 @@ enum BackupSection {
   mcpServers('mcp_servers', 'Integraciones MCP'),
   knowledgeBases('knowledge_bases', 'Bases de saber'),
   agents('profiles', 'Agentes'),
-  projects('projects', 'Proyectos');
+  projects('projects', 'Proyectos'),
+  requirements('requirements', 'Requerimientos');
 
   const BackupSection(this.category, this.label);
 
@@ -133,10 +134,15 @@ Set<String> existingCatalogNames(BackupSection section) {
       for (final project in ProjectsService.instance.notifier.data.projects)
         project.name,
     },
+    BackupSection.requirements => {
+      for (final requirement
+          in RequirementsService.instance.notifier.data.requirements)
+        requirement.code,
+    },
   };
 }
 
-/// Espera a que los ocho catálogos —y los ajustes— estén REALMENTE cargados.
+/// Espera a que los nueve catálogos —y los ajustes— estén REALMENTE cargados.
 ///
 /// Serializar o mergear con una carga en vuelo lee listas vacías: el
 /// respaldo saldría vacío y pisaría el bueno. Los ajustes entran en la
@@ -155,6 +161,7 @@ Future<void> awaitCatalogsReady() => Future.wait([
   AgentProfilesService.instance.notifier.ready,
   KnowledgeService.instance.notifier.ready,
   ProjectsService.instance.notifier.ready,
+  RequirementsService.instance.notifier.ready,
 ]);
 
 /// Si el sistema está vacío de verdad: nada que un respaldo pueda pisar.

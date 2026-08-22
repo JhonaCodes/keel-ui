@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:keel_ui/src/core/ui/typed_deletion_dialog.dart';
 import 'package:keel_ui/src/modules/projects/model/project.dart';
+import 'package:keel_ui/src/modules/requirements/viewmodel/requirements_viewmodel.dart';
 import 'package:keel_ui/src/modules/roadmap/viewmodel/task_claims_viewmodel.dart';
 import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
 import 'package:keel_ui/src/modules/projects/ui/screen/project_form_screen.dart';
@@ -18,6 +19,15 @@ class ProjectTile extends StatelessWidget {
     );
     final claims = TaskClaimsService.instance.notifier
         .activeClaimsFor(project.workingDirectory)
+        .length;
+    final requirements = RequirementsService.instance.notifier;
+    final abiertos = requirements.data.requirements
+        .where(
+          (requirement) =>
+              requirement.status.isOpen &&
+              (requirement.fromProjectId == project.id ||
+                  requirement.toProjectId == project.id),
+        )
         .length;
 
     final confirmed = await confirmTypedDeletion(
@@ -38,6 +48,14 @@ class ProjectTile extends StatelessWidget {
           (
             lead: '$claims ${_plural(claims, 'toma', 'tomas')} de tareas',
             rest: 'del roadmap se liberan',
+          ),
+        if (abiertos > 0)
+          (
+            lead:
+                '$abiertos ${_plural(abiertos, 'requerimiento abierto', 'requerimientos abiertos')}',
+            rest:
+                'quedan marcados «proyecto eliminado» — no se borran, el otro '
+                'lado los necesita',
           ),
       ],
       reassurance: 'La carpeta del repo no se toca.',

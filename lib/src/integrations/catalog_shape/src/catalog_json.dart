@@ -11,6 +11,7 @@ const kCatalogCategories = [
   'knowledge_bases',
   'profiles',
   'projects',
+  'requirements',
 ];
 
 /// El nombre de archivo de una entidad dentro de su categoría. Los
@@ -163,6 +164,38 @@ Map<String, List<Map<String, dynamic>>> catalogAsJson() {
       'activeWorkflowName': project.activeWorkflowId == null
           ? null
           : workflowNameOf(project.activeWorkflowId!),
+    });
+  }
+
+  // Los requerimientos viajan porque son una DECISIÓN entre dos proyectos,
+  // no ruido de una sesión: qué se pidió, qué contestó el otro lado y qué
+  // dijiste vos en el medio. Los ids y las sesiones son de esta máquina y no
+  // salen; los proyectos viajan por nombre, como todo lo demás.
+  for (final requirement
+      in RequirementsService.instance.notifier.data.requirements) {
+    String? nameOf(String id) => projectsViewModel.data.projects
+        .where((project) => project.id == id)
+        .firstOrNull
+        ?.name;
+    final from = nameOf(requirement.fromProjectId);
+    final to = nameOf(requirement.toProjectId);
+    if (from == null || to == null) continue;
+
+    byCategory['requirements']!.add({
+      'name': requirement.code,
+      'title': requirement.title,
+      'fromProject': from,
+      'toProject': to,
+      'need': requirement.need,
+      'context': requirement.context,
+      'blocking': requirement.blocking,
+      'openedByHandle': requirement.openedByHandle,
+      'takenByHandle': requirement.takenByHandle,
+      'status': requirement.status.alias,
+      'verdict': requirement.verdict?.toJson(),
+      'thread': requirement.thread.map((entry) => entry.toJson()).toList(),
+      'createdAt': requirement.createdAt.toIso8601String(),
+      'updatedAt': requirement.updatedAt.toIso8601String(),
     });
   }
 
@@ -602,6 +635,68 @@ Future<String> mergeCatalogJson(
         effort: entry.value.effort,
       );
     }
+  }
+
+  // Los requerimientos se CREAN si faltan y no se pisan si están. Un
+  // requerimiento es una conversación viva: restaurarle encima la foto del
+  // respaldo borraría todo lo que se dijo desde entonces.
+  final requirements = RequirementsService.instance.notifier;
+  for (final json
+      in byCategory['requirements'] ?? const <Map<String, dynamic>>[]) {
+    final code = json['name'] as String?;
+    if (code == null || code.isEmpty) continue;
+    if (requirements.byCode(code) != null) continue;
+
+    String? idOf(Object? name) => projects.data.projects
+        .where((project) => project.name == name)
+        .firstOrNull
+        ?.id;
+    final fromId = idOf(json['fromProject']);
+    final toId = idOf(json['toProject']);
+    if (fromId == null || toId == null) {
+      problems.add(
+        'requerimiento $code: no existe '
+        '${fromId == null ? json['fromProject'] : json['toProject']} de este '
+        'lado',
+      );
+      continue;
+    }
+
+    final createdAt =
+        DateTime.tryParse(json['createdAt'] as String? ?? '') ?? DateTime.now();
+    final imported = requirements.importSnapshot(
+      InternalRequirement(
+        id: generateUuidV4(),
+        code: code,
+        title: json['title'] as String? ?? code,
+        fromProjectId: fromId,
+        toProjectId: toId,
+        need: json['need'] as String? ?? '',
+        context: json['context'] as String? ?? '',
+        blocking: json['blocking'] as bool? ?? false,
+        openedByHandle: json['openedByHandle'] as String? ?? '',
+        // Las sesiones son de esta máquina: no viajan y no se inventan.
+        openedInSessionId: '',
+        takenByHandle: json['takenByHandle'] as String?,
+        status: RequirementStatus.fromAlias(json['status'] as String? ?? ''),
+        verdict: json['verdict'] == null
+            ? null
+            : RequirementVerdict.fromJson(
+                (json['verdict'] as Map).cast<String, dynamic>(),
+              ),
+        thread: (json['thread'] as List? ?? const [])
+            .map(
+              (entry) => RequirementEntry.fromJson(
+                (entry as Map).cast<String, dynamic>(),
+              ),
+            )
+            .toList(),
+        createdAt: createdAt,
+        updatedAt:
+            DateTime.tryParse(json['updatedAt'] as String? ?? '') ?? createdAt,
+      ),
+    );
+    if (imported) created++;
   }
 
   final parts = [

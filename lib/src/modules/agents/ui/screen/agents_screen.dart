@@ -18,6 +18,9 @@ import 'package:keel_ui/src/modules/projects/model/project.dart';
 import 'package:keel_ui/src/modules/projects/ui/screen/project_form_screen.dart';
 import 'package:keel_ui/src/modules/projects/ui/screen/projects_screen.dart';
 import 'package:keel_ui/src/modules/projects/ui/view/project_state_view.dart';
+import 'package:keel_ui/src/modules/requirements/model/internal_requirement.dart';
+import 'package:keel_ui/src/modules/requirements/ui/view/requirement_thread_view.dart';
+import 'package:keel_ui/src/modules/requirements/viewmodel/requirements_viewmodel.dart';
 import 'package:keel_ui/src/modules/projects/ui/view/session_chat_view.dart';
 import 'package:keel_ui/src/modules/projects/ui/view/projects_sidebar.dart';
 import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
@@ -27,7 +30,7 @@ import 'package:keel_ui/src/modules/workflows/ui/screen/workflows_screen.dart';
 /// Which conversation the content area shows: a 1:1 agent chat or a project
 /// channel. Registries and forms never take the content area over — they open
 /// as a side panel, so the conversation stays on screen behind them.
-enum _Focus { agent, project }
+enum _Focus { agent, project, requirement }
 
 class AgentsScreen extends StatefulWidget {
   const AgentsScreen({super.key});
@@ -40,6 +43,11 @@ class _AgentsScreenState extends State<AgentsScreen> {
   _Focus _focus = _Focus.agent;
 
   void _focusAgent() => setState(() => _focus = _Focus.agent);
+
+  void _focusRequirement(String requirementId) {
+    RequirementsService.instance.notifier.select(requirementId);
+    setState(() => _focus = _Focus.requirement);
+  }
 
   void _focusProject(String projectId) {
     ProjectsService.instance.notifier.selectProject(projectId);
@@ -89,6 +97,8 @@ class _AgentsScreenState extends State<AgentsScreen> {
                   ProjectsSidebar(
                     state: projectsState,
                     projectFocused: _focus == _Focus.project,
+                    requirementFocus: _focus == _Focus.requirement,
+                    onSelectRequirement: _focusRequirement,
                     onSelectProject: _focusProject,
                     onSelectAgent: (agentId) {
                       AgentsService.instance.notifier.selectAgent(agentId);
@@ -134,6 +144,20 @@ class _ConversationArea extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (focus == _Focus.requirement) {
+      return ReactiveViewModelBuilder<RequirementsViewModel, RequirementsState>(
+        viewmodel: RequirementsService.instance.notifier,
+        build: (state, viewmodel, keep) {
+          final requirement = state.selected;
+          if (requirement == null) return const EmptyChatPlaceholder();
+          return RequirementThreadView(
+            key: ValueKey(requirement.id),
+            requirement: requirement,
+          );
+        },
+      );
+    }
+
     final openProject = project;
     if (focus == _Focus.project && openProject != null) {
       // Sin sesión abierta se ve el ESTADO del proyecto. No hace falta un

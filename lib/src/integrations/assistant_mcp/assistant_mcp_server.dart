@@ -31,6 +31,7 @@ import 'package:keel_ui/src/modules/settings/viewmodel/settings_viewmodel.dart';
 import 'package:keel_ui/src/modules/tools/model/tool.dart' show ToolRuntime;
 import 'package:keel_ui/src/modules/skills/viewmodel/skills_viewmodel.dart';
 import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
+import 'package:keel_ui/src/modules/requirements/viewmodel/requirements_viewmodel.dart';
 import 'package:keel_ui/src/modules/tools/viewmodel/tools_viewmodel.dart';
 import 'package:keel_ui/src/modules/workflows/model/workflow.dart';
 import 'package:keel_ui/src/modules/workflows/viewmodel/workflows_viewmodel.dart';

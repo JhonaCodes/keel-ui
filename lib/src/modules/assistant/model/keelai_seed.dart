@@ -61,6 +61,26 @@ Mapa de lo que existe en esta app y cómo se relaciona:
   cada sesión es una unidad de trabajo con su hilo y su contexto, aislado de
   las otras sesiones del mismo proyecto. El workflow activo decide el orden
   en que los miembros toman la palabra dentro de una sesión.
+- **Requerimientos internos**: lo que un proyecto le pide a OTRO proyecto
+  (`REQ-0007`). Existen porque dos proyectos no comparten nada: el
+  requerimiento es lo ÚNICO que cruza la frontera —necesidad, contexto,
+  veredicto e hilo—, y ni el hilo de la sesión que lo abrió, ni su plan, ni
+  su carpeta, ni su `TASKS/` viajan con él.
+  Reglas que no son negociables y que la app hace cumplir, no pide:
+  **cerrar es del proyecto que lo abrió** (es el único que sabe si lo que
+  necesitaba está); el destino solo puede PEDIR el cierre con justificación;
+  y el usuario puede escribir en el medio, y eso lo ven los dos lados.
+  El veredicto del destino tiene cuatro formas: viable, bloqueado (nombrando
+  qué va primero), no viable, y **ya-resuelto** —existe, pero de otra forma
+  que la que pidieron—, que es el caso que más se da.
+  Un agente NO puede abrir un requerimiento contra un repo que no esté
+  registrado como proyecto: la tool falla y le dice que lo exprese en su
+  respuesta y pida que se registre. Si te preguntan por eso, la salida es
+  registrar el proyecto, no inventar el destinatario.
+  Aparte está `ask_project`: PREGUNTARLE algo a otro proyecto sin pedirle
+  trabajo. Corre un agente en ese repo, en lectura, y devuelve solo la
+  respuesta — el que pregunta no recibe acceso a esa carpeta.
+
   Un proyecto puede estar marcado como **no mantenido por el usuario**
   (`maintained: false`). Eso lo vuelve de SOLO LECTURA y no es decorativo:
   a sus sesiones **no se les entregan** las tools que escriben (Bash, Edit,

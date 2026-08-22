@@ -14,6 +14,7 @@ import 'package:keel_ui/src/integrations/hook_delivery/hook_delivery.dart';
 import 'package:keel_ui/src/integrations/project_radar/project_radar.dart';
 import 'package:keel_ui/src/modules/requirements/viewmodel/requirements_viewmodel.dart';
 import 'package:keel_ui/src/modules/roadmap/viewmodel/task_claims_viewmodel.dart';
+import 'package:keel_ui/src/integrations/requirements_mcp/requirements_mcp.dart';
 import 'package:keel_ui/src/integrations/roadmap_mcp/roadmap_mcp.dart';
 import 'package:keel_ui/src/modules/hooks/model/hook_event.dart';
 import 'package:keel_ui/src/modules/hooks/viewmodel/hooks_viewmodel.dart';
@@ -22,6 +23,8 @@ import 'package:keel_ui/src/modules/agent_profiles/viewmodel/agent_profiles_view
 import 'package:keel_ui/src/modules/agents/model/agent_tool_activity.dart';
 import 'package:keel_ui/src/modules/agents/model/chat_message.dart';
 import 'package:keel_ui/src/modules/agents/model/agent_provider.dart';
+import 'package:keel_ui/src/modules/agents/model/effort_level.dart';
+import 'package:keel_ui/src/modules/agents/model/agent_model_option.dart';
 import 'package:keel_ui/src/modules/agents/model/permission_request.dart';
 import 'package:keel_ui/src/modules/knowledge/viewmodel/knowledge_viewmodel.dart';
 import 'package:keel_ui/src/modules/mcp_servers/model/mcp_server_config.dart';
@@ -647,6 +650,34 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
   /// question inside a session stays inside that session. Each session is its own
   /// environment: its own thread, its own CLI sessions, independent of the
   /// other sessions in the same project.
+  /// Abre en el proyecto DESTINO la sesión que evalúa un requerimiento.
+  ///
+  /// El pedido inicial es el requerimiento renderizado y nada más: el hilo
+  /// del que pidió no viaja, y de este lado no hay forma de alcanzarlo.
+  void startRequirementSession({
+    required String projectId,
+    required String sessionTitle,
+    required String request,
+  }) {
+    final project = _projectById(projectId);
+    if (project == null) return;
+
+    final session = Session(
+      id: generateUuidV4(),
+      title: sessionTitle,
+      createdAt: DateTime.now(),
+    );
+    _updateProject(
+      projectId,
+      (project) => project.copyWith(
+        sessions: [...project.sessions, session],
+        activeSessionId: session.id,
+      ),
+    );
+    unawaited(_persist());
+    unawaited(sendToChannel(projectId, request));
+  }
+
   /// Abre la sesión que le da formato al roadmap del proyecto.
   ///
   /// Es la única salida que ofrece la pantalla de Estado cuando la carpeta no
@@ -754,6 +785,69 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     final badge = (at: now, percent: radar.completionPercent, ok: check.ok);
     _radarBadges[project.id] = badge;
     return (percent: badge.percent, ok: badge.ok);
+  }
+
+  /// Consulta a OTRO proyecto y devuelve solo su respuesta en texto.
+  ///
+  /// Corre un agente aparte, en el directorio del otro proyecto, en modo
+  /// lectura. **Lo que cruza es la respuesta, no el acceso**: quien pregunta
+  /// nunca recibe la carpeta del otro, ni sus reglas, ni su hilo. Es la
+  /// diferencia entre preguntar y mudarse.
+  ///
+  /// No abre un requerimiento: una consulta es una pregunta, no un pedido de
+  /// trabajo.
+  Future<String> askProject({
+    required String toProjectName,
+    required String question,
+  }) async {
+    final target = data.projects
+        .where(
+          (project) =>
+              project.name.toLowerCase() == toProjectName.trim().toLowerCase(),
+        )
+        .firstOrNull;
+    if (target == null) {
+      return 'No hay ningún proyecto registrado con el nombre '
+          '"$toProjectName". Registralo y volvé a preguntar.';
+    }
+    if (target.workingDirectory.trim().isEmpty) {
+      return 'El proyecto "${target.name}" no tiene carpeta de trabajo '
+          'elegida, así que no hay nada que leer.';
+    }
+
+    final member = membersOf(target).firstOrNull;
+    final engine = member == null ? null : target.tuned(member);
+
+    final run = await TaskRunner.run(
+      TaskRunSpec(
+        prompt: question,
+        workingDirectory: target.workingDirectory,
+        model: engine?.model ?? kDefaultClaudeModelAlias,
+        fullFileSystemAccess: false,
+        effort: engine?.effort ?? kDefaultEffortAlias,
+        // SIN tools que escriban y sin un solo MCP: esto lee y contesta.
+        extraAllowedTools: const [],
+        additionalSystemPrompt:
+            'Te están consultando DESDE OTRO PROYECTO. Estás parado en el '
+            'repo de "${target.name}" y sos de solo lectura: leé lo que haga '
+            'falta y contestá la pregunta en texto, concreto y corto. No '
+            'cambies nada. Si lo que preguntan no está o no se entiende, '
+            'decilo en vez de suponer — del otro lado no pueden verificarte.',
+        provider: AgentProvider.claude.alias,
+      ),
+    );
+
+    final buffer = StringBuffer();
+    await for (final event in run.events) {
+      if (event is TaskAssistantText) buffer.write(event.text);
+      if (event is TaskFailure) {
+        return 'La consulta a "${target.name}" falló: ${event.message}';
+      }
+    }
+    final answer = buffer.toString().trim();
+    return answer.isEmpty
+        ? 'El proyecto "${target.name}" no devolvió nada.'
+        : answer;
   }
 
   void createSession(String projectId) {
@@ -1762,6 +1856,16 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     // y vive en el repo, el otro dura una tarde y vive en el canal. Solo
     // aparece si el proyecto tiene carpeta TASKS/ — sin eso, tres tools que
     // no aplican.
+    // Los requerimientos hacia otros proyectos. Igual que el roadmap: no van
+    // a codex (no recibe MCPs) ni a un turno de consulta, que contesta y se va.
+    final requirementsEntry = (isCodex || consultOfProfileId != null)
+        ? null
+        : RequirementsMcpServer.mcpServerEntryFor(
+            projectId: projectId,
+            sessionId: sessionId,
+            profileId: member.id,
+          );
+
     final roadmapEntry = (isCodex || consultOfProfileId != null)
         ? null
         : RoadmapMcpServer.mcpServerEntryFor(
@@ -1774,6 +1878,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
       kUserToolsMcpServerKey: ?toolsEntry,
       kSessionPlanMcpServerKey: ?planEntry,
       kRoadmapMcpServerKey: ?roadmapEntry,
+      kRequirementsMcpServerKey: ?requirementsEntry,
       for (final server in externalServers)
         server.name: server.toMcpServerEntry(externalSecretValues),
     };
@@ -1829,6 +1934,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
             ...SettingsService.instance.notifier.data.extraAllowedTools,
           if (planEntry != null) ...kSessionPlanMcpToolNames,
           if (roadmapEntry != null) ...kRoadmapMcpToolNames,
+          if (requirementsEntry != null) ...kRequirementsMcpToolNames,
           if (toolsEntry != null)
             ...memberTools.map(
               (tool) => '$kUserToolsMcpToolPrefix${tool.name}',

@@ -13,6 +13,7 @@ import 'package:keel_ui/src/core/services/main_window_size.dart';
 import 'package:keel_ui/src/core/ui/app_theme.dart';
 import 'package:keel_ui/src/integrations/assistant_mcp/assistant_mcp_server.dart';
 import 'package:keel_ui/src/integrations/jobs_api/jobs_api.dart';
+import 'package:keel_ui/src/integrations/requirements_mcp/requirements_mcp.dart';
 import 'package:keel_ui/src/integrations/roadmap_mcp/roadmap_mcp.dart';
 import 'package:keel_ui/src/integrations/system_vault/system_vault.dart';
 import 'package:keel_ui/src/integrations/session_plan_mcp/session_plan_mcp_server.dart';
@@ -75,6 +76,7 @@ Future<void> main(List<String> rawArgs) async {
       await UserToolsMcpServer.start();
       await SessionPlanMcpServer.ensureStarted();
       await RoadmapMcpServer.ensureStarted();
+      await RequirementsMcpServer.ensureStarted();
       await JobsApiService.instance.notifier.start();
       _registerAgentBridgeHandler();
       // Respaldo periódico, y un último respaldo cuando la app se cierra.

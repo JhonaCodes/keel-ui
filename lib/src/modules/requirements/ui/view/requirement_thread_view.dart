@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:keel_ui/src/integrations/requirements_mcp/requirements_mcp.dart';
 import 'package:keel_ui/src/modules/projects/model/project.dart';
 import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
 import 'package:keel_ui/src/modules/requirements/model/internal_requirement.dart';
@@ -513,6 +514,12 @@ class _ClosureBar extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final requirements = RequirementsService.instance.notifier;
     final pidieronCierre = requirement.status == RequirementStatus.respondido;
+    final destino = ProjectsService.instance.notifier.data.projects
+        .where((project) => project.id == requirement.toProjectId)
+        .firstOrNull;
+    final sinTomar =
+        requirement.status == RequirementStatus.abierto &&
+        (destino?.maintained ?? false);
 
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
@@ -547,6 +554,11 @@ class _ClosureBar extends StatelessWidget {
               style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
             ),
           ),
+          if (sinTomar)
+            FilledButton.tonal(
+              onPressed: () => _tomarYEvaluar(context),
+              child: const Text('Tomar y evaluar'),
+            ),
           if (pidieronCierre)
             TextButton(
               onPressed: () => _rechazar(context, requirements),
@@ -558,6 +570,33 @@ class _ClosureBar extends StatelessWidget {
             child: const Text('Cerrar'),
           ),
         ],
+      ),
+    );
+  }
+
+  /// Arranca el trabajo del otro lado.
+  ///
+  /// Abre una sesión NUEVA en el proyecto destino con el requerimiento
+  /// renderizado como pedido. No es una elección de estilo: una sesión nueva
+  /// es la única forma de que el trabajo del destino no arrastre nada del
+  /// contexto de quien pidió.
+  void _tomarYEvaluar(BuildContext context) {
+    final projects = ProjectsService.instance.notifier;
+    final from = projects.data.projects
+        .where((project) => project.id == requirement.fromProjectId)
+        .firstOrNull;
+    final to = projects.data.projects
+        .where((project) => project.id == requirement.toProjectId)
+        .firstOrNull;
+    if (to == null) return;
+
+    projects.startRequirementSession(
+      projectId: to.id,
+      sessionTitle: '${requirement.code} · ${requirement.title}',
+      request: renderRequirementForTurn(
+        requirement,
+        fromProject: from?.name ?? 'un proyecto que ya no existe',
+        toProject: to.name,
       ),
     );
   }

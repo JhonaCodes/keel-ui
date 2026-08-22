@@ -514,6 +514,13 @@ String _describeCatalog(String kind) {
           '${_firstLine(project.purpose)}',
   ]);
 
+  section('requirements', 'Requerimientos internos', [
+    for (final requirement
+        in RequirementsService.instance.notifier.data.requirements)
+      '- ${requirement.code} ${requirement.title} '
+          '(${requirement.status.label.toLowerCase()})',
+  ]);
+
   section('mcp_servers', 'MCPs externos', [
     for (final server in McpServersService.instance.notifier.data.servers)
       '- ${server.name} (${server.transport.alias}) — '

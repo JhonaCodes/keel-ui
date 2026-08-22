@@ -87,3 +87,25 @@ nunca se convierte en el agente activo de la ventana principal.
 - Cerrar la app principal cierra el proceso entero (las sub-ventanas mueren
   con él).
 - Una sola ventana de asistente a la vez (registro por businessId).
+
+## La ventana abría en negro, y por qué
+
+La primera vez que se abría en una corrida aparecía un rectángulo negro; la
+segunda, no. La causa eran **dos `show()` compitiendo**.
+
+Las sub-ventanas nacen ocultas para que las muestre `_showWhenPainted`
+después del primer frame. Pero la ventana hacía además su propio
+`windowManager.show()` desde `initState`, cuando todavía no existe ningún
+frame. Y `waitUntilReadyToShow` redimensiona y centra **después** de mostrar,
+así que el área nueva quedaba sin pintar.
+
+La segunda vez no pasaba porque el proceso ya está caliente —snapshot,
+fuentes, pipelines— y el primer raster llega antes que la carrera. De ahí que
+cerrar y reabrir pareciera arreglarlo.
+
+Ahora `initState` configura y nada más, y el único que muestra es
+`_showWhenPainted`, que se lleva también el foco. Además las tres ventanas
+declaran `backgroundColor`: cualquier hueco antes del primer raster es el
+`FlutterView` vacío, que se ve negro, y con el fondo puesto es el color de la
+app. El hueco de la ventana principal es inevitable —se muestra antes de
+`runApp`—; lo que se puede elegir es de qué color.

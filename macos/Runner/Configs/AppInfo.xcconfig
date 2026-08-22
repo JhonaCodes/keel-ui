@@ -5,10 +5,10 @@
 // 'flutter create' template.
 
 // The application's name. By default this is also the title of the Flutter window.
-PRODUCT_NAME = keel_ui
+PRODUCT_NAME = Keel
 
 // The application's bundle identifier
 PRODUCT_BUNDLE_IDENTIFIER = com.jhonacode.keelUi
 
 // The copyright displayed in application information
-PRODUCT_COPYRIGHT = Copyright © 2026 com.jhonacode. All rights reserved.
+PRODUCT_COPYRIGHT = Copyright © 2026 JhonaCode. Todos los derechos reservados.

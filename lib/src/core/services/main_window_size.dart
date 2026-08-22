@@ -39,6 +39,9 @@ class MainWindowSize with WindowListener {
         size: size,
         minimumSize: const Size(kMinWindowWidth, kMinWindowHeight),
         center: true,
+        // El título de la ventana, que hasta ahora salía del nombre del
+        // binario: se veía "keel_ui" en el conmutador de ventanas.
+        title: 'Keel',
         // Esta ventana se muestra ANTES de `runApp`, así que hay un hueco
         // real entre que aparece y que Flutter pinta. Con el fondo nativo
         // puesto, ese hueco es el color de la app y no un rectángulo negro.

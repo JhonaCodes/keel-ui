@@ -157,7 +157,7 @@ class KeelUiApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Keel UI',
+      title: 'Keel',
       debugShowCheckedModeBanner: false,
       theme: buildAppTheme(),
       // Arriba de todo, incluidos los paneles laterales: son rutas de este

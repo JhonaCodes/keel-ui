@@ -1,21 +1,42 @@
 import 'package:flutter/material.dart';
 
+/// El área central cuando no hay nada abierto.
+///
+/// Es el único lugar de la app donde entra la marca. No es decoración: es la
+/// pantalla que ves recién instalado, y la que queda cuando cerrás todo, así
+/// que es donde un logo dice algo en vez de ocupar lugar.
 class EmptyChatPlaceholder extends StatelessWidget {
   const EmptyChatPlaceholder({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
 
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.smart_toy_outlined, size: 48, color: scheme.outline),
-          const SizedBox(height: 12),
+          // Bajo, no al 100%: el logo viene con su propio fondo casi negro y
+          // a tamaño grande compite con la app en vez de acompañarla.
+          Opacity(
+            opacity: 0.55,
+            child: Image.asset(
+              'assets/icon.png',
+              width: 92,
+              height: 92,
+              filterQuality: FilterQuality.medium,
+            ),
+          ),
+          const SizedBox(height: 18),
           Text(
-            'Crea un agente con el + para empezar',
-            style: Theme.of(context).textTheme.bodyLarge,
+            'Elegí un proyecto, o creá un agente con el +',
+            style: theme.textTheme.bodyLarge,
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Keel AI, arriba a la izquierda, arma lo que le pidas.',
+            style: theme.textTheme.bodySmall?.copyWith(color: scheme.outline),
           ),
         ],
       ),

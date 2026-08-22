@@ -11,6 +11,7 @@ import 'package:keel_ui/src/integrations/task_runner/task_runner.dart';
 import 'package:keel_ui/src/integrations/task_plan_mcp/task_plan_mcp_server.dart';
 import 'package:keel_ui/src/integrations/user_tools_mcp/user_tools_mcp_server.dart';
 import 'package:keel_ui/src/integrations/hook_delivery/hook_delivery.dart';
+import 'package:keel_ui/src/integrations/roadmap_mcp/roadmap_mcp.dart';
 import 'package:keel_ui/src/modules/hooks/model/hook_event.dart';
 import 'package:keel_ui/src/modules/hooks/viewmodel/hooks_viewmodel.dart';
 import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
@@ -1580,9 +1581,21 @@ class StationsViewModel extends ViewModel<StationsState> {
             taskId: taskId,
             profileId: member.id,
           );
+    // El roadmap del PROYECTO, distinto del plan de la tarea: uno dura meses
+    // y vive en el repo, el otro dura una tarde y vive en el canal. Solo
+    // aparece si el proyecto tiene carpeta TASKS/ — sin eso, tres tools que
+    // no aplican.
+    final roadmapEntry = (isCodex || consultOfProfileId != null)
+        ? null
+        : RoadmapMcpServer.mcpServerEntryFor(
+            stationId: stationId,
+            profileId: member.id,
+            workingDirectory: station.workingDirectory,
+          );
     final mcpServers = <String, dynamic>{
       kUserToolsMcpServerKey: ?toolsEntry,
       kTaskPlanMcpServerKey: ?planEntry,
+      kRoadmapMcpServerKey: ?roadmapEntry,
       for (final server in externalServers)
         server.name: server.toMcpServerEntry(externalSecretValues),
     };
@@ -1630,6 +1643,7 @@ class StationsViewModel extends ViewModel<StationsState> {
         extraAllowedTools: [
           ...SettingsService.instance.notifier.data.extraAllowedTools,
           if (planEntry != null) ...kTaskPlanMcpToolNames,
+          if (roadmapEntry != null) ...kRoadmapMcpToolNames,
           if (toolsEntry != null)
             ...memberTools.map(
               (tool) => '$kUserToolsMcpToolPrefix${tool.name}',

@@ -1811,7 +1811,10 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     // El mapa de las bases se arma leyendo el disco: si el catálogo todavía
     // no cargó, el turno saldría sin saber que existen. Acá sí se puede
     // esperar — `_turnSystemPrompt` es síncrono a propósito.
-    await KnowledgeService.instance.notifier.ready;
+    // El MAPA de las bases, no solo el catálogo: sin índice el agente no
+    // ve qué hay adentro de sus bases de saber. Es el único lugar donde
+    // vale la pena esperar el recorrido del disco.
+    await KnowledgeService.instance.notifier.indexReady;
 
     // The member's assigned executable tools travel as a per-turn MCP
     // config — the loopback server runs in the main isolate, and the CLI

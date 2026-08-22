@@ -380,7 +380,10 @@ class AgentsViewModel extends ViewModel<AgentsState> {
     // Mismo motivo que en el turno de un proyecto: el mapa de las bases
     // sale del disco, y sin esperar la carga el agente arrancaría sin saber
     // que su base existe.
-    await KnowledgeService.instance.notifier.ready;
+    // El MAPA de las bases, no solo el catálogo: sin índice el agente no
+    // ve qué hay adentro de sus bases de saber. Es el único lugar donde
+    // vale la pena esperar el recorrido del disco.
+    await KnowledgeService.instance.notifier.indexReady;
 
     final keelAiEntry = isKeelAi || _canManageSystem(target.profileId)
         ? AssistantMcpServer.mcpServerEntryFor(agentId)

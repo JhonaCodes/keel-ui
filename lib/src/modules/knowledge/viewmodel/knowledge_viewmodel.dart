@@ -114,7 +114,26 @@ class KnowledgeViewModel extends ViewModel<KnowledgeState> {
   static String _supportPath = '';
 
   Future<void>? _ready;
+
+  /// Resuelve cuando el CATÁLOGO de bases cargó. Es lo que espera el
+  /// arranque, y es todo lo que la UI necesita para dibujar la lista.
   Future<void> get ready => _ready ??= _load();
+
+  Completer<void>? _indexed;
+
+  /// Resuelve cuando el ÍNDICE terminó de armarse — que es otra cosa.
+  ///
+  /// Armar el índice recorre el disco de cada base con `listSync`, y con
+  /// una docena de repos grandes son miles de entradas. Mientras eso estaba
+  /// pegado a [ready], el arranque entero esperaba a que se recorrieran
+  /// `/Volumes/Data` enteros antes de dejar ver la app.
+  ///
+  /// Lo espera quien necesita el MAPA: el armado del turno de un agente.
+  /// Ahí sí tiene sentido, porque sin mapa el agente no ve las bases.
+  Future<void> get indexReady async {
+    await ready;
+    await (_indexed ??= Completer<void>()).future;
+  }
 
   @override
   void init() {
@@ -127,9 +146,22 @@ class KnowledgeViewModel extends ViewModel<KnowledgeState> {
       _supportPath = (await getApplicationSupportDirectory()).path;
       final bases = await _migrated(await _repository.load());
       updateState(data.copyWith(bases: bases));
-      await _reindexAll(bases);
+      // El índice arranca solo y no frena a nadie.
+      unawaited(_indexInBackground(bases));
     } catch (error) {
       Log.e('Failed to load knowledge bases', error: error);
+      (_indexed ??= Completer<void>()).complete();
+    }
+  }
+
+  Future<void> _indexInBackground(List<KnowledgeBase> bases) async {
+    final completer = _indexed ??= Completer<void>();
+    try {
+      await _reindexAll(bases);
+    } catch (error) {
+      Log.e('Failed to index knowledge bases', error: error);
+    } finally {
+      if (!completer.isCompleted) completer.complete();
     }
   }
 
@@ -408,6 +440,11 @@ class KnowledgeViewModel extends ViewModel<KnowledgeState> {
 
       if (entity is Directory) {
         if (_skippedDirectories.contains(name)) continue;
+        // El tope corta TAMBIÉN acá. Estando solo en la rama de archivos, un
+        // árbol grande se seguía recorriendo entero aunque el presupuesto ya
+        // estuviera agotado: se pagaba el `listSync` de todo para después
+        // tirarlo.
+        if (budget() <= 0) break;
         final children = _scan(entity, root, budget, spend);
         if (children.isEmpty) continue;
         directories.add(

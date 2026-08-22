@@ -33,7 +33,16 @@ void _taskRunnerEntryPoint(_IsolateBootstrap bootstrap) {
       mainSendPort: bootstrap.mainSendPort,
       commandPort: commandPort,
       isCancelled: () => cancelled,
-      onProcessStarted: (started) => process = started,
+      onProcessStarted: (started) {
+        process = started;
+        // El pid cruza el isolate como dato: un Process no se puede mandar,
+        // y del otro lado solo hace falta el número para poder mirarlo con
+        // `ps` y decir de parte de quién corre.
+        bootstrap.mainSendPort.send({
+          'type': 'processStarted',
+          'pid': started.pid,
+        });
+      },
     ),
   );
 }
@@ -404,55 +413,28 @@ List<Map<String, dynamic>> _parseEventToMessages(Map<String, dynamic> event) {
       return events;
 
     case 'result':
-      final events = <Map<String, dynamic>>[
+      final usage = readTurnUsage(event);
+      return [
         {
           'type': 'turnCompleted',
           'isError': event['is_error'] as bool,
-          'costUsd': (event['total_cost_usd'] as num?)?.toDouble() ?? 0,
-          'durationMs': event['duration_ms'] as int? ?? 0,
+          'costUsd': usage.costUsd,
+          'durationMs': usage.durationMs,
+          'model': usage.model,
+          'inputTokens': usage.inputTokens,
+          'outputTokens': usage.outputTokens,
+          'cacheReadTokens': usage.cacheReadTokens,
+          'cacheCreationTokens': usage.cacheCreationTokens,
         },
+        if (usage.contextWindowTokens > 0)
+          {
+            'type': 'contextUsage',
+            'usedTokens': usedContextOf(usage),
+            'contextWindowTokens': usage.contextWindowTokens,
+          },
       ];
-
-      final usage = event['usage'] as Map<String, dynamic>?;
-      final modelUsage = event['modelUsage'] as Map<String, dynamic>?;
-      final mainModel = _mainModelUsageEntry(modelUsage);
-      final contextWindow = mainModel?['contextWindow'] as int?;
-      if (usage != null && contextWindow != null) {
-        final usedTokens =
-            (usage['input_tokens'] as num? ?? 0).toInt() +
-            (usage['cache_creation_input_tokens'] as num? ?? 0).toInt() +
-            (usage['cache_read_input_tokens'] as num? ?? 0).toInt();
-        events.add({
-          'type': 'contextUsage',
-          'usedTokens': usedTokens,
-          'contextWindowTokens': contextWindow,
-        });
-      }
-      return events;
 
     default:
       return const [];
   }
-}
-
-/// Picks the modelUsage entry with the largest total usage — that's the
-/// model actually driving this turn, as opposed to small internal
-/// side-calls (e.g. a background haiku call) that also appear in the map.
-Map<String, dynamic>? _mainModelUsageEntry(Map<String, dynamic>? modelUsage) {
-  if (modelUsage == null) return null;
-
-  Map<String, dynamic>? best;
-  var bestTotal = -1;
-  for (final value in modelUsage.values) {
-    final entry = value as Map<String, dynamic>;
-    final total =
-        (entry['inputTokens'] as num? ?? 0).toInt() +
-        (entry['cacheReadInputTokens'] as num? ?? 0).toInt() +
-        (entry['cacheCreationInputTokens'] as num? ?? 0).toInt();
-    if (total > bestTotal) {
-      bestTotal = total;
-      best = entry;
-    }
-  }
-  return best;
 }

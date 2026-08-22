@@ -38,6 +38,7 @@ class AgentRail extends StatelessWidget {
     required this.onOpenKnowledge,
     required this.onOpenWorkflows,
     required this.onOpenBoards,
+    required this.onOpenMachine,
   });
 
   final VoidCallback onOpenProfiles;
@@ -50,6 +51,7 @@ class AgentRail extends StatelessWidget {
   final VoidCallback onOpenKnowledge;
   final VoidCallback onOpenWorkflows;
   final VoidCallback onOpenBoards;
+  final VoidCallback onOpenMachine;
 
   @override
   Widget build(BuildContext context) {
@@ -146,6 +148,14 @@ class AgentRail extends StatelessWidget {
             ),
             const Divider(height: 1),
             const SizedBox(height: 4),
+            // Con Respaldo y Ajustes: son las tres que hablan de la app y no
+            // del trabajo.
+            _RailButton(
+              label: 'Máquina',
+              icon: Icons.memory_outlined,
+              tooltip: 'Servicios, consumo y estado de la máquina',
+              onPressed: onOpenMachine,
+            ),
             _VaultRailButton(onPressed: () => openSettingsPanel(context)),
             _RailButton(
               label: 'Ajustes',

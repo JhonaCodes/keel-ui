@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:keel_ui/src/core/services/cli_turn_workspace.dart';
+import 'package:keel_ui/src/core/services/turn_usage.dart';
 
 import 'package:logger_rs/logger_rs.dart';
 
@@ -40,10 +41,26 @@ class ClaudeTurnCompleted extends ClaudeEvent {
   final bool isError;
   final double costUsd;
   final int durationMs;
+
+  /// Los contadores del turno. Se leían para calcular el porcentaje de
+  /// contexto y se tiraban; ahora viajan enteros para que el ledger pueda
+  /// guardarlos. Sin esto no hay historial posible: el dato no existe en
+  /// ningún otro lado.
+  final String model;
+  final int inputTokens;
+  final int outputTokens;
+  final int cacheReadTokens;
+  final int cacheCreationTokens;
+
   const ClaudeTurnCompleted({
     required this.isError,
     required this.costUsd,
     required this.durationMs,
+    this.model = '',
+    this.inputTokens = 0,
+    this.outputTokens = 0,
+    this.cacheReadTokens = 0,
+    this.cacheCreationTokens = 0,
   });
 }
 
@@ -305,56 +322,27 @@ class ClaudeCliService {
         return events;
 
       case 'result':
-        final events = <ClaudeEvent>[
+        final usage = readTurnUsage(event);
+        return [
           ClaudeTurnCompleted(
             isError: event['is_error'] as bool,
-            costUsd: (event['total_cost_usd'] as num?)?.toDouble() ?? 0,
-            durationMs: event['duration_ms'] as int? ?? 0,
+            costUsd: usage.costUsd,
+            durationMs: usage.durationMs,
+            model: usage.model,
+            inputTokens: usage.inputTokens,
+            outputTokens: usage.outputTokens,
+            cacheReadTokens: usage.cacheReadTokens,
+            cacheCreationTokens: usage.cacheCreationTokens,
           ),
-        ];
-
-        final usage = event['usage'] as Map<String, dynamic>?;
-        final modelUsage = event['modelUsage'] as Map<String, dynamic>?;
-        final mainModel = _mainModelUsageEntry(modelUsage);
-        final contextWindow = mainModel?['contextWindow'] as int?;
-        if (usage != null && contextWindow != null) {
-          final usedTokens =
-              (usage['input_tokens'] as num? ?? 0).toInt() +
-              (usage['cache_creation_input_tokens'] as num? ?? 0).toInt() +
-              (usage['cache_read_input_tokens'] as num? ?? 0).toInt();
-          events.add(
+          if (usage.contextWindowTokens > 0)
             ClaudeContextUsage(
-              usedTokens: usedTokens,
-              contextWindowTokens: contextWindow,
+              usedTokens: usedContextOf(usage),
+              contextWindowTokens: usage.contextWindowTokens,
             ),
-          );
-        }
-        return events;
+        ];
 
       default:
         return const [];
     }
-  }
-
-  /// Picks the modelUsage entry with the largest total usage — that's the
-  /// model actually driving this conversation, as opposed to small internal
-  /// side-calls (e.g. a background haiku call) that also appear in the map.
-  Map<String, dynamic>? _mainModelUsageEntry(Map<String, dynamic>? modelUsage) {
-    if (modelUsage == null) return null;
-
-    Map<String, dynamic>? best;
-    var bestTotal = -1;
-    for (final value in modelUsage.values) {
-      final entry = value as Map<String, dynamic>;
-      final total =
-          (entry['inputTokens'] as num? ?? 0).toInt() +
-          (entry['cacheReadInputTokens'] as num? ?? 0).toInt() +
-          (entry['cacheCreationInputTokens'] as num? ?? 0).toInt();
-      if (total > bestTotal) {
-        bestTotal = total;
-        best = entry;
-      }
-    }
-    return best;
   }
 }

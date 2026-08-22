@@ -11,6 +11,8 @@ import 'package:keel_ui/src/core/services/codex_cli_service.dart';
 import 'package:keel_ui/src/core/services/file_edit_collector.dart';
 import 'package:keel_ui/src/integrations/assistant_mcp/assistant_mcp_server.dart';
 import 'package:keel_ui/src/integrations/prompt_insights/prompt_insights.dart';
+import 'package:keel_ui/src/integrations/machine/machine.dart';
+import 'package:keel_ui/src/integrations/usage_ledger/usage_ledger.dart';
 import 'package:keel_ui/src/integrations/user_tools_mcp/user_tools_mcp_server.dart';
 import 'package:keel_ui/src/modules/agents/model/agent.dart';
 import 'package:keel_ui/src/modules/agents/model/agent_icon_colors.dart';
@@ -273,6 +275,7 @@ class AgentsViewModel extends ViewModel<AgentsState> {
   void stopAgent(String agentId) {
     final process = _runningProcesses.remove(agentId);
     if (process == null) return;
+    RunningProcesses.unregister(process.pid);
 
     _stoppedAgentIds.add(agentId);
     process.kill();
@@ -433,7 +436,13 @@ class AgentsViewModel extends ViewModel<AgentsState> {
             ),
             hooksConfig: turnHooks.codexConfig,
             hookFiles: turnHooks.files,
-            onProcessStarted: (process) => _runningProcesses[agentId] = process,
+            onProcessStarted: (process) {
+              _runningProcesses[agentId] = process;
+              RunningProcesses.register(
+                process.pid,
+                'chat con @${target.name}',
+              );
+            },
           )
         : _claude.run(
             prompt: promptForModel,
@@ -458,7 +467,13 @@ class AgentsViewModel extends ViewModel<AgentsState> {
             mcpConfig: mcpConfig,
             hooksSettings: turnHooks.claudeSettings,
             hookFiles: turnHooks.files,
-            onProcessStarted: (process) => _runningProcesses[agentId] = process,
+            onProcessStarted: (process) {
+              _runningProcesses[agentId] = process;
+              RunningProcesses.register(
+                process.pid,
+                'chat con @${target.name}',
+              );
+            },
           );
 
     var wasStopped = false;
@@ -526,11 +541,26 @@ class AgentsViewModel extends ViewModel<AgentsState> {
             ),
           );
 
-        case ClaudeTurnCompleted(
-          isError: final isError,
-          costUsd: final costUsd,
-          durationMs: final durationMs,
-        ):
+        case final ClaudeTurnCompleted turn:
+          final isError = turn.isError;
+          final costUsd = turn.costUsd;
+          final durationMs = turn.durationMs;
+          if (!isError) {
+            unawaited(
+              UsageLedgerService.instance.notifier.record(
+                provider: target.provider.alias,
+                model: turn.model,
+                profileId: target.profileId ?? '',
+                sessionId: agentId,
+                inputTokens: turn.inputTokens,
+                outputTokens: turn.outputTokens,
+                cacheReadTokens: turn.cacheReadTokens,
+                cacheCreationTokens: turn.cacheCreationTokens,
+                durationMs: durationMs,
+                costUsd: costUsd,
+              ),
+            );
+          }
           if (isError) {
             _appendMessage(
               agentId,
@@ -560,7 +590,8 @@ class AgentsViewModel extends ViewModel<AgentsState> {
       }
     }
 
-    _runningProcesses.remove(agentId);
+    final finished = _runningProcesses.remove(agentId);
+    if (finished != null) RunningProcesses.unregister(finished.pid);
     _setCurrentActivity(agentId, null);
     _updateAgent(agentId, (agent) => agent.copyWith(clearLiveReasoning: true));
     _setStreaming(agentId, false);

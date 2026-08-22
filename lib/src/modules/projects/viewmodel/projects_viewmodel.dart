@@ -8,6 +8,8 @@ import 'package:reactive_notifier/reactive_notifier.dart';
 import 'package:keel_ui/src/core/services/file_edit_collector.dart';
 import 'package:keel_ui/src/integrations/prompt_insights/prompt_insights.dart';
 import 'package:keel_ui/src/integrations/task_runner/task_runner.dart';
+import 'package:keel_ui/src/integrations/machine/machine.dart';
+import 'package:keel_ui/src/integrations/usage_ledger/usage_ledger.dart';
 import 'package:keel_ui/src/integrations/session_plan_mcp/session_plan_mcp_server.dart';
 import 'package:keel_ui/src/integrations/user_tools_mcp/user_tools_mcp_server.dart';
 import 'package:keel_ui/src/integrations/hook_delivery/hook_delivery.dart';
@@ -2007,10 +2009,23 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
           session.copyWith(liveTurn: SessionLiveTurn(profileId: member.id)),
     );
 
+    // El pid del CLI de este turno. Se anota para que la pantalla de Máquina
+    // pueda decir de parte de quién corre cada proceso, y se suelta al
+    // terminar: una lista que no se limpia es una lista que miente.
+    var livePid = 0;
+
     await for (final event in run.events) {
       if (_stoppedSessionIds.contains(sessionId)) break;
 
       switch (event) {
+        case TaskProcessStarted(pid: final pid):
+          livePid = pid;
+          RunningProcesses.register(
+            pid,
+            '${project.name} · '
+            '${_sessionById(project, sessionId)?.title ?? 'sesión'}',
+          );
+
         case TaskSessionStarted(sessionId: final id):
           sessionConfirmed = true;
           _updateSession(projectId, sessionId, (session) {
@@ -2072,11 +2087,27 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
             ),
           );
 
-        case TaskTurnCompleted(
-          isError: final isError,
-          costUsd: final costUsd,
-          durationMs: final durationMs,
-        ):
+        case final TaskTurnCompleted turn:
+          final isError = turn.isError;
+          final costUsd = turn.costUsd;
+          final durationMs = turn.durationMs;
+          if (!isError) {
+            unawaited(
+              UsageLedgerService.instance.notifier.record(
+                provider: engine.provider.alias,
+                model: turn.model,
+                profileId: member.id,
+                projectId: projectId,
+                sessionId: sessionId,
+                inputTokens: turn.inputTokens,
+                outputTokens: turn.outputTokens,
+                cacheReadTokens: turn.cacheReadTokens,
+                cacheCreationTokens: turn.cacheCreationTokens,
+                durationMs: durationMs,
+                costUsd: costUsd,
+              ),
+            );
+          }
           if (costUsd > 0) {
             _updateSession(projectId, sessionId, (session) {
               final costs = Map<String, double>.from(session.costByProfileId);
@@ -2148,6 +2179,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
           );
       }
     }
+    if (livePid != 0) RunningProcesses.unregister(livePid);
 
     // Una sesión persistida que el CLI ya no conoce rompía al miembro para
     // siempre en esta sesión: cada turno futuro reintentaba el mismo --resume

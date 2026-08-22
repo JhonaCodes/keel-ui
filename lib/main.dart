@@ -12,6 +12,7 @@ import 'package:keel_ui/src/core/services/main_window_size.dart';
 import 'package:keel_ui/src/core/ui/app_theme.dart';
 import 'package:keel_ui/src/integrations/assistant_mcp/assistant_mcp_server.dart';
 import 'package:keel_ui/src/integrations/jobs_api/jobs_api.dart';
+import 'package:keel_ui/src/integrations/system_vault/system_vault.dart';
 import 'package:keel_ui/src/integrations/task_plan_mcp/task_plan_mcp_server.dart';
 import 'package:keel_ui/src/integrations/user_tools_mcp/user_tools_mcp_server.dart';
 import 'package:keel_ui/src/modules/agents/model/file_edit.dart';
@@ -70,6 +71,8 @@ Future<void> main(List<String> rawArgs) async {
       await TaskPlanMcpServer.ensureStarted();
       await JobsApiService.instance.notifier.start();
       _registerAgentBridgeHandler();
+      // Respaldo periódico, y un último respaldo cuando la app se cierra.
+      VaultAutoBackup.start();
       runApp(const KeelUiApp());
   }
 }
@@ -131,7 +134,7 @@ class KeelUiApp extends StatelessWidget {
       title: 'Keel UI',
       debugShowCheckedModeBanner: false,
       theme: buildAppTheme(),
-      home: const AgentsScreen(),
+      home: const VaultBootGate(child: AgentsScreen()),
     );
   }
 }

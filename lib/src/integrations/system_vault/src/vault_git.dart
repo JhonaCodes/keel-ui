@@ -93,3 +93,52 @@ Future<void> cloneVaultRepo(String url, String destination) async {
   final clone = await _git(['clone', url, destination]);
   if (!clone.ok) throw _VaultException('git clone falló: ${clone.output}');
 }
+
+/// En qué estado está el vault respecto de git. Se consulta seguido (cada
+/// respaldo, cada arranque) y nunca escribe nada.
+typedef VaultRepoStatus = ({bool isRepo, bool hasRemote, int unpushed});
+
+const VaultRepoStatus _noRepo = (isRepo: false, hasRemote: false, unpushed: 0);
+
+/// Cuántos respaldos commiteados todavía no salieron de esta máquina.
+///
+/// Sin upstream la cuenta son TODOS los commits: una rama que nunca se
+/// pusheó está entera sin subir, y decir "0 pendientes" ahí sería mentir
+/// justo en el caso en que más importa.
+Future<VaultRepoStatus> vaultRepoStatus(String dir) async {
+  if (!Directory('$dir/.git').existsSync()) return _noRepo;
+
+  final remote = await _git(['remote', 'get-url', 'origin'], cwd: dir);
+  if (!remote.ok) return (isRepo: true, hasRemote: false, unpushed: 0);
+
+  final ahead = await _git([
+    'rev-list',
+    '--count',
+    '@{u}..HEAD',
+  ], cwd: dir);
+  if (ahead.ok) {
+    return (
+      isRepo: true,
+      hasRemote: true,
+      unpushed: int.tryParse(ahead.output.trim()) ?? 0,
+    );
+  }
+
+  final all = await _git(['rev-list', '--count', 'HEAD'], cwd: dir);
+  return (
+    isRepo: true,
+    hasRemote: true,
+    unpushed: int.tryParse(all.output.trim()) ?? 0,
+  );
+}
+
+/// Si hay algo sin commitear en [dir].
+///
+/// Se pregunta ANTES de commitear en el respaldo automático: sin cambios no
+/// se llama a `git commit`, y entonces la firma GPG no se dispara. Con un
+/// respaldo cada 15 minutos, commitear a ciegas sería un pinentry cada 15
+/// minutos.
+Future<bool> vaultHasChanges(String dir) async {
+  final status = await _git(['status', '--porcelain'], cwd: dir);
+  return status.ok && status.output.trim().isNotEmpty;
+}

@@ -43,6 +43,11 @@ class SettingsViewModel extends ViewModel<AppSettings> {
     unawaited(_repository.save(data));
   }
 
+  void markVaultOnboardingDone() {
+    updateState(data.copyWith(vaultOnboardingDone: true));
+    unawaited(_repository.save(data));
+  }
+
   void setKnowledgeRepoUrl(String url) {
     updateState(data.copyWith(knowledgeRepoUrl: url.trim()));
     unawaited(_repository.save(data));

@@ -1,13 +1,28 @@
 part of '../system_vault.dart';
 
+/// Hasta dónde llega un respaldo. Escribir el zip siempre pasa; lo demás es
+/// una escalera, y cada peldaño lo pide alguien distinto: el botón
+/// "Respaldar" solo escribe, el respaldo automático además commitea local, y
+/// "Respaldar y subir" cierra el círculo.
+enum VaultReach { write, commit, push }
+
 class SystemVaultState {
   final bool busy;
   final String log;
+
+  /// Si hay una carpeta de vault elegida.
+  final bool configured;
 
   /// Cuándo se escribió el zip que hay hoy en el vault, o null si no hay
   /// ninguno. Sale del `mtime` del archivo y no de adentro del zip: adentro
   /// no hay fechas, justamente para que sea determinista.
   final DateTime? lastBackupAt;
+
+  final bool isRepo;
+  final bool hasRemote;
+
+  /// Respaldos commiteados que todavía no salieron de esta máquina.
+  final int unpushedCommits;
 
   /// Qué trae el respaldo inspeccionado y qué pisaría. Null hasta que se
   /// mira uno.
@@ -16,21 +31,67 @@ class SystemVaultState {
   const SystemVaultState({
     this.busy = false,
     this.log = '',
+    this.configured = false,
     this.lastBackupAt,
+    this.isRepo = false,
+    this.hasRemote = false,
+    this.unpushedCommits = 0,
     this.preview,
   });
+
+  /// Qué le falta al respaldo para estar realmente a salvo, o null si no le
+  /// falta nada.
+  ///
+  /// Es una escalera y se contesta el primer peldaño que falla: no sirve
+  /// avisar "tenés 3 sin subir" a alguien que ni siquiera tiene remoto. El
+  /// respaldo automático commitea pero NO sube, así que este aviso es lo
+  /// único que separa "creo que está guardado" de "está guardado".
+  String? get warning {
+    if (!configured) {
+      return 'No elegiste carpeta de vault: nada de esto está respaldado.';
+    }
+    if (lastBackupAt == null) {
+      return 'Todavía no hay ningún respaldo en el vault.';
+    }
+    if (!isRepo) {
+      return 'El vault no es un repo git todavía: el respaldo existe, pero '
+          'no sale de esta máquina.';
+    }
+    if (!hasRemote) {
+      return 'El vault no tiene remoto configurado: el respaldo no sale de '
+          'esta máquina.';
+    }
+    if (unpushedCommits == 1) {
+      return 'Hay 1 respaldo commiteado sin subir al remoto.';
+    }
+    if (unpushedCommits > 1) {
+      return 'Hay $unpushedCommits respaldos commiteados sin subir al remoto.';
+    }
+    return null;
+  }
+
+  bool get needsAttention => warning != null;
 
   SystemVaultState copyWith({
     bool? busy,
     String? log,
+    bool? configured,
     DateTime? lastBackupAt,
+    bool? isRepo,
+    bool? hasRemote,
+    int? unpushedCommits,
     BackupPreview? preview,
     bool clearPreview = false,
+    bool clearLastBackup = false,
   }) {
     return SystemVaultState(
       busy: busy ?? this.busy,
       log: log ?? this.log,
-      lastBackupAt: lastBackupAt ?? this.lastBackupAt,
+      configured: configured ?? this.configured,
+      lastBackupAt: clearLastBackup ? null : (lastBackupAt ?? this.lastBackupAt),
+      isRepo: isRepo ?? this.isRepo,
+      hasRemote: hasRemote ?? this.hasRemote,
+      unpushedCommits: unpushedCommits ?? this.unpushedCommits,
       preview: clearPreview ? null : (preview ?? this.preview),
     );
   }
@@ -42,15 +103,29 @@ class SystemVaultState {
           runtimeType == other.runtimeType &&
           busy == other.busy &&
           log == other.log &&
+          configured == other.configured &&
           lastBackupAt == other.lastBackupAt &&
+          isRepo == other.isRepo &&
+          hasRemote == other.hasRemote &&
+          unpushedCommits == other.unpushedCommits &&
           preview == other.preview;
 
   @override
-  int get hashCode => Object.hash(busy, log, lastBackupAt, preview);
+  int get hashCode => Object.hash(
+    busy,
+    log,
+    configured,
+    lastBackupAt,
+    isRepo,
+    hasRemote,
+    unpushedCommits,
+    preview,
+  );
 
   @override
   String toString() =>
-      'SystemVaultState(busy: $busy, lastBackupAt: $lastBackupAt)';
+      'SystemVaultState(busy: $busy, lastBackupAt: $lastBackupAt, '
+      'unpushed: $unpushedCommits)';
 }
 
 /// Respaldar y restaurar el sistema entero contra la carpeta del vault.
@@ -90,25 +165,39 @@ class SystemVaultViewModel extends ViewModel<SystemVaultState> {
     return dir == null ? null : File('$dir/$kVaultBackupFileName');
   }
 
-  /// Relee del disco cuándo fue el último respaldo. Barato y sin efectos:
-  /// se llama al arrancar y después de cada operación.
+  /// Relee del disco cuándo fue el último respaldo y en qué estado está el
+  /// repo. Barato y sin efectos: se llama al arrancar y después de cada
+  /// operación.
   Future<void> refreshStatus() async {
     // Al arrancar esto corre antes que la carga de ajustes: sin esperarla,
     // la carpeta del vault se lee vacía y el panel diría "nunca respaldaste"
     // teniendo un respaldo al lado.
     await SettingsService.instance.notifier.ready;
+    final dir = _vaultDirectory;
     final file = _backupFile;
     final exists = file != null && file.existsSync();
+    final status = dir == null
+        ? const (isRepo: false, hasRemote: false, unpushed: 0)
+        : await vaultRepoStatus(dir);
+
     updateState(
-      data.copyWith(lastBackupAt: exists ? file.lastModifiedSync() : null),
+      data.copyWith(
+        configured: dir != null,
+        lastBackupAt: exists ? file.lastModifiedSync() : null,
+        clearLastBackup: !exists,
+        isRepo: status.isRepo,
+        hasRemote: status.hasRemote,
+        unpushedCommits: status.unpushed,
+      ),
     );
   }
 
   // ── respaldar ───────────────────────────────────────────────────────
 
-  /// Escribe `keel-backup.zip` en el vault y, si [push], lo commitea y sube.
+  /// Escribe `keel-backup.zip` en el vault y llega hasta donde diga [reach].
   /// Devuelve el resumen (también queda en [SystemVaultState.log]).
-  Future<String> backup({bool push = false}) => _guarded(() async {
+  Future<String> backup({VaultReach reach = VaultReach.write}) =>
+      _guarded(() async {
     final dir = _vaultDirectory;
     if (dir == null) {
       throw const _VaultException(
@@ -134,13 +223,13 @@ class SystemVaultViewModel extends ViewModel<SystemVaultState> {
             '${skipped.join(', ')}.',
     ];
 
-    // Sin `push` esto solo escribe el archivo: el botón dice "Respaldar" y
-    // eso es lo que hace. Commitear el repo del usuario de callado sería un
-    // efecto que nadie pidió.
-    if (!push) return parts.join('\n');
+    // El botón "Respaldar" dice eso y hace eso: commitear el repo del
+    // usuario de callado sería un efecto que nadie pidió.
+    if (reach == VaultReach.write) return parts.join('\n');
 
     final remote = SettingsService.instance.notifier.data.vaultRepoUrl.trim();
-    if (remote.isEmpty) {
+    final push = reach == VaultReach.push;
+    if (push && remote.isEmpty) {
       throw const _VaultException(
         'Escribí el respaldo, pero no hay repo del vault configurado: '
         'cargá la URL en Configuración → Respaldo del sistema y volvé a '
@@ -148,12 +237,28 @@ class SystemVaultViewModel extends ViewModel<SystemVaultState> {
       );
     }
 
+    // El respaldo automático no crea repos: si el vault todavía es una
+    // carpeta suelta, deja el zip escrito y no toca git. Convertirlo en
+    // repo es una decisión del usuario, y la toma apretando "Respaldar y
+    // subir".
+    if (!push && !Directory('$dir/.git').existsSync()) {
+      parts.add(
+        'El vault todavía no es un repo git: usá "Respaldar y subir" para '
+        'crearlo y mandarlo al remoto.',
+      );
+      return parts.join('\n');
+    }
+
     await ensureVaultRepo(dir, remote);
+    if (!push && !await vaultHasChanges(dir)) {
+      parts.add('Sin cambios respecto del último commit.');
+      return parts.join('\n');
+    }
     parts.add(
       await commitVault(
         dir,
         message: 'respaldo ${DateTime.now().toIso8601String()}',
-        push: true,
+        push: push,
       ),
     );
     return parts.join('\n');
@@ -278,38 +383,93 @@ class SystemVaultViewModel extends ViewModel<SystemVaultState> {
   }
 
   /// Aplica el respaldo ya inspeccionado: solo las [sections] elegidas.
-  /// Los ajustes y los secrets van siempre — no pisan nada (un secret que
-  /// ya existe se deja intacto) y son justo lo que falta en una instalación
-  /// nueva.
   Future<String> applyLoaded({required Set<BackupSection> sections}) =>
       _guarded(() async {
         final loaded = _loaded;
         if (loaded == null) {
           throw const _VaultException('No hay ningún respaldo leído.');
         }
-
-        final byCategory = {
-          for (final section in sections)
-            if (loaded.catalog[section.category] != null)
-              section.category: loaded.catalog[section.category]!,
-        };
-
-        final parts = <String>[];
-        if (byCategory.isNotEmpty) parts.add(await mergeCatalogJson(byCategory));
-        if (sections.contains(BackupSection.knowledgeBases)) {
-          final docs = await _applyKnowledgeDocs(loaded);
-          if (docs.isNotEmpty) parts.add(docs);
-        }
-        if (loaded.settings.isNotEmpty) {
-          SettingsService.instance.notifier.applyRestored(
-            AppSettings.fromJson(loaded.settings),
-          );
-          parts.add('Restauré los ajustes.');
-        }
-        parts.add(_applySecrets(loaded));
-
-        return parts.join('\n');
+        return _apply(loaded, sections);
       });
+
+  /// El trabajo de aplicar, sin el guardado: lo comparten el panel de
+  /// restaurar —que deja elegir secciones— y la bienvenida, que las aplica
+  /// todas porque el sistema está vacío y no hay nada que elegir.
+  ///
+  /// Los ajustes y los secrets van siempre: no pisan nada (un secret que ya
+  /// existe se deja intacto) y son justo lo que falta en una instalación
+  /// nueva.
+  Future<String> _apply(
+    VaultContents loaded,
+    Set<BackupSection> sections,
+  ) async {
+    final byCategory = {
+      for (final section in sections)
+        if (loaded.catalog[section.category] != null)
+          section.category: loaded.catalog[section.category]!,
+    };
+
+    final parts = <String>[];
+    if (byCategory.isNotEmpty) parts.add(await mergeCatalogJson(byCategory));
+    if (sections.contains(BackupSection.knowledgeBases)) {
+      final docs = await _applyKnowledgeDocs(loaded);
+      if (docs.isNotEmpty) parts.add(docs);
+    }
+    if (loaded.settings.isNotEmpty) {
+      SettingsService.instance.notifier.applyRestored(
+        AppSettings.fromJson(loaded.settings),
+      );
+      parts.add('Restauré los ajustes.');
+    }
+    parts.add(_applySecrets(loaded));
+
+    return parts.join('\n');
+  }
+
+  /// El arranque de una instalación limpia, entero y de una: adopta el
+  /// vault, lo trae si hace falta, y restaura TODO sin preguntar.
+  ///
+  /// No pregunta porque no hay nada que perder — esto solo se ofrece con el
+  /// sistema vacío ([catalogIsEmpty]). Si la carpeta ya tiene el respaldo
+  /// (porque clonaste el repo a mano antes de abrir la app), no clona nada:
+  /// la adopta como está.
+  Future<String> bootstrapFrom({
+    required String url,
+    required String destination,
+  }) => _guarded(() async {
+    final dir = destination.trim();
+    if (dir.isEmpty) {
+      throw const _VaultException('Elegí en qué carpeta va a vivir el vault.');
+    }
+
+    final alreadyThere = File('$dir/$kVaultBackupFileName').existsSync();
+    if (!alreadyThere) {
+      if (url.trim().isEmpty) {
+        throw _VaultException(
+          'Esa carpeta no tiene ningún $kVaultBackupFileName y no diste una '
+          'URL para clonar.',
+        );
+      }
+      await cloneVaultRepo(url.trim(), dir);
+    }
+
+    final settings = SettingsService.instance.notifier;
+    settings.setVaultPath(dir);
+    if (url.trim().isNotEmpty) settings.setVaultRepoUrl(url.trim());
+
+    final file = File('$dir/$kVaultBackupFileName');
+    if (!file.existsSync()) {
+      throw _VaultException(
+        'Traje el repo, pero no incluye ningún $kVaultBackupFileName: no hay '
+        'nada que restaurar.',
+      );
+    }
+
+    await _inspectFile(file);
+    final summary = await _apply(_loaded!, BackupSection.values.toSet());
+    settings.markVaultOnboardingDone();
+    return summary;
+  });
 
   /// Escribe los documentos del zip en las bases que tengan carpeta en ESTA
   /// máquina. Las bases que viven en el vault no pasan por acá: sus archivos

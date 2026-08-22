@@ -235,6 +235,42 @@ class _VaultFolderField extends StatelessWidget {
   }
 }
 
+/// Lo que le falta al respaldo para estar realmente a salvo. Se dice con
+/// todas las letras: un respaldo que solo existe en este disco no es un
+/// respaldo contra perder este disco.
+class _VaultWarning extends StatelessWidget {
+  final String message;
+
+  const _VaultWarning({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: colors.errorContainer,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.warning_amber_rounded, size: 18, color: colors.onErrorContainer),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              message,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: colors.onErrorContainer,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _SystemVaultControls extends StatelessWidget {
   const _SystemVaultControls();
 
@@ -259,7 +295,7 @@ class _SystemVaultControls extends StatelessWidget {
                 FilledButton.tonalIcon(
                   onPressed: vault.busy
                       ? null
-                      : () => viewmodel.backup(push: true),
+                      : () => viewmodel.backup(reach: VaultReach.push),
                   icon: const Icon(Icons.cloud_upload_outlined, size: 18),
                   label: const Text('Respaldar y subir'),
                 ),
@@ -288,9 +324,15 @@ class _SystemVaultControls extends StatelessWidget {
             if (vault.lastBackupAt != null) ...[
               const SizedBox(height: 8),
               Text(
-                'Último respaldo: ${vault.lastBackupAt!.toLocal()}',
+                'Último respaldo: ${vault.lastBackupAt!.toLocal()}. Se '
+                'respalda solo cada 15 minutos y al cerrar la app, con '
+                'commit local — subir al remoto lo decidís vos.',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
+            ],
+            if (vault.warning != null) ...[
+              const SizedBox(height: 8),
+              _VaultWarning(message: vault.warning!),
             ],
             if (vault.log.isNotEmpty) ...[
               const SizedBox(height: 8),

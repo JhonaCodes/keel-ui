@@ -755,7 +755,8 @@ Future<String> _runVaultTool(
   CallToolRequest request,
 ) async {
   if (request.name == 'backup_system') {
-    return vault.backup(push: request.arguments?['push'] as bool? ?? false);
+    final push = request.arguments?['push'] as bool? ?? false;
+    return vault.backup(reach: push ? VaultReach.push : VaultReach.write);
   }
   final read = await vault.inspectVault();
   if (vault.data.preview == null) return read;
@@ -994,6 +995,8 @@ String _describeSystem() {
     '- Repo del vault: ${_orMissing(settings.vaultRepoUrl)}',
     '- Último respaldo: '
         '${SystemVaultService.instance.notifier.data.lastBackupAt?.toLocal().toString() ?? 'nunca'}',
+    '- Pendiente: '
+        '${SystemVaultService.instance.notifier.data.warning ?? 'nada, está subido'}',
     '- Bases de saber: '
         '${_orNone([for (final base in KnowledgeService.instance.notifier.data.bases) base.name])}',
     '',

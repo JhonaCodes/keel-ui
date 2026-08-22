@@ -150,3 +150,22 @@ Future<void> awaitCatalogsReady() => Future.wait([
   KnowledgeService.instance.notifier.ready,
   StationsService.instance.notifier.ready,
 ]);
+
+/// Si el sistema está vacío de verdad: nada que un respaldo pueda pisar.
+///
+/// El mapa y el perfil de Keel AI no cuentan — se resiembran en cada
+/// arranque, así que una instalación recién puesta ya los tiene y mirarlos
+/// diría "acá hay cosas" sobre un sistema en el que no hay nada del usuario.
+///
+/// De esto depende que restaurar pueda ocurrir sin preguntar: con el sistema
+/// vacío no hay nada que perder, y en cuanto hay algo, restaurar vuelve a
+/// ser una decisión con preview.
+bool catalogIsEmpty() {
+  for (final section in BackupSection.values) {
+    final names = existingCatalogNames(section)
+      ..remove(kKeelAiSkillNameForExport)
+      ..remove(kKeelAiHandle);
+    if (names.isNotEmpty) return false;
+  }
+  return true;
+}

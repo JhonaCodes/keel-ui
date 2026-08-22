@@ -36,6 +36,11 @@ class AppSettings {
   /// El repo remoto al que se sube el vault. Vacío = solo local.
   final String vaultRepoUrl;
 
+  /// Si el usuario ya contestó la pantalla de bienvenida. Sin esto, elegir
+  /// "empezar de cero" y cerrar la app volvería a preguntar en el arranque
+  /// siguiente, porque el sistema sigue igual de vacío.
+  final bool vaultOnboardingDone;
+
   /// Git repo the Knowledge section pulls docs from. Empty = not
   /// configured.
   final String knowledgeRepoUrl;
@@ -50,6 +55,7 @@ class AppSettings {
     this.extraAllowedTools = const [],
     this.vaultPath = '',
     this.vaultRepoUrl = '',
+    this.vaultOnboardingDone = false,
     this.knowledgeRepoUrl = '',
     this.windowWidth = kDefaultWindowWidth,
     this.windowHeight = kDefaultWindowHeight,
@@ -60,6 +66,7 @@ class AppSettings {
     List<String>? extraAllowedTools,
     String? vaultPath,
     String? vaultRepoUrl,
+    bool? vaultOnboardingDone,
     String? knowledgeRepoUrl,
     double? windowWidth,
     double? windowHeight,
@@ -69,6 +76,7 @@ class AppSettings {
       extraAllowedTools: extraAllowedTools ?? this.extraAllowedTools,
       vaultPath: vaultPath ?? this.vaultPath,
       vaultRepoUrl: vaultRepoUrl ?? this.vaultRepoUrl,
+      vaultOnboardingDone: vaultOnboardingDone ?? this.vaultOnboardingDone,
       knowledgeRepoUrl: knowledgeRepoUrl ?? this.knowledgeRepoUrl,
       windowWidth: windowWidth ?? this.windowWidth,
       windowHeight: windowHeight ?? this.windowHeight,
@@ -80,6 +88,7 @@ class AppSettings {
     'extraAllowedTools': extraAllowedTools,
     'vaultPath': vaultPath,
     'vaultRepoUrl': vaultRepoUrl,
+    'vaultOnboardingDone': vaultOnboardingDone,
     'knowledgeRepoUrl': knowledgeRepoUrl,
     'windowWidth': windowWidth,
     'windowHeight': windowHeight,
@@ -93,6 +102,7 @@ class AppSettings {
           (json['extraAllowedTools'] as List?)?.cast<String>() ?? const [],
       vaultPath: json['vaultPath'] as String? ?? '',
       vaultRepoUrl: json['vaultRepoUrl'] as String? ?? '',
+      vaultOnboardingDone: json['vaultOnboardingDone'] as bool? ?? false,
       knowledgeRepoUrl: json['knowledgeRepoUrl'] as String? ?? '',
       windowWidth:
           (json['windowWidth'] as num?)?.toDouble() ?? kDefaultWindowWidth,
@@ -109,6 +119,7 @@ class AppSettings {
           chatFontScale == other.chatFontScale &&
           vaultPath == other.vaultPath &&
           vaultRepoUrl == other.vaultRepoUrl &&
+          vaultOnboardingDone == other.vaultOnboardingDone &&
           knowledgeRepoUrl == other.knowledgeRepoUrl &&
           extraAllowedTools.length == other.extraAllowedTools.length &&
           extraAllowedTools.every(other.extraAllowedTools.contains);
@@ -119,6 +130,7 @@ class AppSettings {
     Object.hashAll(extraAllowedTools),
     vaultPath,
     vaultRepoUrl,
+    vaultOnboardingDone,
     knowledgeRepoUrl,
   );
 

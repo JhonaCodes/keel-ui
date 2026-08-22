@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:reactive_notifier/reactive_notifier.dart';
 
 import 'package:keel_ui/src/modules/assistant/service/assistant_window_bridge.dart';
+import 'package:keel_ui/src/integrations/system_vault/system_vault.dart';
 import 'package:keel_ui/src/modules/settings/ui/widget/settings_panel.dart';
 
 /// Ancho de la columna. Sale del texto más largo que tiene que entrar con
@@ -128,6 +130,7 @@ class AgentRail extends StatelessWidget {
             ),
             const Divider(height: 1),
             const SizedBox(height: 4),
+            _VaultRailButton(onPressed: () => openSettingsPanel(context)),
             _RailButton(
               label: 'Ajustes',
               icon: Icons.settings_outlined,
@@ -187,6 +190,51 @@ class _RailButton extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// El estado del respaldo, siempre a la vista.
+///
+/// El respaldo automático commitea local pero NO sube: sin este punto, "ya
+/// está guardado" y "está guardado en un lugar que sobrevive a esta
+/// máquina" se ven exactamente igual. El punto naranja es la diferencia.
+class _VaultRailButton extends StatelessWidget {
+  const _VaultRailButton({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return ReactiveViewModelBuilder<SystemVaultViewModel, SystemVaultState>(
+      viewmodel: SystemVaultService.instance.notifier,
+      build: (vault, viewmodel, keep) {
+        final warning = vault.warning;
+        return Stack(
+          alignment: Alignment.topRight,
+          children: [
+            _RailButton(
+              label: 'Respaldo',
+              icon: Icons.backup_outlined,
+              tooltip: warning ?? 'Respaldo al día y subido al remoto',
+              onPressed: onPressed,
+            ),
+            if (warning != null)
+              Positioned(
+                right: 6,
+                top: 4,
+                child: Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.error,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 }

@@ -289,6 +289,12 @@ completar), los hilos de chat, las tareas, las rutas de trabajo de las
 estaciones y los adjuntos. Una base de saber que vive DENTRO del vault no se
 copia al zip: sus archivos ya están en el repo, en claro.
 
+El respaldo corre SOLO cada 15 minutos y al cerrar la app, pero llega solo
+hasta el commit local: subir al remoto lo decide el usuario. Si te pregunta
+si está todo a salvo, mirá el estado que te da `describe_system` — si dice
+que hay respaldos sin subir, o que falta remoto, decíselo y ofrecé
+`backup_system` con `push: true`.
+
 Aparte existe el RESPALDO EN UN ARCHIVO (Configuración → Respaldo en un
 archivo): un único JSON con selección por secciones, que es el ÚNICO camino
 que lleva los valores de los secrets, con opt-in explícito. Eso es UI del

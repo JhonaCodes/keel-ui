@@ -29,6 +29,60 @@ solo repo lleva sistema y conocimiento— y una URL de remoto. Cuatro botones:
 Keel AI lo maneja con `backup_system` (con `push` opcional) y
 `restore_system`.
 
+## Lo que pasa sin que aprietes nada
+
+**Al primer arranque**, si el sistema está vacío de verdad —cero skills,
+cero agentes, cero estaciones, sin contar el mapa de Keel AI que se
+resiembra siempre— la app no muestra el sistema: muestra una pantalla que
+pide la URL del vault y la carpeta destino, clona, restaura TODO y entra.
+Un campo y un botón. Con el sistema poblado no aparece nunca, y restaurar
+vuelve a ser el botón con preview: restaurar pisa por nombre, y eso solo se
+hace sin preguntar cuando no hay nada que perder.
+
+Si la carpeta que elegís ya tiene el `keel-backup.zip` porque clonaste el
+repo a mano antes de abrir la app, no se clona nada: se adopta tal cual.
+
+**Mientras trabajás**, se respalda solo cada 15 minutos y una vez más al
+cerrar la app. El respaldo automático llega hasta el **commit local** y no
+más — subir al remoto es siempre una decisión tuya.
+
+Dos detalles que hacen que eso no moleste:
+
+- El tick pregunta `git status` antes de commitear. Sin cambios no se llama
+  a `git commit`, así que la firma GPG no se dispara: quince minutos
+  tranquilos no cuestan un pinentry.
+- El respaldo automático **no crea repos**. Si el vault todavía es una
+  carpeta suelta, deja el zip escrito y no toca git; convertirlo en repo lo
+  decidís vos con "Respaldar y subir".
+
+El enganche de salida es `AppLifecycleListener.onExitRequested`, no
+`windowManager.setPreventClose`. Ese último frena el cierre de la VENTANA,
+pero el quit de la APP —Cmd+Q, el menú, un AppleEvent— no pasa por ahí:
+queda cancelado y nadie lo vuelve a disparar, y la app se vuelve imposible
+de cerrar. Está probado, no supuesto: la primera versión hacía exactamente
+eso.
+
+La salida se frena hasta 20 segundos. Si el commit se cuelga pidiendo una
+passphrase a alguien que ya se fue, la app cierra igual: el zip —que es lo
+que importa— ya está escrito, y el commit lo levanta el arranque
+siguiente.
+
+## Que esté guardado y que esté a salvo no son lo mismo
+
+El automático commitea pero no sube. Sin decirlo, "guardado" y "guardado en
+un lugar que sobrevive a esta máquina" se ven idénticos. Por eso el rail
+tiene una entrada **Respaldo** con un punto rojo, y Configuración un aviso
+escrito, que contestan el primer peldaño que falla:
+
+1. No elegiste carpeta de vault.
+2. No hay ningún respaldo todavía.
+3. El vault no es un repo git.
+4. El repo no tiene remoto.
+5. Hay N respaldos commiteados sin subir.
+
+Es una escalera y se contesta uno solo: avisarle "tenés 3 sin subir" a
+alguien que ni siquiera configuró un remoto no lo ayuda a nada.
+
 ## El zip es determinista, y de eso depende que git aguante
 
 Un zip no se diffea: cada versión es un blob nuevo entero. La contención es
@@ -95,16 +149,20 @@ divergiendo en silencio es exactamente lo que esta separación evita.
 
 ## Verificación
 
-1. `flutter test test/system_vault/vault_archive_test.dart` — round-trip con
-   acentos y binarios, determinismo byte a byte, y errores nombrados para un
-   zip ajeno, uno corrupto y algo que ni siquiera es un zip.
+1. `flutter test` — round-trip con acentos y binarios, determinismo byte a
+   byte, errores nombrados para un zip ajeno / corrupto / que no es zip, el
+   guardarraíl de `..` en las rutas, y la escalera del aviso.
 2. Elegir el vault → **Respaldar** → `unzip -l` muestra las categorías, y
    una base que vive en el vault **no** aparece bajo `knowledge/`.
 3. `unzip -p keel-backup.zip secrets.json` no contiene ningún valor.
 4. **Respaldar** dos veces seguidas sin tocar nada → `git status` limpio.
 5. Borrar una skill → **Restaurar…** → el preview la nombra → aplicar → vuelve.
-6. Clonar el repo en otra carpeta con el LMDB apartado → **Clonar vault…** →
-   restaurar → vuelve el sistema y los secrets figuran como pendientes.
+6. Apartar el LMDB y arrancar: tiene que aparecer la bienvenida. Pegar la
+   URL, traer todo, y el sistema vuelve con los secrets pendientes.
+7. Con el vault ya commiteado y sin subir, el rail muestra el punto rojo y
+   Configuración dice cuántos respaldos faltan subir. Después de
+   **Respaldar y subir**, los dos desaparecen.
+8. Cerrar la app con un cambio sin respaldar → reabrir → el zip lo incluye.
 
 Nota: el commit lo hace `git` con la configuración del usuario. Si tenés
 firma GPG activada, el primer respaldo puede abrir el pinentry.

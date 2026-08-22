@@ -23,7 +23,7 @@ colgada — el agente creía tener esa skill y en el turno no le llegaba nada.
 |---|---|
 | `list_catalog(kind?)` | Nombre + para qué sirve de skills, reglas, tools, agentes, workflows, proyectos y MCPs. Sin `kind`, todo |
 | `get_item(kind, name)` | El contenido **completo**: el texto de una skill, el código de una tool, la config de un agente o un proyecto |
-| `describe_system()` | Estado: repos configurados, secrets sin valor, MCPs que no van a levantar, agentes respondiendo, tareas corriendo |
+| `describe_system()` | Estado: repos configurados, secrets sin valor, MCPs que no van a levantar, agentes respondiendo, sesiones corriendo |
 
 **Manos** — corregir sin destruir:
 
@@ -40,7 +40,7 @@ colgada — el agente creía tener esa skill y en el turno no le llegaba nada.
 |---|---|
 | `update_station` | Propósito, directorio, miembros, workflows disponibles, reglas y cuál queda ACTIVO |
 | `manage_station_documents` | Sumar o sacar documentos de negocio — antes solo se podía desde el formulario |
-| `open_station_task` | Abrir una tarea y mandarle el pedido al canal. Mismo camino que usa la Jobs API: `createTask` + `sendToChannel`, fire-and-forget |
+| `open_project_session` | Abrir una sesión y mandarle el pedido al canal. Mismo camino que usa la Jobs API: `createTask` + `sendToChannel`, fire-and-forget |
 
 Total: 19 → **30 tools**.
 

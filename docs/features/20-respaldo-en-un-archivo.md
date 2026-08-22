@@ -27,7 +27,7 @@ por nombre como `mergeCatalogJson()`; el respaldo los reusa tal cual. Dos
 destinos (el zip del vault / un solo JSON), UNA forma — dos copias de "cómo
 se serializa un perfil" divergiendo en silencio es exactamente lo que no
 puede pasar. Mismas reglas de siempre: referencias por NOMBRE, merge
-crea-o-actualiza, rutas de trabajo y tareas jamás viajan, el mapa de Keel
+crea-o-actualiza, rutas de trabajo y sesiones jamás viajan, el mapa de Keel
 AI tampoco (se recompila en cada arranque).
 
 ## Lo que el vault nunca lleva y este archivo sí

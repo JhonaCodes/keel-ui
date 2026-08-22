@@ -1,8 +1,8 @@
-# F17 — Plan de trabajo de una tarea
+# F17 — Plan de trabajo de una sesión
 
 ## Qué problema resuelve
 
-Una tarea mostraba `3/7`: en qué paso del workflow está. Eso dice **quién
+Una sesión mostraba `3/7`: en qué paso del workflow está. Eso dice **quién
 sigue**, no **qué falta de lo que se acordó**. El plan que escribe el
 planificador en su paso vivía como un mensaje más del hilo: a los diez
 turnos está enterrado, y no hay dónde volver a mirarlo ni forma de saber qué
@@ -15,7 +15,7 @@ los dos por separado.
 ## El modelo
 
 `StationTask.plan`: una lista de `TaskPlanItem` (id, texto, hecho, quién lo
-marcó). Se persiste con la tarea, en su mismo registro.
+marcó). Se persiste con la sesión, en su mismo registro.
 
 `setTaskPlan` reemplaza el plan **conservando el estado de los puntos cuyo
 texto no cambió**: replanificar a mitad de camino no puede desmarcar lo que
@@ -28,12 +28,12 @@ a trabajar lo que ya estaba hecho. `complete_plan_items` compara igual.
 
 Un servidor MCP local (`keel-plan`) montado en **todos** los turnos de
 proyecto, sin depender de que el perfil tenga tools asignadas: el plan es
-del canal, no del agente. La ruta lleva proyecto, tarea y perfil, así que un
-turno solo puede tocar el plan de la tarea en la que corre.
+del canal, no del agente. La ruta lleva proyecto, sesión y perfil, así que un
+turno solo puede tocar el plan de la sesión en la que corre.
 
 | Tool | Cuándo |
 |---|---|
-| `set_task_plan(items)` | Cuando la tarea no tiene plan. Puntos concretos y verificables, no las etapas del workflow. |
+| `set_task_plan(items)` | Cuando la sesión no tiene plan. Puntos concretos y verificables, no las etapas del workflow. |
 | `complete_plan_items(items)` | Al cerrar el turno, con el texto exacto (o el id) de lo que ese paso resolvió. |
 
 **El turno lleva el plan escrito, no solo las tools.** Nombrarlas no
@@ -42,11 +42,11 @@ alcanzaba, por dos motivos que se vieron en uso:
 - `complete_plan_items` pide "el texto exacto" de puntos que el agente nunca
   había visto — no había forma de leer el plan.
 - "si tu paso es planificar" era una interpretación, y el paso 1 de `tdd` se
-  llama **Charter**: el planificador no se dio por aludido y la tarea corrió
+  llama **Charter**: el planificador no se dio por aludido y la sesión corrió
   entera sin plan.
 
 Ahora el turno trae el plan renderizado con su estado (`[x]` / `[ ]`), y la
-regla es mecánica: **si la tarea no tiene plan, lo escribe quien esté
+regla es mecánica: **si la sesión no tiene plan, lo escribe quien esté
 hablando, sea cual sea su paso**. Un turno de consulta ve el plan como
 contexto pero no lo escribe ni lo marca — contesta y se va.
 
@@ -78,10 +78,10 @@ veía en el canal era esto:
 > eso es el paso 1.
 > **planificador**: correcto, el charter es mi paso, no esta consulta.
 
-Los dos tenían razón y la tarea no avanzaba. No era el prompt del
+Los dos tenían razón y la sesión no avanzaba. No era el prompt del
 planificador ni faltaba un agente: faltaba la vuelta.
 
-Ahora, con puntos pendientes y la tarea detenida, **"continuar" arranca otro
+Ahora, con puntos pendientes y la sesión detenida, **"continuar" arranca otro
 ciclo completo desde el paso 1, acotado al próximo punto**. Está como botón
 debajo del plan (`Seguir con "…"`) y como palabra escrita en el canal. Sólo
 si el mensaje es corto y no dice nada más: *"continuá pero primero mirá el
@@ -94,7 +94,7 @@ cuentan cuando lo último del hilo es la invitación del cierre: en cualquier
 otro momento, responder "dale" a una pregunta de un agente es una respuesta
 a ese agente — antes lanzaba un ciclo entero por accidente.
 
-El ciclo lleva **el pedido original de la tarea** (guardado en
+El ciclo lleva **el pedido original de la sesión** (guardado en
 `StationTask.request` en la primera corrida — sin eso, un miembro que entra
 recién en el ciclo 3 nunca sabía qué se pidió) más el punto como único
 trabajo, y le dice al flujo que siga en la misma rama y el mismo PR sin
@@ -107,7 +107,7 @@ Dos mecánicas más del ciclo:
   recibe "lo que dejó dicho @anterior al cerrar el paso N-1" (el resultado
   real de su turno, recortado), y cada paso cierra diciendo en dos líneas
   qué deja listo. Antes el paso N no veía NADA del N-1.
-- **Un paso que falla corta el ciclo** y la tarea queda como no terminada,
+- **Un paso que falla corta el ciclo** y la sesión queda como no terminada,
   con la invitación a corregir y retomar. Antes el flujo marchaba los N
   pasos fallando en cadena sobre un turno muerto.
 
@@ -124,12 +124,12 @@ Eso es el "quién hace qué": trabajo del planificador, no de un agente nuevo.
 
 Un workflow puede recorrer sus siete pasos enteros y dejar la mitad de lo
 acordado sin hacer, y hasta ahora eso se sellaba como "terminada": el
-contador decía 7/7 y nadie miraba el plan. *El flujo terminó* no es *la tarea
+contador decía 7/7 y nadie miraba el plan. *El flujo terminó* no es *la sesión
 está hecha*.
 
 Ahora, cuando el último paso cierra:
 
-- **Plan completo** → tarea terminada.
+- **Plan completo** → sesión terminada.
 - **Quedan puntos** → vuelve **una** vez al verificador (el dueño del
   primer paso; si ese puesto está vacante, el del último; entre los dos se
   prefiere el que no corra con codex, que tiene las tools del plan de
@@ -137,17 +137,17 @@ Ahora, cuando el último paso cierra:
   lo que se dijo en el hilo: marcar lo que sí está hecho, sacar del plan lo
   que dejó de corresponder explicando por qué, y dejar sin marcar lo que falta
   de verdad diciendo a qué puesto le toca. No implementa: verifica.
-- **Si después de eso todavía falta algo** → la tarea NO queda terminada, y el
+- **Si después de eso todavía falta algo** → la sesión NO queda terminada, y el
   mensaje de cierre nombra qué falta.
 
 Ese turno corre con las consultas cerradas. Cerrar no es reabrir el trabajo:
-si el verificador arrastra a los demás, la tarea vuelve a correr entera por la
+si el verificador arrastra a los demás, la sesión vuelve a correr entera por la
 puerta de atrás.
 
-Una tarea sin plan no tiene nada que verificar y cierra como siempre — otra
+Una sesión sin plan no tiene nada que verificar y cierra como siempre — otra
 razón por la que el plan se escribe sí o sí en el primer turno. Con una
 excepción honesta: si el ciclo terminó **sin plan y sin producir un solo
-mensaje de trabajo**, la tarea queda como NO terminada — "terminó sin nada"
+mensaje de trabajo**, la sesión queda como NO terminada — "terminó sin nada"
 no puede sellarse igual que "todo cumplido".
 
 ## En la UI — dos vistas, no una
@@ -176,8 +176,8 @@ el momento y no tres turnos después.
 **En el sidebar** vive el plan VIVO, que es la otra pregunta: qué falta
 ahora.
 
-Debajo de la tarea abierta, en el sidebar. Solo la abierta: con cuatro
-tareas en el proyecto, cuatro planes desplegados convierten la columna en
+Debajo de la sesión abierta, en el sidebar. Solo la abierta: con cuatro
+sesiones en el proyecto, cuatro planes desplegados convierten la columna en
 una pared.
 
 - `✓` cumplido (tachado), `▸` el primer pendiente (lo que se está haciendo),

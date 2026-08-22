@@ -71,11 +71,11 @@ Ahora:
 dialecto de parseo (`_parseCodexEventToMessages`, espejo del servicio — el
 isolate es auto-contenido por diseño).
 
-## El plan de la tarea con codex
+## El plan de la sesión con codex
 
 Codex no recibe servidores MCP, así que las tools del plan no existen para
 él — y eso rompía el contrato central: si el dueño del paso 1 era codex, la
-tarea corría sin plan y el cierre la sellaba "terminada". Tres piezas lo
+sesión corría sin plan y el cierre la sellaba "terminada". Tres piezas lo
 arreglan:
 
 - **Bloques fenced**: un miembro codex escribe el plan con un bloque
@@ -93,6 +93,6 @@ arreglan:
   las tools de verdad. Si solo hay codex, verifica igual con los bloques.
 
 Y el cierre con plan vacío ya no es un éxito automático: si el ciclo
-terminó sin plan y sin producir un solo mensaje de trabajo, la tarea queda
+terminó sin plan y sin producir un solo mensaje de trabajo, la sesión queda
 como NO terminada en vez de "finished" — el falso éxito de un proyecto
 codex muda desapareció.

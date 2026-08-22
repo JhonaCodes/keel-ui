@@ -3,7 +3,7 @@
 ## Qué es
 
 Un endpoint HTTP en loopback para que schedulers EXTERNOS (cron, keel,
-scripts) abran tareas en un proyecto. El scheduling vive fuera de la app —
+scripts) abran sesiones en un proyecto. El scheduling vive fuera de la app —
 esto es el enchufe.
 
 ## Contrato
@@ -12,11 +12,11 @@ esto es el enchufe.
   tomado, uno efímero — el actual se ve en Configuración).
 - Auth: `Authorization: Bearer <token>` — token persistido, visible y
   regenerable en Configuración → API de trabajos programados.
-- `POST /stations/<nombre>/tasks` con `{"prompt": "..."}` → crea una tarea
+- `POST /projects/<nombre>/sessions` con `{"prompt": "..."}` → crea una sesión
   NUEVA en ese proyecto, manda el prompt (el workflow activo arranca) y
-  responde 202 con `{taskId}`. 409 si el proyecto no tiene carpeta de
+  responde 202 con `{sessionId}`. 409 si el proyecto no tiene carpeta de
   trabajo; 404 si no existe.
-- `GET /tasks/<id>` → `{status, isRunning, costUsd, messages}`.
+- `GET /sessions/<id>` → `{status, isRunning, costUsd, messages}`.
 
 ## Ejemplo cron
 
@@ -24,10 +24,21 @@ esto es el enchufe.
 0 9 * * 1 curl -s -X POST -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{"prompt":"Generá el reporte semanal"}' \
-  http://127.0.0.1:47821/stations/reportes/tasks
+  http://127.0.0.1:47821/projects/reportes/sessions
 ```
+
+## Las rutas viejas siguen contestando
+
+Cuando una estación pasó a llamarse proyecto y su tarea, sesión, las rutas
+acompañaron. Pero esta es la única superficie HTTP de la app: afuera puede
+haber un cron escrito hace meses que no tiene por qué enterarse de que acá
+adentro cambiamos las palabras.
+
+`POST /stations/<nombre>/tasks` y `GET /tasks/<id>` siguen funcionando, sin
+aviso y sin diferencia. Quedan como obsoletas: lo que se documenta y lo que
+se escribe nuevo es `/projects` y `/sessions`.
 
 ## Límites
 
 - Solo loopback (nunca expuesto a la red).
-- Crear la tarea la vuelve la tarea ACTIVA de ese proyecto en la UI.
+- Crear la sesión la vuelve la sesión ACTIVA de ese proyecto en la UI.

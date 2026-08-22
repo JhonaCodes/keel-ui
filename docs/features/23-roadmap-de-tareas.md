@@ -47,9 +47,14 @@ dependencia de YAML. La plantilla está en `docs/plantillas/TASKS/`.
 
 El alcance **no es un argumento que manda el modelo**: sale de la URL con la
 que se le entregó el servidor MCP a ese turno
-(`/roadmap/<proyecto>/<perfil>`), igual que ya hacía el MCP del plan. De la
-proyecto sale su directorio de trabajo, y ese directorio es la identidad del
-proyecto.
+(`/roadmap/<proyecto>/<sesión>/<perfil>`), igual que ya hacía el MCP del
+plan. Del proyecto sale su directorio de trabajo, y ese directorio es la
+identidad del proyecto.
+
+La sesión está en la ruta por una razón concreta, y no es simetría: sin ella
+la toma sabe QUÉ tarea y CON QUÉ agente, pero no en cuál de las sesiones
+abiertas del proyecto. El estado del proyecto (F25) necesita esa tercera
+columna, y una toma que no sabe dónde vive obliga a adivinarla.
 
 Un turno del proyecto A no puede tomar una tarea del proyecto B aunque lo
 pida: no tiene cómo nombrarlo. Y la clave de la toma lleva la ruta del
@@ -68,6 +73,11 @@ Una toma **vence a los 30 minutos**. No es un extra: si un agente se cae con
 la tarea tomada, sin vencimiento esa tarea queda trabada para siempre y nadie
 entiende por qué. Volver a llamar `claim_task` sobre la misma tarea la
 renueva, así que un turno largo no la pierde por el reloj.
+
+La toma guarda el proyecto, la tarea, el agente y **la sesión**. Lo que no
+guarda —y guardaba— es el nombre del proyecto por duplicado: cuando la
+estación pasó a llamarse proyecto quedó a la vista que `stationName` y
+`projectName` escribían el mismo valor.
 
 Los claims **no se respaldan** en el vault: restaurarlos en otra máquina
 revivirían candados de tareas que nadie está haciendo.

@@ -4,10 +4,10 @@
 
 - **Identidad**: el handle del perfil (`@nombre`) es único en toda la app.
 - **Ámbito**: una mención solo resuelve contra los MIEMBROS del proyecto
-  de esa tarea (`membersOf`) — un handle de otro proyecto o un agente suelto
+  de esa sesión (`membersOf`) — un handle de otro proyecto o un agente suelto
   jamás recibe el turno. Cada miembro además tiene su PROPIA sesión CLI por
-  tarea (`sessionsByProfileId`), así que la dirección efectiva es
-  `handle + sesión + proyecto/tarea` y dos proyectos no pueden pisarse.
+  sesión (`sessionsByProfileId`), así que la dirección efectiva es
+  `handle + sesión + proyecto/sesión` y dos proyectos no pueden pisarse.
 - **Coordinación a costo cero**: el ruteo de menciones es DETERMINISTA
   (regex + tabla de miembros en `_resolveConsultations`), local y sin pasar
   por ningún modelo — no existe un "orquestador LLM" cobrando tokens por
@@ -32,7 +32,7 @@
   continuación. A→B→A muere ahí.
 - Prompt de compañeros: "por cortesía nunca, por especialidad siempre".
 - Fix de leak: `_consultedPairs` (keyed por turnId, que nunca se repite) se
-  purga cuando no queda ninguna tarea corriendo.
+  purga cuando no queda ninguna sesión corriendo.
 
 ## Qué recibe el consultado (mínimo contexto, ahora mecánico)
 
@@ -65,7 +65,7 @@ RED" no está cerrando: está **abriendo una consulta**. El mencionado corre
 ahí mismo, dentro del paso del que lo nombró, y hace el trabajo del paso
 siguiente sin que el workflow avance — el tablero marca "paso 1 de 7,
 Charter" mientras el RED ya está escrito, y no hay forma de saber dónde está
-la tarea.
+la sesión.
 
 El turno lo dice explícitamente: al de más adelante no se lo menciona para
 pasarle trabajo; el workflow le da la palabra cuando el paso termina.
@@ -82,15 +82,15 @@ pregunta que te falta.
 Un punto del plan = una vuelta completa del workflow: un plan de 6 puntos
 en un flujo de 7 pasos son hasta 42 turnos de trabajo, más consultas. Por
 eso el prompt insiste en que un punto es una UNIDAD ENTREGABLE, no una
-tarea de media hora — el tamaño del punto es el multiplicador del costo. Y
+sesión de media hora — el tamaño del punto es el multiplicador del costo. Y
 por eso un paso que falla corta el ciclo en vez de arrastrar el error por
 los pasos restantes.
 
 ## Ledger de costos (lo que se ve, se controla)
 
 - `StationTask.costUsd` + `costByProfileId`: acumulados de cada
-  `TaskTurnCompleted`, persistidos con la tarea.
-- UI: el header de la tarea muestra el total (`US$X.XX`) junto al contexto;
+  `TaskTurnCompleted`, persistidos con la sesión.
+- UI: el header de la sesión muestra el total (`US$X.XX`) junto al contexto;
   el tooltip del subtítulo desglosa por miembro.
 - Limitación conocida: los turnos codex reportan costo 0 (su JSONL no lo
   emite).

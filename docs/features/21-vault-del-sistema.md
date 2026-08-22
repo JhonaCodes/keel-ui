@@ -106,7 +106,7 @@ keel-backup.zip
 └── knowledge/<base>/<ruta>   solo bases locales de FUERA del vault
 ```
 
-Lo que NO viaja, a propósito: hilos de chat (`agent_`, `task_`, `msg_`),
+Lo que NO viaja, a propósito: hilos de chat (`agent_`, `session_`, `msg_`),
 adjuntos, registros de prompts, el token de la API de trabajos, las rutas de
 trabajo de los proyectos, el tamaño de ventana, la carpeta del vault, los
 espejos git re-clonables y el mapa compilado de Keel AI.
@@ -116,6 +116,17 @@ que entra en la historia de git no sale más: viajan solo los nombres y la
 descripción, y al restaurar los secrets quedan **pendientes**, con la lista
 de cuáles completar. Para mover los valores entre máquinas propias está el
 respaldo en un archivo (F20), con su opt-in explícito.
+
+Los **requerimientos internos** (F26) sí viajan, y son la excepción que
+confirma la regla de arriba: no son ruido de una sesión, son una decisión
+entre dos proyectos. Viajan por código, con los proyectos por nombre. Al
+restaurar se **crean si faltan y no se pisan si están**: un requerimiento es
+una conversación viva, y restaurarle encima la foto del respaldo borraría
+todo lo que se dijo desde entonces.
+
+La categoría `stations` de los respaldos viejos se sigue **leyendo** como
+`projects` (F24). Escribir, se escribe siempre el nombre nuevo: así el
+formato viejo se apaga solo en vez de quedar para siempre.
 
 Un documento de más de 10 MB no entra al zip — un binario enorme en un repo
 queda ahí para siempre. Lo que se saltea se **nombra** en el resultado: un

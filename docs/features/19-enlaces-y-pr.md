@@ -1,4 +1,4 @@
-# F19 — Enlaces clickeables y el PR de la tarea
+# F19 — Enlaces clickeables y el PR de la sesión
 
 ## Qué problema resuelve
 
@@ -26,12 +26,12 @@ que una dependencia más no compraba nada.
 
 ## `PR #N` en el encabezado
 
-Si algún mensaje de la tarea nombra un pull request de GitHub, el encabezado
+Si algún mensaje de la sesión nombra un pull request de GitHub, el encabezado
 muestra su número al lado del contexto y el costo. Un click y se abre.
 
-Se lee de los mensajes, no de un campo propio de la tarea: el PR lo abre un
+Se lee de los mensajes, no de un campo propio de la sesión: el PR lo abre un
 agente con `gh` en su turno y el hilo es donde queda dicho. Guardarlo aparte
-sería un segundo lugar donde puede quedar viejo. Si una tarea abrió el PR y
+sería un segundo lugar donde puede quedar viejo. Si una sesión abrió el PR y
 después lo rehízo, gana el último que aparece — el vigente es el de más abajo
 en el hilo.
 
@@ -44,7 +44,7 @@ turno de proyecto cuyo directorio de trabajo tiene git (`_deliveryPrompt`):
 
 - El resultado se entrega como **pull request en DRAFT** — nunca mergeado ni
   marcado listo para review: eso lo decide el usuario.
-- Primer ciclo que toca código: rama propia de la tarea, commits ahí,
+- Primer ciclo que toca código: rama propia de la sesión, commits ahí,
   `gh pr create --draft`. Ciclos siguientes: la MISMA rama, el mismo PR.
 - La URL completa va en una línea propia del hilo, fuera de bloques de
   código — eso la hace clickeable y alimenta el chip `PR #N`.

@@ -175,10 +175,12 @@ class JobsApiViewModel extends ViewModel<JobsApiState> {
       return;
     }
 
-    // GET /sessions/<id>
+    // GET /sessions/<id> — `/tasks/<id>` sigue contestando por lo mismo que
+    // la ruta de alta: afuera hay scripts que no tienen por qué enterarse de
+    // que acá adentro cambiamos las palabras.
     if (request.method == 'GET' &&
         segments.length == 2 &&
-        segments[0] == 'sessions') {
+        (segments[0] == 'sessions' || segments[0] == 'tasks')) {
       for (final project in projects.data.projects) {
         final session = project.sessions
             .where((entry) => entry.id == segments[1])

@@ -19,12 +19,22 @@ class _VaultBootGateState extends State<VaultBootGate> {
   late Future<bool> _shouldWelcome = _decide();
 
   Future<bool> _decide() async {
-    // Preguntar antes de que carguen los catálogos daría "vacío" siempre, y
-    // la bienvenida se le aparecería a alguien que tiene todo.
-    await awaitCatalogsReady();
+    // La bandera sale de los ajustes, que es UNA clave. Con ella puesta —el
+    // caso de siempre— esto contesta al instante y la app se ve enseguida,
+    // cargando por detrás con la barra de arriba prendida.
+    //
+    // Antes acá se esperaban los once catálogos, y eso reemplazaba la
+    // pantalla entera por un spinner durante todo el arranque.
+    await SettingsService.instance.notifier.ready;
     if (SettingsService.instance.notifier.data.vaultOnboardingDone) {
       return false;
     }
+
+    // Recién si nunca se hizo la bienvenida hace falta saber si hay algo
+    // guardado, y para eso sí hay que esperar a que los catálogos carguen:
+    // preguntar antes daría "vacío" siempre, y la bienvenida se le
+    // aparecería a alguien que tiene todo.
+    await awaitCatalogsReady();
     return catalogIsEmpty();
   }
 

@@ -19,6 +19,7 @@ import 'package:reactive_notifier/reactive_notifier.dart';
 
 import 'package:keel_ui/src/core/ui/form_panel.dart';
 import 'package:keel_ui/src/integrations/catalog_shape/catalog_shape.dart';
+import 'package:keel_ui/src/modules/app_status/viewmodel/app_status_viewmodel.dart';
 import 'package:keel_ui/src/modules/knowledge/model/knowledge_base.dart';
 import 'package:keel_ui/src/modules/knowledge/viewmodel/knowledge_viewmodel.dart';
 import 'package:keel_ui/src/modules/secrets/viewmodel/secrets_viewmodel.dart';

@@ -198,9 +198,13 @@ class SystemVaultViewModel extends ViewModel<SystemVaultState> {
 
   /// Escribe `keel-backup.zip` en el vault y llega hasta donde diga [reach].
   /// Devuelve el resumen (también queda en [SystemVaultState.log]).
-  Future<String> backup({
-    VaultReach reach = VaultReach.write,
-  }) => _guarded(() async {
+  Future<String> backup({VaultReach reach = VaultReach.write}) =>
+      AppStatusService.instance.notifier.during(
+        'Respaldando el sistema',
+        () => _backup(reach),
+      );
+
+  Future<String> _backup(VaultReach reach) => _guarded(() async {
     final dir = _vaultDirectory;
     if (dir == null) {
       throw const _VaultException(
@@ -389,6 +393,12 @@ class SystemVaultViewModel extends ViewModel<SystemVaultState> {
 
   /// Aplica el respaldo ya inspeccionado: solo las [sections] elegidas.
   Future<String> applyLoaded({required Set<BackupSection> sections}) =>
+      AppStatusService.instance.notifier.during(
+        'Restaurando el respaldo',
+        () => _applyLoaded(sections),
+      );
+
+  Future<String> _applyLoaded(Set<BackupSection> sections) =>
       _guarded(() async {
         final loaded = _loaded;
         if (loaded == null) {
@@ -441,7 +451,15 @@ class SystemVaultViewModel extends ViewModel<SystemVaultState> {
   Future<String> bootstrapFrom({
     required String url,
     required String destination,
-  }) => _guarded(() async {
+  }) => AppStatusService.instance.notifier.during(
+    'Trayendo el vault',
+    () => _bootstrapFrom(url, destination),
+  );
+
+  Future<String> _bootstrapFrom(
+    String url,
+    String destination,
+  ) => _guarded(() async {
     final dir = destination.trim();
     if (dir.isEmpty) {
       throw const _VaultException('Elegí en qué carpeta va a vivir el vault.');

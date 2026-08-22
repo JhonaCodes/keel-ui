@@ -9,6 +9,7 @@ import 'package:reactive_notifier/reactive_notifier.dart';
 import 'package:keel_ui/src/modules/knowledge/model/knowledge_base.dart';
 import 'package:keel_ui/src/modules/knowledge/model/knowledge_document.dart';
 import 'package:keel_ui/src/modules/knowledge/repository/knowledge_bases_repository.dart';
+import 'package:keel_ui/src/modules/app_status/viewmodel/app_status_viewmodel.dart';
 import 'package:keel_ui/src/modules/settings/viewmodel/settings_viewmodel.dart';
 import 'package:keel_ui/src/shared/shared.dart';
 
@@ -477,7 +478,10 @@ class KnowledgeViewModel extends ViewModel<KnowledgeState> {
 
   /// Actualiza una base git (clone o pull) y la reindexa. Una base local no
   /// tiene nada que sincronizar: se reindexa y ya.
-  Future<String> syncBase(String id) async {
+  Future<String> syncBase(String id) => AppStatusService.instance.notifier
+      .during('Actualizando una base de saber', () => _syncBase(id));
+
+  Future<String> _syncBase(String id) async {
     final base = baseById(id);
     if (base == null) return 'Esa base ya no existe.';
     if (data.syncing.contains(id)) {

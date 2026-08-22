@@ -15,6 +15,7 @@ import 'package:keel_ui/src/integrations/assistant_mcp/assistant_mcp_server.dart
 import 'package:keel_ui/src/integrations/jobs_api/jobs_api.dart';
 import 'package:keel_ui/src/integrations/requirements_mcp/requirements_mcp.dart';
 import 'package:keel_ui/src/integrations/roadmap_mcp/roadmap_mcp.dart';
+import 'package:keel_ui/src/integrations/catalog_shape/catalog_shape.dart';
 import 'package:keel_ui/src/integrations/system_vault/system_vault.dart';
 import 'package:keel_ui/src/integrations/session_plan_mcp/session_plan_mcp_server.dart';
 import 'package:keel_ui/src/integrations/user_tools_mcp/user_tools_mcp_server.dart';
@@ -23,6 +24,8 @@ import 'package:keel_ui/src/modules/agents/model/file_editor_window_arguments.da
 import 'package:keel_ui/src/modules/agents/ui/screen/agents_screen.dart';
 import 'package:keel_ui/src/modules/agents/ui/screen/file_editor_window.dart';
 import 'package:keel_ui/src/modules/agents/viewmodel/agents_viewmodel.dart';
+import 'package:keel_ui/src/modules/app_status/ui/widget/app_busy_overlay.dart';
+import 'package:keel_ui/src/modules/app_status/viewmodel/app_status_viewmodel.dart';
 import 'package:keel_ui/src/modules/assistant/model/assistant_window_arguments.dart';
 import 'package:keel_ui/src/modules/assistant/model/keelai_seed.dart';
 import 'package:keel_ui/src/modules/projects/model/roadmap_format_skill.dart';
@@ -81,6 +84,15 @@ Future<void> main(List<String> rawArgs) async {
       _registerAgentBridgeHandler();
       // Respaldo periódico, y un último respaldo cuando la app se cierra.
       VaultAutoBackup.start();
+      // Los catálogos se cargan mientras la app ya se ve, con la barra de
+      // arriba prendida. Antes esto pasaba detrás de un gate que reemplazaba
+      // la pantalla entera por un spinner que ni siquiera podía girar.
+      unawaited(
+        AppStatusService.instance.notifier.during(
+          'Cargando tu sistema',
+          awaitCatalogsReady,
+        ),
+      );
       runApp(const KeelUiApp());
   }
 }
@@ -142,6 +154,9 @@ class KeelUiApp extends StatelessWidget {
       title: 'Keel UI',
       debugShowCheckedModeBanner: false,
       theme: buildAppTheme(),
+      // Arriba de todo, incluidos los paneles laterales: son rutas de este
+      // mismo Navigator, y el `builder` los envuelve.
+      builder: (context, child) => AppBusyOverlay(child: child!),
       home: const VaultBootGate(child: AgentsScreen()),
     );
   }

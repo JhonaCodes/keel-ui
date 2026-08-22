@@ -251,6 +251,14 @@ class CatalogBackupViewModel extends ViewModel<CatalogBackupState> {
   Future<void> applyLoaded({
     required Set<BackupSection> sections,
     required bool includeSecrets,
+  }) => AppStatusService.instance.notifier.during(
+    'Importando el catálogo',
+    () => _applyLoaded(sections: sections, includeSecrets: includeSecrets),
+  );
+
+  Future<void> _applyLoaded({
+    required Set<BackupSection> sections,
+    required bool includeSecrets,
   }) async {
     final loaded = _loaded;
     if (loaded == null || data.busy) return;

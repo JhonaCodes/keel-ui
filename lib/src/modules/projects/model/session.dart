@@ -46,6 +46,13 @@ class Session {
   final int currentStepIndex;
   final bool isRunning;
 
+  /// Si esta sesión existe para dejar la carpeta de tareas con el formato.
+  ///
+  /// Es una marca y no el título, porque el título se puede renombrar y lo
+  /// que cuelga de esto no es cosmético: el skill del formato viaja en el
+  /// turno, y al cerrar corre un chequeo que puede negarse a sellarla.
+  final bool isFormatSession;
+
   /// Accumulated cost of every CLI turn this session ran (USD), total and
   /// broken down by member profile — the ledger that makes the economics of
   /// a channel visible instead of invisible.
@@ -77,6 +84,7 @@ class Session {
     this.extraProfileIds = const [],
     this.plan = const [],
     this.request = '',
+    this.isFormatSession = false,
     this.currentStepIndex = 0,
     this.isRunning = false,
     this.costUsd = 0,
@@ -103,6 +111,7 @@ class Session {
     List<String>? extraProfileIds,
     List<SessionPlanItem>? plan,
     String? request,
+    bool? isFormatSession,
     int? currentStepIndex,
     bool? isRunning,
     double? costUsd,
@@ -125,6 +134,7 @@ class Session {
       extraProfileIds: extraProfileIds ?? this.extraProfileIds,
       plan: plan ?? this.plan,
       request: request ?? this.request,
+      isFormatSession: isFormatSession ?? this.isFormatSession,
       currentStepIndex: currentStepIndex ?? this.currentStepIndex,
       isRunning: isRunning ?? this.isRunning,
       costUsd: costUsd ?? this.costUsd,
@@ -148,6 +158,7 @@ class Session {
     'extraProfileIds': extraProfileIds,
     'plan': plan.map((item) => item.toJson()).toList(),
     'request': request,
+    'isFormatSession': isFormatSession,
     'currentStepIndex': currentStepIndex,
     'isRunning': isRunning,
     'costUsd': costUsd,
@@ -176,6 +187,7 @@ class Session {
           )
           .toList(),
       request: json['request'] as String? ?? '',
+      isFormatSession: json['isFormatSession'] as bool? ?? false,
       currentStepIndex: json['currentStepIndex'] as int? ?? 0,
       isRunning: json['isRunning'] as bool? ?? false,
       costUsd: (json['costUsd'] as num?)?.toDouble() ?? 0,
@@ -203,6 +215,7 @@ class Session {
           listEquals(extraProfileIds, other.extraProfileIds) &&
           listEquals(plan, other.plan) &&
           request == other.request &&
+          isFormatSession == other.isFormatSession &&
           currentStepIndex == other.currentStepIndex &&
           isRunning == other.isRunning &&
           costUsd == other.costUsd &&
@@ -225,6 +238,7 @@ class Session {
     Object.hashAll(extraProfileIds),
     Object.hashAll(plan),
     request,
+    isFormatSession,
     currentStepIndex,
     isRunning,
     costUsd,

@@ -27,4 +27,5 @@ import 'package:keel_ui/src/modules/roadmap/viewmodel/task_claims_viewmodel.dart
 import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
 
 part 'src/roadmap_reader.dart';
+part 'src/roadmap_format_check.dart';
 part 'src/roadmap_mcp_server.dart';

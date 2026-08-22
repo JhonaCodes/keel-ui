@@ -79,6 +79,8 @@ class TaskClaimsViewModel extends ViewModel<RoadmapClaimsState> {
     required String taskPath,
     required String title,
     required String profileHandle,
+    required String sessionId,
+    required String sessionTitle,
   }) {
     final now = DateTime.now();
     final id = claimIdFor(projectPath, taskPath);
@@ -107,6 +109,8 @@ class TaskClaimsViewModel extends ViewModel<RoadmapClaimsState> {
       taskPath: taskPath,
       title: title,
       profileHandle: profileHandle,
+      sessionId: sessionId,
+      sessionTitle: sessionTitle,
       claimedAt: now,
       expiresAt: now.add(kClaimTtl),
     );

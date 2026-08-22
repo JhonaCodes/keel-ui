@@ -2,27 +2,29 @@ import 'package:flutter/material.dart';
 
 /// The square badge that stands for one member of a project, tinted with the
 /// colour that member holds in the channel. It is the only thing that tells
-/// four agents apart at a glance, so the bubble and the live strip must draw
-/// it identically — hence one widget instead of a copy in each.
+/// four agents apart at a glance, so the bubble, the live strip and the
+/// project's radar must draw it identically — hence one widget instead of a
+/// copy in each.
+///
+/// [size] manda y el resto se deriva: un radio o un icono elegidos aparte
+/// terminan desalineando la misma marca según dónde se dibuje.
 class MemberAvatar extends StatelessWidget {
-  const MemberAvatar({super.key, required this.color, required this.small});
+  const MemberAvatar({super.key, required this.color, this.size = 28});
 
   final Color color;
-  final bool small;
+  final double size;
 
   @override
   Widget build(BuildContext context) {
-    final size = small ? 22.0 : 28.0;
-    final radius = small ? 7.0 : 9.0;
     return Container(
       width: size,
       height: size,
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.18),
-        borderRadius: BorderRadius.circular(radius),
+        borderRadius: BorderRadius.circular(size * 0.32),
       ),
-      child: Icon(Icons.smart_toy, size: small ? 12 : 15, color: color),
+      child: Icon(Icons.smart_toy, size: size * 0.54, color: color),
     );
   }
 }

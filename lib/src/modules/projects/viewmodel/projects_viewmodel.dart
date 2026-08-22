@@ -11,6 +11,8 @@ import 'package:keel_ui/src/integrations/task_runner/task_runner.dart';
 import 'package:keel_ui/src/integrations/session_plan_mcp/session_plan_mcp_server.dart';
 import 'package:keel_ui/src/integrations/user_tools_mcp/user_tools_mcp_server.dart';
 import 'package:keel_ui/src/integrations/hook_delivery/hook_delivery.dart';
+import 'package:keel_ui/src/integrations/project_radar/project_radar.dart';
+import 'package:keel_ui/src/modules/roadmap/viewmodel/task_claims_viewmodel.dart';
 import 'package:keel_ui/src/integrations/roadmap_mcp/roadmap_mcp.dart';
 import 'package:keel_ui/src/modules/hooks/model/hook_event.dart';
 import 'package:keel_ui/src/modules/hooks/viewmodel/hooks_viewmodel.dart';
@@ -28,6 +30,7 @@ import 'package:keel_ui/src/modules/secrets/viewmodel/secrets_viewmodel.dart';
 import 'package:keel_ui/src/modules/settings/viewmodel/settings_viewmodel.dart';
 import 'package:keel_ui/src/modules/skills/viewmodel/skills_viewmodel.dart';
 import 'package:keel_ui/src/modules/projects/model/member_tuning.dart';
+import 'package:keel_ui/src/modules/projects/model/roadmap_format_skill.dart';
 import 'package:keel_ui/src/modules/projects/model/project.dart';
 import 'package:keel_ui/src/modules/projects/model/session.dart';
 import 'package:keel_ui/src/modules/projects/model/session_live_turn.dart';
@@ -113,6 +116,9 @@ const _deliveryPrompt =
 /// El título con el que nace una sesión. Vale como marca de "todavía no
 /// tiene nombre propio": mientras siga siendo este, el primer pedido la
 /// renombra sola.
+/// Cada cuánto se relee el roadmap para la fila de Estado del sidebar.
+const _kBadgeTtl = Duration(seconds: 15);
+
 const kDefaultSessionTitle = 'Sesión nueva';
 
 const _noBackgroundWorkPrompt =
@@ -145,6 +151,9 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
   /// still run strictly in sequence, so the agents of a single session never
   /// write files on top of each other.
   final Map<String, TaskRun> _runningSessions = {};
+
+  /// Lo último que se leyó del roadmap de cada proyecto, para el sidebar.
+  final Map<String, ({DateTime at, int percent, bool ok})> _radarBadges = {};
   final Set<String> _stoppedSessionIds = {};
 
   /// Who was blocked when a session asked you for a permission, so granting it
@@ -632,6 +641,115 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
   /// question inside a session stays inside that session. Each session is its own
   /// environment: its own thread, its own CLI sessions, independent of the
   /// other sessions in the same project.
+  /// Abre la sesión que le da formato al roadmap del proyecto.
+  ///
+  /// Es la única salida que ofrece la pantalla de Estado cuando la carpeta no
+  /// cierra, y arranca sola: el pedido ya trae el diagnóstico concreto —qué
+  /// falta, archivo por archivo— en vez de mandar al agente a descubrirlo.
+  ///
+  /// La especificación del formato no viaja acá: vive en el skill
+  /// [kRoadmapFormatSkillName], que se siembra en cada arranque y llega por
+  /// el system prompt como cualquier otro.
+  void startRoadmapFormatSession(String projectId) {
+    final project = _projectById(projectId);
+    if (project == null) return;
+
+    final check = checkRoadmapFormat(project.workingDirectory);
+    final session = Session(
+      id: generateUuidV4(),
+      title: kRoadmapFormatSessionTitle,
+      createdAt: DateTime.now(),
+      isFormatSession: true,
+    );
+    _updateProject(
+      projectId,
+      (project) => project.copyWith(
+        sessions: [...project.sessions, session],
+        activeSessionId: session.id,
+      ),
+    );
+    unawaited(_persist());
+    unawaited(sendToChannel(projectId, _roadmapFormatRequest(project, check)));
+  }
+
+  String _roadmapFormatRequest(Project project, RoadmapFormatCheck check) {
+    final buffer = StringBuffer()
+      ..writeln(
+        'Dejá la carpeta de tareas de este proyecto con el formato de keel-ui '
+        '(el skill "$kRoadmapFormatSkillName" lo describe entero).',
+      );
+    if (check.findings.isNotEmpty) {
+      buffer
+        ..writeln()
+        ..writeln('Hoy falla esto, chequeado sobre la carpeta:');
+      for (final finding in check.findings) {
+        buffer.writeln('- $finding');
+      }
+    }
+    if (check.passed.isNotEmpty) {
+      buffer
+        ..writeln()
+        ..writeln('Esto ya está bien y no hay que tocarlo:');
+      for (final done in check.passed) {
+        buffer.writeln('- $done');
+      }
+    }
+    buffer
+      ..writeln()
+      ..writeln(
+        'El objetivo del proyecto es: '
+        '${project.purpose.isEmpty ? '(sin propósito escrito — preguntá antes de inventarlo)' : project.purpose}',
+      )
+      ..writeln()
+      ..writeln(
+        'Cuando cierres, keel-ui vuelve a correr el chequeo solo. Si algo '
+        'sigue mal, la sesión NO se da por terminada y te vuelve la lista.',
+      );
+    return buffer.toString();
+  }
+
+  /// Vuelve a la sección de Estado del proyecto.
+  ///
+  /// No hay un campo aparte para decir "estoy mirando el estado": es lo que
+  /// se ve cuando no hay ninguna sesión abierta, que es exactamente lo que
+  /// significa. Un segundo campo para lo mismo se desincroniza solo.
+  void showProjectState(String projectId) {
+    selectProject(projectId);
+    _updateProject(
+      projectId,
+      (project) => project.copyWith(clearActiveSession: true),
+    );
+    unawaited(_persist());
+  }
+
+  /// Lo que muestra la fila de Estado en el sidebar, con una caché corta.
+  ///
+  /// Se pide para UN proyecto —el seleccionado, que es el único que dibuja
+  /// esa fila— y se relee como mucho una vez cada [_kBadgeTtl]. Recorrer un
+  /// directorio es barato; hacerlo en cada `build` de una lista, no.
+  ({int percent, bool ok}) radarBadgeFor(Project project) {
+    final cached = _radarBadges[project.id];
+    final now = DateTime.now();
+    if (cached != null && now.difference(cached.at) < _kBadgeTtl) {
+      return (percent: cached.percent, ok: cached.ok);
+    }
+
+    final check = checkRoadmapFormat(project.workingDirectory);
+    final radar = buildProjectRadar(
+      project: project,
+      roadmap: check.ok ? readRoadmap(project.workingDirectory) : const [],
+      claims: TaskClaimsService.instance.notifier.activeClaimsFor(
+        project.workingDirectory,
+      ),
+      totalSteps: stepCountFor(project),
+      now: now,
+      hasRoadmap: check.ok,
+    );
+    final badge = (at: now, percent: radar.completionPercent, ok: check.ok);
+    _radarBadges[project.id] = badge;
+    return (percent: badge.percent, ok: badge.ok);
+  }
+
   void createSession(String projectId) {
     final session = Session(
       id: generateUuidV4(),
@@ -1641,6 +1759,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     final roadmapEntry = (isCodex || consultOfProfileId != null)
         ? null
         : RoadmapMcpServer.mcpServerEntryFor(
+            sessionId: sessionId,
             projectId: projectId,
             profileId: member.id,
             workingDirectory: project.workingDirectory,
@@ -2674,6 +2793,16 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
       'discutas identidades — leé la firma.',
     );
 
+    if (session?.isFormatSession ?? false) {
+      final formato = skills
+          .where((skill) => skill.name == kRoadmapFormatSkillName)
+          .firstOrNull;
+      if (formato != null) {
+        buffer.writeln();
+        buffer.writeln(formato.content);
+      }
+    }
+
     if (!project.maintained) {
       buffer.writeln();
       buffer.writeln(
@@ -2858,15 +2987,62 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
   ) {
     _runningSessions.remove(sessionId);
     _purgeConsultLedgerIfIdle();
+
+    final sealed = status == SessionStatus.finished
+        ? _formatCheckVerdict(projectId, sessionId)
+        : status;
+
     _updateSession(
       projectId,
       sessionId,
       (session) => session.copyWith(
-        status: status,
+        status: sealed,
         isRunning: false,
         clearLiveTurn: true,
       ),
     );
+  }
+
+  /// El chequeo obligatorio de la sesión que arma el formato.
+  ///
+  /// Va acá, en el ÚNICO lugar por donde pasan todos los cierres, y no en el
+  /// camino feliz: una verificación que se puede esquivar por otra rama no es
+  /// una verificación. Pedirle al agente que verifique su propio trabajo por
+  /// prompt sería pedir; esto no pide.
+  ///
+  /// El resultado se publica en el hilo con la lista entera —lo que pasó y lo
+  /// que no— porque la sesión sigue abierta y lo que falla es el pedido
+  /// siguiente.
+  SessionStatus _formatCheckVerdict(String projectId, String sessionId) {
+    final project = _projectById(projectId);
+    final session = project == null ? null : _sessionById(project, sessionId);
+    if (project == null || session == null || !session.isFormatSession) {
+      return SessionStatus.finished;
+    }
+
+    final check = checkRoadmapFormat(project.workingDirectory);
+    final lineas = [
+      for (final done in check.passed) '  ✓  $done',
+      for (final finding in check.findings) '  ✗  $finding',
+    ].join('\n');
+
+    _appendMessage(
+      projectId,
+      sessionId,
+      ChatMessage(
+        role: check.ok ? ChatRole.system : ChatRole.error,
+        text: check.ok
+            ? 'Chequeo del formato — ${check.passed.length} de ${check.total}\n'
+                  '$lineas\n'
+                  'El formato cierra. El estado del proyecto ya lo está leyendo.'
+            : 'Chequeo del formato — ${check.passed.length} de ${check.total}\n'
+                  '$lineas\n'
+                  'La sesión sigue abierta: arreglá eso y volvé a cerrar.',
+        timestamp: DateTime.now(),
+      ),
+    );
+
+    return check.ok ? SessionStatus.finished : SessionStatus.failed;
   }
 
   void _appendMessage(String projectId, String sessionId, ChatMessage message) {

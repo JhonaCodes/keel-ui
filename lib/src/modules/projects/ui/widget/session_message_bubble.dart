@@ -170,7 +170,7 @@ class _Content extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              MemberAvatar(color: accent, small: isConsult),
+              MemberAvatar(color: accent, size: isConsult ? 22 : 28),
               const SizedBox(width: 10),
               if (isConsult) ...[
                 Container(width: 3, height: 34, color: askedByColor),

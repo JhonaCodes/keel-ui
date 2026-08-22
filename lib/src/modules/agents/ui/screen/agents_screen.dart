@@ -17,6 +17,7 @@ import 'package:keel_ui/src/modules/skills/ui/screen/skills_screen.dart';
 import 'package:keel_ui/src/modules/projects/model/project.dart';
 import 'package:keel_ui/src/modules/projects/ui/screen/project_form_screen.dart';
 import 'package:keel_ui/src/modules/projects/ui/screen/projects_screen.dart';
+import 'package:keel_ui/src/modules/projects/ui/view/project_state_view.dart';
 import 'package:keel_ui/src/modules/projects/ui/view/session_chat_view.dart';
 import 'package:keel_ui/src/modules/projects/ui/view/projects_sidebar.dart';
 import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
@@ -135,6 +136,15 @@ class _ConversationArea extends StatelessWidget {
   Widget build(BuildContext context) {
     final openProject = project;
     if (focus == _Focus.project && openProject != null) {
+      // Sin sesión abierta se ve el ESTADO del proyecto. No hace falta un
+      // campo que lo diga: "ninguna sesión abierta" y "estoy mirando cómo va
+      // el proyecto" son la misma situación.
+      if (openProject.activeSession == null) {
+        return ProjectStateView(
+          key: ValueKey('estado-${openProject.id}'),
+          project: openProject,
+        );
+      }
       return SessionChatView(
         key: ValueKey(openProject.id),
         project: openProject,

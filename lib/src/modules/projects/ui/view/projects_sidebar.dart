@@ -105,6 +105,10 @@ class _SidebarList extends StatelessWidget {
               onTap: () => onSelectProject(project.id),
             ),
             if (state.selectedProjectId == project.id) ...[
+              _StateRow(
+                project: project,
+                selected: projectFocused && project.activeSessionId == null,
+              ),
               for (final session in project.sessions) ...[
                 _SessionRow(
                   session: session,
@@ -583,6 +587,64 @@ class _NewSessionButton extends StatelessWidget {
                 fontWeight: FontWeight.w600,
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// La sección fija de un proyecto. Va arriba de las sesiones y no se cierra:
+/// las sesiones entran y salen, cómo va el proyecto está siempre.
+class _StateRow extends StatelessWidget {
+  const _StateRow({required this.project, required this.selected});
+
+  final Project project;
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final badge = ProjectsService.instance.notifier.radarBadgeFor(project);
+
+    return InkWell(
+      onTap: () =>
+          ProjectsService.instance.notifier.showProjectState(project.id),
+      child: Container(
+        color: selected ? scheme.primary.withValues(alpha: 0.07) : null,
+        padding: const EdgeInsets.fromLTRB(26, 4, 6, 4),
+        child: Row(
+          children: [
+            Text(
+              '▸',
+              style: TextStyle(
+                fontSize: 10,
+                color: selected ? scheme.primary : scheme.outlineVariant,
+              ),
+            ),
+            const SizedBox(width: 7),
+            Expanded(
+              child: Text(
+                'Estado',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: selected ? scheme.onSurface : scheme.outline,
+                ),
+              ),
+            ),
+            if (badge.ok)
+              Text(
+                '${badge.percent}%',
+                style: TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 10,
+                  color: scheme.primary,
+                ),
+              )
+            else
+              Icon(Icons.warning_amber_rounded, size: 13, color: scheme.error),
+            // Sin cruz, a diferencia de una sesión: no hay nada que cerrar.
+            const SizedBox(width: 24),
           ],
         ),
       ),

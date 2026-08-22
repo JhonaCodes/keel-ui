@@ -35,6 +35,13 @@ class TaskClaim {
   /// Quién la tomó: el handle del perfil que corre el turno.
   final String profileHandle;
 
+  /// Y DÓNDE la está haciendo: la sesión del proyecto en la que corre ese
+  /// turno. Sin esto, el estado del proyecto puede decir qué se está
+  /// trabajando y con qué agente, pero no en cuál de sus sesiones — que es
+  /// justo el hilo del que tirás cuando querés mirar.
+  final String sessionId;
+  final String sessionTitle;
+
   final DateTime claimedAt;
   final DateTime expiresAt;
 
@@ -44,6 +51,8 @@ class TaskClaim {
     required this.taskPath,
     required this.title,
     required this.profileHandle,
+    required this.sessionId,
+    required this.sessionTitle,
     required this.claimedAt,
     required this.expiresAt,
   });
@@ -62,6 +71,8 @@ class TaskClaim {
     taskPath: taskPath,
     title: title,
     profileHandle: profileHandle,
+    sessionId: sessionId,
+    sessionTitle: sessionTitle,
     claimedAt: claimedAt,
     expiresAt: now.add(kClaimTtl),
   );
@@ -79,6 +90,8 @@ class TaskClaim {
     'taskPath': taskPath,
     'title': title,
     'profileHandle': profileHandle,
+    'sessionId': sessionId,
+    'sessionTitle': sessionTitle,
     'claimedAt': claimedAt.toIso8601String(),
     'expiresAt': expiresAt.toIso8601String(),
   };
@@ -90,6 +103,8 @@ class TaskClaim {
       taskPath: json['taskPath'] as String? ?? '',
       title: json['title'] as String? ?? '',
       profileHandle: json['profileHandle'] as String? ?? '',
+      sessionId: json['sessionId'] as String? ?? '',
+      sessionTitle: json['sessionTitle'] as String? ?? '',
       claimedAt: DateTime.parse(json['claimedAt'] as String),
       expiresAt: DateTime.parse(json['expiresAt'] as String),
     );
@@ -103,6 +118,8 @@ class TaskClaim {
           projectPath == other.projectPath &&
           taskPath == other.taskPath &&
           profileHandle == other.profileHandle &&
+          sessionId == other.sessionId &&
+          sessionTitle == other.sessionTitle &&
           claimedAt == other.claimedAt &&
           expiresAt == other.expiresAt;
 

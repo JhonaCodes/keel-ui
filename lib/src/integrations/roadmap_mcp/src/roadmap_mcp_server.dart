@@ -40,6 +40,7 @@ class RoadmapMcpServer {
   /// roadmap no debería ver tres tools que no aplican.
   static Map<String, dynamic>? mcpServerEntryFor({
     required String projectId,
+    required String sessionId,
     required String profileId,
     required String workingDirectory,
   }) {
@@ -55,7 +56,7 @@ class RoadmapMcpServer {
       scheme: 'http',
       host: '127.0.0.1',
       port: server.port,
-      pathSegments: ['roadmap', projectId, profileId],
+      pathSegments: ['roadmap', projectId, sessionId, profileId],
     );
     return {
       'type': 'http',
@@ -75,7 +76,7 @@ class RoadmapMcpServer {
 
     final segments = request.uri.pathSegments;
     if (request.method != 'POST' ||
-        segments.length != 3 ||
+        segments.length != 4 ||
         segments[0] != 'roadmap') {
       request.response.statusCode = HttpStatus.notFound;
       await request.response.close();
@@ -120,7 +121,8 @@ class RoadmapMcpServer {
     _RoadmapMcpServer(
       controller.foreign,
       projectId: segments[1],
-      profileId: segments[2],
+      sessionId: segments[2],
+      profileId: segments[3],
       willInitialize: method == mcp.InitializeRequest.methodName,
     );
 
@@ -163,6 +165,7 @@ final class _RoadmapMcpServer extends mcp.MCPServer with mcp.ToolsSupport {
   _RoadmapMcpServer(
     super.channel, {
     required this.projectId,
+    required this.sessionId,
     required this.profileId,
     required bool willInitialize,
   }) : super.fromStreamChannel(
@@ -184,6 +187,7 @@ final class _RoadmapMcpServer extends mcp.MCPServer with mcp.ToolsSupport {
   }
 
   final String projectId;
+  final String sessionId;
   final String profileId;
 
   TaskClaimsViewModel get _claims => TaskClaimsService.instance.notifier;
@@ -196,6 +200,19 @@ final class _RoadmapMcpServer extends mcp.MCPServer with mcp.ToolsSupport {
     final path = project.workingDirectory.trim();
     if (path.isEmpty) return null;
     return (path: path, name: project.name);
+  }
+
+  /// El título de la sesión donde corre este turno, para que la toma se
+  /// pueda mostrar sin resolver un id contra nada.
+  String get _sessionTitle {
+    final project = ProjectsService.instance.notifier.data.projects
+        .where((entry) => entry.id == projectId)
+        .firstOrNull;
+    return project?.sessions
+            .where((session) => session.id == sessionId)
+            .firstOrNull
+            ?.title ??
+        '';
   }
 
   String get _handle =>
@@ -367,6 +384,8 @@ final class _RoadmapMcpServer extends mcp.MCPServer with mcp.ToolsSupport {
       taskPath: taskPath,
       title: task.title,
       profileHandle: _handle,
+      sessionId: sessionId,
+      sessionTitle: _sessionTitle,
     );
     if (result.error != null) return _text(result.error!);
 

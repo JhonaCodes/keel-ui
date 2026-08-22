@@ -24,6 +24,7 @@ import 'package:keel_ui/src/modules/agents/ui/screen/file_editor_window.dart';
 import 'package:keel_ui/src/modules/agents/viewmodel/agents_viewmodel.dart';
 import 'package:keel_ui/src/modules/assistant/model/assistant_window_arguments.dart';
 import 'package:keel_ui/src/modules/assistant/model/keelai_seed.dart';
+import 'package:keel_ui/src/modules/projects/model/roadmap_format_skill.dart';
 import 'package:keel_ui/src/modules/assistant/service/assistant_window_bridge.dart';
 import 'package:keel_ui/src/modules/assistant/ui/screen/assistant_window.dart';
 
@@ -69,6 +70,7 @@ Future<void> main(List<String> rawArgs) async {
       // para las tres columnas.
       await MainWindowSize.restore();
       await seedKeelAi();
+      await seedRoadmapFormatSkill();
       await AssistantMcpServer.start();
       await UserToolsMcpServer.start();
       await SessionPlanMcpServer.ensureStarted();

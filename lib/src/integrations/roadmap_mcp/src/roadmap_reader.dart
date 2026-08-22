@@ -100,6 +100,14 @@ class RoadmapTask {
   /// esperando que el estandarizador la convierta.
   final bool isDraft;
 
+  /// Si el archivo declara `estado:` en su frontmatter.
+  ///
+  /// El lector cae a `libre` cuando no lo encuentra, para no romperse con una
+  /// tarea escrita a mano. Pero "libre porque lo dice" y "libre porque no
+  /// dijo nada" son cosas distintas, y el chequeo del formato necesita
+  /// separarlas: la segunda es un archivo a medio escribir.
+  final bool declaresState;
+
   const RoadmapTask({
     required this.path,
     required this.folder,
@@ -107,6 +115,7 @@ class RoadmapTask {
     required this.state,
     required this.blockers,
     required this.isDraft,
+    this.declaresState = true,
   });
 
   /// Si le falta que alguien resuelva algo antes.
@@ -202,6 +211,7 @@ List<RoadmapTask> _resolveBlockerTargets(List<RoadmapTask> tasks) {
         title: task.title,
         state: task.state,
         isDraft: task.isDraft,
+        declaresState: task.declaresState,
         blockers: [
           for (final blocker in task.blockers)
             _resolveBlocker(blocker, byPath, byName),
@@ -276,6 +286,7 @@ RoadmapTask parseRoadmapTask(String relativePath, String content) {
     isDraft:
         (fields['estado'] ?? '').trim().toLowerCase() == 'borrador' ||
         folder.startsWith('_'),
+    declaresState: (fields['estado'] ?? '').trim().isNotEmpty,
   );
 }
 

@@ -221,6 +221,35 @@ class ClaudeCliService {
     }
   }
 
+  /// El bloqueo de un hook, si este resultado de herramienta lo es.
+  ///
+  /// Se reconoce por la marca que dejan los wrappers de keel-ui, así que
+  /// solo dispara con NUESTROS hooks: un hook que el usuario tenga en su
+  /// propia configuración no la lleva, y un error común de herramienta
+  /// tampoco.
+  List<ClaudeEvent> _parseHookBlock(Map<String, dynamic> event) {
+    final content =
+        (event['message'] as Map<String, dynamic>?)?['content'] as List?;
+    if (content == null) return const [];
+
+    for (final part in content) {
+      if (part is! Map || part['type'] != 'tool_result') continue;
+      final text = part['content'] is String
+          ? part['content'] as String
+          : jsonEncode(part['content']);
+      if (!text.contains(kHookDenialMarker)) continue;
+
+      final tool = RegExp(r'PreToolUse:(\w+)').firstMatch(text)?.group(1);
+      return [
+        ClaudePermissionDenied(
+          toolName: tool ?? 'la herramienta',
+          message: text,
+        ),
+      ];
+    }
+    return const [];
+  }
+
   List<ClaudeEvent> _parseEvent(Map<String, dynamic> event) {
     final type = event['type'] as String?;
     switch (type) {
@@ -238,6 +267,13 @@ class ClaudeCliService {
           ],
           _ => const <ClaudeEvent>[],
         };
+
+      // Un hook que bloquea NO llega como `permission_denied`: llega como
+      // el resultado con error de la herramienta que frenó. Verificado
+      // contra el CLI real. Sin este caso, el bloqueo solo lo contaría el
+      // modelo en prosa y la app no tendría cómo decir cuál hook fue.
+      case 'user':
+        return _parseHookBlock(event);
 
       case 'assistant':
         final message = event['message'] as Map<String, dynamic>?;

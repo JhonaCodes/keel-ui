@@ -74,12 +74,19 @@ infinita. Por eso `<hook>.body.<ext>`.)
 
 keel-ui nunca contesta un pedido de permiso: el CLI corre headless, deniega,
 y la app **observa** `system/permission_denied`. Cuando el usuario concedía,
-se prendía un ajuste global y se mandaba un turno nuevo.
+se prendía un ajuste global y se mandaba un turno nuevo. Ese reflejo sería
+equivocado para un hook: ningún permiso destraba eso.
 
-Una denegación de hook llega por el mismo canal y ese reflejo sería
-equivocado: ningún permiso destraba eso. Por la marca del wrapper,
-`PermissionRequest.isHookDenial` la distingue y el banner dice qué hook fue y
-adónde ir — sin botón de conceder.
+Probando contra el CLI real apareció algo que no estaba previsto: **un hook
+que bloquea NO llega como `permission_denied`**, llega como el resultado con
+error de la herramienta que frenó — un evento `user` que keel-ui no parseaba
+en absoluto. Sin eso, el bloqueo solo lo habría contado el modelo en prosa.
+
+Ahora los dos parsers (el del servicio y el del isolate) reconocen ese
+resultado **por la marca del wrapper**, así que solo dispara con hooks de
+keel-ui: uno que el usuario tenga en su propia config no la lleva, y un error
+común de herramienta tampoco. El banner dice qué hook fue y adónde ir, sin
+botón de conceder.
 
 ## Dónde se asigna
 
@@ -124,3 +131,12 @@ respaldos, deduplica por evento + matcher + comando, y trae las entidades
    no queda el nombre en ninguna lista.
 9. Respaldar el vault: `catalog/hooks/*.json`; restaurar en limpio los
    devuelve.
+
+### Lo ya verificado contra los CLIs reales
+
+- **claude**: con un `settings.json` generado por esta feature, un hook
+  `PreToolUse`/`Bash` bloqueó el comando, el CLI no ejecutó nada, y la marca
+  `[keel:hook <nombre>]` llegó en el resultado.
+- **codex**: el perfil `-p` se cargó **sin ningún pedido de confianza**, que
+  era el riesgo abierto. El hook no llegó a dispararse porque la cuenta
+  quedó sin créditos, así que esa mitad sigue sin verificar en vivo.

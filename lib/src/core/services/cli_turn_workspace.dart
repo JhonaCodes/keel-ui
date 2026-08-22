@@ -12,6 +12,14 @@ import 'package:logger_rs/logger_rs.dart';
 /// marcador y [CliTurnWorkspace] lo reemplaza al escribir.
 const kHookDirPlaceholder = '__KEEL_HOOK_DIR__';
 
+/// La marca que el wrapper de un hook deja en stderr cuando bloquea.
+///
+/// Vive acá y no junto al render porque la leen los dos extremos: el wrapper
+/// que la escribe, y el parser del CLI que la reconoce para poder decir cuál
+/// hook frenó. Un bloqueo de hook llega por el mismo canal que un error
+/// común de herramienta, y esta marca es lo único que los distingue.
+const kHookDenialMarker = 'keel:hook';
+
 /// Todo lo que un turno le deja en el disco al CLI, y su limpieza.
 ///
 /// Un solo directorio 0700 (`createTemp` ya lo crea así) porque adentro van

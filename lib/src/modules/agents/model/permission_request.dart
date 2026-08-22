@@ -1,7 +1,4 @@
-/// La marca que los wrappers de keel-ui dejan en stderr cuando un hook
-/// bloquea. Se repite acá en vez de importar la integración de hooks por una
-/// constante — mismo criterio que `kKeelAiSkillNameForExport`.
-const _hookDenialMarker = 'keel:hook';
+import 'package:keel_ui/src/core/services/cli_turn_workspace.dart';
 
 class PermissionRequest {
   final String toolName;
@@ -16,12 +13,12 @@ class PermissionRequest {
   /// Importa porque la respuesta es OTRA: conceder un permiso no destraba
   /// nada acá — no fue el permiso lo que bloqueó. Lo que corresponde es
   /// mirar el hook, y si está de más, apagarlo.
-  bool get isHookDenial => message.contains('[$_hookDenialMarker ');
+  bool get isHookDenial => message.contains('[$kHookDenialMarker ');
 
   /// El nombre del hook que bloqueó, si se puede leer del mensaje.
   String? get blockingHookName {
     final match = RegExp(
-      r'\[' + _hookDenialMarker + r' ([^\]]+)\]',
+      r'\[' + kHookDenialMarker + r' ([^\]]+)\]',
     ).firstMatch(message);
     return match?.group(1);
   }

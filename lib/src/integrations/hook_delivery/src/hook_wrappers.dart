@@ -1,14 +1,5 @@
 part of '../hook_delivery.dart';
 
-/// La marca que el wrapper deja en stderr cuando el hook bloqueó.
-///
-/// Sin esto, un bloqueo por hook llega a keel-ui por el mismo canal que una
-/// falta de permiso —`system/permission_denied`— y la app ofrecería
-/// "conceder permiso", que no destraba nada porque no fue el permiso lo que
-/// frenó. Con la marca, la UI puede decir cuál hook fue y llevarte a
-/// editarlo.
-const kHookDenialMarker = 'keel:hook';
-
 /// Un problema al preparar los archivos de un hook, contado en castellano.
 class HookRenderIssue {
   final String hookName;

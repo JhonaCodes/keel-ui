@@ -316,6 +316,34 @@ List<Map<String, dynamic>> _parseCodexEventToMessages(
 
 /// Ports `ClaudeCliService._parseEvent`'s NDJSON parsing, emitting plain
 /// message maps (isolate-sendable) instead of typed events.
+/// El bloqueo de un hook de keel-ui, si este resultado de herramienta lo es.
+/// Se reconoce por la marca del wrapper, así que no confunde un error común
+/// con un guardarraíl.
+List<Map<String, dynamic>> _parseHookBlockMessage(Map<String, dynamic> event) {
+  final content =
+      (event['message'] as Map<String, dynamic>?)?['content'] as List?;
+  if (content == null) return const [];
+
+  for (final part in content) {
+    if (part is! Map || part['type'] != 'tool_result') continue;
+    final text = part['content'] is String
+        ? part['content'] as String
+        : jsonEncode(part['content']);
+    if (!text.contains(kHookDenialMarker)) continue;
+
+    return [
+      {
+        'type': 'permissionDenied',
+        'toolName':
+            RegExp(r'PreToolUse:(\w+)').firstMatch(text)?.group(1) ??
+            'la herramienta',
+        'message': text,
+      },
+    ];
+  }
+  return const [];
+}
+
 List<Map<String, dynamic>> _parseEventToMessages(Map<String, dynamic> event) {
   final type = event['type'] as String?;
   switch (type) {
@@ -336,6 +364,13 @@ List<Map<String, dynamic>> _parseEventToMessages(Map<String, dynamic> event) {
         ],
         _ => const <Map<String, dynamic>>[],
       };
+
+    // Espejo de ClaudeCliService: un hook que bloquea llega como el
+    // resultado con error de la herramienta que frenó, no como
+    // `permission_denied`. Sin esto los guardarraíles bloquearían en las
+    // estaciones sin que el canal pudiera decir cuál fue.
+    case 'user':
+      return _parseHookBlockMessage(event);
 
     case 'assistant':
       final message = event['message'] as Map<String, dynamic>?;

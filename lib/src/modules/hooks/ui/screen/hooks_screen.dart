@@ -3,6 +3,7 @@ import 'package:reactive_notifier/reactive_notifier.dart';
 
 import 'package:keel_ui/src/modules/hooks/model/hook.dart';
 import 'package:keel_ui/src/modules/hooks/ui/screen/hook_form_screen.dart';
+import 'package:keel_ui/src/modules/hooks/ui/screen/hook_import_screen.dart';
 import 'package:keel_ui/src/modules/hooks/ui/widget/hook_tile.dart';
 import 'package:keel_ui/src/modules/hooks/viewmodel/hooks_viewmodel.dart';
 
@@ -15,6 +16,11 @@ class HooksScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Hooks registrados'),
         actions: [
+          IconButton(
+            tooltip: 'Importar de Claude Code',
+            icon: const Icon(Icons.download_outlined),
+            onPressed: () => openHookImportScreen(context),
+          ),
           IconButton(
             tooltip: 'Registrar nuevo',
             icon: const Icon(Icons.add),

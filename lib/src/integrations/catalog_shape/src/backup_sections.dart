@@ -6,6 +6,7 @@ part of '../catalog_shape.dart';
 enum BackupSection {
   skills('skills', 'Skills'),
   rules('rules', 'Reglas'),
+  hooks('hooks', 'Hooks'),
   tools('tools', 'Tools'),
   workflows('workflows', 'Workflows'),
   mcpServers('mcp_servers', 'Integraciones MCP'),
@@ -104,6 +105,9 @@ Set<String> existingCatalogNames(BackupSection section) {
     BackupSection.rules => {
       for (final rule in RulesService.instance.notifier.data.rules) rule.name,
     },
+    BackupSection.hooks => {
+      for (final hook in HooksService.instance.notifier.data.hooks) hook.name,
+    },
     BackupSection.tools => {
       for (final tool in ToolsService.instance.notifier.data.tools) tool.name,
     },
@@ -143,6 +147,7 @@ Future<void> awaitCatalogsReady() => Future.wait([
   SettingsService.instance.notifier.ready,
   SkillsService.instance.notifier.ready,
   RulesService.instance.notifier.ready,
+  HooksService.instance.notifier.ready,
   ToolsService.instance.notifier.ready,
   WorkflowsService.instance.notifier.ready,
   McpServersService.instance.notifier.ready,

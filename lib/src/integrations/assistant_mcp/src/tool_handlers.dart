@@ -83,6 +83,15 @@ const _readOnlyTools = {
       );
       return (result.ok, result.message);
 
+    case 'create_hook':
+      return _upsertHook(arguments);
+
+    case 'set_hook_enabled':
+      return _setHookEnabled(arguments);
+
+    case 'delete_hook':
+      return _deleteHook(arguments['name'] as String);
+
     case 'create_tool':
       final result = executeToolAction(
         CreateToolAction(
@@ -742,6 +751,95 @@ String _describeCatalog(String kind) {
 String _orNone(List<String> values) =>
     values.isEmpty ? 'ninguno' : values.join(', ');
 
+/// Crea o actualiza un hook desde una tool de Keel AI.
+(bool, String) _upsertHook(Map<String, dynamic> arguments) {
+  final name = arguments['name'] as String;
+  final event = HookEvent.tryFromAlias(arguments['event'] as String? ?? '');
+  if (event == null) {
+    return (
+      false,
+      'Evento desconocido. Los que corren en los dos CLIs son: '
+          '${HookEvent.values.where((entry) => entry.isPortable).map((entry) => entry.alias).join(', ')}.',
+    );
+  }
+
+  final toolName = (arguments['tool_name'] as String? ?? '').trim();
+  final command = (arguments['command'] as String? ?? '').trim();
+  if (toolName.isEmpty && command.isEmpty) {
+    return (false, 'Un hook necesita un command o un tool_name.');
+  }
+  final body = toolName.isNotEmpty
+      ? HookToolRef(toolName)
+      : HookCommand(command);
+
+  final hooks = HooksService.instance.notifier;
+  final existing = hooks.hookByName(name);
+  final error = existing == null
+      ? hooks.createHook(
+          name: name,
+          description: arguments['description'] as String? ?? '',
+          event: event,
+          body: body,
+          matcher: arguments['matcher'] as String? ?? '',
+          timeoutSeconds:
+              arguments['timeout_seconds'] as int? ?? kDefaultHookTimeoutSeconds,
+          enforces: (arguments['enforces'] as List?)?.cast<String>() ?? const [],
+          isGlobal: arguments['is_global'] as bool? ?? false,
+          enabled: arguments['enabled'] as bool? ?? true,
+        )
+      : hooks.updateHook(
+          existing.id,
+          name: name,
+          description: arguments['description'] as String? ?? '',
+          event: event,
+          body: body,
+          matcher: arguments['matcher'] as String? ?? '',
+          timeoutSeconds:
+              arguments['timeout_seconds'] as int? ?? kDefaultHookTimeoutSeconds,
+          enforces: (arguments['enforces'] as List?)?.cast<String>() ?? const [],
+          isGlobal: arguments['is_global'] as bool? ?? false,
+          enabled: arguments['enabled'] as bool? ?? true,
+        );
+  if (error != null) return (false, error);
+
+  final verb = existing == null ? 'Creé' : 'Actualicé';
+  final scope = (arguments['is_global'] as bool? ?? false)
+      ? ' Corre para todos los agentes.'
+      : ' Falta asignárselo a un agente o a una estación.';
+  return (true, '$verb el hook "$name" en ${event.label}.$scope');
+}
+
+(bool, String) _setHookEnabled(Map<String, dynamic> arguments) {
+  final name = arguments['name'] as String;
+  final enabled = arguments['enabled'] as bool;
+  final hooks = HooksService.instance.notifier;
+  final hook = hooks.hookByName(name);
+  if (hook == null) return (false, 'No existe ningún hook "$name".');
+
+  final error = hooks.setEnabled(hook.id, enabled);
+  if (error != null) return (false, error);
+  return (
+    true,
+    enabled
+        ? 'Prendí el hook "$name".'
+        : 'Apagué el hook "$name": lo que frenaba vuelve a poder pasar.',
+  );
+}
+
+(bool, String) _deleteHook(String name) {
+  final hooks = HooksService.instance.notifier;
+  final hook = hooks.hookByName(name);
+  if (hook == null) return (false, 'No existe ningún hook "$name".');
+
+  final assignments = hooks.assignmentsOf(name);
+  hooks.deleteHook(hook.id);
+  return (
+    true,
+    'Eliminé el hook "$name" y lo saqué de ${assignments.profiles} '
+        'agente(s) y ${assignments.stations} estación(es).',
+  );
+}
+
 String _orMissing(String value) =>
     value.trim().isEmpty ? 'sin configurar' : value.trim();
 
@@ -989,15 +1087,25 @@ String _describeSystem() {
         if (task.isRunning) '${station.name}/${task.title}',
   ];
 
+  final hooks = HooksService.instance.notifier.data.hooks;
+  final vault = SystemVaultService.instance.notifier.data;
+
   return [
     'Respaldo:',
     '- Vault: ${_orMissing(settings.vaultPath)}',
     '- Repo del vault: ${_orMissing(settings.vaultRepoUrl)}',
     '- Último respaldo: '
-        '${SystemVaultService.instance.notifier.data.lastBackupAt?.toLocal().toString() ?? 'nunca'}',
-    '- Pendiente: '
-        '${SystemVaultService.instance.notifier.data.warning ?? 'nada, está subido'}',
-    '- Bases de saber: '
+        '${vault.lastBackupAt?.toLocal().toString() ?? 'nunca'}',
+    '- Pendiente: ${vault.warning ?? 'nada, está subido'}',
+    '',
+    'Guardarraíles (hooks):',
+    '- Activos: '
+        '${_orNone([for (final hook in hooks.where((entry) => entry.enabled)) '${hook.name} → ${hook.event.alias}'])}',
+    '- Apagados: '
+        '${_orNone([for (final hook in hooks.where((entry) => !entry.enabled)) hook.name])}',
+    '',
+    'Saber:',
+    '- Bases: '
         '${_orNone([for (final base in KnowledgeService.instance.notifier.data.bases) base.name])}',
     '',
     'Pendientes:',

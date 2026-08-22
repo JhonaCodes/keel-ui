@@ -40,6 +40,86 @@ final List<Tool> keelAiTools = [
     ),
   ),
   Tool(
+    name: 'create_hook',
+    description:
+        'Crea o actualiza un HOOK: un comando que ejecuta el CLI cuando '
+        'ocurre un evento del turno. A diferencia de una regla —que es texto '
+        'que el modelo puede desobedecer— un hook no pasa por el modelo y '
+        'puede FRENAR lo que estaba por pasar (saliendo con código 2). '
+        'Idempotente por nombre.',
+    inputSchema: ObjectSchema(
+      properties: {
+        'name': Schema.string(
+          description: 'Nombre único, en minúsculas, sin espacios.',
+        ),
+        'description': Schema.string(description: 'Qué hace y cuándo.'),
+        'event': Schema.string(
+          description:
+              'Evento. Corren en claude Y codex: SessionStart, SessionEnd, '
+              'UserPromptSubmit, PreToolUse, PermissionRequest, PostToolUse, '
+              'PreCompact, PostCompact, SubagentStart, SubagentStop, Stop. '
+              'Solo claude: Notification, PermissionDenied, '
+              'PostToolUseFailure, FileChanged, InstructionsLoaded, '
+              'StopFailure.',
+        ),
+        'command': Schema.string(
+          description:
+              'El comando a ejecutar. Recibe el evento como JSON por entrada '
+              'estándar. Excluyente con tool_name.',
+        ),
+        'tool_name': Schema.string(
+          description:
+              'Nombre de una tool registrada que hace de cuerpo del hook. '
+              'Excluyente con command.',
+        ),
+        'matcher': Schema.string(
+          description:
+              'Qué acota dentro del evento — el nombre de la herramienta en '
+              'PreToolUse ("Bash", "Edit|Write"). Vacío = todo.',
+        ),
+        'timeout_seconds': Schema.int(
+          description: 'Por defecto 10. Máximo 120.',
+        ),
+        'enforces': Schema.list(
+          description: 'Nombres de reglas que este hook hace cumplir.',
+          items: Schema.string(),
+        ),
+        'is_global': Schema.bool(
+          description: 'Si corre para todos los agentes sin asignarlo.',
+        ),
+        'enabled': Schema.bool(description: 'Por defecto true.'),
+      },
+      required: ['name', 'event'],
+    ),
+  ),
+  Tool(
+    name: 'set_hook_enabled',
+    description:
+        'Prende o apaga un hook sin borrarlo. Es la palanca de emergencia: '
+        'si un guardarraíl mal escrito dejó trabados a los agentes, apagarlo '
+        'los destraba. A VOS los hooks no se te aplican, justamente para que '
+        'puedas hacer esto.',
+    inputSchema: ObjectSchema(
+      properties: {
+        'name': Schema.string(description: 'Nombre del hook.'),
+        'enabled': Schema.bool(description: 'true para prender.'),
+      },
+      required: ['name', 'enabled'],
+    ),
+  ),
+  Tool(
+    name: 'delete_hook',
+    description:
+        'Elimina un hook del catálogo Y de todos los agentes y estaciones '
+        'que lo tenían asignado. Lo que dejaba de pasar vuelve a poder pasar.',
+    inputSchema: ObjectSchema(
+      properties: {
+        'name': Schema.string(description: 'Nombre del hook a eliminar.'),
+      },
+      required: ['name'],
+    ),
+  ),
+  Tool(
     name: 'create_tool',
     description:
         'Crea una tool ejecutable: un script determinista (bash, python o '

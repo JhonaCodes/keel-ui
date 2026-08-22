@@ -4,6 +4,7 @@ part of '../catalog_shape.dart';
 const kCatalogCategories = [
   'skills',
   'rules',
+  'hooks',
   'tools',
   'workflows',
   'mcp_servers',
@@ -38,6 +39,20 @@ Map<String, List<Map<String, dynamic>>> catalogAsJson() {
 
   for (final rule in RulesService.instance.notifier.data.rules) {
     byCategory['rules']!.add({'name': rule.name, 'content': rule.content});
+  }
+
+  for (final hook in HooksService.instance.notifier.data.hooks) {
+    byCategory['hooks']!.add({
+      'name': hook.name,
+      'description': hook.description,
+      'event': hook.event.alias,
+      'matcher': hook.matcher,
+      'body': hook.body.toJson(),
+      'timeoutSeconds': hook.timeoutSeconds,
+      'enforces': hook.enforces,
+      'isGlobal': hook.isGlobal,
+      'enabled': hook.enabled,
+    });
   }
 
   for (final tool in ToolsService.instance.notifier.data.tools) {
@@ -107,6 +122,7 @@ Map<String, List<Map<String, dynamic>>> catalogAsJson() {
       'systemPrompt': profile.systemPrompt,
       'skills': profile.skills,
       'rules': profile.rules,
+      'hooks': profile.hooks,
       'tools': profile.tools,
       'mcpServers': profile.mcpServers,
       'knowledgeBaseNames': profile.knowledgeBaseNames,
@@ -136,6 +152,7 @@ Map<String, List<Map<String, dynamic>>> catalogAsJson() {
           .whereType<String>()
           .toList(),
       'ruleNames': station.ruleNames,
+      'hookNames': station.hookNames,
       'knowledgeBaseNames': station.knowledgeBaseNames,
       // Con qué motor corre cada miembro acá, por handle: es configuración de
       // la estación, así que viaja con ella o se pierde en el import.
@@ -259,6 +276,47 @@ Future<String> mergeCatalogJson(
             content: json['content'] as String? ?? '',
           );
     track(error, existed: existing != null, label: 'regla $name');
+  }
+
+  final hooks = HooksService.instance.notifier;
+  for (final json in byCategory['hooks'] ?? const <Map<String, dynamic>>[]) {
+    final name = json['name'] as String;
+    final event = HookEvent.tryFromAlias(json['event'] as String? ?? '');
+    if (event == null) {
+      problems.add('hook $name: evento inválido');
+      continue;
+    }
+    final existing = hooks.hookByName(name);
+    final body = HookBody.fromJson(
+      (json['body'] as Map?)?.cast<String, dynamic>() ?? const {},
+    );
+    final error = existing == null
+        ? hooks.createHook(
+            name: name,
+            description: json['description'] as String? ?? '',
+            event: event,
+            body: body,
+            matcher: json['matcher'] as String? ?? '',
+            timeoutSeconds:
+                json['timeoutSeconds'] as int? ?? kDefaultHookTimeoutSeconds,
+            enforces: (json['enforces'] as List?)?.cast<String>() ?? const [],
+            isGlobal: json['isGlobal'] as bool? ?? false,
+            enabled: json['enabled'] as bool? ?? true,
+          )
+        : hooks.updateHook(
+            existing.id,
+            name: name,
+            description: json['description'] as String? ?? '',
+            event: event,
+            body: body,
+            matcher: json['matcher'] as String? ?? '',
+            timeoutSeconds:
+                json['timeoutSeconds'] as int? ?? kDefaultHookTimeoutSeconds,
+            enforces: (json['enforces'] as List?)?.cast<String>() ?? const [],
+            isGlobal: json['isGlobal'] as bool? ?? false,
+            enabled: json['enabled'] as bool? ?? true,
+          );
+    track(error, existed: existing != null, label: 'hook $name');
   }
 
   final tools = ToolsService.instance.notifier;
@@ -424,6 +482,7 @@ Future<String> mergeCatalogJson(
             systemPrompt: json['systemPrompt'] as String? ?? '',
             skills: (json['skills'] as List?)?.cast<String>() ?? const [],
             rules: (json['rules'] as List?)?.cast<String>() ?? const [],
+            hooks: (json['hooks'] as List?)?.cast<String>() ?? const [],
             tools: (json['tools'] as List?)?.cast<String>() ?? const [],
             mcpServers:
                 (json['mcpServers'] as List?)?.cast<String>() ?? const [],
@@ -442,6 +501,7 @@ Future<String> mergeCatalogJson(
             systemPrompt: json['systemPrompt'] as String? ?? '',
             skills: (json['skills'] as List?)?.cast<String>() ?? const [],
             rules: (json['rules'] as List?)?.cast<String>() ?? const [],
+            hooks: (json['hooks'] as List?)?.cast<String>() ?? const [],
             tools: (json['tools'] as List?)?.cast<String>() ?? const [],
             mcpServers:
                 (json['mcpServers'] as List?)?.cast<String>() ?? const [],
@@ -476,6 +536,8 @@ Future<String> mergeCatalogJson(
     ].whereType<String>().toList();
     final ruleNames =
         (json['ruleNames'] as List?)?.cast<String>() ?? const <String>[];
+    final hookNames =
+        (json['hookNames'] as List?)?.cast<String>() ?? const <String>[];
     final knowledgeBaseNames =
         (json['knowledgeBaseNames'] as List?)?.cast<String>() ??
         const <String>[];
@@ -493,6 +555,7 @@ Future<String> mergeCatalogJson(
             profileIds: profileIds,
             workflowIds: workflowIds,
             ruleNames: ruleNames,
+            hookNames: hookNames,
             knowledgeBaseNames: knowledgeBaseNames,
           )
         : stations.updateStation(
@@ -503,6 +566,7 @@ Future<String> mergeCatalogJson(
             profileIds: profileIds,
             workflowIds: workflowIds,
             ruleNames: ruleNames,
+            hookNames: hookNames,
             knowledgeBaseNames: knowledgeBaseNames,
           );
     track(error, existed: existing != null, label: 'estación $name');

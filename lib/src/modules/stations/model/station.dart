@@ -38,6 +38,10 @@ class Station {
   final List<String> workflowIds;
   final List<String> ruleNames;
 
+  /// Guardarraíles que corren en esta estación, por nombre. Se suman a los
+  /// del perfil de cada miembro, igual que [ruleNames].
+  final List<String> hookNames;
+
   /// Bases de saber que ven los miembros de esta estación, por nombre. En su
   /// turno reciben el MAPA de cada una (raíz, tamaño, carpetas, portada),
   /// nunca los documentos enteros: los abren ellos cuando les hacen falta.
@@ -62,6 +66,7 @@ class Station {
     this.profileIds = const [],
     this.workflowIds = const [],
     this.ruleNames = const [],
+    this.hookNames = const [],
     this.knowledgeBaseNames = const [],
     this.memberTuning = const {},
     this.activeWorkflowId,
@@ -90,6 +95,7 @@ class Station {
     List<String>? profileIds,
     List<String>? workflowIds,
     List<String>? ruleNames,
+    List<String>? hookNames,
     List<String>? knowledgeBaseNames,
     Map<String, MemberTuning>? memberTuning,
     String? activeWorkflowId,
@@ -106,6 +112,7 @@ class Station {
       profileIds: profileIds ?? this.profileIds,
       workflowIds: workflowIds ?? this.workflowIds,
       ruleNames: ruleNames ?? this.ruleNames,
+      hookNames: hookNames ?? this.hookNames,
       knowledgeBaseNames: knowledgeBaseNames ?? this.knowledgeBaseNames,
       memberTuning: memberTuning ?? this.memberTuning,
       activeWorkflowId: clearActiveWorkflow
@@ -127,6 +134,7 @@ class Station {
     'profileIds': profileIds,
     'workflowIds': workflowIds,
     'ruleNames': ruleNames,
+    'hookNames': hookNames,
     'knowledgeBaseNames': knowledgeBaseNames,
     'memberTuning': {
       for (final entry in memberTuning.entries) entry.key: entry.value.toJson(),
@@ -146,6 +154,7 @@ class Station {
       profileIds: (json['profileIds'] as List?)?.cast<String>() ?? const [],
       workflowIds: (json['workflowIds'] as List?)?.cast<String>() ?? const [],
       ruleNames: (json['ruleNames'] as List?)?.cast<String>() ?? const [],
+      hookNames: (json['hookNames'] as List?)?.cast<String>() ?? const [],
       knowledgeBaseNames:
           (json['knowledgeBaseNames'] as List?)?.cast<String>() ?? const [],
       memberTuning: _memberTuningFromJson(json['memberTuning']),

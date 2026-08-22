@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:keel_ui/src/core/services/cli_turn_workspace.dart';
+
 import 'package:logger_rs/logger_rs.dart';
 
 import 'package:keel_ui/src/core/services/claude_cli_service.dart';
@@ -33,6 +35,8 @@ class CodexCliService {
     String model = kCodexDefaultModelAlias,
     String? sessionId,
     String? additionalSystemPrompt,
+    String? hooksConfig,
+    Map<String, String> hookFiles = const {},
     void Function(Process process)? onProcessStarted,
   }) async* {
     final effectivePrompt =
@@ -50,10 +54,23 @@ class CodexCliService {
     // `-m sonnet`, so it falls back to the model in the user's codex config.
     final modelArgument = codexModelArgument(model);
 
+    // Los hooks van como PERFIL, no metidos en `~/.codex/config.toml`: el
+    // perfil se capa encima de la config del usuario, vale solo para esta
+    // invocación y se borra al terminar. La config de codex es del usuario y
+    // esta app no la edita.
+    final workspace = await CliTurnWorkspace.create(
+      codexHooksConfig: hooksConfig,
+      hookFiles: hookFiles,
+    );
+
     final arguments = [
       'exec',
       if (sessionId != null) ...['resume', sessionId],
       if (modelArgument != null) ...['-m', modelArgument],
+      if (workspace.codexProfileName != null) ...[
+        '-p',
+        workspace.codexProfileName!,
+      ],
       '--json',
       '--skip-git-repo-check',
       '-s',
@@ -73,6 +90,7 @@ class CodexCliService {
       );
     } catch (error) {
       Log.e('Failed to start codex CLI', error: error);
+      await workspace.dispose();
       yield ClaudeFailure('No se pudo iniciar codex: $error');
       return;
     }
@@ -81,44 +99,50 @@ class CodexCliService {
     // codex reads stdin when it isn't a TTY ("Reading additional input from
     // stdin...", observed in the real probe) — without an explicit close it
     // waits for EOF forever.
-    await process.stdin.close();
+    try {
+      await process.stdin.close();
 
-    final stderrBuffer = StringBuffer();
-    final stderrDone = process.stderr
-        .transform(utf8.decoder)
-        .forEach(stderrBuffer.write);
+      final stderrBuffer = StringBuffer();
+      final stderrDone = process.stderr
+          .transform(utf8.decoder)
+          .forEach(stderrBuffer.write);
 
-    final lines = process.stdout
-        .transform(utf8.decoder)
-        .transform(const LineSplitter());
+      final lines = process.stdout
+          .transform(utf8.decoder)
+          .transform(const LineSplitter());
 
-    var sawError = false;
-    await for (final line in lines) {
-      if (line.trim().isEmpty) continue;
+      var sawError = false;
+      await for (final line in lines) {
+        if (line.trim().isEmpty) continue;
 
-      Map<String, dynamic> event;
-      try {
-        event = jsonDecode(line) as Map<String, dynamic>;
-      } catch (_) {
-        Log.w('Unparseable codex output line: $line');
-        continue;
+        Map<String, dynamic> event;
+        try {
+          event = jsonDecode(line) as Map<String, dynamic>;
+        } catch (_) {
+          Log.w('Unparseable codex output line: $line');
+          continue;
+        }
+
+        for (final parsed in _parseEvent(event)) {
+          if (parsed is ClaudeFailure) sawError = true;
+          yield parsed;
+        }
       }
 
-      for (final parsed in _parseEvent(event)) {
-        if (parsed is ClaudeFailure) sawError = true;
-        yield parsed;
+      await stderrDone;
+      final exitCode = await process.exitCode;
+      // codex exits 0 even on in-band errors (verified: out-of-credits run) —
+      // those already surfaced as ClaudeFailure above.
+      if (exitCode != 0 && !sawError) {
+        final stderrText = stderrBuffer.toString().trim();
+        yield ClaudeFailure(
+          stderrText.isEmpty
+              ? 'codex terminó con código $exitCode'
+              : stderrText,
+        );
       }
-    }
-
-    await stderrDone;
-    final exitCode = await process.exitCode;
-    // codex exits 0 even on in-band errors (verified: out-of-credits run) —
-    // those already surfaced as ClaudeFailure above.
-    if (exitCode != 0 && !sawError) {
-      final stderrText = stderrBuffer.toString().trim();
-      yield ClaudeFailure(
-        stderrText.isEmpty ? 'codex terminó con código $exitCode' : stderrText,
-      );
+    } finally {
+      await workspace.dispose();
     }
   }
 

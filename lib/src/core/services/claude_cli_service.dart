@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:keel_ui/src/core/services/cli_turn_workspace.dart';
+
 import 'package:logger_rs/logger_rs.dart';
 
 sealed class ClaudeEvent {
@@ -112,6 +114,8 @@ class ClaudeCliService {
     String? sessionId,
     String? additionalSystemPrompt,
     String? mcpConfig,
+    String? hooksSettings,
+    Map<String, String> hookFiles = const {},
     void Function(Process process)? onProcessStarted,
   }) async* {
     final allowedTools = [...kAlwaysAllowedTools, ...extraAllowedTools];
@@ -120,18 +124,16 @@ class ClaudeCliService {
         ? kCliSystemHints
         : '$kCliSystemHints\n\n$additionalSystemPrompt';
 
-    // The MCP config travels as a FILE, never inline: the JSON may embed
-    // resolved secret values (external MCP servers' env), and an inline
-    // argument is world-readable via `ps`. The temp dir from createTemp is
-    // 0700, so only this user can read it; removed after the turn.
-    Directory? mcpConfigDir;
-    String? mcpConfigPath;
-    if (mcpConfig != null) {
-      mcpConfigDir = await Directory.systemTemp.createTemp('keel_mcpcfg_');
-      final file = File('${mcpConfigDir.path}/mcp.json');
-      await file.writeAsString(mcpConfig);
-      mcpConfigPath = file.path;
-    }
+    // Config y scripts viajan como ARCHIVOS, nunca inline: llevan valores
+    // de secrets resueltos —los de los MCP externos y los que declara un
+    // hook— y un argumento de línea de comandos es legible con `ps`. El
+    // temporal es 0700 y se borra al terminar el turno.
+    final workspace = await CliTurnWorkspace.create(
+      mcpConfig: mcpConfig,
+      claudeSettings: hooksSettings,
+      hookFiles: hookFiles,
+    );
+    final mcpConfigPath = workspace.mcpConfigPath;
 
     try {
       final arguments = [
@@ -152,6 +154,13 @@ class ClaudeCliService {
           '--mcp-config',
           mcpConfigPath,
           '--strict-mcp-config',
+        ],
+        // Los hooks administrados por keel-ui. `--settings` SUMA: lo que el
+        // usuario tenga en su `~/.claude/settings.json` sigue valiendo, y
+        // esta app no lo toca.
+        if (workspace.claudeSettingsPath != null) ...[
+          '--settings',
+          workspace.claudeSettingsPath!,
         ],
         if (fullFileSystemAccess) ...['--add-dir', '/'],
         if (sessionId != null) ...['--resume', sessionId],
@@ -208,13 +217,7 @@ class ClaudeCliService {
         );
       }
     } finally {
-      if (mcpConfigDir != null) {
-        try {
-          await mcpConfigDir.delete(recursive: true);
-        } catch (error) {
-          Log.w('Could not clean up ${mcpConfigDir.path}: $error');
-        }
-      }
+      await workspace.dispose();
     }
   }
 

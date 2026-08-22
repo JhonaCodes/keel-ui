@@ -65,6 +65,11 @@ class AgentProfile {
   /// profile's agents get wired into their turns — see F5.
   final List<String> mcpServers;
 
+  /// Guardarraíles que corren cuando actúa este perfil, por nombre. A
+  /// diferencia de [rules], que son texto que el modelo puede desobedecer,
+  /// un hook lo ejecuta el CLI y puede frenar lo que estaba por pasar.
+  final List<String> hooks;
+
   /// Bases de saber que este perfil lleva consigo, por nombre — el caso
   /// ORÁCULO: un agente cuyo trabajo es contestar desde esa documentación,
   /// también en 1:1, fuera de toda estación. Es una excepción deliberada al
@@ -104,6 +109,7 @@ class AgentProfile {
     this.rules = const [],
     this.tools = const [],
     this.mcpServers = const [],
+    this.hooks = const [],
     this.knowledgeBaseNames = const [],
     this.canManageSystem = false,
     this.provider = AgentProvider.claude,
@@ -118,6 +124,7 @@ class AgentProfile {
     List<String>? rules,
     List<String>? tools,
     List<String>? mcpServers,
+    List<String>? hooks,
     List<String>? knowledgeBaseNames,
     bool? canManageSystem,
     AgentProvider? provider,
@@ -133,6 +140,7 @@ class AgentProfile {
       rules: rules ?? this.rules,
       tools: tools ?? this.tools,
       mcpServers: mcpServers ?? this.mcpServers,
+      hooks: hooks ?? this.hooks,
       knowledgeBaseNames: knowledgeBaseNames ?? this.knowledgeBaseNames,
       canManageSystem: canManageSystem ?? this.canManageSystem,
       provider: provider ?? this.provider,
@@ -152,6 +160,7 @@ class AgentProfile {
     'rules': rules,
     'tools': tools,
     'mcpServers': mcpServers,
+    'hooks': hooks,
     'knowledgeBaseNames': knowledgeBaseNames,
     'canManageSystem': canManageSystem,
     'provider': provider.alias,
@@ -171,6 +180,7 @@ class AgentProfile {
       rules: (json['rules'] as List?)?.cast<String>() ?? const [],
       tools: (json['tools'] as List?)?.cast<String>() ?? const [],
       mcpServers: (json['mcpServers'] as List?)?.cast<String>() ?? const [],
+      hooks: (json['hooks'] as List?)?.cast<String>() ?? const [],
       knowledgeBaseNames:
           (json['knowledgeBaseNames'] as List?)?.cast<String>() ?? const [],
       canManageSystem: json['canManageSystem'] as bool? ?? false,
@@ -197,6 +207,7 @@ class AgentProfile {
           listEquals(rules, other.rules) &&
           listEquals(tools, other.tools) &&
           listEquals(mcpServers, other.mcpServers) &&
+          listEquals(hooks, other.hooks) &&
           listEquals(knowledgeBaseNames, other.knowledgeBaseNames) &&
           canManageSystem == other.canManageSystem &&
           provider == other.provider &&

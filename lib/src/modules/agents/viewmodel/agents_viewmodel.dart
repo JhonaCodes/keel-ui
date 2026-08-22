@@ -22,6 +22,9 @@ import 'package:keel_ui/src/modules/agents/model/line_diff.dart';
 import 'package:keel_ui/src/modules/agents/model/permission_request.dart';
 import 'package:keel_ui/src/modules/agents/model/queued_message.dart';
 import 'package:keel_ui/src/modules/agents/repository/agents_repository.dart';
+import 'package:keel_ui/src/integrations/hook_delivery/hook_delivery.dart';
+import 'package:keel_ui/src/modules/hooks/model/hook_event.dart';
+import 'package:keel_ui/src/modules/hooks/viewmodel/hooks_viewmodel.dart';
 import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
 import 'package:keel_ui/src/modules/agent_profiles/viewmodel/agent_profiles_viewmodel.dart';
 import 'package:keel_ui/src/modules/assistant/service/assistant_action_executor.dart';
@@ -408,6 +411,13 @@ class AgentsViewModel extends ViewModel<AgentsState> {
         : jsonEncode({'mcpServers': mcpServers});
 
     // The codex adapter has no tools/MCP/effort surface — see F6 doc.
+    // Los guardarraíles del turno. Se resuelven ACÁ, con el catálogo y los
+    // secrets a mano, y lo que llega al CLI son archivos ya escritos.
+    final turnHooks = await _resolveTurnHooks(target);
+    for (final note in turnHooks.notes) {
+      appendSystemNote(agentId, note);
+    }
+
     final events = target.provider == AgentProvider.codex
         ? CodexCliService().run(
             prompt: promptForModel,
@@ -418,6 +428,8 @@ class AgentsViewModel extends ViewModel<AgentsState> {
             additionalSystemPrompt: _resolveProfileSystemPrompt(
               target.profileId,
             ),
+            hooksConfig: turnHooks.codexConfig,
+            hookFiles: turnHooks.files,
             onProcessStarted: (process) => _runningProcesses[agentId] = process,
           )
         : _claude.run(
@@ -441,6 +453,8 @@ class AgentsViewModel extends ViewModel<AgentsState> {
               target.profileId,
             ),
             mcpConfig: mcpConfig,
+            hooksSettings: turnHooks.claudeSettings,
+            hookFiles: turnHooks.files,
             onProcessStarted: (process) => _runningProcesses[agentId] = process,
           );
 
@@ -693,6 +707,36 @@ class AgentsViewModel extends ViewModel<AgentsState> {
   /// rules, for injection into the agent's system prompt. Selection is
   /// static — decided when the profile/skill was configured, never inferred
   /// by the model at runtime.
+  /// Los hooks que corren en el turno de [agent].
+  ///
+  /// En 1:1 no hay estación, así que solo cuentan los globales y los del
+  /// perfil. Keel AI queda afuera de todo esto —lo decide `resolveHooks`—
+  /// porque es a quien se le pide apagar un hook que trabó al resto.
+  Future<TurnHooks> _resolveTurnHooks(Agent agent) async {
+    await HooksService.instance.notifier.ready;
+    final catalog = HooksService.instance.notifier.data.hooks;
+    if (catalog.isEmpty) return TurnHooks.none;
+
+    final profile = agent.profileId == null
+        ? null
+        : AgentProfilesService.instance.notifier.data.profiles
+              .where((entry) => entry.id == agent.profileId)
+              .firstOrNull;
+
+    final tools = ToolsService.instance.notifier.data.tools;
+    return prepareTurnHooks(
+      catalog: catalog,
+      tools: tools,
+      secretValues: SecretsService.instance.notifier.valuesFor(
+        hookSecretNames(catalog, tools),
+      ),
+      provider: agent.provider == AgentProvider.codex
+          ? HookProvider.codex
+          : HookProvider.claude,
+      profile: profile,
+    );
+  }
+
   String? _resolveProfileSystemPrompt(String? profileId) {
     final profiles = AgentProfilesService.instance.notifier.data.profiles;
     final profile = profileId == null

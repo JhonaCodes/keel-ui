@@ -22,6 +22,19 @@ class TaskRunSpec {
   /// as-is.
   final String? mcpConfig;
 
+  /// El `settings.json` con los hooks de este turno, para claude — ya
+  /// renderizado, con el marcador de directorio sin resolver. Se renderiza
+  /// del lado del isolate principal porque acá no se alcanza ni el catálogo
+  /// de hooks ni la bóveda de secrets.
+  final String? hooksSettings;
+
+  /// Lo mismo en TOML, para el perfil de codex.
+  final String? hooksConfig;
+
+  /// Los archivos que hay que dejar en el disco para que los hooks corran:
+  /// el wrapper de cada uno y, si el cuerpo es una tool, su código.
+  final Map<String, String> hookFiles;
+
   const TaskRunSpec({
     required this.prompt,
     required this.workingDirectory,
@@ -32,6 +45,9 @@ class TaskRunSpec {
     this.sessionId,
     this.additionalSystemPrompt,
     this.mcpConfig,
+    this.hooksSettings,
+    this.hooksConfig,
+    this.hookFiles = const {},
     this.provider = 'claude',
   });
 
@@ -45,6 +61,9 @@ class TaskRunSpec {
     'sessionId': sessionId,
     'additionalSystemPrompt': additionalSystemPrompt,
     'mcpConfig': mcpConfig,
+    'hooksSettings': hooksSettings,
+    'hooksConfig': hooksConfig,
+    'hookFiles': hookFiles,
     'provider': provider,
   };
 
@@ -60,6 +79,10 @@ class TaskRunSpec {
       sessionId: message['sessionId'] as String?,
       additionalSystemPrompt: message['additionalSystemPrompt'] as String?,
       mcpConfig: message['mcpConfig'] as String?,
+      hooksSettings: message['hooksSettings'] as String?,
+      hooksConfig: message['hooksConfig'] as String?,
+      hookFiles:
+          (message['hookFiles'] as Map?)?.cast<String, String>() ?? const {},
       provider: message['provider'] as String? ?? 'claude',
     );
   }

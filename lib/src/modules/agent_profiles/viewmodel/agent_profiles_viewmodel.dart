@@ -170,6 +170,58 @@ class AgentProfilesViewModel extends ViewModel<AgentProfilesState> {
   /// Refuses to delete the reserved system-assistant profile — nothing in
   /// the UI offers this on purpose, but the check stays here too since
   /// [deleteProfile] is the actual point of no return.
+  /// Renombra [from] a [to] en todos los perfiles que lo tenían.
+  ///
+  /// Las asignaciones van por NOMBRE, así que sin esto renombrar un hook
+  /// equivale a desasignarlo de todos lados sin avisar.
+  void renameHook(String from, String to) {
+    if (!data.profiles.any((profile) => profile.hooks.contains(from))) return;
+    final profiles = data.profiles
+        .map(
+          (profile) => profile.hooks.contains(from)
+              ? profile.copyWith(
+                  hooks: [
+                    for (final name in profile.hooks) name == from ? to : name,
+                  ],
+                )
+              : profile,
+        )
+        .toList();
+    updateState(data.copyWith(profiles: profiles));
+    unawaited(_repository.save(profiles));
+  }
+
+  /// Saca [hookName] de todos los perfiles que lo tenían.
+  ///
+  /// Se llama cuando el hook se borra del catálogo. A diferencia de las
+  /// reglas —donde una referencia colgada se saltea en silencio al armar el
+  /// turno— acá la lista tiene que decir la verdad: un guardarraíl que
+  /// figura asignado y no existe hace creer que algo está protegido cuando
+  /// no lo está.
+  ///
+  /// Devuelve cuántos perfiles quedaron tocados, para poder decirlo.
+  int detachHook(String hookName) {
+    final affected = data.profiles
+        .where((profile) => profile.hooks.contains(hookName))
+        .length;
+    if (affected == 0) return 0;
+
+    final profiles = data.profiles
+        .map(
+          (profile) => profile.hooks.contains(hookName)
+              ? profile.copyWith(
+                  hooks: profile.hooks
+                      .where((name) => name != hookName)
+                      .toList(),
+                )
+              : profile,
+        )
+        .toList();
+    updateState(data.copyWith(profiles: profiles));
+    unawaited(_repository.save(profiles));
+    return affected;
+  }
+
   void deleteProfile(String id) {
     final target = data.profiles.where((p) => p.id == id).firstOrNull;
     if (target?.name == kKeelAiHandle) return;

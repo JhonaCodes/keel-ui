@@ -51,28 +51,19 @@ Future<void> _runInIsolate({
       ? kCliSystemHints
       : '$kCliSystemHints\n\n$additionalPrompt';
 
-  // File, never inline: the config may embed resolved secret values and an
-  // inline argument is world-readable via `ps` — same rule as
-  // ClaudeCliService. The 0700 temp dir dies with the turn.
-  Directory? mcpConfigDir;
-  String? mcpConfigPath;
-  if (spec.mcpConfig != null) {
-    mcpConfigDir = await Directory.systemTemp.createTemp('keel_mcpcfg_');
-    final file = File('${mcpConfigDir.path}/mcp.json');
-    await file.writeAsString(spec.mcpConfig!);
-    mcpConfigPath = file.path;
-  }
-
-  Future<void> cleanUpMcpConfig() async {
-    if (mcpConfigDir == null) return;
-    try {
-      await mcpConfigDir.delete(recursive: true);
-    } catch (error) {
-      Log.w('Could not clean up ${mcpConfigDir.path}: $error');
-    }
-  }
-
   final isCodex = spec.provider == 'codex';
+
+  // Archivos, nunca inline: llevan valores de secrets resueltos y un
+  // argumento es legible con `ps` — misma regla que ClaudeCliService. El
+  // temporal 0700 muere con el turno. Los hooks vienen YA renderizados en el
+  // spec: acá no se alcanza el catálogo ni la bóveda de secrets.
+  final workspace = await CliTurnWorkspace.create(
+    mcpConfig: spec.mcpConfig,
+    claudeSettings: isCodex ? null : spec.hooksSettings,
+    codexHooksConfig: isCodex ? spec.hooksConfig : null,
+    hookFiles: spec.hookFiles,
+  );
+  final mcpConfigPath = workspace.mcpConfigPath;
 
   // Codex has no system-prompt flag: on the FIRST turn of a session the
   // member's prompt stack rides as a delimited preamble of the user prompt
@@ -102,6 +93,10 @@ Future<void> _runInIsolate({
           '--skip-git-repo-check',
           '-s',
           spec.fullFileSystemAccess ? 'danger-full-access' : 'workspace-write',
+          if (workspace.codexProfileName != null) ...[
+            '-p',
+            workspace.codexProfileName!,
+          ],
           '--color',
           'never',
           codexPrompt,
@@ -125,6 +120,10 @@ Future<void> _runInIsolate({
             mcpConfigPath,
             '--strict-mcp-config',
           ],
+          if (workspace.claudeSettingsPath != null) ...[
+            '--settings',
+            workspace.claudeSettingsPath!,
+          ],
           if (spec.fullFileSystemAccess) ...['--add-dir', '/'],
           if (spec.sessionId != null) ...['--resume', spec.sessionId!],
         ];
@@ -141,7 +140,7 @@ Future<void> _runInIsolate({
     );
   } catch (error) {
     Log.e('Failed to start $executable CLI', error: error);
-    await cleanUpMcpConfig();
+    await workspace.dispose();
     mainSendPort.send({
       'type': 'failure',
       'message': 'No se pudo iniciar $executable: $error',
@@ -198,7 +197,7 @@ Future<void> _runInIsolate({
     }
   }
 
-  await cleanUpMcpConfig();
+  await workspace.dispose();
   mainSendPort.send({'type': 'done'});
   commandPort.close();
 }

@@ -10,6 +10,9 @@ import 'package:keel_ui/src/integrations/prompt_insights/prompt_insights.dart';
 import 'package:keel_ui/src/integrations/task_runner/task_runner.dart';
 import 'package:keel_ui/src/integrations/task_plan_mcp/task_plan_mcp_server.dart';
 import 'package:keel_ui/src/integrations/user_tools_mcp/user_tools_mcp_server.dart';
+import 'package:keel_ui/src/integrations/hook_delivery/hook_delivery.dart';
+import 'package:keel_ui/src/modules/hooks/model/hook_event.dart';
+import 'package:keel_ui/src/modules/hooks/viewmodel/hooks_viewmodel.dart';
 import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
 import 'package:keel_ui/src/modules/agent_profiles/viewmodel/agent_profiles_viewmodel.dart';
 import 'package:keel_ui/src/modules/agents/model/agent_tool_activity.dart';
@@ -1597,6 +1600,22 @@ class StationsViewModel extends ViewModel<StationsState> {
           ].where((part) => part.isNotEmpty).join('\n\n')
         : instruction;
 
+    // Los guardarraíles del turno. Se resuelven de este lado: el isolate del
+    // task runner no alcanza ni el catálogo ni los secrets, así que lo que
+    // cruza son archivos ya renderizados.
+    final turnHooks = await _resolveTurnHooks(station, engine);
+    for (final note in turnHooks.notes) {
+      _appendMessage(
+        stationId,
+        taskId,
+        ChatMessage(
+          role: ChatRole.system,
+          text: note,
+          timestamp: DateTime.now(),
+        ),
+      );
+    }
+
     final run = await TaskRunner.run(
       TaskRunSpec(
         prompt: effectiveInstruction,
@@ -1625,6 +1644,9 @@ class StationsViewModel extends ViewModel<StationsState> {
         mcpConfig: mcpServers.isEmpty
             ? null
             : jsonEncode({'mcpServers': mcpServers}),
+        hooksSettings: turnHooks.claudeSettings,
+        hooksConfig: turnHooks.codexConfig,
+        hookFiles: turnHooks.files,
         provider: engine.provider.alias,
       ),
     );
@@ -2810,6 +2832,83 @@ class StationsViewModel extends ViewModel<StationsState> {
         )
         .toList();
     updateState(data.copyWith(stations: stations));
+  }
+
+  /// Renombra [from] a [to] en todas las estaciones. Espejo de
+  /// `AgentProfilesViewModel.renameHook`.
+  void renameHook(String from, String to) {
+    if (!data.stations.any((station) => station.hookNames.contains(from))) {
+      return;
+    }
+    final stations = data.stations
+        .map(
+          (station) => station.hookNames.contains(from)
+              ? station.copyWith(
+                  hookNames: [
+                    for (final name in station.hookNames)
+                      name == from ? to : name,
+                  ],
+                )
+              : station,
+        )
+        .toList();
+    updateState(data.copyWith(stations: stations));
+    unawaited(_persist());
+  }
+
+  /// Saca [hookName] de todas las estaciones que lo tenían. Espejo de
+  /// `AgentProfilesViewModel.detachHook`, por la misma razón: una
+  /// asignación que apunta a un guardarraíl borrado miente sobre qué está
+  /// protegido.
+  /// Los hooks que corren en este turno: globales + los del perfil del
+  /// miembro + los de la estación.
+  /// [member] ya viene con el motor de la estación aplicado
+  /// (`station.tuned`), así que de ahí sale el proveedor. Los hooks
+  /// asignados son los mismos del perfil: afinar el motor no cambia qué
+  /// guardarraíles lleva.
+  Future<TurnHooks> _resolveTurnHooks(
+    Station station,
+    AgentProfile member,
+  ) async {
+    await HooksService.instance.notifier.ready;
+    final catalog = HooksService.instance.notifier.data.hooks;
+    if (catalog.isEmpty) return TurnHooks.none;
+
+    final tools = ToolsService.instance.notifier.data.tools;
+    return prepareTurnHooks(
+      catalog: catalog,
+      tools: tools,
+      secretValues: SecretsService.instance.notifier.valuesFor(
+        hookSecretNames(catalog, tools),
+      ),
+      provider: member.provider == AgentProvider.codex
+          ? HookProvider.codex
+          : HookProvider.claude,
+      profile: member,
+      station: station,
+    );
+  }
+
+  int detachHook(String hookName) {
+    final affected = data.stations
+        .where((station) => station.hookNames.contains(hookName))
+        .length;
+    if (affected == 0) return 0;
+
+    final stations = data.stations
+        .map(
+          (station) => station.hookNames.contains(hookName)
+              ? station.copyWith(
+                  hookNames: station.hookNames
+                      .where((name) => name != hookName)
+                      .toList(),
+                )
+              : station,
+        )
+        .toList();
+    updateState(data.copyWith(stations: stations));
+    unawaited(_persist());
+    return affected;
   }
 
   Future<void> _persist() => _repository.save(data.stations);

@@ -13,7 +13,8 @@ enum BackupSection {
   knowledgeBases('knowledge_bases', 'Bases de saber'),
   agents('profiles', 'Agentes'),
   projects('projects', 'Proyectos'),
-  requirements('requirements', 'Requerimientos');
+  requirements('requirements', 'Requerimientos'),
+  boards('boards', 'Tableros');
 
   const BackupSection(this.category, this.label);
 
@@ -139,10 +140,20 @@ Set<String> existingCatalogNames(BackupSection section) {
           in RequirementsService.instance.notifier.data.requirements)
         requirement.code,
     },
+    // Con el proyecto adelante, igual que en la forma portable: el nombre de
+    // un tablero solo es único adentro de su proyecto.
+    BackupSection.boards => {
+      for (final board in BoardsService.instance.notifier.data.boards)
+        if (ProjectsService.instance.notifier.data.projects
+                .where((project) => project.id == board.projectId)
+                .firstOrNull
+            case final project?)
+          '${project.name} · ${board.name}',
+    },
   };
 }
 
-/// Espera a que los nueve catálogos —y los ajustes— estén REALMENTE cargados.
+/// Espera a que los diez catálogos —y los ajustes— estén REALMENTE cargados.
 ///
 /// Serializar o mergear con una carga en vuelo lee listas vacías: el
 /// respaldo saldría vacío y pisaría el bueno. Los ajustes entran en la
@@ -162,6 +173,7 @@ Future<void> awaitCatalogsReady() => Future.wait([
   KnowledgeService.instance.notifier.ready,
   ProjectsService.instance.notifier.ready,
   RequirementsService.instance.notifier.ready,
+  BoardsService.instance.notifier.ready,
 ]);
 
 /// Si el sistema está vacío de verdad: nada que un respaldo pueda pisar.

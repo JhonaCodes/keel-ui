@@ -12,6 +12,7 @@ import 'package:keel_ui/src/modules/agents/model/agent.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/agent_status_icon.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/use_agent_panel.dart';
 import 'package:keel_ui/src/modules/agents/viewmodel/agents_viewmodel.dart';
+import 'package:keel_ui/src/modules/boards/ui/widget/boards_group.dart';
 import 'package:keel_ui/src/modules/projects/model/project.dart';
 import 'package:keel_ui/src/modules/projects/model/session.dart';
 import 'package:keel_ui/src/modules/projects/ui/widget/session_plan_list.dart';
@@ -27,6 +28,8 @@ class ProjectsSidebar extends StatelessWidget {
     required this.state,
     required this.projectFocused,
     required this.requirementFocus,
+    required this.selectedBoardId,
+    required this.onSelectBoard,
     required this.onSelectProject,
     required this.onSelectAgent,
     required this.onSelectRequirement,
@@ -38,6 +41,10 @@ class ProjectsSidebar extends StatelessWidget {
   final ProjectsState state;
   final bool projectFocused;
   final bool requirementFocus;
+
+  /// Qué tablero está abierto, o null si el área central muestra otra cosa.
+  final String? selectedBoardId;
+  final ValueChanged<String> onSelectBoard;
   final ValueChanged<String> onSelectProject;
   final ValueChanged<String> onSelectAgent;
   final ValueChanged<String> onSelectRequirement;
@@ -53,6 +60,8 @@ class ProjectsSidebar extends StatelessWidget {
       viewmodel: WorkflowsService.instance.notifier,
       build: (workflowsState, viewmodel, keep) => _SidebarList(
         state: state,
+        selectedBoardId: selectedBoardId,
+        onSelectBoard: onSelectBoard,
         projectFocused: projectFocused,
         requirementFocus: requirementFocus,
         onSelectProject: onSelectProject,
@@ -71,6 +80,8 @@ class _SidebarList extends StatelessWidget {
     required this.state,
     required this.projectFocused,
     required this.requirementFocus,
+    required this.selectedBoardId,
+    required this.onSelectBoard,
     required this.onSelectProject,
     required this.onSelectAgent,
     required this.onSelectRequirement,
@@ -82,6 +93,10 @@ class _SidebarList extends StatelessWidget {
   final ProjectsState state;
   final bool projectFocused;
   final bool requirementFocus;
+
+  /// Qué tablero está abierto, o null si el área central muestra otra cosa.
+  final String? selectedBoardId;
+  final ValueChanged<String> onSelectBoard;
   final ValueChanged<String> onSelectRequirement;
   final ValueChanged<String> onSelectProject;
   final ValueChanged<String> onSelectAgent;
@@ -122,7 +137,15 @@ class _SidebarList extends StatelessWidget {
             if (state.selectedProjectId == project.id) ...[
               _StateRow(
                 project: project,
-                selected: projectFocused && project.activeSessionId == null,
+                selected:
+                    projectFocused &&
+                    project.activeSessionId == null &&
+                    selectedBoardId == null,
+              ),
+              BoardsGroup(
+                projectId: project.id,
+                selectedBoardId: selectedBoardId,
+                onSelect: onSelectBoard,
               ),
               for (final session in project.sessions) ...[
                 _SessionRow(

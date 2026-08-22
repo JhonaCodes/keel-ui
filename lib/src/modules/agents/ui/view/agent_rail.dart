@@ -37,6 +37,7 @@ class AgentRail extends StatelessWidget {
     required this.onOpenMcpServers,
     required this.onOpenKnowledge,
     required this.onOpenWorkflows,
+    required this.onOpenBoards,
   });
 
   final VoidCallback onOpenProfiles;
@@ -48,6 +49,7 @@ class AgentRail extends StatelessWidget {
   final VoidCallback onOpenMcpServers;
   final VoidCallback onOpenKnowledge;
   final VoidCallback onOpenWorkflows;
+  final VoidCallback onOpenBoards;
 
   @override
   Widget build(BuildContext context) {
@@ -113,6 +115,12 @@ class AgentRail extends StatelessWidget {
                       label: 'Tools',
                       icon: Icons.terminal_outlined,
                       onPressed: onOpenTools,
+                    ),
+                    _RailButton(
+                      label: 'Banco',
+                      icon: Icons.tune,
+                      tooltip: 'Tableros de prueba',
+                      onPressed: onOpenBoards,
                     ),
                     _RailButton(
                       label: 'MCP',

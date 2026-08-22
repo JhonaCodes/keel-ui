@@ -6,6 +6,8 @@ import 'package:keel_ui/src/modules/agent_profiles/ui/screen/agent_profiles_scre
 import 'package:keel_ui/src/modules/agents/model/agent.dart';
 import 'package:keel_ui/src/modules/agents/viewmodel/agents_viewmodel.dart';
 import 'package:keel_ui/src/modules/agents/ui/view/agent_rail.dart';
+import 'package:keel_ui/src/modules/boards/ui/screen/boards_screen.dart';
+import 'package:keel_ui/src/modules/boards/ui/view/board_run_view.dart';
 import 'package:keel_ui/src/modules/agents/ui/view/chat_view.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/empty_chat_placeholder.dart';
 import 'package:keel_ui/src/modules/hooks/ui/screen/hooks_screen.dart';
@@ -30,7 +32,7 @@ import 'package:keel_ui/src/modules/workflows/ui/screen/workflows_screen.dart';
 /// Which conversation the content area shows: a 1:1 agent chat or a project
 /// channel. Registries and forms never take the content area over — they open
 /// as a side panel, so the conversation stays on screen behind them.
-enum _Focus { agent, project, requirement }
+enum _Focus { agent, project, requirement, board }
 
 class AgentsScreen extends StatefulWidget {
   const AgentsScreen({super.key});
@@ -42,16 +44,36 @@ class AgentsScreen extends StatefulWidget {
 class _AgentsScreenState extends State<AgentsScreen> {
   _Focus _focus = _Focus.agent;
 
-  void _focusAgent() => setState(() => _focus = _Focus.agent);
+  /// El tablero abierto. Vive acá y no en su ViewModel porque es de esta
+  /// ventana: cuál estás mirando no es un dato del sistema.
+  String? _openBoardId;
+
+  void _focusAgent() => setState(() {
+    _focus = _Focus.agent;
+    _openBoardId = null;
+  });
 
   void _focusRequirement(String requirementId) {
     RequirementsService.instance.notifier.select(requirementId);
-    setState(() => _focus = _Focus.requirement);
+    setState(() {
+      _focus = _Focus.requirement;
+      _openBoardId = null;
+    });
   }
 
   void _focusProject(String projectId) {
     ProjectsService.instance.notifier.selectProject(projectId);
-    setState(() => _focus = _Focus.project);
+    setState(() {
+      _focus = _Focus.project;
+      _openBoardId = null;
+    });
+  }
+
+  void _focusBoard(String boardId) {
+    setState(() {
+      _focus = _Focus.board;
+      _openBoardId = boardId;
+    });
   }
 
   @override
@@ -97,12 +119,21 @@ class _AgentsScreenState extends State<AgentsScreen> {
                     ),
                     onOpenWorkflows: () =>
                         showFormPanel(context, child: const WorkflowsScreen()),
+                    onOpenBoards: () => showFormPanel(
+                      context,
+                      width: 720,
+                      child: BoardsScreen(onOpen: _focusBoard),
+                    ),
                   ),
                   const VerticalDivider(width: 1),
                   ProjectsSidebar(
                     state: projectsState,
                     projectFocused: _focus == _Focus.project,
                     requirementFocus: _focus == _Focus.requirement,
+                    selectedBoardId: _focus == _Focus.board
+                        ? _openBoardId
+                        : null,
+                    onSelectBoard: _focusBoard,
                     onSelectRequirement: _focusRequirement,
                     onSelectProject: _focusProject,
                     onSelectAgent: (agentId) {
@@ -123,6 +154,7 @@ class _AgentsScreenState extends State<AgentsScreen> {
                       focus: _focus,
                       agent: agentsState.selectedAgent,
                       project: projectsState.selectedProject,
+                      boardId: _openBoardId,
                     ),
                   ),
                 ],
@@ -141,14 +173,20 @@ class _ConversationArea extends StatelessWidget {
     required this.focus,
     required this.agent,
     required this.project,
+    required this.boardId,
   });
 
   final _Focus focus;
   final Agent? agent;
   final Project? project;
+  final String? boardId;
 
   @override
   Widget build(BuildContext context) {
+    if (focus == _Focus.board && boardId != null) {
+      return BoardRunView(key: ValueKey(boardId), boardId: boardId!);
+    }
+
     if (focus == _Focus.requirement) {
       return ReactiveViewModelBuilder<RequirementsViewModel, RequirementsState>(
         viewmodel: RequirementsService.instance.notifier,

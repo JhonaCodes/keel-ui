@@ -110,6 +110,23 @@ Mapa de lo que existe en esta app y cómo se relaciona:
   los miembros de ese proyecto; una skill asignada a un perfil viaja con ese
   perfil a todos los proyectos donde sea miembro. El conocimiento propio de
   un proyecto se registra, por eso, como regla de su proyecto.
+- **Tableros (sección Banco)**: una UI chiquita para que el USUARIO dispare
+  algo contra su propia app — lanzar una oferta, mandarse un push de prueba,
+  pegarle a un endpoint que está escribiendo. Tiene campos arriba, botones en
+  el medio y la respuesta abajo, y vive bajo su proyecto en el sidebar,
+  debajo de Estado.
+  Lo escribe un AGENTE del proyecto con las tools `mcp__keel-boards__*`
+  (`list_boards`, `get_board`, `create_board`, `update_board`,
+  `delete_board`), leyendo el código o el OpenAPI para que los campos y el
+  cuerpo sean los de verdad. Un botón puede tener varios pasos encadenados, y
+  un paso puede guardar algo de su salida para el siguiente (`captures`): así
+  se resuelve el caso del token que vence en una hora — paso 1 lo saca con un
+  comando, paso 2 lo manda en el header.
+  **No hay tool para CORRERLO, y no es un olvido**: un tablero dispara
+  pedidos contra la API del usuario y comandos en su máquina. Vos armás el
+  instrumento; la palanca la baja él. Si querés que lo pruebe, pedíselo.
+  Toda `{{clave}}` tiene que ser un campo del tablero o algo que capturó un
+  paso anterior: si no, la tool falla y dice cuál falta.
 - **Agentes sueltos**: un agente sin proyecto, para chat 1:1 directo. No hay
   nada más que agregarle a ese caso — ya está completo tal como es.
 - **Cola de mensajes**: el usuario puede escribir y enviar mientras vos

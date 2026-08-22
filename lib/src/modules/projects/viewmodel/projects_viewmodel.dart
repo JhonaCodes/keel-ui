@@ -23,6 +23,8 @@ import 'package:keel_ui/src/modules/agent_profiles/viewmodel/agent_profiles_view
 import 'package:keel_ui/src/modules/agents/model/agent_tool_activity.dart';
 import 'package:keel_ui/src/modules/agents/model/chat_message.dart';
 import 'package:keel_ui/src/modules/agents/model/agent_provider.dart';
+import 'package:keel_ui/src/integrations/boards_mcp/boards_mcp.dart';
+import 'package:keel_ui/src/modules/boards/viewmodel/boards_viewmodel.dart';
 import 'package:keel_ui/src/modules/agents/model/effort_level.dart';
 import 'package:keel_ui/src/modules/agents/model/agent_model_option.dart';
 import 'package:keel_ui/src/modules/agents/model/permission_request.dart';
@@ -338,6 +340,12 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     // compartida y el otro lado sigue teniendo derecho a verla. Lo que sí
     // pasa es que dejan de poder tomarse.
     RequirementsService.instance.notifier.markProjectDeleted(id);
+
+    // Los tableros SÍ se van con él, al revés que los requerimientos: un
+    // tablero prueba la API de ESTE repo y sin su directorio de trabajo no
+    // prueba nada. Dejarlo huérfano sería dejar un botón que dispara contra
+    // algo que ya no seguís.
+    BoardsService.instance.notifier.deleteBoardsOfProject(id);
 
     for (final session in _projectById(id)?.sessions ?? const <Session>[]) {
       _runningSessions.remove(session.id)?.cancel();
@@ -1888,11 +1896,24 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
             evenWithoutFolder:
                 _sessionById(project, sessionId)?.isFormatSession ?? false,
           );
+    // Los tableros de prueba. Un turno de consulta tampoco los recibe: viene
+    // a contestar una pregunta y se va, y dejarle armar una UI en el
+    // proyecto de otro es exactamente la clase de efecto lateral que una
+    // consulta no debería tener.
+    final boardsEntry = (isCodex || isConsult)
+        ? null
+        : BoardsMcpServer.mcpServerEntryFor(
+            projectId: projectId,
+            sessionId: sessionId,
+            profileId: member.id,
+          );
+
     final mcpServers = <String, dynamic>{
       kUserToolsMcpServerKey: ?toolsEntry,
       kSessionPlanMcpServerKey: ?planEntry,
       kRoadmapMcpServerKey: ?roadmapEntry,
       kRequirementsMcpServerKey: ?requirementsEntry,
+      kBoardsMcpServerKey: ?boardsEntry,
       for (final server in externalServers)
         server.name: server.toMcpServerEntry(externalSecretValues),
     };
@@ -1952,6 +1973,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
                 ? kRoadmapMcpReadOnlyToolNames
                 : kRoadmapMcpToolNames),
           if (requirementsEntry != null) ...kRequirementsMcpToolNames,
+          if (boardsEntry != null) ...kBoardsMcpToolNames,
           if (toolsEntry != null)
             ...memberTools.map(
               (tool) => '$kUserToolsMcpToolPrefix${tool.name}',

@@ -12,6 +12,7 @@ const kCatalogCategories = [
   'profiles',
   'projects',
   'requirements',
+  'boards',
 ];
 
 /// El nombre de archivo de una entidad dentro de su categoría. Los
@@ -196,6 +197,30 @@ Map<String, List<Map<String, dynamic>>> catalogAsJson() {
       'thread': requirement.thread.map((entry) => entry.toJson()).toList(),
       'createdAt': requirement.createdAt.toIso8601String(),
       'updatedAt': requirement.updatedAt.toIso8601String(),
+    });
+  }
+
+  // Los tableros viajan porque son DEFINICIÓN: qué campos tiene, qué
+  // dispara, contra qué endpoint. Lo que no viaja son sus corridas —lo que
+  // te contestó tu API de desarrollo el martes no le sirve a nadie— ni el
+  // valor de los secrets que usan, que se referencian por nombre.
+  for (final board in BoardsService.instance.notifier.data.boards) {
+    final project = projectsViewModel.data.projects
+        .where((candidate) => candidate.id == board.projectId)
+        .firstOrNull;
+    if (project == null) continue;
+
+    byCategory['boards']!.add({
+      // El nombre es único DENTRO del proyecto, así que la clave portable
+      // los lleva a los dos: dos proyectos pueden tener su "Lanzar oferta".
+      'name': '${project.name} · ${board.name}',
+      'board': board.name,
+      'project': project.name,
+      'note': board.note,
+      'fields': [for (final field in board.fields) field.toJson()],
+      'actions': [for (final action in board.actions) action.toJson()],
+      'createdAt': board.createdAt.toIso8601String(),
+      'updatedAt': board.updatedAt.toIso8601String(),
     });
   }
 
@@ -697,6 +722,55 @@ Future<String> mergeCatalogJson(
       ),
     );
     if (imported) created++;
+  }
+
+  // Los tableros se crean o se actualizan por (proyecto, nombre), como
+  // todo lo demás. Un tablero cuyo proyecto no existe de este lado no se
+  // inventa: se nombra, porque sin directorio de trabajo no prueba nada.
+  final boards = BoardsService.instance.notifier;
+  for (final json in byCategory['boards'] ?? const <Map<String, dynamic>>[]) {
+    final boardName = json['board'] as String?;
+    final projectName = json['project'] as String?;
+    if (boardName == null || projectName == null) continue;
+
+    final project = projects.data.projects
+        .where((candidate) => candidate.name == projectName)
+        .firstOrNull;
+    if (project == null) {
+      problems.add(
+        'tablero $boardName: no existe el proyecto $projectName de este lado',
+      );
+      continue;
+    }
+
+    final existing = boards.boardNamed(project.id, boardName);
+    final createdAt =
+        DateTime.tryParse(json['createdAt'] as String? ?? '') ?? DateTime.now();
+    boards.upsert(
+      Board(
+        id: existing?.id ?? generateUuidV4(),
+        projectId: project.id,
+        name: boardName,
+        note: json['note'] as String? ?? '',
+        fields: [
+          for (final field in json['fields'] as List? ?? const [])
+            BoardField.fromJson((field as Map).cast<String, dynamic>()),
+        ],
+        actions: [
+          for (final action in json['actions'] as List? ?? const [])
+            BoardAction.fromJson((action as Map).cast<String, dynamic>()),
+        ],
+        createdByProfileId: existing?.createdByProfileId ?? '',
+        createdAt: existing?.createdAt ?? createdAt,
+        updatedAt:
+            DateTime.tryParse(json['updatedAt'] as String? ?? '') ?? createdAt,
+      ),
+    );
+    if (existing == null) {
+      created++;
+    } else {
+      updated++;
+    }
   }
 
   final parts = [

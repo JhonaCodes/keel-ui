@@ -233,6 +233,32 @@ final List<Tool> keelAiTools = [
     ),
   ),
   Tool(
+    name: 'list_mcp_catalog',
+    description:
+        'Las integraciones MCP que Keel conoce, con su configuración exacta, '
+        'qué credencial pide cada una y su documentación oficial. MIRALO '
+        'ANTES de registrar algo a mano: si está en el catálogo, '
+        'install_mcp_integration lo instala con la configuración correcta y '
+        'no hay que inventar el nombre de un paquete.',
+    inputSchema: ObjectSchema(properties: {}),
+  ),
+  Tool(
+    name: 'install_mcp_integration',
+    description:
+        'Instala una integración del catálogo por su id (ver '
+        'list_mcp_catalog). Deja la referencia al secret puesta pero NO lo '
+        'crea: el valor solo lo puede cargar el usuario, desde Secrets. '
+        'Idempotente por nombre.',
+    inputSchema: ObjectSchema(
+      properties: {
+        'catalog_id': Schema.string(
+          description: 'El id de la ficha ("github", "linear", "slack"…).',
+        ),
+      },
+      required: ['catalog_id'],
+    ),
+  ),
+  Tool(
     name: 'delete_mcp_server',
     description: 'Elimina un servidor MCP externo por nombre.',
     inputSchema: ObjectSchema(

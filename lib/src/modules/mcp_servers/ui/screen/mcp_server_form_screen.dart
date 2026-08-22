@@ -1,51 +1,79 @@
 import 'package:flutter/material.dart';
 
+import 'package:reactive_notifier/reactive_notifier.dart';
+
+import 'package:keel_ui/src/core/services/external_link_service.dart';
 import 'package:keel_ui/src/core/ui/form_panel.dart';
+import 'package:keel_ui/src/integrations/mcp_catalog/mcp_catalog.dart';
 import 'package:keel_ui/src/modules/agent_profiles/viewmodel/agent_profiles_viewmodel.dart';
 import 'package:keel_ui/src/modules/mcp_servers/model/mcp_server_config.dart';
 import 'package:keel_ui/src/modules/mcp_servers/viewmodel/mcp_servers_viewmodel.dart';
+import 'package:keel_ui/src/modules/mcp_servers/ui/widget/integration_credentials.dart';
+import 'package:keel_ui/src/modules/mcp_servers/ui/widget/integration_glyph.dart';
+import 'package:keel_ui/src/modules/mcp_servers/ui/widget/probe_status.dart';
 import 'package:keel_ui/src/modules/secrets/ui/widget/secret_multi_select.dart';
 
 Future<void> openMcpServerFormScreen(
   BuildContext context, {
   McpServerConfig? initial,
+  McpCatalogEntry? fromCatalog,
 }) {
   return showFormPanel<void>(
     context,
-    child: McpServerFormScreen(initial: initial),
+    child: McpServerFormScreen(initial: initial, fromCatalog: fromCatalog),
   );
 }
 
 class McpServerFormScreen extends StatefulWidget {
-  const McpServerFormScreen({super.key, this.initial});
+  const McpServerFormScreen({super.key, this.initial, this.fromCatalog});
 
   final McpServerConfig? initial;
+
+  /// La ficha del catálogo con la que se abre el formulario ya lleno. Sigue
+  /// siendo un formulario común: todo lo que trae la ficha se puede cambiar
+  /// antes de registrar, y después también.
+  final McpCatalogEntry? fromCatalog;
 
   @override
   State<McpServerFormScreen> createState() => _McpServerFormScreenState();
 }
 
 class _McpServerFormScreenState extends State<McpServerFormScreen> {
+  /// La ficha con la que hay que dibujar: la que se pasó al instalar, o la
+  /// que quedó guardada cuando el servidor se instaló desde el catálogo.
+  McpCatalogEntry? get _entry =>
+      widget.fromCatalog ?? mcpCatalogEntryFor(widget.initial?.catalogId ?? '');
+
   late final _nameController = TextEditingController(
-    text: widget.initial?.name,
+    text: widget.initial?.name ?? widget.fromCatalog?.serverName,
   );
   late final _commandController = TextEditingController(
-    text: widget.initial?.command,
+    text: widget.initial?.command ?? widget.fromCatalog?.command,
   );
   late final _argsController = TextEditingController(
-    text: widget.initial?.args.join(' '),
+    text: (widget.initial?.args ?? widget.fromCatalog?.args ?? const []).join(
+      ' ',
+    ),
   );
-  late final _urlController = TextEditingController(text: widget.initial?.url);
+  late final _urlController = TextEditingController(
+    text: widget.initial?.url ?? widget.fromCatalog?.url,
+  );
   late final _headersController = TextEditingController(
-    text: formatKeyValueLines(widget.initial?.headers ?? const {}),
+    text: formatKeyValueLines(
+      widget.initial?.headers ?? widget.fromCatalog?.headers ?? const {},
+    ),
   );
   late McpTransport _transport =
-      widget.initial?.transport ?? McpTransport.stdio;
+      widget.initial?.transport ??
+      widget.fromCatalog?.transport ??
+      McpTransport.stdio;
 
   /// The secret picker grants env KEY == secret NAME — the common case for
   /// API keys. A different env key can be mapped by editing the config via
   /// Keel AI (`register_mcp_server`), not from this form.
-  late List<String> _secretNames = [...?widget.initial?.secretEnv.values];
+  late List<String> _secretNames = [
+    ...?(widget.initial?.secretEnv ?? widget.fromCatalog?.secretEnv)?.values,
+  ];
 
   /// Registering an MCP is not enough for anyone to use it: an agent only
   /// sees it if its profile carries it. The assistant's profile is hidden
@@ -104,6 +132,7 @@ class _McpServerFormScreenState extends State<McpServerFormScreen> {
             secretEnv: secretEnv,
             url: _urlController.text,
             headers: parseKeyValueLines(_headersController.text),
+            catalogId: widget.fromCatalog?.id ?? '',
           )
         : viewmodel.updateServer(
             initial.id,
@@ -159,9 +188,15 @@ class _McpServerFormScreenState extends State<McpServerFormScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                if (_entry case final entry?) ...[
+                  _CatalogHeader(entry: entry),
+                  const SizedBox(height: 20),
+                  IntegrationCredentials(entry: entry),
+                  const SizedBox(height: 4),
+                ],
                 TextField(
                   controller: _nameController,
-                  autofocus: true,
+                  autofocus: _entry == null,
                   onChanged: _onNameChanged,
                   decoration: InputDecoration(
                     labelText:
@@ -259,6 +294,10 @@ class _McpServerFormScreenState extends State<McpServerFormScreen> {
                     'desde su perfil.',
                   ),
                 ),
+                if (widget.initial case final server?) ...[
+                  const SizedBox(height: 20),
+                  _ProbeRow(server: server),
+                ],
                 if (_formError != null) ...[
                   const SizedBox(height: 12),
                   Text(
@@ -276,4 +315,163 @@ class _McpServerFormScreenState extends State<McpServerFormScreen> {
       ),
     );
   }
+}
+
+/// Lo que la ficha del catálogo sabe y el formulario no: de qué servicio se
+/// trata, cómo se autentica y dónde está su documentación.
+class _CatalogHeader extends StatelessWidget {
+  const _CatalogHeader({required this.entry});
+
+  final McpCatalogEntry entry;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            IntegrationGlyph.forEntry(entry, size: 36),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(entry.name, style: theme.textTheme.titleMedium),
+                  Text(
+                    entry.tagline,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            TextButton.icon(
+              onPressed: () => openExternalUrl(entry.docsUrl),
+              icon: const Icon(Icons.open_in_new, size: 15),
+              label: const Text('Documentación'),
+            ),
+          ],
+        ),
+        if (entry.note.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                Icons.warning_amber_outlined,
+                size: 16,
+                color: scheme.primary,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  entry.note,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+/// Probar la conexión desde el propio formulario, que es donde uno está
+/// cuando acaba de cargar el token y quiere saber si sirvió.
+///
+/// Aparece solo al editar: un servidor sin registrar todavía no tiene id, y
+/// probar una configuración que no está guardada dejaría un resultado
+/// colgado de nada.
+class _ProbeRow extends StatelessWidget {
+  const _ProbeRow({required this.server});
+
+  final McpServerConfig server;
+
+  @override
+  Widget build(BuildContext context) {
+    return ReactiveViewModelBuilder<McpServersViewModel, McpServersState>(
+      viewmodel: McpServersService.instance.notifier,
+      build: (state, viewmodel, keep) {
+        final probing = state.probing.contains(server.id);
+        final probe = state.probes[server.id];
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Divider(height: 1),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                OutlinedButton(
+                  onPressed: probing
+                      ? null
+                      : () => viewmodel.probeServer(server.id),
+                  child: const Text('Probar la conexión'),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: ProbeStatus(result: probe, probing: probing),
+                ),
+              ],
+            ),
+            if (probe != null && probe.ok && probe.tools.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              _ToolChips(tools: probe.tools),
+            ],
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// Las tools que devolvió, que es la única prueba de que el agente las va a
+/// ver. Se cortan a veinte: la lista completa de algunos servidores es más
+/// larga que el formulario entero.
+class _ToolChips extends StatelessWidget {
+  const _ToolChips({required this.tools});
+
+  static const _shown = 20;
+
+  final List<String> tools;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final extra = tools.length - _shown;
+
+    return Wrap(
+      spacing: 5,
+      runSpacing: 5,
+      children: [
+        for (final tool in tools.take(_shown)) _chip(scheme, tool),
+        if (extra > 0) _chip(scheme, '+$extra más'),
+      ],
+    );
+  }
+
+  Widget _chip(ColorScheme scheme, String label) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+    decoration: BoxDecoration(
+      color: scheme.surfaceContainerHigh,
+      border: Border.all(color: scheme.outlineVariant),
+      borderRadius: BorderRadius.circular(4),
+    ),
+    child: Text(
+      label,
+      style: TextStyle(
+        fontFamily: 'monospace',
+        fontSize: 10.5,
+        color: scheme.onSurfaceVariant,
+      ),
+    ),
+  );
 }

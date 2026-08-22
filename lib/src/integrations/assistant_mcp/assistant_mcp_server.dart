@@ -9,6 +9,7 @@ import 'package:dart_mcp/server.dart';
 import 'package:logger_rs/logger_rs.dart';
 import 'package:stream_channel/stream_channel.dart';
 
+import 'package:keel_ui/src/integrations/mcp_catalog/mcp_catalog.dart';
 import 'package:keel_ui/src/integrations/catalog_shape/catalog_shape.dart';
 import 'package:keel_ui/src/modules/hooks/model/hook.dart';
 import 'package:keel_ui/src/modules/hooks/model/hook_event.dart';
@@ -61,6 +62,8 @@ const kKeelAiMcpToolNames = [
   'mcp__keelai-actions__update_project',
   'mcp__keelai-actions__open_project_session',
   'mcp__keelai-actions__register_mcp_server',
+  'mcp__keelai-actions__list_mcp_catalog',
+  'mcp__keelai-actions__install_mcp_integration',
   'mcp__keelai-actions__delete_mcp_server',
   'mcp__keelai-actions__create_hook',
   'mcp__keelai-actions__set_hook_enabled',

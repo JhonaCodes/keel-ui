@@ -80,8 +80,13 @@ class _AgentsScreenState extends State<AgentsScreen> {
                         showFormPanel(context, child: const ToolsScreen()),
                     onOpenSecrets: () =>
                         showFormPanel(context, child: const SecretsScreen()),
-                    onOpenMcpServers: () =>
-                        showFormPanel(context, child: const McpServersScreen()),
+                    onOpenMcpServers: () => showFormPanel(
+                      context,
+                      // Tampoco es un formulario: es un catálogo. En el ancho
+                      // por defecto las fichas entran de a una por fila.
+                      width: 1000,
+                      child: const McpServersScreen(),
+                    ),
                     onOpenKnowledge: () => showFormPanel(
                       context,
                       // Saber no es un formulario: es un navegador de dos

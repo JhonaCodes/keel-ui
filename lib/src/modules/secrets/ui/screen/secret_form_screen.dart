@@ -4,10 +4,14 @@ import 'package:keel_ui/src/core/ui/form_panel.dart';
 import 'package:keel_ui/src/modules/secrets/model/secret.dart';
 import 'package:keel_ui/src/modules/secrets/viewmodel/secrets_viewmodel.dart';
 
-Future<void> openSecretFormScreen(BuildContext context, {Secret? initial}) {
+Future<void> openSecretFormScreen(
+  BuildContext context, {
+  Secret? initial,
+  String? suggestedName,
+}) {
   return showFormPanel<void>(
     context,
-    child: SecretFormScreen(initial: initial),
+    child: SecretFormScreen(initial: initial, suggestedName: suggestedName),
   );
 }
 
@@ -19,9 +23,15 @@ Future<void> openSecretFormScreen(BuildContext context, {Secret? initial}) {
 /// there why it asked for the key), but it is shown as context, not as a
 /// field to fill.
 class SecretFormScreen extends StatefulWidget {
-  const SecretFormScreen({super.key, this.initial});
+  const SecretFormScreen({super.key, this.initial, this.suggestedName});
 
   final Secret? initial;
+
+  /// Con qué nombre viene el campo lleno cuando se crea uno nuevo. Lo usa el
+  /// formulario de una integración: la ficha ya sabe cómo se llama la
+  /// credencial que pide, y hacerte copiarla a mano solo agrega una forma de
+  /// escribirla mal.
+  final String? suggestedName;
 
   @override
   State<SecretFormScreen> createState() => _SecretFormScreenState();
@@ -29,7 +39,7 @@ class SecretFormScreen extends StatefulWidget {
 
 class _SecretFormScreenState extends State<SecretFormScreen> {
   late final _nameController = TextEditingController(
-    text: widget.initial?.name,
+    text: widget.initial?.name ?? widget.suggestedName,
   );
   // NEVER prefilled with the stored value — the form is write-only for the
   // credential; leaving it empty on edit keeps the existing value.

@@ -58,6 +58,7 @@ Future<CallToolResult> dispatchKeelAiTool(
 /// Tools that only read. No mutation, no trace line in the thread.
 const _readOnlyTools = {
   'list_catalog',
+  'list_mcp_catalog',
   'list_secret_names',
   'get_item',
   'describe_system',
@@ -173,6 +174,40 @@ const _readOnlyTools = {
         existing == null
             ? 'Registré el MCP "$name".$suffix'
             : 'Actualicé el MCP "$name".$suffix',
+      );
+
+    case 'list_mcp_catalog':
+      return (true, _describeMcpCatalog());
+
+    case 'install_mcp_integration':
+      final catalogId = (arguments['catalog_id'] as String).trim();
+      final entry = mcpCatalogEntryFor(catalogId);
+      if (entry == null) {
+        return (
+          false,
+          'No hay ninguna ficha con id "$catalogId". Mirá list_mcp_catalog; '
+              'si el servidor que querés no está, registralo con '
+              'register_mcp_server usando la configuración de SU documentación.',
+        );
+      }
+      final servers = McpServersService.instance.notifier;
+      final existed = servers.serverNamed(entry.serverName) != null;
+      final installError = servers.installFromCatalog(entry);
+      if (installError != null) return (false, installError);
+
+      final faltan = [
+        ...SecretsService.instance.notifier.pendingOf(entry.secretNames),
+        ...SecretsService.instance.notifier.missingOf(entry.secretNames),
+      ];
+      final pedido = faltan.isEmpty
+          ? ''
+          : ' Falta que el usuario cargue en Secrets: ${faltan.join(', ')}.';
+      final aviso = entry.note.isEmpty ? '' : ' ${entry.note}';
+      return (
+        true,
+        '${existed ? "Actualicé" : "Instalé"} "${entry.serverName}" '
+            '(${entry.name}). Para que un agente la use hay que asignársela '
+            'con create_or_update_agent (mcp_server_names).$pedido$aviso',
       );
 
     case 'delete_mcp_server':
@@ -524,7 +559,7 @@ String _describeCatalog(String kind) {
   section('mcp_servers', 'MCPs externos', [
     for (final server in McpServersService.instance.notifier.data.servers)
       '- ${server.name} (${server.transport.alias}) — '
-          '${_mcpTarget(server)}',
+          '${server.detail}',
   ]);
 
   final knowledge = KnowledgeService.instance.notifier;
@@ -741,7 +776,7 @@ String _describeCatalog(String kind) {
       return (
         true,
         'MCP "${server.name}" (${server.transport.alias})\n'
-            'Destino: ${_mcpTarget(server)}\n'
+            'Destino: ${server.detail}\n'
             'Env literales: ${server.env.isEmpty ? 'ninguna' : server.env.keys.join(', ')}\n'
             'Secrets: ${_orNone(server.secretNames)}',
       );
@@ -870,13 +905,6 @@ Future<String> _runVaultTool(
   final read = await vault.inspectVault();
   if (vault.data.preview == null) return read;
   return vault.applyLoaded(sections: BackupSection.values.toSet());
-}
-
-String _mcpTarget(McpServerConfig server) {
-  return switch (server.transport) {
-    McpTransport.stdio => '${server.command} ${server.args.join(' ')}'.trim(),
-    McpTransport.http || McpTransport.sse => server.url,
-  };
 }
 
 /// Saca asignaciones de un agente. `create_or_update_agent` solo suma, así
@@ -1168,4 +1196,33 @@ List<WorkflowStep> _parseToolSteps(Object? value) {
         instruction: step['instruction'] as String? ?? '',
       ),
   ];
+}
+
+/// El catálogo en texto, que es como lo lee un modelo.
+///
+/// Lleva el id adelante porque es lo que pide `install_mcp_integration`, y
+/// la documentación al final porque es a donde hay que ir cuando la ficha
+/// quedó vieja.
+String _describeMcpCatalog() {
+  final buffer = StringBuffer(
+    'Integraciones MCP que Keel conoce. Instalá con '
+    'install_mcp_integration(catalog_id).\n',
+  );
+  for (final category in McpCatalogCategory.values) {
+    final entries = kMcpCatalog.where((e) => e.category == category);
+    if (entries.isEmpty) continue;
+    buffer.writeln('\n## ${category.label}');
+    for (final entry in entries) {
+      final credenciales = entry.credentials.isEmpty
+          ? 'sin credencial'
+          : entry.credentials.map((c) => c.name).join(', ');
+      buffer.writeln(
+        '- ${entry.id} — ${entry.name}: ${entry.tagline}. '
+        '${entry.transport.alias} · ${entry.detail} · $credenciales. '
+        '${entry.docsUrl}',
+      );
+      if (entry.note.isNotEmpty) buffer.writeln('  Ojo: ${entry.note}');
+    }
+  }
+  return buffer.toString();
 }

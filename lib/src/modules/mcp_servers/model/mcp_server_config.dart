@@ -148,6 +148,14 @@ class McpServerConfig {
     };
   }
 
+  /// Cómo se resume en una línea: el comando o la URL. Estaba escrito tres
+  /// veces —la tarjeta, el tile y las tools de Keel AI— y las tres tenían
+  /// que acordarse de sumar `sse` al agregarlo.
+  String get detail => switch (transport) {
+    McpTransport.stdio => '$command ${args.join(' ')}'.trim(),
+    McpTransport.http || McpTransport.sse => url,
+  };
+
   /// Every secret NAME this server references, from both places it can:
   /// the env map of a stdio server and the header templates of an http one.
   List<String> get secretNames => {

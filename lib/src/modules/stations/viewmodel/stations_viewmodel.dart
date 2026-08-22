@@ -715,15 +715,17 @@ class StationsViewModel extends ViewModel<StationsState> {
     // El cierre corre adentro del mismo try que los pasos: una excepción ahí
     // también tiene que soltar el canal, no dejar `isRunning` colgado.
     try {
-      final ended = await _runSteps(stationId, taskId, workflow, trimmed);
+      final steps = await _runSteps(stationId, taskId, workflow, trimmed);
       _runningTasks.remove(taskId);
       final stopped = _stoppedTaskIds.remove(taskId);
-      if (!stopped && !ended) {
+      if (!stopped && !steps.ended) {
         await _closeAgainstPlan(
           stationId,
           taskId,
           workflow,
           messagesAtStart: messagesAtStart,
+          lastHandle: steps.lastHandle,
+          lastAnswer: steps.lastAnswer,
         );
       }
     } catch (error) {
@@ -764,6 +766,8 @@ class StationsViewModel extends ViewModel<StationsState> {
     String taskId,
     Workflow workflow, {
     required int messagesAtStart,
+    String? lastHandle,
+    String? lastAnswer,
   }) async {
     final plan = planOf(stationId, taskId);
     final pendientes = plan.where((item) => !item.done).toList();
@@ -839,6 +843,8 @@ class StationsViewModel extends ViewModel<StationsState> {
         pendientes,
         hasPlanTools:
             station.tuned(verificador).provider != AgentProvider.codex,
+        lastHandle: lastHandle,
+        lastAnswer: lastAnswer,
       ),
       consultOfProfileId: null,
       turnId: generateUuidV4(),
@@ -889,10 +895,14 @@ class StationsViewModel extends ViewModel<StationsState> {
     return candidatos.firstOrNull;
   }
 
-  /// Walks the workflow's steps in order, one turn each. Returns true when it
-  /// already closed the task itself — a step naming a role no member holds
-  /// ends the run as failed, and the caller must not stamp "finished" on top.
-  Future<bool> _runSteps(
+  /// Walks the workflow's steps in order, one turn each. `ended` es true
+  /// cuando ya cerró la tarea él mismo — un rol vacante o un paso fallido
+  /// terminan la corrida y el caller no debe sellar "finished" encima.
+  /// `lastHandle`/`lastAnswer` son el remate del último paso, para que el
+  /// cierre contra el plan reciba lo que quedó dicho — una decisión
+  /// pendiente nombrada al final llega sola a la verificación, sin esperar
+  /// que el usuario la reenvíe.
+  Future<({bool ended, String? lastHandle, String? lastAnswer})> _runSteps(
     String stationId,
     String taskId,
     Workflow workflow,
@@ -931,7 +941,7 @@ class StationsViewModel extends ViewModel<StationsState> {
         );
         _finishTask(stationId, taskId, StationTaskStatus.failed);
         await _persist();
-        return true;
+        return (ended: true, lastHandle: null, lastAnswer: null);
       }
 
       _updateTask(
@@ -979,13 +989,17 @@ class StationsViewModel extends ViewModel<StationsState> {
         );
         _finishTask(stationId, taskId, StationTaskStatus.failed);
         await _persist();
-        return true;
+        return (ended: true, lastHandle: null, lastAnswer: null);
       }
 
       previousHandle = member.name;
       previousAnswer = outcome.answer;
     }
-    return false;
+    return (
+      ended: false,
+      lastHandle: previousHandle,
+      lastAnswer: previousAnswer,
+    );
   }
 
   /// A step that blows up must still end the run. Without this the loop
@@ -1840,8 +1854,52 @@ class StationsViewModel extends ViewModel<StationsState> {
         turnId: turnId,
         depth: depth,
       );
+    } else {
+      _noteUndeliverableMentions(
+        stationId: stationId,
+        taskId: taskId,
+        author: member,
+        text: answer.toString(),
+      );
     }
     return outcome;
+  }
+
+  /// Un turno que no puede abrir consultas pero termina mencionando a un
+  /// compañero deja una pregunta colgada que NADIE va a contestar — y el
+  /// usuario esperando una respuesta que no llega. Se dice en el momento,
+  /// con la salida real: el cierre contra el plan o el próximo ciclo.
+  void _noteUndeliverableMentions({
+    required String stationId,
+    required String taskId,
+    required AgentProfile author,
+    required String text,
+  }) {
+    final station = _stationById(stationId);
+    if (station == null) return;
+    final members = membersOf(station, task: _taskById(station, taskId));
+    final mentioned = <String>{};
+    for (final match in _mentionPattern.allMatches(stripCodeSpans(text))) {
+      final handle = match.group(1);
+      if (handle == null || handle == author.name) continue;
+      if (members.any((member) => member.name == handle)) {
+        mentioned.add(handle);
+      }
+    }
+    if (mentioned.isEmpty) return;
+    _appendMessage(
+      stationId,
+      taskId,
+      ChatMessage(
+        role: ChatRole.system,
+        text:
+            'La mención a ${mentioned.map((handle) => '@$handle').join(', ')} '
+            'no dispara un turno acá: este turno no puede abrir consultas. '
+            'Lo que quedó pendiente lo toma la verificación del cierre o el '
+            'próximo ciclo — o respondelo vos con un mensaje.',
+        timestamp: DateTime.now(),
+      ),
+    );
   }
 
   /// Registers every agent [author] declared in [text] and adds it to the
@@ -2196,10 +2254,19 @@ class StationsViewModel extends ViewModel<StationsState> {
   }
 
   /// Lo que recibe quien cierra la tarea con puntos del plan sin cumplir.
+  /// Lleva el remate del último paso: una decisión pendiente nombrada al
+  /// final del ciclo tiene que llegarle al verificador sola, no vía usuario.
   String _planCheckPrompt(
     List<TaskPlanItem> pendientes, {
     required bool hasPlanTools,
+    String? lastHandle,
+    String? lastAnswer,
   }) {
+    final remate = (lastHandle == null || (lastAnswer ?? '').trim().isEmpty)
+        ? ''
+        : 'Lo último que dejó dicho @$lastHandle al cerrar el último paso — '
+              'si nombra una decisión que te corresponde, tomala acá y '
+              'reflejala en el plan:\n${_handoffExcerpt(lastAnswer!)}\n\n';
     final marcar = hasPlanTools
         ? 'marcalo con `complete_plan_items` copiando su texto'
         : 'marcalo dejando un bloque ```cumplido con `puntos:` y su texto, '
@@ -2207,8 +2274,8 @@ class StationsViewModel extends ViewModel<StationsState> {
     final sacar = hasPlanTools
         ? 'sacalo reescribiendo el plan entero con `set_task_plan`'
         : 'sacalo reescribiendo el plan entero con un bloque ```plan';
-    return 'Los pasos del workflow terminaron, pero el plan de esta tarea '
-        'tiene estos puntos SIN CUMPLIR:\n'
+    return '${remate}Los pasos del workflow terminaron, pero el plan de esta '
+        'tarea tiene estos puntos SIN CUMPLIR:\n'
         '${pendientes.map((item) => '- ${item.text}').join('\n')}\n\n'
         'Verificá cada uno CONTRA EL CÓDIGO, no contra lo que se dijo en el '
         'hilo: abrí los archivos y corré lo que haga falta para comprobarlo. '

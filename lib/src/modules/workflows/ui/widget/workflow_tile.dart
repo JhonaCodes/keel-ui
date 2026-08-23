@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:keel_ui/src/integrations/catalog_bundle/catalog_bundle.dart';
 import 'package:keel_ui/src/modules/workflows/model/workflow.dart';
 import 'package:keel_ui/src/modules/workflows/viewmodel/workflows_viewmodel.dart';
 import 'package:keel_ui/src/modules/workflows/ui/screen/workflow_form_screen.dart';
@@ -82,6 +83,15 @@ class WorkflowTile extends StatelessWidget {
             tooltip: 'Editar',
             icon: const Icon(Icons.edit_outlined),
             onPressed: () => openWorkflowFormScreen(context, initial: workflow),
+          ),
+          IconButton(
+            tooltip: 'Exportar como paquete',
+            icon: const Icon(Icons.inventory_2_outlined),
+            onPressed: () => openBundleExportPanel(
+              context,
+              BundleKind.workflow,
+              workflow.name,
+            ),
           ),
           IconButton(
             tooltip: 'Eliminar',

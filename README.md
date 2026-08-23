@@ -182,6 +182,12 @@ forma de que el menú marque una cosa y el centro muestre otra
 Todo formulario abre como panel deslizante a la derecha; `showDialog` queda
 para lo informativo y para el sí/no.
 
+Un agente, un workflow o una skill se **empaquetan en un zip** con todo lo
+que necesitan y se instalan del otro lado en un paso. Lo que entra se revisa
+antes —comandos, rutas personales de otro, inyección de prompt, texto
+invisible— y nada se instala sin que se haya listado qué corre y a dónde
+escribe ([F33](docs/features/33-paquetes.md)).
+
 ## Un ejemplo de punta a punta
 
 1. Registrás dos agentes: `@flutter-expert` (rol `implementador`) y

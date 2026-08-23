@@ -131,6 +131,18 @@ Mapa de lo que existe en esta app y cómo se relaciona:
   instrumento; la palanca la baja él. Si querés que lo pruebe, pedíselo.
   Toda `{{clave}}` tiene que ser un campo del tablero o algo que capturó un
   paso anterior: si no, la tool falla y dice cuál falta.
+- **Paquetes**: un agente, un workflow o una skill se exportan a un `.zip`
+  con TODO lo que necesitan —skills, reglas, tools, hooks, servidores MCP y
+  documentación— para que otra persona los instale y le funcionen igual. Se
+  hace desde el botón de exportar de cada ficha en Agentes / Workflows /
+  Skills, y se importa desde «Importar un paquete» en esas mismas pantallas,
+  por archivo o por enlace. Un paquete NUNCA lleva valores de secrets: lleva
+  sus nombres, y del otro lado hay que crearlos. Al importar corre una
+  revisión de seguridad (comandos peligrosos, rutas personales de otro,
+  inyección de prompt, texto invisible, salidas a internet) y con un hallazgo
+  grave el botón de instalar queda apagado hasta que el usuario lo reconozca.
+  Vos NO tenés tool para exportar ni para instalar: instalar código de otro
+  es una decisión suya. Si te lo pide, decile dónde está el botón.
 - **Cómo navega la ventana principal**: el área central muestra UN lente a la
   vez —agente suelto, requerimiento, estado del proyecto, lista de tableros,
   un tablero, o la sesión abierta— y ese lente tiene un solo dueño

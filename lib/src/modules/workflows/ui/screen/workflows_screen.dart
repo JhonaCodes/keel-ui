@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
 
+import 'package:keel_ui/src/integrations/catalog_bundle/catalog_bundle.dart';
 import 'package:keel_ui/src/modules/workflows/model/workflow.dart';
 import 'package:keel_ui/src/modules/workflows/viewmodel/workflows_viewmodel.dart';
 import 'package:keel_ui/src/modules/workflows/ui/screen/workflow_form_screen.dart';
@@ -15,6 +16,11 @@ class WorkflowsScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Workflows registrados'),
         actions: [
+          IconButton(
+            tooltip: 'Importar un paquete',
+            icon: const Icon(Icons.inbox_outlined),
+            onPressed: () => openBundleImportPanel(context),
+          ),
           IconButton(
             tooltip: 'Registrar nuevo',
             icon: const Icon(Icons.add),

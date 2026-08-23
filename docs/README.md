@@ -59,6 +59,7 @@ completo; esto es el detalle.
 |---|---|
 | [F20](features/20-respaldo-en-un-archivo.md) | Respaldo en un archivo |
 | [F21](features/21-vault-del-sistema.md) | El vault del sistema |
+| [F33](features/33-paquetes.md) | Paquetes: compartir un agente entero |
 | [F12](features/12-jobs-api.md) | API local de trabajos programados |
 | [F27](features/27-arranque-y-espera.md) | El arranque, y decir que estás esperando |
 | [F30](features/30-maquina.md) | Servicios, consumo y fierro |

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:keel_ui/src/integrations/catalog_bundle/catalog_bundle.dart';
 import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
 import 'package:keel_ui/src/modules/agent_profiles/viewmodel/agent_profiles_viewmodel.dart';
 import 'package:keel_ui/src/modules/agent_profiles/ui/screen/agent_profile_form_screen.dart';
@@ -107,6 +108,12 @@ class AgentProfileTile extends StatelessWidget {
             icon: const Icon(Icons.edit_outlined),
             onPressed: () =>
                 openAgentProfileFormScreen(context, initial: profile),
+          ),
+          IconButton(
+            tooltip: 'Exportar como paquete',
+            icon: const Icon(Icons.inventory_2_outlined),
+            onPressed: () =>
+                openBundleExportPanel(context, BundleKind.agent, profile.name),
           ),
           IconButton(
             tooltip: 'Eliminar',

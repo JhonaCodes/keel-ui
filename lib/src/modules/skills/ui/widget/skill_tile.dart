@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:keel_ui/src/integrations/catalog_bundle/catalog_bundle.dart';
 import 'package:keel_ui/src/modules/skills/model/skill.dart';
 import 'package:keel_ui/src/modules/skills/viewmodel/skills_viewmodel.dart';
 import 'package:keel_ui/src/modules/skills/ui/screen/skill_form_screen.dart';
@@ -61,6 +62,12 @@ class SkillTile extends StatelessWidget {
             tooltip: 'Editar',
             icon: const Icon(Icons.edit_outlined),
             onPressed: () => openSkillFormScreen(context, initial: skill),
+          ),
+          IconButton(
+            tooltip: 'Exportar como paquete',
+            icon: const Icon(Icons.inventory_2_outlined),
+            onPressed: () =>
+                openBundleExportPanel(context, BundleKind.skill, skill.name),
           ),
           IconButton(
             tooltip: 'Eliminar',

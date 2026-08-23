@@ -4,6 +4,7 @@ import 'package:reactive_notifier/reactive_notifier.dart';
 import 'package:keel_ui/src/integrations/prompt_insights/prompt_insights.dart';
 import 'package:keel_ui/src/modules/skills/model/skill.dart';
 import 'package:keel_ui/src/modules/skills/viewmodel/skills_viewmodel.dart';
+import 'package:keel_ui/src/integrations/catalog_bundle/catalog_bundle.dart';
 import 'package:keel_ui/src/modules/skills/ui/screen/skill_form_screen.dart';
 import 'package:keel_ui/src/modules/skills/ui/widget/skill_tile.dart';
 
@@ -16,6 +17,11 @@ class SkillsScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Skills registrados'),
         actions: [
+          IconButton(
+            tooltip: 'Importar un paquete',
+            icon: const Icon(Icons.inbox_outlined),
+            onPressed: () => openBundleImportPanel(context),
+          ),
           IconButton(
             tooltip: 'Registrar nuevo',
             icon: const Icon(Icons.add),

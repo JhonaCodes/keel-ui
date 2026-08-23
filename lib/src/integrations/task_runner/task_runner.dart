@@ -1,27 +1,18 @@
 library;
 
 import 'dart:async';
-import 'dart:convert';
-import 'dart:io';
 import 'dart:isolate';
 
 import 'package:logger_rs/logger_rs.dart';
 
-// The one thing this library does not re-declare: the permission list. Two
-// copies of "what an agent is allowed to touch" drifting apart is exactly the
-// kind of divergence that must not happen silently.
-import 'package:keel_ui/src/core/services/claude_stream_events.dart';
-import 'package:keel_ui/src/core/services/cli_turn_workspace.dart';
-import 'package:keel_ui/src/core/services/cli_turn_contract.dart';
+// El isolate no arma argumentos de CLI ni parsea stdout: eso vive detrás del
+// LlmRunner que le toque al proveedor — ver arquitectura-llm-providers.
+import 'package:keel_ui/src/integrations/llm/llm.dart';
+import 'package:keel_ui/src/integrations/llm/src/llm_dispatcher.dart';
 // El PATH del usuario se resuelve del lado del isolate principal y viaja
 // en el bootstrap: leerlo cuesta abrir un shell de login, y el isolate
 // del turno es nuevo en cada corrida.
 import 'package:keel_ui/src/core/services/user_shell_path.dart';
-// Same reason: which model names belong to which CLI is decided in ONE
-// place, so a project turn cannot hand codex a Claude alias the 1:1 path
-// already knows to withhold.
-import 'package:keel_ui/src/modules/agents/model/agent_model_option.dart'
-    show codexModelArgument;
 
 part 'src/task_event.dart';
 part 'src/task_run.dart';

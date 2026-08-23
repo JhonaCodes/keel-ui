@@ -183,6 +183,7 @@ class _RailButton extends StatelessWidget {
     required this.icon,
     required this.onPressed,
     this.tooltip,
+    this.busy = false,
   });
 
   final String label;
@@ -190,9 +191,14 @@ class _RailButton extends StatelessWidget {
   final VoidCallback onPressed;
   final String? tooltip;
 
+  /// Que ESTE botón esté haciendo algo. Se dice acá y no atenuando la app:
+  /// el aviso vive donde vive la cosa que está trabajando.
+  final bool busy;
+
   @override
   Widget build(BuildContext context) {
-    final foreground = Theme.of(context).colorScheme.onSurfaceVariant;
+    final scheme = Theme.of(context).colorScheme;
+    final foreground = busy ? scheme.primary : scheme.onSurfaceVariant;
 
     return Tooltip(
       message: tooltip ?? label,
@@ -204,7 +210,15 @@ class _RailButton extends StatelessWidget {
           child: Column(
             children: [
               Icon(icon, size: 20, color: foreground),
-              const SizedBox(height: 3),
+              // La barrita ocupa el hueco que ya había entre el icono y la
+              // etiqueta: aparece y desaparece sin mover un píxel del riel.
+              SizedBox(
+                height: 3,
+                width: 26,
+                child: busy
+                    ? const LinearProgressIndicator(minHeight: 2)
+                    : null,
+              ),
               Text(
                 label,
                 maxLines: 1,
@@ -240,12 +254,17 @@ class _VaultRailButton extends StatelessWidget {
           alignment: Alignment.topRight,
           children: [
             _RailButton(
-              label: 'Respaldo',
+              label: vault.busy ? 'Respaldando' : 'Respaldo',
               icon: Icons.backup_outlined,
-              tooltip: warning ?? 'Respaldo al día y subido al remoto',
+              busy: vault.busy,
+              tooltip: vault.busy
+                  ? 'Escribiendo el respaldo, sin frenarte'
+                  : (warning ?? 'Respaldo al día y subido al remoto'),
               onPressed: onPressed,
             ),
-            if (warning != null)
+            // Mientras corre no se muestra: el aviso habla del estado
+            // ANTERIOR y todavía no se recalculó.
+            if (warning != null && !vault.busy)
               Positioned(
                 right: 6,
                 top: 4,

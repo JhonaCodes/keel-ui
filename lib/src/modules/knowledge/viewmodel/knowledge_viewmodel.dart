@@ -478,8 +478,12 @@ class KnowledgeViewModel extends ViewModel<KnowledgeState> {
 
   /// Actualiza una base git (clone o pull) y la reindexa. Una base local no
   /// tiene nada que sincronizar: se reindexa y ya.
-  Future<String> syncBase(String id) => AppStatusService.instance.notifier
-      .during('Actualizando una base de saber', () => _syncBase(id));
+  Future<String> syncBase(String id) =>
+      AppStatusService.instance.notifier
+      // Avisa, no bloquea: traer un `git pull` y rearmar un índice no pisa
+      // nada de lo que estés haciendo, y atenuar la app por eso enseña a
+      // ignorar el aviso justo cuando sí importa —restaurar un respaldo.
+      .inBackground('Actualizando una base de saber', () => _syncBase(id));
 
   Future<String> _syncBase(String id) async {
     final base = baseById(id);

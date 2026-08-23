@@ -17,30 +17,46 @@ class AppStatusViewModel extends ViewModel<AppStatusState> {
   /// Es el único punto de entrada a propósito: el `finally` garantiza que
   /// una tarea que explota no deje la app oscurecida para siempre, que es el
   /// modo de falla de todo indicador global hecho a mano.
-  Future<T> during<T>(String label, Future<T> Function() work) async {
-    _begin(label);
+  Future<T> during<T>(String label, Future<T> Function() work) =>
+      _track(label, work, blocking: true);
+
+  /// Corre [work] avisando, sin atenuar ni tragarse los clicks.
+  ///
+  /// Para lo que no te pisa: un respaldo automático, un índice que se
+  /// refresca. Bloquear la app por algo que no compite con lo que estás
+  /// haciendo es una interrupción sin razón, y encima enseña a ignorar el
+  /// aviso cuando SÍ importa.
+  Future<T> inBackground<T>(String label, Future<T> Function() work) =>
+      _track(label, work, blocking: false);
+
+  Future<T> _track<T>(
+    String label,
+    Future<T> Function() work, {
+    required bool blocking,
+  }) async {
+    _bump(label, blocking: blocking, by: 1);
     try {
       return await work();
     } finally {
-      _end(label);
+      _bump(label, blocking: blocking, by: -1);
     }
   }
 
-  void _begin(String label) {
-    final running = Map<String, int>.from(data.running);
-    running.update(label, (count) => count + 1, ifAbsent: () => 1);
-    updateState(data.copyWith(running: running));
-  }
-
-  void _end(String label) {
-    final running = Map<String, int>.from(data.running);
-    final left = (running[label] ?? 1) - 1;
+  void _bump(String label, {required bool blocking, required int by}) {
+    final counts = Map<String, int>.from(
+      blocking ? data.running : data.background,
+    );
+    final left = (counts[label] ?? 0) + by;
     if (left <= 0) {
-      running.remove(label);
+      counts.remove(label);
     } else {
-      running[label] = left;
+      counts[label] = left;
     }
-    updateState(data.copyWith(running: running));
+    updateState(
+      blocking
+          ? data.copyWith(running: counts)
+          : data.copyWith(background: counts),
+    );
   }
 }
 

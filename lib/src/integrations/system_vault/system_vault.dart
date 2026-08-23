@@ -17,6 +17,7 @@ library;
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 import 'dart:typed_data';
 // `AppExitResponse` vive en dart:ui; material no lo reexporta.
 import 'dart:ui' show AppExitResponse;

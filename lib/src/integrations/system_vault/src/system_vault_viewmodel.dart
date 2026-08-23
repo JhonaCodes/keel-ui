@@ -198,8 +198,13 @@ class SystemVaultViewModel extends ViewModel<SystemVaultState> {
 
   /// Escribe `keel-backup.zip` en el vault y llega hasta donde diga [reach].
   /// Devuelve el resumen (también queda en [SystemVaultState.log]).
+  ///
+  /// **No atenúa la app.** Respaldar no pisa nada de lo que estés haciendo:
+  /// junta una foto de lo que ya está en memoria y escribe un archivo. Se
+  /// avisa —la franja de arriba y el icono del riel—, no se bloquea. Lo que
+  /// sí bloquea es RESTAURAR, que reemplaza el sistema abajo tuyo.
   Future<String> backup({VaultReach reach = VaultReach.write}) =>
-      AppStatusService.instance.notifier.during(
+      AppStatusService.instance.notifier.inBackground(
         'Respaldando el sistema',
         () => _backup(reach),
       );
@@ -216,18 +221,20 @@ class SystemVaultViewModel extends ViewModel<SystemVaultState> {
       throw _VaultException('La carpeta del vault no existe: $dir');
     }
 
-    final (contents, skipped) = _collectContents();
-    final bytes = encodeVault(contents);
-    await File('$dir/$kVaultBackupFileName').writeAsBytes(bytes);
+    // A OTRO isolate. Recorrer las carpetas de saber, leer cada archivo y
+    // comprimir es medio segundo con pocas bases y varios con muchas; acá
+    // adentro eso era un freeze de la app entera cada quince minutos.
+    final job = _jobFor(dir);
+    final written = await Isolate.run(() => writeVaultArchive(job));
 
     final parts = [
-      'Respaldé ${contents.catalogCount} elementos, '
-          '${contents.secrets.length} secrets por nombre'
-          '${contents.documentCount == 0 ? '' : ' y ${contents.documentCount} documentos'}'
-          ' (${(bytes.length / 1024).round()} KB).',
-      if (skipped.isNotEmpty)
+      'Respaldé ${written.catalogCount} elementos, '
+          '${written.secretCount} secrets por nombre'
+          '${written.documentCount == 0 ? '' : ' y ${written.documentCount} documentos'}'
+          ' (${(written.byteLength / 1024).round()} KB).',
+      if (written.skipped.isNotEmpty)
         'Afuera por tamaño (más de ${kMaxVaultDocBytes ~/ (1024 * 1024)} MB): '
-            '${skipped.join(', ')}.',
+            '${written.skipped.join(', ')}.',
     ];
 
     // El botón "Respaldar" dice eso y hace eso: commitear el repo del
@@ -271,23 +278,13 @@ class SystemVaultViewModel extends ViewModel<SystemVaultState> {
     return parts.join('\n');
   });
 
-  /// Lo que va al zip, más los documentos que quedaron afuera por tamaño.
-  (VaultContents, List<String>) _collectContents() {
-    final skipped = <String>[];
-    final knowledgeDocs = <String, Map<String, Uint8List>>{};
-
-    for (final base in KnowledgeService.instance.notifier.data.bases) {
-      // Una base git se recupera clonando, y una que vive DENTRO del vault
-      // ya está en el repo en claro: meterla al zip la duplicaría y haría
-      // que el binario cambie cada vez que se edita un markdown.
-      if (base.source != KnowledgeSource.local) continue;
-      if (vaultRelativeOf(base.localPath) != null) continue;
-
-      final files = _readBaseDocuments(base, skipped);
-      if (files.isNotEmpty) knowledgeDocs[base.name] = files;
-    }
-
-    final contents = VaultContents(
+  /// El encargo que se manda al otro isolate.
+  ///
+  /// Todo lo que hay acá se lee de memoria y es barato. Lo que cuesta —abrir
+  /// carpetas, leer bytes, comprimir— queda del otro lado.
+  VaultJob _jobFor(String dir) {
+    return VaultJob(
+      destinationPath: '$dir/$kVaultBackupFileName',
       catalog: catalogAsJson(),
       settings: vaultSettingsOf(SettingsService.instance.notifier.data),
       secrets: [
@@ -296,35 +293,16 @@ class SystemVaultViewModel extends ViewModel<SystemVaultState> {
         for (final secret in SecretsService.instance.notifier.data.secrets)
           {'name': secret.name, 'description': secret.description},
       ],
-      knowledgeDocs: knowledgeDocs,
+      knowledgeRoots: {
+        for (final base in KnowledgeService.instance.notifier.data.bases)
+          // Una base git se recupera clonando, y una que vive DENTRO del
+          // vault ya está en el repo en claro: meterla al zip la duplicaría
+          // y haría que el binario cambie cada vez que se edita un markdown.
+          if (base.source == KnowledgeSource.local &&
+              vaultRelativeOf(base.localPath) == null)
+            base.name: base.localPath,
+      },
     );
-    return (contents, skipped);
-  }
-
-  Map<String, Uint8List> _readBaseDocuments(
-    KnowledgeBase base,
-    List<String> skipped,
-  ) {
-    final root = base.localPath.trim();
-    final files = <String, Uint8List>{};
-    if (root.isEmpty) return files;
-
-    final dir = Directory(root);
-    if (!dir.existsSync()) return files;
-
-    final prefix = root.endsWith('/') ? root : '$root/';
-    for (final entity in dir.listSync(recursive: true, followLinks: false)) {
-      if (entity is! File || !entity.path.startsWith(prefix)) continue;
-      final relative = entity.path.substring(prefix.length);
-      // Ocultos (.git y compañía) afuera, igual que del índice de saber.
-      if (relative.startsWith('.') || relative.contains('/.')) continue;
-      if (entity.lengthSync() > kMaxVaultDocBytes) {
-        skipped.add('${base.name}/$relative');
-        continue;
-      }
-      files[relative] = entity.readAsBytesSync();
-    }
-    return files;
   }
 
   // ── restaurar ───────────────────────────────────────────────────────

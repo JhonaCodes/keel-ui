@@ -198,3 +198,102 @@ Object? _decodeJson(Uint8List? bytes, String path) {
     throw VaultFormatException('$path del respaldo está roto: $error');
   }
 }
+
+/// Lo que hay que ir a buscar al disco para armar un respaldo, y dónde
+/// dejarlo.
+///
+/// Se arma en el isolate de la UI —es leer memoria y nada más— y se manda
+/// entero a otro, porque lo caro no es decidir qué respaldar: es recorrer las
+/// carpetas de saber, leer cada archivo y comprimir con la mejor compresión.
+/// Eso, en el hilo de la interfaz, es un freeze de varios segundos cada
+/// quince minutos, que es exactamente lo que no puede pasar mientras alguien
+/// está escribiendo.
+class VaultJob {
+  final String destinationPath;
+  final Map<String, List<Map<String, dynamic>>> catalog;
+  final Map<String, dynamic> settings;
+  final List<Map<String, dynamic>> secrets;
+
+  /// Nombre de la base → carpeta local. Solo las que hay que copiar: las que
+  /// se recuperan clonando y las que ya viven adentro del vault no entran.
+  final Map<String, String> knowledgeRoots;
+
+  const VaultJob({
+    required this.destinationPath,
+    this.catalog = const {},
+    this.settings = const {},
+    this.secrets = const [],
+    this.knowledgeRoots = const {},
+  });
+}
+
+/// Lo que quedó escrito, para poder contarlo sin volver a abrir el zip.
+typedef VaultWritten = ({
+  int byteLength,
+  int catalogCount,
+  int secretCount,
+  int documentCount,
+  List<String> skipped,
+});
+
+/// Arma el zip y lo escribe. **Corre en otro isolate** — ver [VaultJob].
+///
+/// Es de nivel superior y no un método a propósito: lo que se manda a un
+/// isolate no puede arrastrar un `this` con notifiers adentro.
+VaultWritten writeVaultArchive(VaultJob job) {
+  final skipped = <String>[];
+  final knowledgeDocs = <String, Map<String, Uint8List>>{};
+
+  for (final base in job.knowledgeRoots.entries) {
+    final files = readVaultDocuments(base.key, base.value, skipped);
+    if (files.isNotEmpty) knowledgeDocs[base.key] = files;
+  }
+
+  final contents = VaultContents(
+    catalog: job.catalog,
+    settings: job.settings,
+    secrets: job.secrets,
+    knowledgeDocs: knowledgeDocs,
+  );
+  final bytes = encodeVault(contents);
+  File(job.destinationPath).writeAsBytesSync(bytes);
+
+  return (
+    byteLength: bytes.length,
+    catalogCount: contents.catalogCount,
+    secretCount: contents.secrets.length,
+    documentCount: contents.documentCount,
+    skipped: skipped,
+  );
+}
+
+/// Los documentos de una base local, listos para el zip.
+///
+/// Lo que se saltea por tamaño se NOMBRA en [skipped]: un tope silencioso se
+/// leería como «guardé todo» sin haberlo hecho.
+Map<String, Uint8List> readVaultDocuments(
+  String baseName,
+  String root,
+  List<String> skipped,
+) {
+  final files = <String, Uint8List>{};
+  final trimmed = root.trim();
+  if (trimmed.isEmpty) return files;
+
+  final dir = Directory(trimmed);
+  if (!dir.existsSync()) return files;
+
+  final prefix = trimmed.endsWith('/') ? trimmed : '$trimmed/';
+  for (final entity in dir.listSync(recursive: true, followLinks: false)) {
+    if (entity is! File || !entity.path.startsWith(prefix)) continue;
+    final relative = entity.path.substring(prefix.length);
+    // Ocultos (.git y compañía) afuera, igual que del índice de saber.
+    if (relative.startsWith('.') || relative.contains('/.')) continue;
+    if (entity.lengthSync() > kMaxVaultDocBytes) {
+      skipped.add('$baseName/$relative');
+      continue;
+    }
+    files[relative] = entity.readAsBytesSync();
+  }
+  return files;
+}

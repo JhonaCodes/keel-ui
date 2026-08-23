@@ -55,20 +55,31 @@ class CatalogEntryCard extends StatelessWidget {
                   children: [
                     Text(
                       entry.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.bodyMedium?.copyWith(
                         fontWeight: FontWeight.w600,
                       ),
                     ),
                     const SizedBox(height: 1),
-                    Text(
-                      entry.tagline,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: scheme.onSurfaceVariant,
+                    // El tagline se lleva lo que sobra en vez de medir fijo.
+                    // Con alto fijo, un tagline de dos líneas desbordaba por
+                    // un pixel — y subir el número solo mueve el problema al
+                    // primer texto un poco más largo.
+                    Expanded(
+                      child: Align(
+                        alignment: Alignment.topLeft,
+                        child: Text(
+                          entry.tagline,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                          ),
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 4),
                     Text(
                       '$transport · $auth'.toUpperCase(),
                       maxLines: 1,

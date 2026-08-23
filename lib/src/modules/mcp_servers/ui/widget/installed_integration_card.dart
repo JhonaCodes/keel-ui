@@ -81,6 +81,7 @@ class InstalledIntegrationCard extends StatelessWidget {
             IntegrationGlyph.forName(server.name),
           const SizedBox(width: 11),
           Expanded(
+            flex: 3,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -119,8 +120,11 @@ class InstalledIntegrationCard extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 260),
+          // Flexible y no un ancho máximo: el panel se achica con la ventana,
+          // y un bloque de 260 fijos al lado de tres botones desbordaba la
+          // fila antes de que el nombre tuviera oportunidad de encogerse.
+          Expanded(
+            flex: 2,
             child: ProbeStatus(result: probe, probing: probing),
           ),
           const SizedBox(width: 8),

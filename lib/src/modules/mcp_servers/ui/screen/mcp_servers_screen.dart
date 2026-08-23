@@ -94,7 +94,9 @@ class _CatalogGrid extends StatelessWidget {
       padding: EdgeInsets.zero,
       gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
         maxCrossAxisExtent: 280,
-        mainAxisExtent: 96,
+        // Dos líneas de tagline entran cómodas; con más, la tarjeta corta
+        // con puntos suspensivos en vez de crecer y desalinear la grilla.
+        mainAxisExtent: 102,
         crossAxisSpacing: 9,
         mainAxisSpacing: 9,
       ),

@@ -103,6 +103,21 @@ Session _session({
   currentStepIndex: currentStepIndex,
 );
 
+ChatMessage _said(
+  String author,
+  String text, {
+  int? step,
+  String? consultOf,
+}) => ChatMessage(
+  role: ChatRole.assistant,
+  text: text,
+  timestamp: _epoch,
+  authorProfileId: author,
+  stepIndex: step,
+  consultOfProfileId: consultOf,
+  durationMs: 9000,
+);
+
 void main() {
   group('el lienzo se dibuja entero y sin desbordes', () {
     testWidgets('en reposo, con los ocho pasos puestos', (tester) async {
@@ -228,6 +243,57 @@ void main() {
       await tester.tap(find.text('Leyenda'));
       await tester.pump();
       expect(find.byType(MapLegend), findsNothing);
+    });
+  });
+
+  group('el cuadro de una consulta', () {
+    /// El paso 2 le pregunta al paso 1 y el paso 1 contesta.
+    Session conConsulta() => _session(
+      currentStepIndex: 2,
+      messages: [
+        _said('planificador', 'El charter quedó cerrado.', step: 0),
+        _said(
+          'flutter-expert',
+          'Rojo puesto. @planificador ¿el contrato de bid lleva version?',
+          step: 1,
+        ),
+        _said(
+          'planificador',
+          'Sin version. Va en el header del canal y eso ya estaba decidido '
+              'desde el charter.',
+          consultOf: 'flutter-expert',
+        ),
+      ],
+    );
+
+    testWidgets('dice quién habló con quién, entero', (tester) async {
+      await tester.pumpWidget(_app(session: conConsulta()));
+      await tester.pump();
+
+      // Sin cortar: un encabezado a la mitad no dice el par, que es lo único
+      // que aporta.
+      expect(
+        find.text('PLANIFICADOR → FLUTTER-EXPERT'),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('tocarlo abre la ficha del que contestó', (tester) async {
+      await tester.pumpWidget(_app(session: conConsulta()));
+      await tester.pump();
+
+      await tester.tap(find.text('PLANIFICADOR → FLUTTER-EXPERT'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      // El cuadro muestra la primera frase; la ficha, la ida y la vuelta.
+      expect(find.text('LE CONSULTARON'), findsOneWidget);
+      expect(
+        find.textContaining('¿el contrato de bid lleva version?'),
+        findsWidgets,
+      );
+      expect(find.text('Escribile a @planificador…'), findsOneWidget);
     });
   });
 

@@ -138,16 +138,39 @@ terminada eso deja el mapa sin decir nunca qué se preguntaron, que es
 exactamente lo que uno viene a buscar. Cerrado, el cuadro y sus dos líneas
 van al 45 %, y así el recorrido de avance sigue siendo lo primero que se ve.
 
-Cada par tiene **su propio corredor**: una franja horizontal con su cuadro
-encima, la ida arriba y la vuelta nueve puntos más abajo, como dos rieles.
-Dos pares cuyos tramos no se tocan comparten corredor —no esconde nada y
-ahorra una fila—; los que se cruzarían, no. Y si dos consultas tocan el mismo
-nodo, cada una sale por **su punto** del borde de arriba, repartidos a lo
-ancho: saliendo todas del centro se superponían desde el arranque.
+Cada par tiene **su propio corredor**: la ida y la vuelta, dos rieles a nueve
+puntos uno del otro. Dos pares cuyos tramos no se tocan comparten corredor
+—no esconde nada y ahorra una fila—; los que se cruzarían, no. Y si dos
+consultas tocan el mismo nodo, cada una sale por **su punto** del borde de
+arriba, repartidos a lo ancho: saliendo todas del centro se superponían desde
+el arranque.
 
-Las anteriores del par se leen enteras entrando al nodo: el `↩ N` del pie se
-toca y abre la sección **le consultaron**, con cada pregunta y su respuesta en
-orden. Un número que no se puede abrir es un número que no dice nada.
+### El cuadro se para EN el camino, no encima
+
+```
+   ┌──────── i18n-traductor → i18n-integrador ────────┐
+═══┤ Confirmo la tabla: mi paso (5, punto de integr…  ├═══
+   └──────────────────────────────────────────────────┘
+```
+
+El cuadro va **en el medio de la ida y la vuelta**: los dos rieles abrazan su
+centro, el fondo es opaco y las líneas entran por un costado y salen por el
+otro. Antes flotaba arriba y la línea le pasaba por debajo, y eso son dos
+cosas separadas que hay que unir con la vista; así son una sola, con lo que se
+dijeron puesto en el medio del camino.
+
+Es un rótulo, no una tarjeta: 216 × 50, dos líneas de texto de diez puntos y
+un encabezado de ocho. El encabezado entra entero incluso con dos handles
+largos —cortado a la mitad no dice el par, que es lo único que aporta— y el
+alto es **fijo**, porque taparle los rieles es su trabajo y un cuadro que
+crece con el texto los dejaría asomando en unos y en otros no.
+
+### Y se toca
+
+El cuadro muestra la primera frase; tocarlo abre la ficha **del que contestó**
+—la sección **le consultaron**, con cada pregunta y su respuesta en orden—,
+que es donde vive el intercambio entero. Lo mismo hace el `↩ N` del pie del
+nodo. Un cuadro recortado que no se puede abrir es una promesa a medias.
 
 ## El carril de abajo
 

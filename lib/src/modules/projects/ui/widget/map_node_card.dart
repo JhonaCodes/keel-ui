@@ -219,38 +219,55 @@ class _Foot extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     return Row(
       children: [
-        if (node.stepIndex case final step?)
-          _Chip(label: 'paso ${step + 1}')
-        else if (node.kind == MapNodeKind.subagent)
-          _Chip(label: 'subagente'),
-        if (node.elapsed > Duration.zero) ...[
-          const SizedBox(width: 8),
-          _Count(icon: Icons.schedule, label: _clock(node.elapsed)),
-        ],
-        if (node.backCalls > 0) ...[
-          const SizedBox(width: 8),
-          _Count(
-            icon: Icons.reply,
-            label: '${node.backCalls}',
-            color: kMapConsultColor,
-            // Se toca y abre las idas y vueltas, en orden. El cuadro del
-            // lienzo muestra la última; las anteriores viven acá detrás, que
-            // es lo que este número promete desde que existe.
-            onTap: onOpenConsults,
+        // Achica en vez de desbordar. Un nodo con paso, reloj, réplicas y
+        // subagentes a la vez no entra en el ancho de la cabeza, y ninguno de
+        // los cuatro sobra: preferimos leerlos un punto más chicos que
+        // perder uno.
+        Expanded(
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (node.stepIndex case final step?)
+                  _Chip(label: 'paso ${step + 1}')
+                else if (node.kind == MapNodeKind.subagent)
+                  _Chip(label: 'subagente'),
+                if (node.elapsed > Duration.zero) ...[
+                  const SizedBox(width: 8),
+                  _Count(icon: Icons.schedule, label: _clock(node.elapsed)),
+                ],
+                if (node.backCalls > 0) ...[
+                  const SizedBox(width: 8),
+                  _Count(
+                    icon: Icons.reply,
+                    label: '${node.backCalls}',
+                    color: kMapConsultColor,
+                    // Se toca y abre las idas y vueltas, en orden. El cuadro
+                    // del lienzo muestra la última; las anteriores viven acá
+                    // detrás, que es lo que este número promete desde que
+                    // existe.
+                    onTap: onOpenConsults,
+                  ),
+                ],
+                if (node.subagentCount > 0) ...[
+                  const SizedBox(width: 8),
+                  _Count(
+                    icon: Icons.account_tree_outlined,
+                    label: '${node.subagentCount}',
+                    color: kMapDelegateColor,
+                    onTap: node.hiddenSubagents > 0 ? onExpandSubagents : null,
+                  ),
+                ],
+              ],
+            ),
           ),
-        ],
-        if (node.subagentCount > 0) ...[
-          const SizedBox(width: 8),
-          _Count(
-            icon: Icons.account_tree_outlined,
-            label: '${node.subagentCount}',
-            color: kMapDelegateColor,
-            onTap: node.hiddenSubagents > 0 ? onExpandSubagents : null,
-          ),
-        ],
-        const Spacer(),
-        if (node.state == MapNodeState.done && node.reasoning.isNotEmpty)
+        ),
+        if (node.state == MapNodeState.done && node.reasoning.isNotEmpty) ...[
+          const SizedBox(width: 6),
           Icon(Icons.psychology_outlined, size: 12, color: scheme.outline),
+        ],
       ],
     );
   }

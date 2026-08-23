@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:isolate';
 
 import 'package:flutter/foundation.dart';
 import 'package:logger_rs/logger_rs.dart';
@@ -393,7 +392,7 @@ class KnowledgeViewModel extends ViewModel<KnowledgeState> {
     try {
       // A otro isolate: recorrer hasta 5000 entradas con un `stat` cada una
       // no puede pasar entre frame y frame.
-      final scan = await Isolate.run(() => scanKnowledgeTree(root));
+      final scan = await runOffThread(scanKnowledgeTree, root);
       return KnowledgeIndex(
         rootPath: root,
         nodes: scan.nodes,

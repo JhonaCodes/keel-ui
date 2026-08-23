@@ -156,7 +156,7 @@ class BundleViewModel extends ViewModel<BundleState> {
       // saber y comprimir no puede trabar lo que estás escribiendo.
       final written = await AppStatusService.instance.notifier.inBackground(
         'Armando el paquete de ${manifest.name}',
-        () => Isolate.run(() => writeBundleArchive(job)),
+        () => runOffThread(writeBundleArchive, job),
       );
       updateState(
         data.copyWith(
@@ -262,7 +262,7 @@ class BundleViewModel extends ViewModel<BundleState> {
       final bytes = await fetch();
       final review = await AppStatusService.instance.notifier.inBackground(
         'Revisando el paquete',
-        () => Isolate.run(() => inspectBundleBytes(bytes)),
+        () => runOffThread(inspectBundleBytes, bytes),
       );
       updateState(
         data.copyWith(

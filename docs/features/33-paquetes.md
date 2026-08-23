@@ -157,6 +157,20 @@ Armar el zip y revisarlo corren **en otro isolate**, como el respaldo
 compresión y pasarle veinte expresiones regulares a cada texto no es trabajo
 de entre dos cuadros.
 
+### El isolate no se llama desde adentro de un método
+
+`Isolate.run(() => f(x))` escrito adentro de un método captura el CONTEXTO de
+ese método, y en ese contexto está `this` — aunque la línea no lo nombre. Si
+ese `this` es un ViewModel, sus listeners llevan al árbol de widgets, el árbol
+tiene un `FocusNode`, y el copiado revienta con cincuenta líneas de
+`<- _child in Instance of ...` que no nombran ni una vez al culpable.
+
+Por eso los cuatro lugares que cruzan a otro isolate —el respaldo, el zip del
+paquete, la revisión y el escaneo de una base de saber— pasan por
+`shared/utils/off_thread.dart`, que es una función de nivel superior: ahí no
+hay `this` que capturar y viajan la función y su argumento, que es todo lo que
+hacía falta.
+
 ## Verificación
 
 1. Exportar un agente con hook, tool y base → el zip trae la tool del hook,

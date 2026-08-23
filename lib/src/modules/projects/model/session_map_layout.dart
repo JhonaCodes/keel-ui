@@ -29,8 +29,12 @@ class MapLayout {
 
   /// El cuadro de una réplica, arriba. Más ancho que el nodo y que su
   /// columna: el encabezado lleva los dos handles y una flecha.
-  static const calloutWidth = 240.0;
-  static const calloutHeight = 62.0;
+  ///
+  /// El alto es FIJO y el cuadro se dibuja adentro de esa caja: la geometría
+  /// de acá y lo que se pinta tienen que coincidir, porque ahora el cuadro se
+  /// para encima de sus dos rieles y taparlos es su trabajo.
+  static const calloutWidth = 216.0;
+  static const calloutHeight = 50.0;
 
   /// Lo que tiene que sobrar entre dos cosas de la misma fila para que no se
   /// lean como una sola.
@@ -55,11 +59,12 @@ class MapLayout {
   static const _topPad = 54.0;
 
   /// El alto mínimo de la banda de «vuelve», sin ningún cuadro adentro.
-  static const _minTopBand = 74.0;
+  static const _minTopBand = 66.0;
 
-  /// Lo que ocupa una fila de réplicas: su cuadro, el aire hasta el corredor,
-  /// los dos rieles y el respiro hasta la fila siguiente.
-  static const _rowPitch = calloutHeight + 12 + corridorGap + 30;
+  /// Lo que ocupa una fila de réplicas: el cuadro, y el aire hasta la
+  /// siguiente. Los dos rieles ya no suman: pasan POR DETRÁS del cuadro, así
+  /// que la fila mide lo que mide el cuadro.
+  static const _rowPitch = calloutHeight + 26;
 
   /// Del carril de avanzar al de delegar, y del de delegar a los subagentes.
   static const _rowToGuideLane = 162.0;
@@ -387,7 +392,11 @@ class MapLayout {
         calloutWidth,
         calloutHeight,
       );
-      corridors[entry.key] = top + calloutHeight + 12;
+      // Los dos rieles del par ABRAZAN el centro del cuadro, uno a cada lado.
+      // El cuadro es opaco, así que las líneas entran por un costado y salen
+      // por el otro: la ida y la vuelta se leen como un solo recorrido con el
+      // diálogo puesto en el medio, que es lo que dice el dibujo.
+      corridors[entry.key] = top + calloutHeight / 2 - corridorGap / 2;
     }
 
     final rects = <String, Rect>{};

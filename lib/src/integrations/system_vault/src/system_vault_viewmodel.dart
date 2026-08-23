@@ -225,7 +225,7 @@ class SystemVaultViewModel extends ViewModel<SystemVaultState> {
     // comprimir es medio segundo con pocas bases y varios con muchas; acá
     // adentro eso era un freeze de la app entera cada quince minutos.
     final job = _jobFor(dir);
-    final written = await Isolate.run(() => writeVaultArchive(job));
+    final written = await runOffThread(writeVaultArchive, job);
 
     final parts = [
       'Respaldé ${written.catalogCount} elementos, '

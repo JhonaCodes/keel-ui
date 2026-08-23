@@ -253,6 +253,14 @@ class MapCallout {
   /// Si todavía se está esperando la respuesta.
   final bool live;
 
+  /// El nodo que se queda con esta ida y vuelta anotada.
+  ///
+  /// Es siempre el que CONTESTA, que es donde vive la lista de consultas: con
+  /// la consulta cerrada ya habla él ([fromId]), y en vuelo todavía habla el
+  /// que preguntó, así que el que va a contestar es el otro. Tocar el cuadro
+  /// abre su ficha, y ahí está el intercambio entero.
+  String get answererId => live ? toId : fromId;
+
   /// La clave del PAR, sin dirección: la ida y la vuelta comparten cuadro.
   String get pairId {
     final ends = [fromId, toId]..sort();

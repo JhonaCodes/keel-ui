@@ -462,23 +462,27 @@ class _Quote extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final body = text.trim();
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Container(width: 2, color: color.withValues(alpha: 0.7)),
-        const SizedBox(width: 9),
-        Expanded(
-          child: SelectableText(
-            body.isEmpty ? empty : body,
-            style: TextStyle(
-              fontSize: 12.5,
-              height: 1.45,
-              fontStyle: body.isEmpty ? FontStyle.italic : null,
-              color: body.isEmpty ? scheme.outline : scheme.onSurfaceVariant,
-            ),
-          ),
+    // La barrita es un BORDE, no una columna al lado. Con `Row` +
+    // `CrossAxisAlignment.stretch` había que saber el alto de antemano, y acá
+    // adentro nadie lo sabe: la sección crece con el texto. Eso tiraba
+    // «BoxConstraints forces an infinite height» al abrir una ficha con
+    // consultas, que es justo cuando esto se mira.
+    return Container(
+      padding: const EdgeInsets.only(left: 9),
+      decoration: BoxDecoration(
+        border: Border(
+          left: BorderSide(color: color.withValues(alpha: 0.7), width: 2),
         ),
-      ],
+      ),
+      child: SelectableText(
+        body.isEmpty ? empty : body,
+        style: TextStyle(
+          fontSize: 12.5,
+          height: 1.45,
+          fontStyle: body.isEmpty ? FontStyle.italic : null,
+          color: body.isEmpty ? scheme.outline : scheme.onSurfaceVariant,
+        ),
+      ),
     );
   }
 }

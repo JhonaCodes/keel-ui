@@ -162,9 +162,11 @@ Mapa de lo que existe en esta app y cómo se relaciona:
 - **El mapa de una sesión**: la pestaña Mapa dibuja el mismo trabajo como
   recorrido —una columna por paso, los subagentes colgando abajo, las
   consultas volviendo por arriba—. Cada par que se consulta tiene su propio
-  corredor recto con un cuadro que dice qué se preguntaron y qué contestaron;
-  cerrado se apaga pero no desaparece, y el `↩ N` del pie de un nodo se toca
-  y abre todas sus idas y vueltas enteras.
+  corredor recto, y el cuadro con lo que se dijeron se para EN EL MEDIO de
+  ese camino: la ida entra por un costado del cuadro y la vuelta sale por el
+  otro. Cerrado se apaga pero no desaparece. El cuadro muestra la primera
+  frase y se TOCA: abre la ficha del que contestó, con la pregunta y la
+  respuesta enteras. Lo mismo hace el `↩ N` del pie de un nodo.
 - **Cómo navega la ventana principal**: el área central muestra UN lente a la
   vez —agente suelto, requerimiento, estado del proyecto, lista de tableros,
   un tablero, o la sesión abierta— y ese lente tiene un solo dueño

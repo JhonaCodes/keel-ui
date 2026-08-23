@@ -5,6 +5,10 @@ import 'package:flutter/material.dart';
 /// El cuadro punteado del mapa: un encabezado corto de color y dos o tres
 /// líneas de texto.
 ///
+/// Chico a propósito. Es un rótulo puesto encima del recorrido, no una
+/// tarjeta: tiene que decir de qué se habló y dejar ver el mapa. Lo entero se
+/// lee tocándolo.
+///
 /// Uno solo para los tres que hay —lo que resolvió un nodo, lo que se
 /// preguntaron dos, lo que devolvió un subagente— porque son el mismo objeto
 /// con distinto color. Tres copias con el mismo dibujo es cómo se separan sin
@@ -42,14 +46,14 @@ class MapCalloutBox extends StatelessWidget {
         fill: opaque ? scheme.surface.withValues(alpha: 0.97) : null,
       ),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(9, 7, 9, 8),
+        padding: const EdgeInsets.fromLTRB(8, 5, 8, 6),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
             Row(
               children: [
-                Icon(icon, size: 11, color: color),
+                Icon(icon, size: 10, color: color),
                 const SizedBox(width: 5),
                 Flexible(
                   child: Text(
@@ -58,22 +62,27 @@ class MapCalloutBox extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontFamily: 'monospace',
-                      fontSize: 9,
-                      letterSpacing: 1,
+                      // Ajustado para que `i18n-traductor → i18n-integrador`
+                      // —dos handles largos y una flecha— entre entero en el
+                      // ancho del cuadro. Cortado a la mitad no dice quién
+                      // habló con quién, que es todo lo que aporta.
+                      fontSize: 8,
+                      height: 1.1,
+                      letterSpacing: 0.6,
                       color: color,
                     ),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 3),
+            const SizedBox(height: 2),
             Text(
               text,
               maxLines: maxLines,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                fontSize: 11,
-                height: 1.35,
+                fontSize: 10,
+                height: 1.3,
                 color: scheme.onSurfaceVariant,
               ),
             ),

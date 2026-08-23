@@ -405,7 +405,17 @@ class _Canvas extends StatelessWidget {
             left: rect.left,
             top: rect.top,
             width: rect.width,
-            child: _ConsultCallout(callout: callout),
+            // Con alto FIJO: el cuadro se para encima de sus dos rieles y
+            // taparlos es su trabajo. Un cuadro que crece con el texto dejaría
+            // la línea asomando por abajo en unos y no en otros.
+            height: rect.height,
+            child: _ConsultCallout(
+              callout: callout,
+              onOpen: () {
+                final node = map.nodeById(callout.answererId);
+                if (node != null) onOpen(node);
+              },
+            ),
           ),
     ];
   }
@@ -418,9 +428,13 @@ class _Canvas extends StatelessWidget {
 /// aparece otro debajo — es la regla de que las consultas cambian de estado
 /// en vez de acumularse.
 class _ConsultCallout extends StatelessWidget {
-  const _ConsultCallout({required this.callout});
+  const _ConsultCallout({required this.callout, required this.onOpen});
 
   final MapCallout callout;
+
+  /// Abre la ficha del que contesta, donde está el intercambio entero. Lo que
+  /// entra en el cuadro es la primera frase: el resto se lee tocándolo.
+  final VoidCallback onOpen;
 
   @override
   Widget build(BuildContext context) {
@@ -429,13 +443,18 @@ class _ConsultCallout extends StatelessWidget {
         ? kMapConsultColor
         : scheme.outline.withValues(alpha: 0.85);
 
-    return MapCalloutBox(
-      icon: callout.live ? Icons.reply : Icons.subdirectory_arrow_left,
-      label: callout.title,
-      text: callout.text,
-      color: color,
-      maxLines: 2,
-      opaque: true,
+    return Tooltip(
+      message: 'Ver la consulta entera',
+      waitDuration: const Duration(milliseconds: 600),
+      child: MapCalloutBox(
+        icon: callout.live ? Icons.reply : Icons.subdirectory_arrow_left,
+        label: callout.title,
+        text: callout.text,
+        color: color,
+        maxLines: 2,
+        opaque: true,
+        onTap: onOpen,
+      ),
     );
   }
 }

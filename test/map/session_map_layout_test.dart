@@ -200,19 +200,53 @@ void main() {
       );
     });
 
-    test('el corredor va debajo de su cuadro y arriba de los nodos', () {
+    test('el corredor pasa POR DENTRO de su cuadro, no por debajo', () {
+      // `---[cuadro]---`: el cuadro se para encima del recorrido y lo tapa,
+      // así que la ida y la vuelta se leen como un solo camino con el diálogo
+      // puesto en el medio.
       final map = _mapOf(_dosAlMismo);
       final layout = MapLayout.of(map);
-      final callout = layout.calloutRects.values.first;
-      final ida = layout.routeOf(
-        map.edges.firstWhere((edge) => edge.kind == MapEdgeKind.back),
-      )!;
+      final ida = map.edges.firstWhere(
+        (edge) => edge.kind == MapEdgeKind.back,
+      );
+      final callout = layout.calloutRects[[
+        ida.fromId,
+        ida.toId,
+      ].join('>')]!;
       final corridor = _samples(
-        ida,
+        layout.routeOf(ida)!,
       ).map((point) => point.dy).reduce((a, b) => a < b ? a : b);
 
-      expect(corridor, greaterThan(callout.bottom));
+      expect(corridor, greaterThan(callout.top));
+      expect(corridor, lessThan(callout.bottom));
       expect(corridor, lessThan(layout.rowY));
+    });
+
+    test('la ida y la vuelta abrazan el centro del cuadro', () {
+      final map = _mapOf(_dosAlMismo);
+      final layout = MapLayout.of(map);
+      final ida = map.edges.firstWhere(
+        (edge) => edge.kind == MapEdgeKind.back,
+      );
+      final vuelta = map.edges.firstWhere(
+        (edge) =>
+            edge.kind == MapEdgeKind.answer &&
+            edge.fromId == ida.toId &&
+            edge.toId == ida.fromId,
+      );
+      final callout = layout.calloutRects[[
+        ida.fromId,
+        ida.toId,
+      ].join('>')]!;
+
+      double corridorOf(MapEdge edge) => _samples(
+        layout.routeOf(edge)!,
+      ).map((point) => point.dy).reduce((a, b) => a < b ? a : b);
+
+      final arriba = corridorOf(ida);
+      final abajo = corridorOf(vuelta);
+      expect(abajo - arriba, MapLayout.corridorGap);
+      expect((arriba + abajo) / 2, callout.center.dy);
     });
   });
 
@@ -231,7 +265,7 @@ void main() {
     test('sin consultas vuelve a su alto mínimo', () {
       final layout = _layoutOf([_said('i18n-contexto', 'Listo.', step: 0)]);
       expect(layout.calloutRects, isEmpty);
-      expect(layout.guideRowY - layout.guideTopY, 74);
+      expect(layout.guideRowY - layout.guideTopY, 66);
     });
   });
 

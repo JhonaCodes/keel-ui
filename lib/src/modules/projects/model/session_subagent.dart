@@ -23,6 +23,14 @@ enum SubagentPhase { thinking, working, writing, done, failed }
 class SessionSubagent {
   final String id;
   final String parentProfileId;
+
+  /// El paso del workflow que lo abrió, o null fuera de un workflow.
+  ///
+  /// No alcanza con el perfil del padre: el mismo miembro puede tener cuatro
+  /// pasos en un workflow, y colgar sus subagentes del primero los pondría
+  /// bajo un nodo que en ese momento ya había terminado.
+  final int? parentStepIndex;
+
   final String agentType;
   final String ask;
   final String prompt;
@@ -39,6 +47,7 @@ class SessionSubagent {
     required this.id,
     required this.parentProfileId,
     required this.agentType,
+    this.parentStepIndex,
     required this.ask,
     required this.prompt,
     required this.startedAt,
@@ -69,6 +78,7 @@ class SessionSubagent {
     return SessionSubagent(
       id: id,
       parentProfileId: parentProfileId,
+      parentStepIndex: parentStepIndex,
       agentType: agentType,
       ask: ask,
       prompt: prompt,
@@ -86,6 +96,7 @@ class SessionSubagent {
   Map<String, dynamic> toJson() => {
     'id': id,
     'parentProfileId': parentProfileId,
+    'parentStepIndex': parentStepIndex,
     'agentType': agentType,
     'ask': ask,
     'prompt': prompt,
@@ -106,6 +117,7 @@ class SessionSubagent {
     return SessionSubagent(
       id: json['id'] as String,
       parentProfileId: json['parentProfileId'] as String,
+      parentStepIndex: json['parentStepIndex'] as int?,
       agentType: json['agentType'] as String,
       ask: json['ask'] as String,
       prompt: json['prompt'] as String,
@@ -136,6 +148,7 @@ class SessionSubagent {
           runtimeType == other.runtimeType &&
           id == other.id &&
           parentProfileId == other.parentProfileId &&
+          parentStepIndex == other.parentStepIndex &&
           agentType == other.agentType &&
           ask == other.ask &&
           prompt == other.prompt &&
@@ -152,6 +165,7 @@ class SessionSubagent {
   int get hashCode => Object.hash(
     id,
     parentProfileId,
+    parentStepIndex,
     agentType,
     ask,
     prompt,

@@ -2006,8 +2006,12 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     _updateSession(
       projectId,
       sessionId,
-      (session) =>
-          session.copyWith(liveTurn: SessionLiveTurn(profileId: member.id)),
+      (session) => session.copyWith(
+        liveTurn: SessionLiveTurn(
+          profileId: member.id,
+          consultOfProfileId: consultOfProfileId,
+        ),
+      ),
     );
 
     // El pid del CLI de este turno. Se anota para que la pantalla de Máquina
@@ -2091,6 +2095,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
                 SessionSubagent(
                   id: id,
                   parentProfileId: member.id,
+                  parentStepIndex: stepIndex,
                   agentType: agentType,
                   ask: ask,
                   prompt: prompt,

@@ -23,11 +23,18 @@ class SessionLiveTurn {
   final AgentToolActivity? activity;
   final TurnPhase phase;
 
+  /// Quién le preguntó, cuando este turno existe para contestarle a otro
+  /// miembro. El mapa lo necesita para pintar la réplica mientras pasa: sin
+  /// esto, contestar hacia atrás y avanzar hacia adelante se ven igual hasta
+  /// que el mensaje aterriza en el hilo.
+  final String? consultOfProfileId;
+
   const SessionLiveTurn({
     required this.profileId,
     this.reasoning,
     this.activity,
     this.phase = TurnPhase.thinking,
+    this.consultOfProfileId,
   });
 
   SessionLiveTurn copyWith({
@@ -42,6 +49,7 @@ class SessionLiveTurn {
       reasoning: clearReasoning ? null : (reasoning ?? this.reasoning),
       activity: clearActivity ? null : (activity ?? this.activity),
       phase: phase ?? this.phase,
+      consultOfProfileId: consultOfProfileId,
     );
   }
 
@@ -53,10 +61,12 @@ class SessionLiveTurn {
           profileId == other.profileId &&
           reasoning == other.reasoning &&
           activity == other.activity &&
-          phase == other.phase;
+          phase == other.phase &&
+          consultOfProfileId == other.consultOfProfileId;
 
   @override
-  int get hashCode => Object.hash(profileId, reasoning, activity, phase);
+  int get hashCode =>
+      Object.hash(profileId, reasoning, activity, phase, consultOfProfileId);
 
   @override
   String toString() =>

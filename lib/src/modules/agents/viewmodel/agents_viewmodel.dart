@@ -6,8 +6,7 @@ import 'package:flutter/painting.dart';
 import 'package:logger_rs/logger_rs.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
 
-import 'package:keel_ui/src/core/services/claude_cli_service.dart';
-import 'package:keel_ui/src/core/services/codex_cli_service.dart';
+import 'package:keel_ui/src/integrations/task_runner/task_runner.dart';
 import 'package:keel_ui/src/core/services/file_edit_collector.dart';
 import 'package:keel_ui/src/integrations/assistant_mcp/assistant_mcp_server.dart';
 import 'package:keel_ui/src/integrations/prompt_insights/prompt_insights.dart';
@@ -47,9 +46,14 @@ class AgentsViewModel extends ViewModel<AgentsState> {
 
   AgentsRepository get _repository => AgentsRepository();
 
-  ClaudeCliService get _claude => ClaudeCliService();
+  /// El turno en vuelo de cada agente. Es un [TaskRun] y no un [Process]
+  /// porque el proceso ya no vive de este lado: corre en otro isolate, que
+  /// es lo que saca del hilo de la interfaz el parseo de cada línea del
+  /// stream —el trabajo que ponía la app pastosa mientras se conversaba.
+  final Map<String, TaskRun> _runningTurns = {};
 
-  final Map<String, Process> _runningProcesses = {};
+  /// Pid → agente, para poder despublicarlo de la pantalla de Máquina.
+  final Map<String, int> _runningPids = {};
   final Set<String> _stoppedAgentIds = {};
 
   /// Dónde corre un agente 1:1: su casa, porque no tiene proyecto asignado.
@@ -273,12 +277,13 @@ class AgentsViewModel extends ViewModel<AgentsState> {
   }
 
   void stopAgent(String agentId) {
-    final process = _runningProcesses.remove(agentId);
-    if (process == null) return;
-    RunningProcesses.unregister(process.pid);
+    final run = _runningTurns.remove(agentId);
+    if (run == null) return;
+    final pid = _runningPids.remove(agentId);
+    if (pid != null) RunningProcesses.unregister(pid);
 
     _stoppedAgentIds.add(agentId);
-    process.kill();
+    run.cancel();
 
     _setCurrentActivity(agentId, null);
     _updateAgent(agentId, (agent) => agent.copyWith(clearLiveReasoning: true));
@@ -424,72 +429,63 @@ class AgentsViewModel extends ViewModel<AgentsState> {
       appendSystemNote(agentId, note);
     }
 
-    final events = target.provider == AgentProvider.codex
-        ? CodexCliService().run(
-            prompt: promptForModel,
-            workingDirectory: workingDirectory,
-            fullFileSystemAccess: target.fullFileSystemAccess,
-            model: target.model,
-            sessionId: target.sessionId,
-            additionalSystemPrompt: _resolveProfileSystemPrompt(
-              target.profileId,
+    // UN solo camino para correr un turno, y corre en otro isolate.
+    //
+    // Antes esto tenía dos: `ClaudeCliService` y `CodexCliService`, ambos en
+    // el hilo de la interfaz, decodificando cada línea del stream —incluidos
+    // resultados de herramienta de cientos de KB— entre frame y frame. Los
+    // proyectos ya usaban el task runner; el chat 1:1 y Keel AI se habían
+    // quedado atrás, que es por qué la app se ponía pastosa justo mientras
+    // se conversaba con el asistente.
+    final run = await TaskRunner.run(
+      TaskRunSpec(
+        prompt: promptForModel,
+        workingDirectory: workingDirectory,
+        model: target.model,
+        fullFileSystemAccess: target.fullFileSystemAccess,
+        effort: target.effort,
+        provider: target.provider.alias,
+        sessionId: target.sessionId,
+        additionalSystemPrompt: _resolveProfileSystemPrompt(target.profileId),
+        extraAllowedTools: [
+          ...SettingsService.instance.notifier.data.extraAllowedTools,
+          if (keelAiEntry != null) ...kKeelAiMcpToolNames,
+          if (toolsEntry != null)
+            ...profileTools.map(
+              (tool) => '$kUserToolsMcpToolPrefix${tool.name}',
             ),
-            hooksConfig: turnHooks.codexConfig,
-            hookFiles: turnHooks.files,
-            onProcessStarted: (process) {
-              _runningProcesses[agentId] = process;
-              RunningProcesses.register(
-                process.pid,
-                'chat con @${target.name}',
-              );
-            },
-          )
-        : _claude.run(
-            prompt: promptForModel,
-            sessionId: target.sessionId,
-            model: target.model,
-            fullFileSystemAccess: target.fullFileSystemAccess,
-            effort: target.effort,
-            extraAllowedTools: [
-              ...SettingsService.instance.notifier.data.extraAllowedTools,
-              if (keelAiEntry != null) ...kKeelAiMcpToolNames,
-              if (toolsEntry != null)
-                ...profileTools.map(
-                  (tool) => '$kUserToolsMcpToolPrefix${tool.name}',
-                ),
-              // Server-level grant: every tool an external MCP exposes.
-              ...externalServers.map((server) => 'mcp__${server.name}'),
-            ],
-            workingDirectory: workingDirectory,
-            additionalSystemPrompt: _resolveProfileSystemPrompt(
-              target.profileId,
-            ),
-            mcpConfig: mcpConfig,
-            hooksSettings: turnHooks.claudeSettings,
-            hookFiles: turnHooks.files,
-            onProcessStarted: (process) {
-              _runningProcesses[agentId] = process;
-              RunningProcesses.register(
-                process.pid,
-                'chat con @${target.name}',
-              );
-            },
-          );
+          // Server-level grant: every tool an external MCP exposes.
+          ...externalServers.map((server) => 'mcp__${server.name}'),
+        ],
+        mcpConfig: mcpConfig,
+        hooksSettings: turnHooks.claudeSettings,
+        hooksConfig: turnHooks.codexConfig,
+        hookFiles: turnHooks.files,
+      ),
+    );
+    _runningTurns[agentId] = run;
 
     var wasStopped = false;
-    await for (final event in events) {
+    await for (final event in run.events) {
       if (_stoppedAgentIds.remove(agentId)) {
         wasStopped = true;
         break;
       }
       switch (event) {
-        case ClaudeSessionStarted(sessionId: final sessionId):
+        // El proceso vive en el otro isolate; de acá solo se ve su pid, que
+        // es lo único que la pantalla de Máquina necesita para decir de
+        // parte de quién corre.
+        case TaskProcessStarted(pid: final pid):
+          _runningPids[agentId] = pid;
+          RunningProcesses.register(pid, 'chat con @${target.name}');
+
+        case TaskSessionStarted(sessionId: final sessionId):
           _updateAgent(
             agentId,
             (agent) => agent.copyWith(sessionId: sessionId),
           );
 
-        case ClaudeAssistantText(text: final chunk):
+        case TaskAssistantText(text: final chunk):
           _setCurrentActivity(agentId, null);
           assistantTextBuffer.writeln(chunk);
           _appendMessage(
@@ -503,7 +499,7 @@ class AgentsViewModel extends ViewModel<AgentsState> {
             ),
           );
 
-        case ClaudeToolUse(name: final name, input: final input):
+        case TaskToolUse(name: final name, input: final input):
           _setCurrentActivity(
             agentId,
             AgentToolActivity.fromToolUse(name, input),
@@ -514,7 +510,7 @@ class AgentsViewModel extends ViewModel<AgentsState> {
         // El chat 1:1 no tiene mapa donde poner un subagente, pero sí puede
         // decir qué está haciendo: la tira pasa a hablar de ÉL en vez de
         // quedarse en «delegando» hasta que vuelva.
-        case ClaudeSubagentStarted(agentType: final type, ask: final ask):
+        case TaskSubagentStarted(agentType: final type, ask: final ask):
           _setCurrentActivity(
             agentId,
             AgentToolActivity(
@@ -523,25 +519,25 @@ class AgentsViewModel extends ViewModel<AgentsState> {
             ),
           );
 
-        case ClaudeSubagentToolUse(name: final name, input: final input):
+        case TaskSubagentToolUse(name: final name, input: final input):
           _setCurrentActivity(
             agentId,
             AgentToolActivity.fromToolUse(name, input),
           );
 
-        case ClaudeSubagentFinished():
+        case TaskSubagentFinished():
           _setCurrentActivity(agentId, null);
 
         // Lo que un subagente escribe y piensa NO entra al mensaje del padre.
         // Mezclarlos era el error que la bandera vino a arreglar; acá todavía
         // no hay dónde mostrarlos firmados bien, así que no se muestran.
-        case ClaudeSubagentText() || ClaudeSubagentReasoning():
+        case TaskSubagentText() || TaskSubagentReasoning():
           break;
 
-        case ClaudeReasoningChunk(text: final chunk):
+        case TaskReasoningChunk(text: final chunk):
           _appendLiveReasoning(agentId, chunk);
 
-        case ClaudeContextUsage(
+        case TaskContextUsage(
           usedTokens: final usedTokens,
           contextWindowTokens: final contextWindowTokens,
         ):
@@ -553,7 +549,7 @@ class AgentsViewModel extends ViewModel<AgentsState> {
             ),
           );
 
-        case ClaudePermissionDenied(
+        case TaskPermissionDenied(
           toolName: final toolName,
           message: final message,
         ):
@@ -568,7 +564,7 @@ class AgentsViewModel extends ViewModel<AgentsState> {
             ),
           );
 
-        case final ClaudeTurnCompleted turn:
+        case final TaskTurnCompleted turn:
           final isError = turn.isError;
           final costUsd = turn.costUsd;
           final durationMs = turn.durationMs;
@@ -605,7 +601,7 @@ class AgentsViewModel extends ViewModel<AgentsState> {
             );
           }
 
-        case ClaudeFailure(message: final message):
+        case TaskFailure(message: final message):
           _appendMessage(
             agentId,
             ChatMessage(
@@ -617,8 +613,9 @@ class AgentsViewModel extends ViewModel<AgentsState> {
       }
     }
 
-    final finished = _runningProcesses.remove(agentId);
-    if (finished != null) RunningProcesses.unregister(finished.pid);
+    _runningTurns.remove(agentId);
+    final finishedPid = _runningPids.remove(agentId);
+    if (finishedPid != null) RunningProcesses.unregister(finishedPid);
     _setCurrentActivity(agentId, null);
     _updateAgent(agentId, (agent) => agent.copyWith(clearLiveReasoning: true));
     _setStreaming(agentId, false);

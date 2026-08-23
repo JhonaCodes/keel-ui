@@ -12,8 +12,7 @@ import 'package:logger_rs/logger_rs.dart';
 // kind of divergence that must not happen silently.
 import 'package:keel_ui/src/core/services/claude_stream_events.dart';
 import 'package:keel_ui/src/core/services/cli_turn_workspace.dart';
-import 'package:keel_ui/src/core/services/claude_cli_service.dart'
-    show kAlwaysAllowedTools, kCliSystemHints;
+import 'package:keel_ui/src/core/services/cli_turn_contract.dart';
 // Same reason: which model names belong to which CLI is decided in ONE
 // place, so a project turn cannot hand codex a Claude alias the 1:1 path
 // already knows to withhold.

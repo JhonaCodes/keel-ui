@@ -61,6 +61,30 @@ enum MapEdgeKind {
   untraveled,
 }
 
+/// Una ida y vuelta cerrada: qué le pidieron a este nodo y qué contestó.
+///
+/// El mapa dibuja como mucho UN cuadro por par, y solo mientras está viva.
+/// Las cerradas se cuentan —diez consultas son una píldora que dice 10, no
+/// diez cuadros encimados— pero el texto tiene que seguir estando en algún
+/// lado, porque «qué se preguntaron» es exactamente lo que uno viene a
+/// buscar cuando abre el mapa de una sesión que ya terminó. Vive acá y se
+/// lee en el panel del nodo, que es lo que abre esa píldora.
+class MapConsult {
+  const MapConsult({
+    required this.askedBy,
+    required this.ask,
+    required this.answer,
+  });
+
+  /// El handle del que preguntó, para el encabezado del cuadro.
+  final String askedBy;
+
+  /// La frase donde nombró al otro: literalmente lo que disparó el turno.
+  final String ask;
+
+  final String answer;
+}
+
 class MapNode {
   final String id;
   final MapNodeKind kind;
@@ -106,9 +130,14 @@ class MapNode {
   final Duration elapsed;
   final double costUsd;
 
-  /// Cuántas idas y vueltas hacia atrás tocaron a este nodo. Los cuadros
-  /// cerrados no se dibujan: se cuentan.
-  final int backCalls;
+  /// Las idas y vueltas hacia atrás que tocaron a este nodo, en orden. Los
+  /// cuadros cerrados no se dibujan en el lienzo: se cuentan, y el texto se
+  /// lee entrando al nodo.
+  final List<MapConsult> consults;
+
+  /// Cuántas fueron. Es [consults] contado, no un campo aparte que se pueda
+  /// desincronizar del otro.
+  int get backCalls => consults.length;
 
   /// Cuántos subagentes abrió, contando los que no entran en el carril.
   final int subagentCount;
@@ -138,7 +167,7 @@ class MapNode {
     this.activity,
     this.elapsed = Duration.zero,
     this.costUsd = 0,
-    this.backCalls = 0,
+    this.consults = const [],
     this.subagentCount = 0,
     this.hiddenSubagents = 0,
     this.subagent,
@@ -191,11 +220,58 @@ class MapEdge {
 /// Las columnas son PASOS, no agentes: un workflow puede darle cuatro pasos
 /// al mismo miembro, y colapsarlos en un solo cuadro convierte una línea
 /// recta en un nudo de flechas que vuelven sobre sí mismas.
+/// El cuadro punteado de una réplica: qué se preguntaron dos nodos.
+///
+/// **Uno por par y nunca dos.** Cuando el mismo par vuelve a hablar, este
+/// cuadro se reescribe —no aparece otro debajo—, que es la regla que evita
+/// que una sesión de cuarenta mensajes termine siendo una pared de globos.
+///
+/// Y se queda cuando la ida y vuelta cierra, apagado y mostrando la
+/// RESPUESTA. El dibujo aprobado lo hacía desaparecer, dejando el arco tenue
+/// y un contador; con la sesión terminada eso deja el mapa sin decir nunca
+/// qué se preguntaron, que es justo lo que uno viene a buscar. El contador
+/// sigue estando para las que quedaron atrás.
+class MapCallout {
+  const MapCallout({
+    required this.fromId,
+    required this.toId,
+    required this.title,
+    required this.text,
+    required this.live,
+  });
+
+  /// Quién habla en el cuadro y a quién. Con la consulta en vuelo es el que
+  /// preguntó; cerrada, el que contestó.
+  final String fromId;
+  final String toId;
+
+  /// `rn-expert → arquitecto`, ya armado.
+  final String title;
+
+  final String text;
+
+  /// Si todavía se está esperando la respuesta.
+  final bool live;
+
+  /// La clave del PAR, sin dirección: la ida y la vuelta comparten cuadro.
+  String get pairId {
+    final ends = [fromId, toId]..sort();
+    return ends.join('>');
+  }
+}
+
 class SessionMap {
   final List<MapNode> nodes;
   final List<MapEdge> edges;
 
-  const SessionMap({required this.nodes, required this.edges});
+  /// Los cuadros de réplica, uno por par que se haya hablado.
+  final List<MapCallout> callouts;
+
+  const SessionMap({
+    required this.nodes,
+    required this.edges,
+    this.callouts = const [],
+  });
 
   bool get isEmpty => nodes.length <= 2;
 
@@ -229,6 +305,9 @@ class SessionMap {
       for (var index = 0; index < members.length; index++)
         members[index].id: index,
     };
+    final handleOf = <String, String>{
+      for (final member in members) member.id: member.name,
+    };
 
     final posts = _postsOf(
       messages: messages,
@@ -259,9 +338,18 @@ class SessionMap {
           live.profileId == post.profileId &&
           _isCurrentPost(post, session, posts, live);
 
-      final backCalls = own
-          .where((message) => message.consultOfProfileId != null)
-          .length;
+      // Cada mensaje de este nodo que contesta una consulta ES una ida y
+      // vuelta: el pedido se busca hacia atrás, en el último turno del que
+      // preguntó donde lo nombró.
+      final consults = [
+        for (final message in own)
+          if (message.consultOfProfileId case final askerId?)
+            MapConsult(
+              askedBy: handleOf[askerId] ?? askerId,
+              ask: _askedIn(messages.take(messages.indexOf(message)), askerId),
+              answer: message.text.trim(),
+            ),
+      ];
       final mine = [
         for (final subagent in subagents)
           if (subagent.parentProfileId == post.profileId &&
@@ -311,7 +399,7 @@ class SessionMap {
             0.0,
             (total, message) => total + (message.costUsd ?? 0),
           ),
-          backCalls: backCalls,
+          consults: consults,
           subagentCount: mine.length,
           hiddenSubagents: mine.length - drawn,
         ),
@@ -391,10 +479,16 @@ class SessionMap {
       ),
     );
 
-    edges.addAll(_backEdges(messages: messages, posts: posts, live: live));
+    final back = _backEdges(
+      messages: messages,
+      posts: posts,
+      live: live,
+      handleOf: handleOf,
+    );
+    edges.addAll(back.edges);
     edges.addAll(_spawnEdges(members: members, posts: posts));
 
-    return SessionMap(nodes: nodes, edges: edges);
+    return SessionMap(nodes: nodes, edges: edges, callouts: back.callouts);
   }
 }
 
@@ -544,22 +638,26 @@ MapNodeState _subagentStateOf(SessionSubagent subagent) =>
       SubagentPhase.failed => MapNodeState.failed,
     };
 
-/// Las réplicas hacia atrás y sus respuestas.
+/// Las réplicas hacia atrás, sus respuestas, y el cuadro de cada par.
 ///
-/// En el lienzo hay como mucho UN par vivo entre dos nodos: las cerradas se
-/// cuentan en el pie del nodo, no se dibujan. Sin esa regla una sesión larga
-/// termina siendo una pared de globos, que es justamente de lo que el mapa
-/// tenía que sacarnos.
-List<MapEdge> _backEdges({
+/// En el lienzo hay como mucho UN cuadro por par de nodos: cuando el mismo
+/// par vuelve a hablar se reescribe. Sin esa regla una sesión larga termina
+/// siendo una pared de globos, que es justamente de lo que el mapa tenía que
+/// sacarnos.
+({List<MapEdge> edges, List<MapCallout> callouts}) _backEdges({
   required List<ChatMessage> messages,
   required List<_Post> posts,
   required SessionLiveTurn? live,
+  required Map<String, String> handleOf,
 }) {
   String? postIdOf(String profileId) =>
       posts.where((post) => post.profileId == profileId).firstOrNull?.id;
 
   final edges = <MapEdge>[];
   final seen = <String>{};
+
+  /// El último intercambio de cada par, en el orden en que apareció el par.
+  final callouts = <String, MapCallout>{};
 
   for (var index = 0; index < messages.length; index++) {
     final message = messages[index];
@@ -570,17 +668,28 @@ List<MapEdge> _backEdges({
     final from = postIdOf(asker);
     final to = postIdOf(answerer);
     if (from == null || to == null || from == to) continue;
-    if (!seen.add('$from>$to')) continue;
 
-    edges.add(
-      MapEdge(
-        fromId: from,
-        toId: to,
-        kind: MapEdgeKind.back,
-        label: _askedIn(messages.take(index), asker),
-      ),
+    if (seen.add('$from>$to')) {
+      edges.add(
+        MapEdge(
+          fromId: from,
+          toId: to,
+          kind: MapEdgeKind.back,
+          label: _askedIn(messages.take(index), asker),
+        ),
+      );
+      edges.add(MapEdge(fromId: to, toId: from, kind: MapEdgeKind.answer));
+    }
+
+    // Se pisa a propósito: el cuadro muestra la ÚLTIMA ida y vuelta del par.
+    final closed = MapCallout(
+      fromId: to,
+      toId: from,
+      title: '${handleOf[answerer] ?? answerer} → ${handleOf[asker] ?? asker}',
+      text: firstSentenceOf(message.text.trim(), maxLength: 150),
+      live: false,
     );
-    edges.add(MapEdge(fromId: to, toId: from, kind: MapEdgeKind.answer));
+    callouts[closed.pairId] = closed;
   }
 
   // La consulta en vuelo: todavía no hay mensaje que la cuente, y es
@@ -593,18 +702,35 @@ List<MapEdge> _backEdges({
       edges.removeWhere(
         (edge) => edge.fromId == from && edge.toId == to && !edge.live,
       );
+      final ask = _askedIn(messages, asker);
       edges.add(
         MapEdge(
           fromId: from,
           toId: to,
           kind: MapEdgeKind.back,
-          label: _askedIn(messages, asker),
+          label: ask,
           live: true,
         ),
       );
+      final open = MapCallout(
+        fromId: from,
+        toId: to,
+        title:
+            '${handleOf[asker] ?? asker} → '
+            '${handleOf[live.profileId] ?? live.profileId}',
+        text: ask,
+        live: true,
+      );
+      // La que está pasando gana sobre la cerrada del mismo par: un cuadro
+      // por par, y el de ahora manda.
+      callouts[open.pairId] = open;
     }
   }
-  return edges;
+
+  return (
+    edges: edges,
+    callouts: callouts.values.where((c) => c.text.isNotEmpty).toList(),
+  );
 }
 
 /// Qué le preguntó. Es la frase donde el que preguntó nombró al otro, que es

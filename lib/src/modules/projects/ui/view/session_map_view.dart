@@ -11,6 +11,7 @@ import 'package:keel_ui/src/modules/projects/model/session_map_layout.dart';
 import 'package:keel_ui/src/modules/projects/ui/screen/map_node_inspector_screen.dart';
 import 'package:keel_ui/src/modules/projects/ui/widget/map_edges_painter.dart';
 import 'package:keel_ui/src/modules/projects/ui/widget/map_legend.dart';
+import 'package:keel_ui/src/modules/projects/ui/widget/map_callout_box.dart';
 import 'package:keel_ui/src/modules/projects/ui/widget/map_node_card.dart';
 import 'package:keel_ui/src/modules/workflows/model/workflow.dart';
 
@@ -111,19 +112,20 @@ class _SessionMapViewState extends State<SessionMapView>
       ..translateByDouble(-anchor.dx, -anchor.dy, 0, 1);
   }
 
+  /// Encuadra lo DIBUJADO, no el lienzo. El lienzo tiene aire alrededor a
+  /// propósito —para poder arrastrar más allá del último nodo— y encuadrarlo
+  /// entero dejaba el mapa chiquito en el medio de la nada.
   void _fit(MapLayout layout) {
     if (_viewport.isEmpty) return;
+    final content = layout.contentBounds;
     final scale = math
-        .min(
-          _viewport.width / layout.size.width,
-          _viewport.height / layout.size.height,
-        )
+        .min(_viewport.width / content.width, _viewport.height / content.height)
         .clamp(_kMinScale, 1.0);
     _moveTo(
       Matrix4.identity()
         ..translateByDouble(
-          (_viewport.width - layout.size.width * scale) / 2,
-          (_viewport.height - layout.size.height * scale) / 2,
+          (_viewport.width - content.width * scale) / 2 - content.left * scale,
+          (_viewport.height - content.height * scale) / 2 - content.top * scale,
           0,
           1,
         )
@@ -237,6 +239,12 @@ class _SessionMapViewState extends State<SessionMapView>
                           ),
                         ),
                       ),
+                      // El viñeteado, sobre el viewport y no sobre el lienzo:
+                      // apaga los bordes de lo que estás mirando, que es lo
+                      // que hace que el centro se lea como el centro.
+                      const Positioned.fill(
+                        child: IgnorePointer(child: _Vignette()),
+                      ),
                       if (_legend)
                         Positioned(
                           right: 14,
@@ -287,6 +295,24 @@ class _SessionMapViewState extends State<SessionMapView>
   }
 }
 
+class _Vignette extends StatelessWidget {
+  const _Vignette();
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: RadialGradient(
+          center: const Alignment(0, -0.2),
+          radius: 0.95,
+          colors: [Colors.transparent, Colors.black.withValues(alpha: 0.42)],
+          stops: const [0.55, 1],
+        ),
+      ),
+    );
+  }
+}
+
 class _Canvas extends StatelessWidget {
   const _Canvas({
     required this.map,
@@ -332,19 +358,15 @@ class _Canvas extends StatelessWidget {
               ),
             ),
           ),
-          const _LaneLabel(
-            y: MapLayout.guideTopY,
-            icon: Icons.reply,
-            label: 'vuelve',
-          ),
-          const _LaneLabel(
-            y: MapLayout.guideRowY,
+          _LaneLabel(y: layout.guideTopY, icon: Icons.reply, label: 'vuelve'),
+          _LaneLabel(
+            y: layout.guideRowY,
             icon: Icons.trending_flat,
             label: 'avanza',
           ),
           if (map.nodes.any((node) => node.lane > 0))
-            const _LaneLabel(
-              y: MapLayout.guideLaneY,
+            _LaneLabel(
+              y: layout.guideLaneY,
               icon: Icons.account_tree_outlined,
               label: 'delega',
             ),
@@ -354,12 +376,17 @@ class _Canvas extends StatelessWidget {
               Positioned(
                 left: rect.left,
                 top: rect.top,
-                width: rect.width,
+                // El ancho del CUADRO, no el del nodo: lo que resolvió se
+                // pasa hacia la derecha, y al ancho de la cabeza entraban dos
+                // palabras por línea.
+                width: MapLayout.resolutionWidth,
                 child: MapNodeCard(
                   node: node,
+                  headWidth: rect.width,
                   dense: dense,
                   onTap: () => onOpen(node),
                   onExpandSubagents: () => onExpand(node.id),
+                  onOpenConsults: () => onOpen(node),
                 ),
               ),
         ],
@@ -367,87 +394,48 @@ class _Canvas extends StatelessWidget {
     );
   }
 
-  /// El cuadro de una consulta se dibuja SOLO mientras está viva. Las
-  /// cerradas quedan como el arco tenue y el contador en el pie del nodo:
-  /// diez idas y vueltas son una píldora que dice 10, no diez cuadros.
+  /// Los cuadros de réplica, uno por par. Dónde cae cada uno lo decide la
+  /// geometría —dos cuadros encimados no dicen ninguno de los dos— y acá solo
+  /// se dibujan.
   List<Widget> _consultCallouts() {
     return [
-      for (final edge in map.edges)
-        if (edge.live && edge.kind == MapEdgeKind.back && edge.label.isNotEmpty)
-          if (layout.rectOf(edge.fromId) case final from?)
-            if (layout.rectOf(edge.toId) case final to?)
-              Positioned(
-                left: (from.center.dx + to.center.dx) / 2 - 130,
-                top: MapLayout.calloutTopY,
-                width: 260,
-                child: _ConsultCallout(
-                  from: map.nodeById(edge.fromId)?.label ?? '',
-                  to: map.nodeById(edge.toId)?.label ?? '',
-                  text: edge.label,
-                ),
-              ),
+      for (final callout in map.callouts)
+        if (layout.calloutRects[callout.pairId] case final rect?)
+          Positioned(
+            left: rect.left,
+            top: rect.top,
+            width: rect.width,
+            child: _ConsultCallout(callout: callout),
+          ),
     ];
   }
 }
 
+/// El cuadro de una réplica: quién le preguntó a quién y qué se dijeron.
+///
+/// Con la consulta en vuelo muestra el PEDIDO, en violeta y encendido; una
+/// vez cerrada, el MISMO cuadro pasa a mostrar la respuesta, apagado. No
+/// aparece otro debajo — es la regla de que las consultas cambian de estado
+/// en vez de acumularse.
 class _ConsultCallout extends StatelessWidget {
-  const _ConsultCallout({
-    required this.from,
-    required this.to,
-    required this.text,
-  });
+  const _ConsultCallout({required this.callout});
 
-  final String from;
-  final String to;
-  final String text;
+  final MapCallout callout;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final color = callout.live
+        ? kMapConsultColor
+        : scheme.outline.withValues(alpha: 0.85);
 
-    return Container(
-      padding: const EdgeInsets.fromLTRB(10, 7, 10, 8),
-      decoration: BoxDecoration(
-        color: scheme.surface.withValues(alpha: 0.97),
-        border: Border.all(color: kMapConsultColor),
-        borderRadius: BorderRadius.circular(7),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.reply, size: 11, color: kMapConsultColor),
-              const SizedBox(width: 5),
-              Flexible(
-                child: Text(
-                  '$from → $to'.toUpperCase(),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontFamily: 'monospace',
-                    fontSize: 9,
-                    letterSpacing: 1,
-                    color: kMapConsultColor,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 3),
-          Text(
-            text,
-            maxLines: 3,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 11.5,
-              height: 1.35,
-              color: scheme.onSurfaceVariant,
-            ),
-          ),
-        ],
-      ),
+    return MapCalloutBox(
+      icon: callout.live ? Icons.reply : Icons.subdirectory_arrow_left,
+      label: callout.title,
+      text: callout.text,
+      color: color,
+      maxLines: 2,
+      opaque: true,
     );
   }
 }

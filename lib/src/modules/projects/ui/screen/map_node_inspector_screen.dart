@@ -8,6 +8,7 @@ import 'package:keel_ui/src/modules/projects/model/member_color.dart';
 import 'package:keel_ui/src/modules/projects/model/project.dart';
 import 'package:keel_ui/src/modules/projects/model/session_map.dart';
 import 'package:keel_ui/src/modules/projects/model/session_subagent.dart';
+import 'package:keel_ui/src/modules/projects/ui/widget/map_edges_painter.dart';
 import 'package:keel_ui/src/modules/projects/ui/widget/map_node_card.dart';
 import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
 
@@ -163,6 +164,13 @@ class _MapNodeInspectorScreenState extends State<MapNodeInspectorScreen> {
                       child: _Body(text: _node.resolved),
                     ),
                 ],
+                if (_node.consults.isNotEmpty)
+                  _Section(
+                    icon: Icons.reply,
+                    label: 'le consultaron',
+                    trailing: '${_node.consults.length}',
+                    child: _Consults(consults: _node.consults),
+                  ),
                 _Section(
                   icon: Icons.pin_outlined,
                   label: 'números',
@@ -381,6 +389,96 @@ class _Body extends StatelessWidget {
         height: 1.55,
         color: scheme.onSurfaceVariant,
       ),
+    );
+  }
+}
+
+/// Las idas y vueltas hacia atrás, en orden y enteras.
+///
+/// El lienzo dibuja UNA por par —la última— para no volverse una pared de
+/// globos. Las anteriores viven acá, que es a donde lleva el contador del
+/// pie del nodo: un número que no se puede abrir es un número que no dice
+/// nada.
+class _Consults extends StatelessWidget {
+  const _Consults({required this.consults});
+
+  final List<MapConsult> consults;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (final (index, consult) in consults.indexed) ...[
+          if (index > 0) const SizedBox(height: 14),
+          Row(
+            children: [
+              Icon(Icons.reply, size: 11, color: kMapConsultColor),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  '@${consult.askedBy}'.toUpperCase(),
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 9,
+                    letterSpacing: 1,
+                    color: kMapConsultColor,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 5),
+          _Quote(
+            text: consult.ask,
+            empty: 'No quedó registrado con qué frase lo llamó.',
+            color: kMapConsultColor,
+          ),
+          const SizedBox(height: 7),
+          _Quote(
+            text: consult.answer,
+            empty: 'Sin respuesta.',
+            color: scheme.tertiary,
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+/// Una línea de la conversación, con la barrita del color de quien habla.
+class _Quote extends StatelessWidget {
+  const _Quote({required this.text, required this.empty, required this.color});
+
+  final String text;
+  final String empty;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final body = text.trim();
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Container(width: 2, color: color.withValues(alpha: 0.7)),
+        const SizedBox(width: 9),
+        Expanded(
+          child: SelectableText(
+            body.isEmpty ? empty : body,
+            style: TextStyle(
+              fontSize: 12.5,
+              height: 1.45,
+              fontStyle: body.isEmpty ? FontStyle.italic : null,
+              color: body.isEmpty ? scheme.outline : scheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

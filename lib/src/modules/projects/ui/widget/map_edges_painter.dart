@@ -94,14 +94,29 @@ class MapEdgesPainter extends CustomPainter {
 
   static const _gridStep = 40.0;
 
+  /// Las que se apagan cuando ya pasaron. Una consulta cerrada al 45 % deja
+  /// el recorrido de avance como lo primero que se ve; a full compite con él
+  /// y con las demás, que es lo que hacía que el lienzo se leyera como una
+  /// maraña.
+  static const _fades = {
+    MapEdgeKind.back,
+    MapEdgeKind.answer,
+    MapEdgeKind.delegateBack,
+  };
+
   @override
   void paint(Canvas canvas, Size size) {
     _paintGrid(canvas, size);
     _paintGuides(canvas, size);
-    for (final edge in map.edges) {
-      final path = pathOf(edge, layout);
-      if (path == null) continue;
-      _paintEdge(canvas, edge, path);
+    // Lo cerrado primero y lo vivo después: lo que está pasando ahora se
+    // dibuja encima de lo que ya pasó, no debajo.
+    for (final edge in map.edges.where((edge) => !edge.live)) {
+      final path = layout.routeOf(edge);
+      if (path != null) _paintEdge(canvas, edge, path);
+    }
+    for (final edge in map.edges.where((edge) => edge.live)) {
+      final path = layout.routeOf(edge);
+      if (path != null) _paintEdge(canvas, edge, path);
     }
   }
 
@@ -124,9 +139,9 @@ class MapEdgesPainter extends CustomPainter {
       ..strokeWidth = 1
       ..color = scheme.outlineVariant.withValues(alpha: 0.9);
     for (final y in [
-      MapLayout.guideTopY,
-      MapLayout.guideRowY,
-      if (map.nodes.any((node) => node.lane > 0)) MapLayout.guideLaneY,
+      layout.guideTopY,
+      layout.guideRowY,
+      if (map.nodes.any((node) => node.lane > 0)) layout.guideLaneY,
     ]) {
       _strokeDashed(
         canvas,
@@ -142,11 +157,16 @@ class MapEdgesPainter extends CustomPainter {
 
   void _paintEdge(Canvas canvas, MapEdge edge, Path path) {
     final style = MapEdgeStyle.of(edge.kind, scheme);
+    final color = _fades.contains(edge.kind) && !edge.live
+        ? style.color.withValues(alpha: 0.45)
+        : style.color;
     final paint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round
+      // Los caminos son quebrados: sin esto las esquinas cierran en punta.
+      ..strokeJoin = StrokeJoin.round
       ..strokeWidth = style.width
-      ..color = style.color;
+      ..color = color;
 
     // Una arista en vuelo corre aunque su tipo sea de trazo continuo: el
     // movimiento es lo que dice «esto está pasando ahora», y se apaga sola en
@@ -155,14 +175,16 @@ class MapEdgesPainter extends CustomPainter {
     if (dash == null) {
       canvas.drawPath(path, paint);
     } else {
-      final travel = edge.live ? -progress * (dash.$1 + dash.$2) : 0.0;
+      // Dos períodos por vuelta: el dibujo aprobado mueve 28 puntos por
+      // segundo y a un período por ciclo esto iba a la mitad.
+      final travel = edge.live ? -progress * (dash.$1 + dash.$2) * 2 : 0.0;
       _strokeDashed(canvas, path, paint, dash, travel);
     }
 
     final metric = path.computeMetrics().firstOrNull;
     if (metric == null) return;
-    if (style.arrow) _paintArrow(canvas, metric, style.color);
-    if (edge.live) _paintPacket(canvas, metric, style.color);
+    if (style.arrow) _paintArrow(canvas, metric, color);
+    if (edge.live) _paintPacket(canvas, metric, color);
   }
 
   void _paintArrow(Canvas canvas, PathMetric metric, Color color) {
@@ -213,67 +235,6 @@ class MapEdgesPainter extends CustomPainter {
         start += period;
       }
     }
-  }
-
-  /// El trazado de una arista. Estático porque la vista lo necesita también:
-  /// el cuadro punteado de una consulta se cuelga del alto de su arco, y
-  /// calcularlo dos veces con dos fórmulas es cómo se despegan.
-  static Path? pathOf(MapEdge edge, MapLayout layout) {
-    final from = layout.rectOf(edge.fromId);
-    final to = layout.rectOf(edge.toId);
-    if (from == null || to == null) return null;
-
-    switch (edge.kind) {
-      case MapEdgeKind.forward:
-      case MapEdgeKind.finish:
-      case MapEdgeKind.failed:
-      case MapEdgeKind.untraveled:
-        final y = from.center.dy;
-        final leftToRight = to.left >= from.right;
-        return Path()
-          ..moveTo(leftToRight ? from.right + 3 : from.left - 3, y)
-          ..lineTo(leftToRight ? to.left - 3 : to.right + 3, y);
-
-      case MapEdgeKind.back:
-        return _bow(from, to, MapLayout.backApexY);
-      case MapEdgeKind.answer:
-        return _bow(from, to, MapLayout.backApexY + 24);
-      case MapEdgeKind.spawn:
-        return _bow(from, to, MapLayout.spawnApexY);
-
-      case MapEdgeKind.delegate:
-        return _drop(from, to);
-      case MapEdgeKind.delegateBack:
-        return _drop(to, from, reversed: true);
-    }
-  }
-
-  /// El arco de arriba: sube desde la cabeza de un nodo y baja a la del otro.
-  static Path _bow(Rect from, Rect to, double apexY) {
-    final fx = from.center.dx;
-    final tx = to.center.dx;
-    return Path()
-      ..moveTo(fx, from.top - 3)
-      ..cubicTo(fx, apexY, tx, apexY, tx, to.top - 4);
-  }
-
-  /// La caída al carril de abajo. Entra por el borde de arriba del hijo y no
-  /// por su centro: una línea que termina adentro del cuadro se lee como si
-  /// lo atravesara.
-  static Path _drop(Rect parent, Rect child, {bool reversed = false}) {
-    final px = parent.center.dx;
-    final cx = child.left + 26;
-    final start = Offset(px, parent.bottom + 3);
-    final end = Offset(cx, child.top - 4);
-    final c1 = Offset(px, parent.bottom + 58);
-    final c2 = Offset(cx, child.top - 58);
-    return reversed
-        ? (Path()
-            ..moveTo(end.dx, end.dy)
-            ..cubicTo(c2.dx, c2.dy, c1.dx, c1.dy, start.dx, start.dy))
-        : (Path()
-            ..moveTo(start.dx, start.dy)
-            ..cubicTo(c1.dx, c1.dy, c2.dx, c2.dy, end.dx, end.dy));
   }
 
   @override

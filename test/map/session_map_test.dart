@@ -514,4 +514,91 @@ void main() {
       expect(map.edges.any((e) => e.kind == MapEdgeKind.spawn), isFalse);
     });
   });
+
+  group('el cuadro de una réplica', () {
+    SessionMap mapOf(List<ChatMessage> messages, {SessionLiveTurn? live}) =>
+        SessionMap.from(
+          session: _session(
+            messages: messages,
+            liveTurn: live,
+            isRunning: live != null,
+          ),
+          members: [_member('arquitecto'), _member('rn-expert')],
+          workflow: _workflow([
+            ('Diseño', 'arquitecto'),
+            ('Implementar', 'rn-expert'),
+          ]),
+        );
+
+    test('cerrada, muestra la RESPUESTA y no desaparece', () {
+      // La regresión que reportó el usuario: con la sesión terminada el mapa
+      // dibujaba el arco y un contador, y en ninguna parte decía qué se
+      // habían preguntado.
+      final map = mapOf([
+        _said('arquitecto', 'Va por WebSocket. @rn-expert ¿el contrato lleva version?', step: 0),
+        _said('rn-expert', 'Sin version. Va en el header del canal.', consultOf: 'arquitecto'),
+      ]);
+
+      expect(map.callouts, hasLength(1));
+      final callout = map.callouts.single;
+      expect(callout.live, isFalse);
+      expect(callout.title, 'rn-expert → arquitecto');
+      expect(callout.text, 'Sin version.');
+    });
+
+    test('en vuelo, muestra el PEDIDO y gana sobre la cerrada del par', () {
+      final map = mapOf(
+        [
+          _said('arquitecto', 'Va por WebSocket. @rn-expert ¿el contrato lleva version?', step: 0),
+          _said('rn-expert', 'Sin version.', consultOf: 'arquitecto'),
+          _said('arquitecto', 'Gracias. @rn-expert ¿y el precio del lote?', step: 0),
+        ],
+        live: const SessionLiveTurn(
+          profileId: 'rn-expert',
+          phase: TurnPhase.thinking,
+          consultOfProfileId: 'arquitecto',
+        ),
+      );
+
+      // Un cuadro por PAR, no uno por consulta: la de ahora manda.
+      expect(map.callouts, hasLength(1));
+      expect(map.callouts.single.live, isTrue);
+      expect(map.callouts.single.title, 'arquitecto → rn-expert');
+      expect(map.callouts.single.text, contains('precio del lote'));
+    });
+
+    test('diez idas y vueltas siguen siendo un solo cuadro', () {
+      final map = mapOf([
+        for (var i = 0; i < 10; i++) ...[
+          _said('arquitecto', 'Pregunta $i para @rn-expert.', step: 0),
+          _said('rn-expert', 'Respuesta $i.', consultOf: 'arquitecto'),
+        ],
+      ]);
+
+      expect(map.callouts, hasLength(1));
+      expect(map.callouts.single.text, 'Respuesta 9.');
+    });
+
+    test('el nodo guarda las anteriores enteras, para poder abrirlas', () {
+      final map = mapOf([
+        _said('arquitecto', 'Primera: @rn-expert ¿lleva version?', step: 0),
+        _said('rn-expert', 'Sin version.', consultOf: 'arquitecto'),
+        _said('arquitecto', 'Segunda: @rn-expert ¿y el precio?', step: 0),
+        _said('rn-expert', 'Sale del lote.', consultOf: 'arquitecto'),
+      ]);
+
+      final answerer = map.nodes.firstWhere((node) => node.label == 'rn-expert');
+      expect(answerer.consults, hasLength(2));
+      expect(answerer.backCalls, 2);
+      expect(answerer.consults.first.askedBy, 'arquitecto');
+      expect(answerer.consults.first.ask, contains('lleva version'));
+      expect(answerer.consults.first.answer, 'Sin version.');
+      expect(answerer.consults.last.answer, 'Sale del lote.');
+    });
+
+    test('sin consultas no hay cuadros', () {
+      final map = mapOf([_said('arquitecto', 'Listo.', step: 0)]);
+      expect(map.callouts, isEmpty);
+    });
+  });
 }

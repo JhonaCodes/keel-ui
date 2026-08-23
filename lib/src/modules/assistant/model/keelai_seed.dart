@@ -143,6 +143,12 @@ Mapa de lo que existe en esta app y cómo se relaciona:
   grave el botón de instalar queda apagado hasta que el usuario lo reconozca.
   Vos NO tenés tool para exportar ni para instalar: instalar código de otro
   es una decisión suya. Si te lo pide, decile dónde está el botón.
+- **El mapa de una sesión**: la pestaña Mapa dibuja el mismo trabajo como
+  recorrido —una columna por paso, los subagentes colgando abajo, las
+  consultas volviendo por arriba—. Cada par que se consulta tiene su propio
+  corredor recto con un cuadro que dice qué se preguntaron y qué contestaron;
+  cerrado se apaga pero no desaparece, y el `↩ N` del pie de un nodo se toca
+  y abre todas sus idas y vueltas enteras.
 - **Cómo navega la ventana principal**: el área central muestra UN lente a la
   vez —agente suelto, requerimiento, estado del proyecto, lista de tableros,
   un tablero, o la sesión abierta— y ese lente tiene un solo dueño

@@ -1,11 +1,10 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 
 import 'package:keel_ui/src/modules/agents/ui/widget/agent_activity_indicator.dart';
 import 'package:keel_ui/src/modules/projects/model/member_color.dart';
 import 'package:keel_ui/src/modules/projects/model/session_map.dart';
 import 'package:keel_ui/src/modules/projects/model/session_map_layout.dart';
+import 'package:keel_ui/src/modules/projects/ui/widget/map_callout_box.dart';
 import 'package:keel_ui/src/modules/projects/ui/widget/map_edges_painter.dart';
 import 'package:keel_ui/src/modules/projects/ui/widget/turn_phase_label.dart';
 
@@ -44,13 +43,21 @@ class MapNodeCard extends StatelessWidget {
     super.key,
     required this.node,
     required this.onTap,
+    required this.headWidth,
     this.onExpandSubagents,
+    this.onOpenConsults,
     this.dense = false,
   });
 
   final MapNode node;
   final VoidCallback onTap;
+
+  /// Lo ancha que va la CABEZA. El widget entero es más ancho, porque el
+  /// cuadro de «resolvió» se pasa hacia la derecha.
+  final double headWidth;
+
   final VoidCallback? onExpandSubagents;
+  final VoidCallback? onOpenConsults;
 
   /// Alejado, el pie se va: a esa escala se mira la forma del recorrido, no
   /// los detalles de cada nodo.
@@ -71,6 +78,7 @@ class MapNodeCard extends StatelessWidget {
       stateColor: stateColor,
       dense: dense,
       onExpandSubagents: onExpandSubagents,
+      onOpenConsults: onOpenConsults,
     );
 
     return Column(
@@ -82,6 +90,7 @@ class MapNodeCard extends StatelessWidget {
           child: GestureDetector(
             onTap: onTap,
             child: SizedBox(
+              width: headWidth,
               height: MapLayout.nodeHeight,
               child: node.isLive ? _Halo(color: stateColor, child: head) : head,
             ),
@@ -100,6 +109,7 @@ class _Head extends StatelessWidget {
     required this.stateColor,
     required this.dense,
     this.onExpandSubagents,
+    this.onOpenConsults,
   });
 
   final MapNode node;
@@ -107,6 +117,7 @@ class _Head extends StatelessWidget {
   final Color stateColor;
   final bool dense;
   final VoidCallback? onExpandSubagents;
+  final VoidCallback? onOpenConsults;
 
   /// Vos y el fin no llevan pie: no hay paso, ni tiempo, ni herramienta que
   /// contar, y un pie vacío es una línea divisoria que no divide nada.
@@ -169,6 +180,7 @@ class _Head extends StatelessWidget {
                 node: node,
                 accent: accent,
                 onExpandSubagents: onExpandSubagents,
+                onOpenConsults: onOpenConsults,
               ),
             ),
           ],
@@ -186,11 +198,13 @@ class _Foot extends StatelessWidget {
     required this.node,
     required this.accent,
     this.onExpandSubagents,
+    this.onOpenConsults,
   });
 
   final MapNode node;
   final Color accent;
   final VoidCallback? onExpandSubagents;
+  final VoidCallback? onOpenConsults;
 
   @override
   Widget build(BuildContext context) {
@@ -219,6 +233,10 @@ class _Foot extends StatelessWidget {
             icon: Icons.reply,
             label: '${node.backCalls}',
             color: kMapConsultColor,
+            // Se toca y abre las idas y vueltas, en orden. El cuadro del
+            // lienzo muestra la última; las anteriores viven acá detrás, que
+            // es lo que este número promete desde que existe.
+            onTap: onOpenConsults,
           ),
         ],
         if (node.subagentCount > 0) ...[
@@ -244,6 +262,12 @@ class _Foot extends StatelessWidget {
   }
 }
 
+/// La marca del nodo: dos letras sobre el color del miembro.
+///
+/// Letras y no el mismo icono para todos, que es lo que había: con cinco
+/// nodos del mismo workflow, cinco robots idénticos hacían que la fila
+/// entera se leyera igual y hubiera que leer el nombre de cada uno para
+/// saber quién es quién. El color ya los separa; las letras los nombran.
 class _Glyph extends StatelessWidget {
   const _Glyph({required this.node, required this.accent});
 
@@ -253,29 +277,79 @@ class _Glyph extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final (icon, color, filled) = switch (node.kind) {
-      MapNodeKind.you => (Icons.person_outline, scheme.primary, true),
-      MapNodeKind.end => (Icons.flag_outlined, scheme.outline, false),
-      MapNodeKind.subagent => (
-        Icons.account_tree_outlined,
-        kMapDelegateColor,
-        false,
-      ),
-      _ => (Icons.smart_toy, accent, true),
+
+    // Vos, el fin y un subagente no son miembros del elenco: no tienen color
+    // ni handle, y llevan su icono.
+    final icon = switch (node.kind) {
+      MapNodeKind.you => Icons.person_outline,
+      MapNodeKind.end => Icons.flag_outlined,
+      MapNodeKind.subagent => Icons.account_tree_outlined,
+      _ => null,
     };
 
+    if (icon != null) {
+      final color = switch (node.kind) {
+        MapNodeKind.you => scheme.primary,
+        MapNodeKind.subagent => kMapDelegateColor,
+        _ => scheme.outline,
+      };
+      return Container(
+        width: 22,
+        height: 22,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: node.kind == MapNodeKind.you
+              ? color.withValues(alpha: 0.18)
+              : null,
+          borderRadius: BorderRadius.circular(7),
+          border: node.kind == MapNodeKind.you
+              ? null
+              : Border.all(color: color.withValues(alpha: 0.6)),
+        ),
+        child: Icon(icon, size: 13, color: color),
+      );
+    }
+
+    final idle = node.state == MapNodeState.idle;
     return Container(
       width: 22,
       height: 22,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: filled ? color.withValues(alpha: 0.18) : null,
+        color: idle ? accent.withValues(alpha: 0.35) : accent,
         borderRadius: BorderRadius.circular(7),
-        border: filled ? null : Border.all(color: color.withValues(alpha: 0.6)),
       ),
-      child: Icon(icon, size: 13, color: color),
+      child: Text(
+        initialsOf(node.label),
+        style: TextStyle(
+          fontFamily: 'monospace',
+          fontSize: 9.5,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.2,
+          color: scheme.surface,
+        ),
+      ),
     );
   }
+}
+
+/// Las dos letras de un handle.
+///
+/// Del ÚLTIMO tramo y no del primero: una familia de agentes se nombra por
+/// un prefijo común —`i18n-analista`, `i18n-auditor`, `i18n-traductor`— y
+/// las dos primeras letras los dejaba a todos en «i1».
+String initialsOf(String handle) {
+  final clean = handle.trim().toLowerCase();
+  if (clean.isEmpty) return '··';
+  final parts = clean
+      .split(RegExp(r'[^a-záéíóúñ0-9]+'))
+      .where((part) => part.isNotEmpty)
+      .toList();
+  // Sin ningún tramo con letras no hay iniciales que sacar: dos puntos
+  // dicen «acá va alguien» mejor que dos guiones del nombre crudo.
+  if (parts.isEmpty) return '··';
+  final last = parts.last;
+  return last.length >= 2 ? last.substring(0, 2) : last.padRight(2, '·');
 }
 
 /// El cuadro punteado: qué resolvió, en pocas palabras.
@@ -322,48 +396,14 @@ class _Resolution extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.only(top: 10),
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        child: GestureDetector(
+      child: SizedBox(
+        width: MapLayout.resolutionWidth,
+        child: MapCalloutBox(
+          icon: icon,
+          label: label,
+          text: body,
+          color: color.withValues(alpha: 0.75),
           onTap: onTap,
-          child: CustomPaint(
-            painter: _DashedBoxPainter(color: color.withValues(alpha: 0.75)),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(9, 7, 9, 8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
-                    children: [
-                      Icon(icon, size: 11, color: color),
-                      const SizedBox(width: 5),
-                      Text(
-                        label.toUpperCase(),
-                        style: TextStyle(
-                          fontFamily: 'monospace',
-                          fontSize: 9,
-                          letterSpacing: 1,
-                          color: color,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    body,
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 11,
-                      height: 1.35,
-                      color: scheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
         ),
       ),
     );
@@ -376,38 +416,6 @@ class _Resolution extends StatelessWidget {
     if (flat.length <= 130) return flat;
     return '…${flat.substring(flat.length - 130)}';
   }
-}
-
-class _DashedBoxPainter extends CustomPainter {
-  const _DashedBoxPainter({required this.color});
-
-  final Color color;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1
-      ..color = color;
-    final path = Path()
-      ..addRRect(
-        RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(7)),
-      );
-
-    for (final metric in path.computeMetrics()) {
-      var start = 0.0;
-      while (start < metric.length) {
-        canvas.drawPath(
-          metric.extractPath(start, math.min(start + 3.5, metric.length)),
-          paint,
-        );
-        start += 6.5;
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(_DashedBoxPainter old) => old.color != color;
 }
 
 /// El anillo que respira. Solo lo lleva el nodo que tiene el turno AHORA —

@@ -62,10 +62,20 @@ lo mismo en cualquier sesión sin mirar la leyenda:
 | **avanza** (medio) | la fila de pasos, de vos hasta el fin |
 | **delega** (abajo) | los subagentes, colgados del paso que los abrió |
 
+La banda de arriba **crece con las réplicas**: una fila por corredor. Es la
+única parte del lienzo que cambia de alto, y por eso las tres guías se
+calculan en vez de ser constantes.
+
 ## Diez líneas, diez eventos
 
 El grosor dice importancia, el color dice familia, y el patrón dice dirección
 del favor: **trazo continuo avanza, guiones largos piden, puntos contestan**.
+
+Y todas son **rectas**: salen derecho del borde de un nodo, corren por un
+corredor horizontal y entran derecho al otro, con las esquinas en arco. La
+primera versión usaba un arco por línea con la misma altura para todas, y con
+dos consultas eran cuatro curvas cruzándose en una banda de veinticuatro
+puntos. Recto y en corredores separados se lee; curvo y encimado, no.
 
 | Línea | Evento | De dónde sale |
 |---|---|---|
@@ -114,15 +124,30 @@ El texto de «resolvió» es **la primera frase de lo que escribió**, no un
 resumen generado: pedirle al modelo que se resuma cuesta otro turno y puede
 mentir sobre lo que hizo.
 
-## La réplica: un cuadro, tres estados, y después un número
+## La réplica: un cuadro por par, y su propio corredor
 
-En el lienzo hay **como mucho un cuadro vivo por par de nodos**. Pide → el
-cuadro dice qué pidió. Contesta → el mismo cuadro cambia. Cierra →
-desaparece y queda el arco tenue con el contador en el pie del nodo.
+En el lienzo hay **como mucho un cuadro por par de nodos**. Pide → el cuadro
+dice qué pidió. Contesta → el mismo cuadro cambia y muestra la respuesta.
+Diez consultas entre el mismo par son un cuadro y un `↩ 10`, no diez cuadros
+encimados. Sin esa regla, una sesión de cuarenta mensajes termina siendo una
+pared de globos, que es de lo que el mapa venía a sacarnos.
 
-Diez consultas entre el mismo par son un `↩ 10`, no diez cuadros encimados.
-Sin esa regla, una sesión de cuarenta mensajes termina siendo una pared de
-globos, que es de lo que el mapa venía a sacarnos.
+**El cuadro no desaparece al cerrarse, se apaga.** El dibujo aprobado lo
+hacía desaparecer dejando el arco tenue y el contador; con la sesión
+terminada eso deja el mapa sin decir nunca qué se preguntaron, que es
+exactamente lo que uno viene a buscar. Cerrado, el cuadro y sus dos líneas
+van al 45 %, y así el recorrido de avance sigue siendo lo primero que se ve.
+
+Cada par tiene **su propio corredor**: una franja horizontal con su cuadro
+encima, la ida arriba y la vuelta nueve puntos más abajo, como dos rieles.
+Dos pares cuyos tramos no se tocan comparten corredor —no esconde nada y
+ahorra una fila—; los que se cruzarían, no. Y si dos consultas tocan el mismo
+nodo, cada una sale por **su punto** del borde de arriba, repartidos a lo
+ancho: saliendo todas del centro se superponían desde el arranque.
+
+Las anteriores del par se leen enteras entrando al nodo: el `↩ N` del pie se
+toca y abre la sección **le consultaron**, con cada pregunta y su respuesta en
+orden. Un número que no se puede abrir es un número que no dice nada.
 
 ## El carril de abajo
 
@@ -134,6 +159,12 @@ se cerró con él a medias: no hay proceso que lo devuelva.
 Se acuerda de **qué paso** lo abrió, no solo de qué miembro: con cuatro pasos
 del mismo miembro, colgarlo del primero lo pondría bajo un nodo que ya había
 terminado.
+
+Los subagentes de un padre se apilan en su columna, así que la bajada no va
+derecho: baja del pie del padre, dobla a un **montante a la izquierda** de la
+columna y entra a cada hijo por el costado. Es un árbol y se dibuja como un
+árbol — una línea derecha hasta el tercero atravesaría los cuadros de los dos
+primeros.
 
 **Los tokens de un subagente no existen**: el CLI los suma dentro del turno
 del padre y no los separa. El nodo hijo muestra tiempo y herramientas, y en
@@ -194,7 +225,8 @@ necesita más que él. **El chat no cambia en nada.**
 | El lector del stream, uno solo | `core/services/claude_stream_events.dart` |
 | El subagente como dato | `modules/projects/model/session_subagent.dart` |
 | El grafo, puro y sin Flutter | `modules/projects/model/session_map.dart` |
-| La geometría, determinista | `modules/projects/model/session_map_layout.dart` |
+| La geometría y el ruteo | `modules/projects/model/session_map_layout.dart` |
+| El cuadro punteado, uno para los tres | `modules/projects/ui/widget/map_callout_box.dart` |
 | Las aristas | `modules/projects/ui/widget/map_edges_painter.dart` |
 | El nodo | `modules/projects/ui/widget/map_node_card.dart` |
 | La leyenda | `modules/projects/ui/widget/map_legend.dart` |

@@ -36,6 +36,9 @@ dependencies:
   cupertino_icons: ^1.0.8
   reactive_notifier: 2.18.1
   logger_rs: ^2.1.1
+  # Directa y no transitiva a propósito: el diario de fallas se engancha
+  # a `Logger.root`, que es por donde `logger_rs` publica todo.
+  logging: ^1.3.0
   path_provider: ^2.1.5
   multiselect_field: ^2.5.0
   gpt_markdown: ^1.1.7

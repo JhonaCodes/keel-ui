@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
 
+import 'package:keel_ui/src/integrations/app_update/app_update.dart';
 import 'package:keel_ui/src/integrations/machine/machine.dart';
 import 'package:keel_ui/src/integrations/usage_ledger/usage_ledger.dart';
 import 'package:keel_ui/src/modules/machine/model/machine_snapshot.dart';
@@ -50,9 +51,12 @@ class _MachineScreenState extends State<MachineScreen> {
         build: (snapshot, viewmodel, keep) => ListView(
           padding: const EdgeInsets.fromLTRB(22, 16, 22, 32),
           children: [
+            // Primero Keel: la pregunta "¿qué estoy corriendo?" es de esta
+            // pantalla igual que las otras tres, y es la única que además
+            // tiene algo para hacer al respecto.
+            const KeelVersionSection(),
             _Head(
               'Servicios',
-              first: true,
               trailing: snapshot.services.isEmpty
                   ? null
                   : '${snapshot.supportedCount} con adaptador',
@@ -546,10 +550,9 @@ class _Note extends StatelessWidget {
 }
 
 class _Head extends StatelessWidget {
-  const _Head(this.label, {this.first = false, this.trailing});
+  const _Head(this.label, {this.trailing});
 
   final String label;
-  final bool first;
   final String? trailing;
 
   @override
@@ -562,7 +565,7 @@ class _Head extends StatelessWidget {
       color: scheme.outline,
     );
     return Padding(
-      padding: EdgeInsets.only(top: first ? 0 : 26, bottom: 10),
+      padding: const EdgeInsets.only(top: 26, bottom: 10),
       child: Row(
         children: [
           Text(label.toUpperCase(), style: style),

@@ -195,6 +195,20 @@ antes —comandos, rutas personales de otro, inyección de prompt, texto
 invisible— y nada se instala sin que se haya listado qué corre y a dónde
 escribe ([F33](docs/features/33-paquetes.md)).
 
+Todo lo que se rompe queda anotado en un solo lugar, con su stack y de qué
+archivo salió: un respaldo que no pudo escribir, un flujo que se cortó, un
+error de la interfaz. Antes eso vivía en la consola, que existe solo si la
+tenés abierta. El riel muestra cuántas no miraste, y si la ventana no está
+enfocada avisa macOS. Nada de eso sale de tu máquina
+([F35](docs/features/35-diario-de-fallas.md)).
+
+Y como Keel se corre desde su propio código, la pantalla **Máquina** dice en
+qué commit está el repo, si hay commits nuevos y —la pregunta que nadie se
+hace— si el binario que tenés abierto es más viejo que el código que ya
+bajaste. El botón trae los commits; reconstruir abre la Terminal, porque el
+`flutter` del PATH es el tuyo y no el de una app de macOS
+([F36](docs/features/36-actualizar-keel.md)).
+
 ## Un ejemplo de punta a punta
 
 1. Registrás dos agentes: `@flutter-expert` (rol `implementador`) y

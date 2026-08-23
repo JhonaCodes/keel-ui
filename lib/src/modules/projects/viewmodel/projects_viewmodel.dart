@@ -1118,8 +1118,8 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
           lastAnswer: steps.lastAnswer,
         );
       }
-    } catch (error) {
-      return _abandonRun(projectId, sessionId, error);
+    } catch (error, stackTrace) {
+      return _abandonRun(projectId, sessionId, error, stackTrace);
     }
     await _persist();
   }
@@ -1402,8 +1402,24 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     String projectId,
     String sessionId,
     Object error,
+    StackTrace stackTrace,
   ) async {
-    Log.e('Workflow run failed', error: error);
+    // Con el nombre del proyecto y de la sesión adentro del mensaje: esto
+    // no va solo a la consola, va al diario de fallas, y ahí "Workflow run
+    // failed" a las tres de la mañana no dice cuál de los seis proyectos
+    // fue. El stack viaja por la misma razón — es lo que deja saber de qué
+    // archivo salió.
+    final project = _projectById(projectId);
+    final session = project == null
+        ? null
+        : _sessionById(project, sessionId);
+    Log.e(
+      'El flujo se cortó'
+      '${project == null ? '' : ' en "${project.name}"'}'
+      '${session == null ? '' : ' · ${session.title}'}',
+      error: error,
+      stackTrace: stackTrace,
+    );
     _runningSessions.remove(sessionId);
     _stoppedSessionIds.remove(sessionId);
     _appendMessage(

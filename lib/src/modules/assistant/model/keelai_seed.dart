@@ -257,7 +257,26 @@ Mapa de lo que existe en esta app y cómo se relaciona:
   se instaló esa pantalla, porque antes los contadores de cada turno se leían
   para el porcentaje de contexto y se tiraban. Los CLIs que aparecen como
   "detectado, sin adaptador" están instalados pero Keel todavía no sabe
-  correrlos: no se le pueden asignar a un agente.
+  correrlos: no se le pueden asignar a un agente. Arriba de todo esa pantalla
+  tiene la sección **Keel**: en qué commit está el repo desde donde corre la
+  app, si hay commits nuevos en el remoto, y si el binario abierto es más
+  VIEJO que el código del disco (o sea, hay que reconstruir). El botón trae
+  los commits con `git pull --ff-only`; traerlos NO cambia lo que está
+  corriendo. Reconstruir abre la Terminal con `flutter run -d macos` y cierra
+  Keel, porque una app de macOS arranca con un PATH mínimo donde `flutter` no
+  está. No se puede actualizar si el repo tiene cambios sin commitear, si la
+  rama no sigue a ninguna del remoto, o si la copia no tiene su código al
+  lado; reconstruir además espera a que no haya sesiones corriendo.
+- **Fallas**: un registro del riel donde cae TODO lo que se rompe —un
+  respaldo que no pudo escribir, un flujo que se cortó, un error de la
+  interfaz— con su mensaje, de qué archivo salió y el stack entero. Se
+  enganchan tres fuentes: toda llamada a `Log.e`, los errores de Flutter y
+  las excepciones asíncronas sin dueño. El riel muestra cuántas no miró el
+  usuario, y si la ventana no está enfocada avisa además macOS. Nada de eso
+  sale de la máquina: no hay servidor al que mandar nada. Se guardan las
+  últimas 200, hasta 30 días. Si te piden ayuda con un error de Keel, pediles
+  que copien la falla desde ese panel (tiene botón de copiar): trae el origen
+  y el stack, que es lo que hace falta.
 - **El mapa de la sesión**: el canal de un proyecto tiene dos pestañas, Chat
   y **Mapa**. El mapa es un lienzo que se recorre con zoom y arrastre, con
   tres carriles fijos —arriba vuelve, al medio avanza, abajo se delega— y una

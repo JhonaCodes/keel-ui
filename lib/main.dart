@@ -11,12 +11,14 @@ import 'package:keel_ui/src/core/services/station_to_project_migration.dart';
 import 'package:keel_ui/src/core/services/local_database.dart';
 import 'package:keel_ui/src/core/services/main_window_size.dart';
 import 'package:keel_ui/src/core/ui/app_theme.dart';
+import 'package:keel_ui/src/integrations/app_update/app_update.dart';
 import 'package:keel_ui/src/integrations/assistant_mcp/assistant_mcp_server.dart';
 import 'package:keel_ui/src/integrations/jobs_api/jobs_api.dart';
 import 'package:keel_ui/src/integrations/boards_mcp/boards_mcp.dart';
 import 'package:keel_ui/src/integrations/requirements_mcp/requirements_mcp.dart';
 import 'package:keel_ui/src/integrations/roadmap_mcp/roadmap_mcp.dart';
 import 'package:keel_ui/src/integrations/catalog_shape/catalog_shape.dart';
+import 'package:keel_ui/src/integrations/fault_journal/fault_journal.dart';
 import 'package:keel_ui/src/integrations/system_vault/system_vault.dart';
 import 'package:keel_ui/src/integrations/session_plan_mcp/session_plan_mcp_server.dart';
 import 'package:keel_ui/src/integrations/user_tools_mcp/user_tools_mcp_server.dart';
@@ -68,6 +70,12 @@ Future<void> main(List<String> rawArgs) async {
     case AppWindowArguments.idMain:
     default:
       await LocalDatabase.ensureInitialized();
+      // Apenas hay dónde escribir, y antes que nada más: de acá en adelante
+      // toda excepción queda anotada en vez de morir en una consola que
+      // quizá nadie tenga abierta. Va después de la base a propósito — un
+      // diario que arranca sin dónde guardar se apaga solo en el primer
+      // intento.
+      installFaultCapture();
       await migrateLegacyJsonIfNeeded();
       await migrateStationsToProjects();
       // Después de la base (lee el tamaño guardado) y antes de runApp: la
@@ -95,6 +103,10 @@ Future<void> main(List<String> rawArgs) async {
           awaitCatalogsReady,
         ),
       );
+      // Callado y sin bloquear: un `git fetch` sobre el repo de Keel para
+      // saber si hay commits nuevos. Si no los hay —lo normal— nadie se
+      // entera de que se preguntó.
+      unawaited(AppUpdateService.instance.notifier.check());
       runApp(const KeelUiApp());
   }
 }

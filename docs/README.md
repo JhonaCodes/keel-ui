@@ -65,6 +65,8 @@ completo; esto es el detalle.
 | [F27](features/27-arranque-y-espera.md) | El arranque, y decir que estás esperando |
 | [F30](features/30-maquina.md) | Servicios, consumo y fierro |
 | [F31](features/31-mapa-de-razonamiento.md) | El mapa: ver cómo se piensa |
+| [F35](features/35-diario-de-fallas.md) | El diario de fallas |
+| [F36](features/36-actualizar-keel.md) | Qué Keel estás corriendo, y actualizarlo |
 
 ## Lo demás
 

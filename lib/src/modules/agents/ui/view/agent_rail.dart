@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
 
 import 'package:keel_ui/src/modules/assistant/service/assistant_window_bridge.dart';
+import 'package:keel_ui/src/integrations/app_update/app_update.dart';
+import 'package:keel_ui/src/integrations/fault_journal/fault_journal.dart';
 import 'package:keel_ui/src/integrations/system_vault/system_vault.dart';
 import 'package:keel_ui/src/modules/settings/ui/widget/settings_panel.dart';
 
@@ -148,14 +150,11 @@ class AgentRail extends StatelessWidget {
             ),
             const Divider(height: 1),
             const SizedBox(height: 4),
-            // Con Respaldo y Ajustes: son las tres que hablan de la app y no
-            // del trabajo.
-            _RailButton(
-              label: 'Máquina',
-              icon: Icons.memory_outlined,
-              tooltip: 'Servicios, consumo y estado de la máquina',
-              onPressed: onOpenMachine,
-            ),
+            // Con Respaldo y Ajustes: son las que hablan de la app y no del
+            // trabajo. Fallas arriba de todas ellas porque es la única que
+            // se mira porque se prendió, no porque la fuiste a buscar.
+            const _FaultsRailButton(),
+            _MachineRailButton(onPressed: onOpenMachine),
             _VaultRailButton(onPressed: () => openSettingsPanel(context)),
             _RailButton(
               label: 'Ajustes',
@@ -234,6 +233,120 @@ class _RailButton extends StatelessWidget {
   }
 }
 
+/// Lo que se rompió, con cuántas no miraste.
+///
+/// Es el único registro del rail que se abre porque se prendió y no porque
+/// lo fuiste a buscar: sin el número, una falla de las tres de la mañana se
+/// entera el que tenga la consola abierta, o sea nadie.
+class _FaultsRailButton extends StatelessWidget {
+  const _FaultsRailButton();
+
+  @override
+  Widget build(BuildContext context) {
+    return ReactiveViewModelBuilder<FaultJournalViewModel, FaultJournalState>(
+      viewmodel: FaultJournalService.instance.notifier,
+      build: (state, viewmodel, keep) {
+        final scheme = Theme.of(context).colorScheme;
+        return Stack(
+          alignment: Alignment.topRight,
+          children: [
+            _RailButton(
+              label: 'Fallas',
+              icon: Icons.report_gmailerrorred_outlined,
+              tooltip: switch (state.unseen) {
+                0 => 'Lo que se rompió — nada sin ver',
+                1 => 'Una falla sin ver',
+                final count => '$count fallas sin ver',
+              },
+              onPressed: () => openFaultsPanel(context),
+            ),
+            if (state.unseen > 0)
+              Positioned(
+                right: 2,
+                top: 2,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 4,
+                    vertical: 1,
+                  ),
+                  decoration: BoxDecoration(
+                    color: scheme.error,
+                    borderRadius: BorderRadius.circular(7),
+                  ),
+                  child: Text(
+                    state.unseen > 9 ? '9+' : '${state.unseen}',
+                    style: TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 9,
+                      height: 1.2,
+                      fontWeight: FontWeight.w600,
+                      color: scheme.onError,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// La máquina, con un punto cuando hay una versión nueva de Keel.
+///
+/// El aviso vive acá y no en un cartel aparte porque la respuesta también:
+/// la sección Keel de esa pantalla es la que trae los commits y la que
+/// reconstruye.
+class _MachineRailButton extends StatelessWidget {
+  const _MachineRailButton({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return ReactiveViewModelBuilder<AppUpdateViewModel, AppUpdateState>(
+      viewmodel: AppUpdateService.instance.notifier,
+      build: (state, viewmodel, keep) {
+        return Stack(
+          alignment: Alignment.topRight,
+          children: [
+            _RailButton(
+              label: 'Máquina',
+              icon: Icons.memory_outlined,
+              tooltip: state.pending
+                  ? 'Hay una versión nueva de Keel'
+                  : 'Servicios, consumo y estado de la máquina',
+              onPressed: onPressed,
+            ),
+            if (state.pending)
+              Positioned(
+                right: 6,
+                top: 4,
+                child: _Dot(color: Theme.of(context).colorScheme.primary),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// El punto de aviso de un registro del rail.
+class _Dot extends StatelessWidget {
+  const _Dot({required this.color});
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 8,
+      height: 8,
+      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+    );
+  }
+}
+
 /// El estado del respaldo, siempre a la vista.
 ///
 /// El respaldo automático commitea local pero NO sube: sin este punto, "ya
@@ -268,14 +381,7 @@ class _VaultRailButton extends StatelessWidget {
               Positioned(
                 right: 6,
                 top: 4,
-                child: Container(
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.error,
-                    shape: BoxShape.circle,
-                  ),
-                ),
+                child: _Dot(color: Theme.of(context).colorScheme.error),
               ),
           ],
         );

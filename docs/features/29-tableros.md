@@ -104,9 +104,19 @@ como un pedido raro y te hace buscar del lado equivocado media hora.
 
 ## Dónde vive
 
-En el **sidebar, bajo su proyecto**, entre Estado y las sesiones. Un tablero
-prueba la API de ESE repo: sacarlo del proyecto sería pedirte que te acuerdes
-a cuál pertenece. Se abre en el área central, donde va el chat.
+En el **sidebar, bajo su proyecto**: una sección propia, hermana de Estado y
+de Sesiones. Un tablero prueba la API de ESE repo, y sacarlo del proyecto
+sería pedirte que te acuerdes a cuál pertenece.
+
+**Tableros** es a la vez una fila y una pantalla. La fila lleva a la lista del
+proyecto en el área central; el galón de la izquierda abre y cierra la lista
+en el menú. Sin ninguno, esa pantalla es la que ofrece los dos caminos
+—pedírselo a Keel AI o crearlo a mano—, que es donde esa explicación sirve:
+en el menú era una nota de cuatro líneas que no se podía apretar.
+
+Se borra desde los tres lados: la cruz de su fila, la ficha de la lista y el
+banco. Estaba solo en el banco, que es justamente el sitio al que no entrás
+cuando el que sobra lo tenés adelante.
 
 En el riel está **Banco**, para verlos todos entre proyectos y ordenarlos.
 
@@ -136,3 +146,5 @@ botón que dispara contra algo que ya no seguís es peor que no tenerlo.
    agente.
 8. Exportar el respaldo → el tablero viaja, sus corridas no.
 9. Borrar el proyecto → sus tableros se van con él.
+10. Borrar el tablero que estás mirando → el área central cae en la lista, no
+    en un hueco.

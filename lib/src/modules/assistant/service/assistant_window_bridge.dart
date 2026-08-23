@@ -67,6 +67,19 @@ class AssistantWindowBridge {
     }
   }
 
+  /// Abre la ventana de Keel AI con el pedido ya hecho.
+  ///
+  /// Existe para los lugares que ofrecen «pediselo a Keel AI»: si el botón
+  /// solo abriera la ventana, quedarías frente a un cursor teniendo que
+  /// redactar vos lo que el botón ya sabía pedir. El mensaje entra por el
+  /// mismo camino que si lo hubieras escrito.
+  Future<void> openAsking(String request) async {
+    await open();
+    final agentId = _activeAgentId;
+    if (agentId == null) return;
+    unawaited(_agents.sendMessage(agentId, request));
+  }
+
   /// Dispatches one `assistant.<method>` bridge call. Returns a JSON-encoded
   /// [AssistantWindowState] for the methods whose UI needs the answer
   /// immediately (attach + session changes), null for fire-and-forget ones.

@@ -4,6 +4,7 @@ import 'package:reactive_notifier/reactive_notifier.dart';
 import 'package:keel_ui/src/modules/boards/model/board.dart';
 import 'package:keel_ui/src/modules/boards/model/board_run.dart';
 import 'package:keel_ui/src/modules/boards/ui/screen/board_form_screen.dart';
+import 'package:keel_ui/src/modules/boards/ui/widget/delete_board_dialog.dart';
 import 'package:keel_ui/src/modules/boards/viewmodel/boards_viewmodel.dart';
 import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
 
@@ -75,8 +76,8 @@ class _Empty extends StatelessWidget {
               'propia app: lanzar una oferta, mandarte un push, pegarle a un '
               'endpoint que estás escribiendo.\n\n'
               'Lo más rápido es pedírselo a un agente del proyecto: lee tu '
-              'código y lo arma solo. Aparece en el sidebar, debajo de '
-              'Estado.',
+              'código y lo arma solo. Aparece en la sección Tableros de ese '
+              'proyecto.',
               textAlign: TextAlign.center,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
@@ -130,32 +131,6 @@ class _BoardTile extends StatelessWidget {
   final BoardRun? lastRun;
   final VoidCallback onOpen;
 
-  Future<void> _confirmAndDelete(BuildContext context) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Eliminar tablero'),
-        content: Text(
-          'Se elimina "${board.name}" y sus corridas guardadas. Lo que ya '
-          'disparaste contra tu API no se deshace.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Eliminar'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed ?? false) {
-      BoardsService.instance.notifier.deleteBoard(board.id);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -192,7 +167,7 @@ class _BoardTile extends StatelessWidget {
           IconButton(
             tooltip: 'Eliminar',
             icon: const Icon(Icons.delete_outline, size: 18),
-            onPressed: () => _confirmAndDelete(context),
+            onPressed: () => confirmAndDeleteBoard(context, board),
           ),
         ],
       ),

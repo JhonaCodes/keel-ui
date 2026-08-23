@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:keel_ui/src/core/ui/form_panel.dart';
 import 'package:keel_ui/src/core/ui/inline_rename_field.dart';
+import 'package:keel_ui/src/core/ui/sidebar_section_row.dart';
 import 'package:keel_ui/src/modules/requirements/ui/screen/requirement_form_screen.dart';
 import 'package:keel_ui/src/modules/requirements/ui/screen/requirements_screen.dart';
 import 'package:keel_ui/src/modules/requirements/ui/widget/requirements_group.dart';
@@ -19,35 +20,29 @@ import 'package:keel_ui/src/modules/projects/ui/widget/session_plan_list.dart';
 import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
 import 'package:keel_ui/src/modules/workflows/model/workflow.dart';
 import 'package:keel_ui/src/modules/workflows/viewmodel/workflows_viewmodel.dart';
+import 'package:keel_ui/src/modules/workspace/model/workspace_lens.dart';
+import 'package:keel_ui/src/modules/workspace/viewmodel/workspace_viewmodel.dart';
 
-/// The channel list: projects, and under the selected one, its sessions. The
-/// project is the durable thing; sessions are opened, run and closed inside it.
+/// La lista de canales: proyectos y, bajo el seleccionado, sus tres
+/// secciones —Estado, Tableros y Sesiones— al mismo nivel y escritas igual.
+///
+/// No decide nada de navegación: cada fila le pide a [WorkspaceViewModel] que
+/// abra algo, y el área central dibuja lo que ese lente diga. Antes la fila
+/// movía la selección por su cuenta y la pantalla tenía su propio `_focus`,
+/// así que tocar una sesión con un tablero abierto no llevaba a ninguna
+/// parte.
 class ProjectsSidebar extends StatelessWidget {
   const ProjectsSidebar({
     super.key,
     required this.state,
-    required this.projectFocused,
-    required this.requirementFocus,
-    required this.selectedBoardId,
-    required this.onSelectBoard,
-    required this.onSelectProject,
-    required this.onSelectAgent,
-    required this.onSelectRequirement,
+    required this.workspace,
     required this.onNewProject,
     required this.onManageProjects,
     required this.onManageAgents,
   });
 
   final ProjectsState state;
-  final bool projectFocused;
-  final bool requirementFocus;
-
-  /// Qué tablero está abierto, o null si el área central muestra otra cosa.
-  final String? selectedBoardId;
-  final ValueChanged<String> onSelectBoard;
-  final ValueChanged<String> onSelectProject;
-  final ValueChanged<String> onSelectAgent;
-  final ValueChanged<String> onSelectRequirement;
+  final WorkspaceState workspace;
   final VoidCallback onNewProject;
   final VoidCallback onManageProjects;
   final VoidCallback onManageAgents;
@@ -60,13 +55,7 @@ class ProjectsSidebar extends StatelessWidget {
       viewmodel: WorkflowsService.instance.notifier,
       build: (workflowsState, viewmodel, keep) => _SidebarList(
         state: state,
-        selectedBoardId: selectedBoardId,
-        onSelectBoard: onSelectBoard,
-        projectFocused: projectFocused,
-        requirementFocus: requirementFocus,
-        onSelectProject: onSelectProject,
-        onSelectAgent: onSelectAgent,
-        onSelectRequirement: onSelectRequirement,
+        workspace: workspace,
         onNewProject: onNewProject,
         onManageProjects: onManageProjects,
         onManageAgents: onManageAgents,
@@ -75,38 +64,40 @@ class ProjectsSidebar extends StatelessWidget {
   }
 }
 
-class _SidebarList extends StatelessWidget {
+class _SidebarList extends StatefulWidget {
   const _SidebarList({
     required this.state,
-    required this.projectFocused,
-    required this.requirementFocus,
-    required this.selectedBoardId,
-    required this.onSelectBoard,
-    required this.onSelectProject,
-    required this.onSelectAgent,
-    required this.onSelectRequirement,
+    required this.workspace,
     required this.onNewProject,
     required this.onManageProjects,
     required this.onManageAgents,
   });
 
   final ProjectsState state;
-  final bool projectFocused;
-  final bool requirementFocus;
-
-  /// Qué tablero está abierto, o null si el área central muestra otra cosa.
-  final String? selectedBoardId;
-  final ValueChanged<String> onSelectBoard;
-  final ValueChanged<String> onSelectRequirement;
-  final ValueChanged<String> onSelectProject;
-  final ValueChanged<String> onSelectAgent;
+  final WorkspaceState workspace;
   final VoidCallback onNewProject;
   final VoidCallback onManageProjects;
   final VoidCallback onManageAgents;
 
   @override
+  State<_SidebarList> createState() => _SidebarListState();
+}
+
+class _SidebarListState extends State<_SidebarList> {
+  /// Si las listas de cada sección están abiertas. Vive acá y no en el
+  /// ViewModel porque es de esta ventana: cuánto menú querés ver no es un
+  /// dato del sistema. Una sola por sección y no una por proyecto —hay un
+  /// solo proyecto abierto a la vez.
+  bool _boardsOpen = true;
+  bool _sessionsOpen = true;
+
+  ProjectsState get state => widget.state;
+  WorkspaceState get workspace => widget.workspace;
+
+  @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final navigator = WorkspaceService.instance.notifier;
 
     return Container(
       width: 210,
@@ -116,8 +107,8 @@ class _SidebarList extends StatelessWidget {
         children: [
           _GroupHead(
             label: 'Proyectos',
-            onAdd: onNewProject,
-            onManage: onManageProjects,
+            onAdd: widget.onNewProject,
+            onManage: widget.onManageProjects,
           ),
           if (state.projects.isEmpty)
             Padding(
@@ -131,64 +122,48 @@ class _SidebarList extends StatelessWidget {
           for (final project in state.projects) ...[
             _ProjectRow(
               project: project,
-              selected: projectFocused && state.selectedProjectId == project.id,
-              onTap: () => onSelectProject(project.id),
+              selected:
+                  workspace.isProjectScoped &&
+                  state.selectedProjectId == project.id,
+              onTap: () => navigator.openProject(project.id),
             ),
             if (state.selectedProjectId == project.id) ...[
               _StateRow(
                 project: project,
-                selected:
-                    projectFocused &&
-                    project.activeSessionId == null &&
-                    selectedBoardId == null,
+                selected: workspace.lens == WorkspaceLens.projectState,
+                onTap: () => navigator.openProjectState(project.id),
               ),
-              BoardsGroup(
+              BoardsSection(
                 projectId: project.id,
-                selectedBoardId: selectedBoardId,
-                onSelect: onSelectBoard,
+                workspace: workspace,
+                expanded: _boardsOpen,
+                onToggle: () => setState(() => _boardsOpen = !_boardsOpen),
               ),
-              for (final session in project.sessions) ...[
-                _SessionRow(
-                  session: session,
-                  projectId: project.id,
-                  totalSteps: ProjectsService.instance.notifier.stepCountFor(
-                    project,
-                  ),
-                  selected: project.activeSessionId == session.id,
-                ),
-                // El plan solo se despliega en la sesión abierta: con cuatro
-                // sesiones en el proyecto, cuatro planes a la vez convierten
-                // el sidebar en una pared.
-                if (project.activeSessionId == session.id)
-                  SessionPlanList(
-                    projectId: project.id,
-                    sessionId: session.id,
-                    plan: session.plan,
-                  ),
-              ],
-              _NewSessionButton(
-                onPressed: () =>
-                    ProjectsService.instance.notifier.createSession(project.id),
+              _SessionsSection(
+                project: project,
+                workspace: workspace,
+                expanded: _sessionsOpen,
+                onToggle: () => setState(() => _sessionsOpen = !_sessionsOpen),
               ),
             ],
           ],
           RequirementsGroup(
             selectedProjectId: state.selectedProjectId,
-            selectedRequirementId: requirementFocus
+            selectedRequirementId: workspace.lens == WorkspaceLens.requirement
                 ? RequirementsService.instance.notifier.data.selectedId
                 : null,
-            onSelect: onSelectRequirement,
+            onSelect: navigator.openRequirement,
             onManage: () =>
                 showFormPanel(context, child: const RequirementsScreen()),
             onAdd: () => openRequirementFormPanel(context),
           ),
           _LooseAgentsHead(
             onAdd: () => openUseAgentPanel(context),
-            onManage: onManageAgents,
+            onManage: widget.onManageAgents,
           ),
           ReactiveViewModelBuilder<AgentsViewModel, AgentsState>(
             viewmodel: AgentsService.instance.notifier,
-            build: (state, viewmodel, keep) {
+            build: (agentsState, viewmodel, keep) {
               // Sin las sesiones de Keel AI: el asistente vive en su ventana
               // flotante, no acá entre los agentes que registró el usuario.
               final agents = viewmodel.listableAgents;
@@ -208,8 +183,9 @@ class _SidebarList extends StatelessWidget {
                     _LooseAgentRow(
                       agent: agent,
                       selected:
-                          !projectFocused && state.selectedAgentId == agent.id,
-                      onTap: () => onSelectAgent(agent.id),
+                          workspace.lens == WorkspaceLens.agent &&
+                          agentsState.selectedAgentId == agent.id,
+                      onTap: () => navigator.openAgent(agent.id),
                     ),
                 ],
               );
@@ -217,6 +193,78 @@ class _SidebarList extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// La sección Sesiones: la tercera hermana. Antes las sesiones colgaban del
+/// proyecto sin encabezado, así que se leían como si fueran otra cosa que
+/// Estado y Tableros cuando son exactamente lo mismo —una parte del
+/// proyecto.
+class _SessionsSection extends StatelessWidget {
+  const _SessionsSection({
+    required this.project,
+    required this.workspace,
+    required this.expanded,
+    required this.onToggle,
+  });
+
+  final Project project;
+  final WorkspaceState workspace;
+  final bool expanded;
+  final VoidCallback onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    final navigator = WorkspaceService.instance.notifier;
+    final onSessions = workspace.lens == WorkspaceLens.session;
+    final active = project.activeSessionId;
+    final totalSteps = ProjectsService.instance.notifier.stepCountFor(project);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SidebarSectionRow(
+          label: 'Sesiones',
+          selected: onSessions,
+          expanded: expanded,
+          onToggle: onToggle,
+          // Sin ninguna abierta lleva igual al lente de sesiones, que es
+          // donde está el botón para abrir una. Un click que no hace nada
+          // porque no hay nada es peor que uno que te muestra por qué.
+          onTap: () => active == null
+              ? navigator.openNewSession(project.id)
+              : navigator.openSession(project.id, active),
+          trailing: SidebarCount(
+            project.sessions.length,
+            highlight: onSessions,
+          ),
+        ),
+        if (expanded) ...[
+          for (final session in project.sessions) ...[
+            _SessionRow(
+              session: session,
+              projectId: project.id,
+              totalSteps: totalSteps,
+              selected: onSessions && active == session.id,
+              onTap: () => navigator.openSession(project.id, session.id),
+            ),
+            // El plan solo se despliega en la sesión abierta: con cuatro
+            // sesiones en el proyecto, cuatro planes a la vez convierten
+            // el sidebar en una pared.
+            if (active == session.id)
+              SessionPlanList(
+                projectId: project.id,
+                sessionId: session.id,
+                plan: session.plan,
+              ),
+          ],
+          SidebarAddRow(
+            label: 'Nueva sesión',
+            onTap: () => navigator.openNewSession(project.id),
+          ),
+        ],
+      ],
     );
   }
 }
@@ -471,12 +519,14 @@ class _SessionRow extends StatefulWidget {
     required this.projectId,
     required this.totalSteps,
     required this.selected,
+    required this.onTap,
   });
 
   final Session session;
   final String projectId;
   final int totalSteps;
   final bool selected;
+  final VoidCallback onTap;
 
   @override
   State<_SessionRow> createState() => _SessionRowState();
@@ -555,14 +605,11 @@ class _SessionRowState extends State<_SessionRow> {
     };
 
     return InkWell(
-      onTap: () => ProjectsService.instance.notifier.selectSession(
-        projectId,
-        session.id,
-      ),
+      onTap: widget.onTap,
       onDoubleTap: _rename.start,
       child: Container(
         color: selected ? scheme.primary.withValues(alpha: 0.07) : null,
-        padding: const EdgeInsets.fromLTRB(30, 4, 6, 4),
+        padding: const EdgeInsets.fromLTRB(42, 3, 6, 3),
         child: Row(
           children: [
             Icon(
@@ -598,6 +645,9 @@ class _SessionRowState extends State<_SessionRow> {
               icon: const Icon(Icons.close, size: 13),
               constraints: const BoxConstraints.tightFor(width: 24, height: 24),
               padding: EdgeInsets.zero,
+              style: const ButtonStyle(
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
               onPressed: () => _confirmAndClose(context),
             ),
           ],
@@ -607,94 +657,38 @@ class _SessionRowState extends State<_SessionRow> {
   }
 }
 
-/// Opens another session in the same project. Deliberately a real button: the
-/// composer alone can only ever continue the session that is already open, so
-/// without this there is no way to start a second one.
-class _NewSessionButton extends StatelessWidget {
-  const _NewSessionButton({required this.onPressed});
-
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return InkWell(
-      onTap: onPressed,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(30, 6, 14, 10),
-        child: Row(
-          children: [
-            Icon(Icons.add, size: 14, color: scheme.primary),
-            const SizedBox(width: 6),
-            Text(
-              'Nueva sesión',
-              style: TextStyle(
-                fontSize: 12,
-                color: scheme.primary,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// La sección fija de un proyecto. Va arriba de las sesiones y no se cierra:
-/// las sesiones entran y salen, cómo va el proyecto está siempre.
+/// Cómo va el proyecto. La primera de las tres secciones y la única sin
+/// lista debajo: no hay estados, hay uno.
 class _StateRow extends StatelessWidget {
-  const _StateRow({required this.project, required this.selected});
+  const _StateRow({
+    required this.project,
+    required this.selected,
+    required this.onTap,
+  });
 
   final Project project;
   final bool selected;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final badge = ProjectsService.instance.notifier.radarBadgeFor(project);
 
-    return InkWell(
-      onTap: () =>
-          ProjectsService.instance.notifier.showProjectState(project.id),
-      child: Container(
-        color: selected ? scheme.primary.withValues(alpha: 0.07) : null,
-        padding: const EdgeInsets.fromLTRB(26, 4, 6, 4),
-        child: Row(
-          children: [
-            Text(
-              '▸',
+    return SidebarSectionRow(
+      label: 'Estado',
+      selected: selected,
+      onTap: onTap,
+      trailing: badge.ok
+          ? Text(
+              '${badge.percent}%',
               style: TextStyle(
+                fontFamily: 'monospace',
                 fontSize: 10,
-                color: selected ? scheme.primary : scheme.outlineVariant,
+                color: selected ? scheme.primary : scheme.outline,
               ),
-            ),
-            const SizedBox(width: 7),
-            Expanded(
-              child: Text(
-                'Estado',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: selected ? scheme.onSurface : scheme.outline,
-                ),
-              ),
-            ),
-            if (badge.ok)
-              Text(
-                '${badge.percent}%',
-                style: TextStyle(
-                  fontFamily: 'monospace',
-                  fontSize: 10,
-                  color: scheme.primary,
-                ),
-              )
-            else
-              Icon(Icons.warning_amber_rounded, size: 13, color: scheme.error),
-            // Sin cruz, a diferencia de una sesión: no hay nada que cerrar.
-            const SizedBox(width: 24),
-          ],
-        ),
-      ),
+            )
+          : Icon(Icons.warning_amber_rounded, size: 13, color: scheme.error),
     );
   }
 }

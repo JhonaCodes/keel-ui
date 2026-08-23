@@ -173,6 +173,12 @@ La regla que ordena todo eso: **el riel abre cosas que se cierran**
 se ve**. Por eso los registros nunca se tragan el área central: la
 conversación se queda atrás del panel.
 
+Un proyecto abierto muestra tres secciones hermanas —**Estado**, **Tableros**
+y **Sesiones**—, y qué se está mirando es **un solo dato con un solo dueño**:
+seleccionar algo y navegar hacia algo son la misma operación, así que no hay
+forma de que el menú marque una cosa y el centro muestre otra
+([F32](docs/features/32-una-sola-navegacion.md)).
+
 Todo formulario abre como panel deslizante a la derecha; `showDialog` queda
 para lo informativo y para el sí/no.
 

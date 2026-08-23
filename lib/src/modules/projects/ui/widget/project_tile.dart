@@ -5,6 +5,7 @@ import 'package:keel_ui/src/modules/projects/model/project.dart';
 import 'package:keel_ui/src/modules/requirements/viewmodel/requirements_viewmodel.dart';
 import 'package:keel_ui/src/modules/roadmap/viewmodel/task_claims_viewmodel.dart';
 import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
+import 'package:keel_ui/src/modules/workspace/viewmodel/workspace_viewmodel.dart';
 import 'package:keel_ui/src/modules/projects/ui/screen/project_form_screen.dart';
 
 class ProjectTile extends StatelessWidget {
@@ -78,7 +79,7 @@ class ProjectTile extends StatelessWidget {
         ).textTheme.titleSmall?.copyWith(fontFamily: 'monospace'),
       ),
       isThreeLine: true,
-      onTap: () => ProjectsService.instance.notifier.selectProject(project.id),
+      onTap: () => WorkspaceService.instance.notifier.openProject(project.id),
       subtitle: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

@@ -12,12 +12,15 @@ tarea del roadmap está trabajando qué agente, y en cuál de mis sesiones?*
 
 ## Qué es
 
-Una sección **fija** de cada proyecto, arriba de sus sesiones, que no se
-cierra. Las sesiones entran y salen; cómo va el proyecto está siempre.
+La primera de las tres secciones de un proyecto —Estado, Tableros,
+Sesiones—, arriba y sin lista debajo: no hay estados, hay uno. Las sesiones
+entran y salen; cómo va el proyecto está siempre.
 
-No hace falta un campo que diga "estoy mirando el estado": es lo que se ve
-cuando no hay ninguna sesión abierta, que es exactamente lo que significa. Un
-segundo campo para lo mismo se desincroniza solo.
+Que se estuviera mirando el estado **se deducía** de que no hubiera sesión
+abierta, y mientras el proyecto tuvo dos cosas adentro alcanzó. Con los
+tableros dejó de alcanzar: «ninguna sesión abierta» pasó a ser tres
+situaciones distintas. Ahora es un lente explícito, uno de seis, y quién lo
+guarda está en [F32](32-una-sola-navegacion.md).
 
 **Mira, no toca.** No hay un solo control adentro, y es una decisión: para
 abrir una sesión está su fila en el sidebar, a diez píxeles. Una pantalla que

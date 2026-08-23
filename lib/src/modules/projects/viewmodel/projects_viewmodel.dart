@@ -756,11 +756,12 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     return buffer.toString();
   }
 
-  /// Vuelve a la sección de Estado del proyecto.
+  /// Cierra la sesión abierta del proyecto, sin borrarla.
   ///
-  /// No hay un campo aparte para decir "estoy mirando el estado": es lo que
-  /// se ve cuando no hay ninguna sesión abierta, que es exactamente lo que
-  /// significa. Un segundo campo para lo mismo se desincroniza solo.
+  /// Qué se está mirando NO se decide acá: eso es un lente y vive en
+  /// `WorkspaceViewModel`. Este método solo hace lo suyo —dejar el proyecto
+  /// sin sesión activa—, que es la mitad de lo que hace falta para ir a
+  /// Estado y por eso siempre se llama desde ahí.
   void showProjectState(String projectId) {
     selectProject(projectId);
     _updateProject(

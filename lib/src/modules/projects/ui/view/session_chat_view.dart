@@ -22,6 +22,7 @@ import 'package:keel_ui/src/modules/projects/ui/widget/workflow_progress_panel.d
 import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
 import 'package:keel_ui/src/modules/workflows/model/workflow.dart';
 import 'package:keel_ui/src/modules/workflows/viewmodel/workflows_viewmodel.dart';
+import 'package:keel_ui/src/modules/workspace/viewmodel/workspace_viewmodel.dart';
 import 'package:keel_ui/src/shared/shared.dart';
 
 /// What the channel is showing: the conversation, or the same conversation
@@ -711,7 +712,7 @@ class _EmptyChannel extends StatelessWidget {
             const SizedBox(height: 16),
             FilledButton.icon(
               onPressed: () =>
-                  ProjectsService.instance.notifier.createSession(projectId),
+                  WorkspaceService.instance.notifier.openNewSession(projectId),
               icon: const Icon(Icons.add, size: 18),
               label: const Text('Nueva sesión'),
             ),

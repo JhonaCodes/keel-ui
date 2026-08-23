@@ -1,27 +1,37 @@
 import 'package:flutter/material.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
 
+import 'package:keel_ui/src/core/ui/sidebar_section_row.dart';
 import 'package:keel_ui/src/modules/boards/model/board.dart';
 import 'package:keel_ui/src/modules/boards/model/board_run.dart';
 import 'package:keel_ui/src/modules/boards/ui/screen/board_form_screen.dart';
+import 'package:keel_ui/src/modules/boards/ui/widget/delete_board_dialog.dart';
 import 'package:keel_ui/src/modules/boards/viewmodel/boards_viewmodel.dart';
+import 'package:keel_ui/src/modules/workspace/model/workspace_lens.dart';
+import 'package:keel_ui/src/modules/workspace/viewmodel/workspace_viewmodel.dart';
 
-/// Los tableros de un proyecto, en el sidebar, entre Estado y las sesiones.
+/// La sección Tableros de un proyecto, en el sidebar.
 ///
-/// Van acá y no en una sección aparte porque un tablero prueba la API de
-/// ESTE repo: sacarlo del proyecto sería pedirte que te acuerdes a cuál
-/// pertenece. Y van después de Estado porque son herramienta, no resumen.
-class BoardsGroup extends StatelessWidget {
-  const BoardsGroup({
+/// Hermana de Estado y de Sesiones, escrita con el mismo widget que ellas: un
+/// tablero prueba la API de ESTE repo, así que vive en el proyecto y al mismo
+/// nivel que lo demás que el proyecto tiene.
+///
+/// Sin texto de «todavía no hay ninguno»: esa explicación ocupaba cuatro
+/// líneas de menú para decir que no había nada. Vive donde se puede hacer
+/// algo con ella, que es la pantalla.
+class BoardsSection extends StatelessWidget {
+  const BoardsSection({
     super.key,
     required this.projectId,
-    required this.selectedBoardId,
-    required this.onSelect,
+    required this.workspace,
+    required this.expanded,
+    required this.onToggle,
   });
 
   final String projectId;
-  final String? selectedBoardId;
-  final ValueChanged<String> onSelect;
+  final WorkspaceState workspace;
+  final bool expanded;
+  final VoidCallback onToggle;
 
   @override
   Widget build(BuildContext context) {
@@ -29,48 +39,34 @@ class BoardsGroup extends StatelessWidget {
       viewmodel: BoardsService.instance.notifier,
       build: (state, viewmodel, keep) {
         final boards = state.forProject(projectId);
-        final scheme = Theme.of(context).colorScheme;
+        final navigator = WorkspaceService.instance.notifier;
+        final onList = workspace.lens == WorkspaceLens.boards;
+        final onOne = workspace.lens == WorkspaceLens.board;
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            InkWell(
-              onTap: () => openBoardFormScreen(context, projectId: projectId),
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(26, 8, 8, 4),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'TABLEROS',
-                        style: TextStyle(
-                          fontFamily: 'monospace',
-                          fontSize: 10,
-                          letterSpacing: 1.2,
-                          color: scheme.outline,
-                        ),
-                      ),
-                    ),
-                    Icon(Icons.add, size: 14, color: scheme.outline),
-                  ],
-                ),
-              ),
+            SidebarSectionRow(
+              label: 'Tableros',
+              selected: onList,
+              expanded: expanded,
+              onToggle: onToggle,
+              onTap: () => navigator.openBoards(projectId),
+              trailing: SidebarCount(boards.length, highlight: onOne),
             ),
-            if (boards.isEmpty)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(34, 0, 14, 6),
-                child: Text(
-                  'Ninguno. Pedíselo a un agente del proyecto.',
-                  style: TextStyle(fontSize: 11, color: scheme.outline),
+            if (expanded)
+              for (final board in boards)
+                _BoardRow(
+                  board: board,
+                  running: state.running.contains(board.id),
+                  lastRun: state.runs[board.id]?.firstOrNull,
+                  selected: onOne && board.id == workspace.boardId,
+                  onTap: () => navigator.openBoard(board.id),
                 ),
-              ),
-            for (final board in boards)
-              _BoardRow(
-                board: board,
-                running: state.running.contains(board.id),
-                lastRun: state.runs[board.id]?.firstOrNull,
-                selected: board.id == selectedBoardId,
-                onTap: () => onSelect(board.id),
+            if (expanded && boards.isEmpty)
+              SidebarAddRow(
+                label: 'Nuevo tablero',
+                onTap: () => openBoardFormScreen(context, projectId: projectId),
               ),
           ],
         );
@@ -102,18 +98,15 @@ class _BoardRow extends StatelessWidget {
       onTap: onTap,
       child: Container(
         color: selected ? scheme.primary.withValues(alpha: 0.07) : null,
-        padding: const EdgeInsets.fromLTRB(34, 4, 10, 4),
+        padding: const EdgeInsets.fromLTRB(42, 3, 6, 3),
         child: Row(
           children: [
-            Container(
-              width: 6,
-              height: 6,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: selected ? scheme.primary : scheme.outlineVariant,
-              ),
+            Icon(
+              Icons.circle,
+              size: 6,
+              color: selected ? scheme.primary : scheme.outlineVariant,
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 7),
             Expanded(
               child: Text(
                 board.name,
@@ -125,6 +118,7 @@ class _BoardRow extends StatelessWidget {
                 ),
               ),
             ),
+            const SizedBox(width: 4),
             if (running)
               SizedBox(
                 width: 10,
@@ -140,6 +134,22 @@ class _BoardRow extends StatelessWidget {
                 size: 12,
                 color: lastRun!.ok ? scheme.tertiary : scheme.error,
               ),
+            // La misma cruz que cierra una sesión, en el mismo lugar: borrar
+            // un tablero se hacía solo desde el banco, que es el sitio al que
+            // no entrás cuando el que sobra lo tenés adelante.
+            IconButton(
+              tooltip: 'Eliminar tablero',
+              icon: const Icon(Icons.close, size: 13),
+              constraints: const BoxConstraints.tightFor(width: 24, height: 24),
+              padding: EdgeInsets.zero,
+              // Sin esto el botón reclama 48 puntos de alto —la medida de un
+              // dedo— y la fila entera pasa de 30 a 54: tres tableros y tres
+              // sesiones se comían media pantalla de menú por seis cruces.
+              style: const ButtonStyle(
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              onPressed: () => confirmAndDeleteBoard(context, board),
+            ),
           ],
         ),
       ),

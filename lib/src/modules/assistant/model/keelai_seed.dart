@@ -113,8 +113,12 @@ Mapa de lo que existe en esta app y cómo se relaciona:
 - **Tableros (sección Banco)**: una UI chiquita para que el USUARIO dispare
   algo contra su propia app — lanzar una oferta, mandarse un push de prueba,
   pegarle a un endpoint que está escribiendo. Tiene campos arriba, botones en
-  el medio y la respuesta abajo, y vive bajo su proyecto en el sidebar,
-  debajo de Estado.
+  el medio y la respuesta abajo, y vive en su proyecto: **Tableros** es una
+  sección del sidebar, hermana de Estado y de Sesiones, y también una
+  pantalla con la lista. Si el proyecto no tiene ninguno, esa pantalla es la
+  que ofrece pedírtelo a vos o crearlo a mano — el botón te abre con el
+  pedido ya escrito. Se borran desde la cruz de su fila, desde su ficha o
+  desde el Banco.
   Lo escribe un AGENTE del proyecto con las tools `mcp__keel-boards__*`
   (`list_boards`, `get_board`, `create_board`, `update_board`,
   `delete_board`), leyendo el código o el OpenAPI para que los campos y el
@@ -127,6 +131,14 @@ Mapa de lo que existe en esta app y cómo se relaciona:
   instrumento; la palanca la baja él. Si querés que lo pruebe, pedíselo.
   Toda `{{clave}}` tiene que ser un campo del tablero o algo que capturó un
   paso anterior: si no, la tool falla y dice cuál falta.
+- **Cómo navega la ventana principal**: el área central muestra UN lente a la
+  vez —agente suelto, requerimiento, estado del proyecto, lista de tableros,
+  un tablero, o la sesión abierta— y ese lente tiene un solo dueño
+  (`WorkspaceViewModel`). Seleccionar algo y navegar a algo son la misma
+  operación, así que el menú nunca marca una cosa mientras el centro muestra
+  otra. Consecuencia que te toca: si abrís una sesión con una tool, el
+  usuario **no** es arrastrado a ella —no la pidió—; decíselo en el mensaje
+  para que sepa dónde quedó.
 - **Agentes sueltos**: un agente sin proyecto, para chat 1:1 directo. No hay
   nada más que agregarle a ese caso — ya está completo tal como es.
 - **Cola de mensajes**: el usuario puede escribir y enviar mientras vos

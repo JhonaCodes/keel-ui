@@ -13,6 +13,30 @@ sealed class TaskEvent {
         (message['input'] as Map?)?.cast<String, dynamic>(),
       ),
       'reasoningChunk' => TaskReasoningChunk(message['text'] as String),
+      'subagentStarted' => TaskSubagentStarted(
+        id: message['id'] as String,
+        agentType: message['agentType'] as String,
+        ask: message['ask'] as String,
+        prompt: message['prompt'] as String,
+      ),
+      'subagentText' => TaskSubagentText(
+        message['id'] as String,
+        message['text'] as String,
+      ),
+      'subagentReasoning' => TaskSubagentReasoning(
+        message['id'] as String,
+        message['text'] as String,
+      ),
+      'subagentToolUse' => TaskSubagentToolUse(
+        message['id'] as String,
+        message['name'] as String,
+        (message['input'] as Map?)?.cast<String, dynamic>(),
+      ),
+      'subagentFinished' => TaskSubagentFinished(
+        id: message['id'] as String,
+        result: message['result'] as String,
+        isError: message['isError'] as bool,
+      ),
       'permissionDenied' => TaskPermissionDenied(
         toolName: message['toolName'] as String,
         message: message['message'] as String,
@@ -111,4 +135,49 @@ class TaskContextUsage extends TaskEvent {
 class TaskFailure extends TaskEvent {
   final String message;
   const TaskFailure(this.message);
+}
+
+/// Un `Task` que abrió un subagente. Ver [ClaudeSubagentStarted]: es el mismo
+/// dato del otro lado del isolate.
+class TaskSubagentStarted extends TaskEvent {
+  final String id;
+  final String agentType;
+  final String ask;
+  final String prompt;
+  const TaskSubagentStarted({
+    required this.id,
+    required this.agentType,
+    required this.ask,
+    required this.prompt,
+  });
+}
+
+class TaskSubagentText extends TaskEvent {
+  final String id;
+  final String text;
+  const TaskSubagentText(this.id, this.text);
+}
+
+class TaskSubagentReasoning extends TaskEvent {
+  final String id;
+  final String text;
+  const TaskSubagentReasoning(this.id, this.text);
+}
+
+class TaskSubagentToolUse extends TaskEvent {
+  final String id;
+  final String name;
+  final Map<String, dynamic>? input;
+  const TaskSubagentToolUse(this.id, this.name, this.input);
+}
+
+class TaskSubagentFinished extends TaskEvent {
+  final String id;
+  final String result;
+  final bool isError;
+  const TaskSubagentFinished({
+    required this.id,
+    required this.result,
+    required this.isError,
+  });
 }

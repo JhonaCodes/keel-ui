@@ -116,6 +116,10 @@ Future<void> _runInIsolate({
           '--output-format',
           'stream-json',
           '--verbose',
+          // Sin esto el texto y el pensamiento de un subagente llegan
+          // mezclados con los del padre: el mapa no puede darle nodo propio a
+          // algo que no sabe distinguir.
+          '--forward-subagent-text',
           '--model',
           spec.model,
           '--effort',
@@ -163,6 +167,9 @@ Future<void> _runInIsolate({
   // codex reads stdin when it isn't a TTY and waits for EOF — close it.
   if (isCodex) await process.stdin.close();
 
+  // Uno por corrida: se acuerda de los `Task` que abrió este turno, que es
+  // cómo reconoce después cuál `tool_result` es la devolución de un subagente.
+  final claudeReader = ClaudeStreamReader();
   final stderrBuffer = StringBuffer();
   final stderrDone = process.stderr
       .transform(utf8.decoder)
@@ -186,7 +193,7 @@ Future<void> _runInIsolate({
 
     final messages = isCodex
         ? _parseCodexEventToMessages(event)
-        : _parseEventToMessages(event);
+        : claudeReader.read(event);
     for (final messageMap in messages) {
       mainSendPort.send(messageMap);
     }
@@ -323,118 +330,3 @@ List<Map<String, dynamic>> _parseCodexEventToMessages(
   }
 }
 
-/// Ports `ClaudeCliService._parseEvent`'s NDJSON parsing, emitting plain
-/// message maps (isolate-sendable) instead of typed events.
-/// El bloqueo de un hook de keel-ui, si este resultado de herramienta lo es.
-/// Se reconoce por la marca del wrapper, así que no confunde un error común
-/// con un guardarraíl.
-List<Map<String, dynamic>> _parseHookBlockMessage(Map<String, dynamic> event) {
-  final content =
-      (event['message'] as Map<String, dynamic>?)?['content'] as List?;
-  if (content == null) return const [];
-
-  for (final part in content) {
-    if (part is! Map || part['type'] != 'tool_result') continue;
-    final text = part['content'] is String
-        ? part['content'] as String
-        : jsonEncode(part['content']);
-    if (!text.contains(kHookDenialMarker)) continue;
-
-    return [
-      {
-        'type': 'permissionDenied',
-        'toolName':
-            RegExp(r'PreToolUse:(\w+)').firstMatch(text)?.group(1) ??
-            'la herramienta',
-        'message': text,
-      },
-    ];
-  }
-  return const [];
-}
-
-List<Map<String, dynamic>> _parseEventToMessages(Map<String, dynamic> event) {
-  final type = event['type'] as String?;
-  switch (type) {
-    case 'system':
-      return switch (event['subtype']) {
-        'init' => switch (event['session_id'] as String?) {
-          null => const <Map<String, dynamic>>[],
-          final sessionId => [
-            {'type': 'sessionStarted', 'sessionId': sessionId},
-          ],
-        },
-        'permission_denied' => [
-          {
-            'type': 'permissionDenied',
-            'toolName': event['tool_name'] as String? ?? 'desconocido',
-            'message': event['message'] as String? ?? 'Permiso denegado.',
-          },
-        ],
-        _ => const <Map<String, dynamic>>[],
-      };
-
-    // Espejo de ClaudeCliService: un hook que bloquea llega como el
-    // resultado con error de la herramienta que frenó, no como
-    // `permission_denied`. Sin esto los guardarraíles bloquearían en las
-    // proyectos sin que el canal pudiera decir cuál fue.
-    case 'user':
-      return _parseHookBlockMessage(event);
-
-    case 'assistant':
-      final message = event['message'] as Map<String, dynamic>?;
-      final content = message?['content'] as List<dynamic>?;
-      if (content == null) return const [];
-
-      final events = <Map<String, dynamic>>[];
-      final textBuffer = StringBuffer();
-      for (final block in content.whereType<Map<String, dynamic>>()) {
-        switch (block['type']) {
-          case 'thinking':
-            final thinking = block['thinking'] as String?;
-            if (thinking != null && thinking.isNotEmpty) {
-              events.add({'type': 'reasoningChunk', 'text': thinking});
-            }
-          case 'text':
-            textBuffer.write(block['text'] as String? ?? '');
-          case 'tool_use':
-            final name = block['name'] as String?;
-            if (name != null) {
-              events.add({
-                'type': 'toolUse',
-                'name': name,
-                'input': block['input'] as Map<String, dynamic>?,
-              });
-            }
-        }
-      }
-      final text = textBuffer.toString();
-      if (text.isNotEmpty) events.add({'type': 'assistantText', 'text': text});
-      return events;
-
-    case 'result':
-      final usage = readTurnUsage(event);
-      return [
-        {
-          'type': 'turnCompleted',
-          'isError': event['is_error'] as bool,
-          'costUsd': usage.costUsd,
-          'durationMs': usage.durationMs,
-          'model': usage.model,
-          'inputTokens': usage.inputTokens,
-          'outputTokens': usage.outputTokens,
-          'cacheReadTokens': usage.cacheReadTokens,
-          'cacheCreationTokens': usage.cacheCreationTokens,
-        },
-        if (usage.contextWindowTokens > 0)
-          {
-            'type': 'contextUsage',
-            'usedTokens': usedContextOf(usage),
-            'contextWindowTokens': usage.contextWindowTokens,
-          },
-      ];
-
-    default:
-      return const [];
-  }
-}

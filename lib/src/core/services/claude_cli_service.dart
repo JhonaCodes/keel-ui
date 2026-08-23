@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:keel_ui/src/core/services/claude_stream_events.dart';
 import 'package:keel_ui/src/core/services/cli_turn_workspace.dart';
-import 'package:keel_ui/src/core/services/turn_usage.dart';
 
 import 'package:logger_rs/logger_rs.dart';
 
@@ -75,6 +75,52 @@ class ClaudeContextUsage extends ClaudeEvent {
   const ClaudeContextUsage({
     required this.usedTokens,
     required this.contextWindowTokens,
+  });
+}
+
+/// Un `Task` que abrió un subagente. [id] es el `tool_use_id` con el que ese
+/// subagente va a hablar el resto del turno, y es lo que lo vuelve un nodo con
+/// nombre en vez de la frase «delegando tarea a un subagente».
+class ClaudeSubagentStarted extends ClaudeEvent {
+  final String id;
+  final String agentType;
+  final String ask;
+  final String prompt;
+  const ClaudeSubagentStarted({
+    required this.id,
+    required this.agentType,
+    required this.ask,
+    required this.prompt,
+  });
+}
+
+class ClaudeSubagentText extends ClaudeEvent {
+  final String id;
+  final String text;
+  const ClaudeSubagentText(this.id, this.text);
+}
+
+class ClaudeSubagentReasoning extends ClaudeEvent {
+  final String id;
+  final String text;
+  const ClaudeSubagentReasoning(this.id, this.text);
+}
+
+class ClaudeSubagentToolUse extends ClaudeEvent {
+  final String id;
+  final String name;
+  final Map<String, dynamic>? input;
+  const ClaudeSubagentToolUse(this.id, this.name, this.input);
+}
+
+class ClaudeSubagentFinished extends ClaudeEvent {
+  final String id;
+  final String result;
+  final bool isError;
+  const ClaudeSubagentFinished({
+    required this.id,
+    required this.result,
+    required this.isError,
   });
 }
 
@@ -159,6 +205,9 @@ class ClaudeCliService {
         '--output-format',
         'stream-json',
         '--verbose',
+        // Sin esto el texto y el pensamiento de un subagente llegan mezclados
+        // con los del padre y quedan firmados por alguien que no los escribió.
+        '--forward-subagent-text',
         '--model',
         model,
         '--effort',
@@ -198,6 +247,7 @@ class ClaudeCliService {
       }
       onProcessStarted?.call(process);
 
+      final reader = ClaudeStreamReader();
       final stderrBuffer = StringBuffer();
       final stderrDone = process.stderr
           .transform(utf8.decoder)
@@ -218,8 +268,8 @@ class ClaudeCliService {
           continue;
         }
 
-        for (final parsed in _parseEvent(event)) {
-          yield parsed;
+        for (final message in reader.read(event)) {
+          yield _eventFrom(message);
         }
       }
 
@@ -238,111 +288,63 @@ class ClaudeCliService {
     }
   }
 
-  /// El bloqueo de un hook, si este resultado de herramienta lo es.
+  /// El formato de cable del lector, tipado.
   ///
-  /// Se reconoce por la marca que dejan los wrappers de keel-ui, así que
-  /// solo dispara con NUESTROS hooks: un hook que el usuario tenga en su
-  /// propia configuración no la lleva, y un error común de herramienta
-  /// tampoco.
-  List<ClaudeEvent> _parseHookBlock(Map<String, dynamic> event) {
-    final content =
-        (event['message'] as Map<String, dynamic>?)?['content'] as List?;
-    if (content == null) return const [];
-
-    for (final part in content) {
-      if (part is! Map || part['type'] != 'tool_result') continue;
-      final text = part['content'] is String
-          ? part['content'] as String
-          : jsonEncode(part['content']);
-      if (!text.contains(kHookDenialMarker)) continue;
-
-      final tool = RegExp(r'PreToolUse:(\w+)').firstMatch(text)?.group(1);
-      return [
-        ClaudePermissionDenied(
-          toolName: tool ?? 'la herramienta',
-          message: text,
-        ),
-      ];
-    }
-    return const [];
-  }
-
-  List<ClaudeEvent> _parseEvent(Map<String, dynamic> event) {
-    final type = event['type'] as String?;
-    switch (type) {
-      case 'system':
-        return switch (event['subtype']) {
-          'init' => switch (event['session_id'] as String?) {
-            null => const <ClaudeEvent>[],
-            final sessionId => [ClaudeSessionStarted(sessionId)],
-          },
-          'permission_denied' => [
-            ClaudePermissionDenied(
-              toolName: event['tool_name'] as String? ?? 'desconocido',
-              message: event['message'] as String? ?? 'Permiso denegado.',
-            ),
-          ],
-          _ => const <ClaudeEvent>[],
-        };
-
-      // Un hook que bloquea NO llega como `permission_denied`: llega como
-      // el resultado con error de la herramienta que frenó. Verificado
-      // contra el CLI real. Sin este caso, el bloqueo solo lo contaría el
-      // modelo en prosa y la app no tendría cómo decir cuál hook fue.
-      case 'user':
-        return _parseHookBlock(event);
-
-      case 'assistant':
-        final message = event['message'] as Map<String, dynamic>?;
-        final content = message?['content'] as List<dynamic>?;
-        if (content == null) return const [];
-
-        final events = <ClaudeEvent>[];
-        final textBuffer = StringBuffer();
-        for (final block in content.whereType<Map<String, dynamic>>()) {
-          switch (block['type']) {
-            case 'thinking':
-              final thinking = block['thinking'] as String?;
-              if (thinking != null && thinking.isNotEmpty) {
-                events.add(ClaudeReasoningChunk(thinking));
-              }
-            case 'text':
-              textBuffer.write(block['text'] as String? ?? '');
-            case 'tool_use':
-              final name = block['name'] as String?;
-              if (name != null) {
-                events.add(
-                  ClaudeToolUse(name, block['input'] as Map<String, dynamic>?),
-                );
-              }
-          }
-        }
-        final text = textBuffer.toString();
-        if (text.isNotEmpty) events.add(ClaudeAssistantText(text));
-        return events;
-
-      case 'result':
-        final usage = readTurnUsage(event);
-        return [
-          ClaudeTurnCompleted(
-            isError: event['is_error'] as bool,
-            costUsd: usage.costUsd,
-            durationMs: usage.durationMs,
-            model: usage.model,
-            inputTokens: usage.inputTokens,
-            outputTokens: usage.outputTokens,
-            cacheReadTokens: usage.cacheReadTokens,
-            cacheCreationTokens: usage.cacheCreationTokens,
-          ),
-          if (usage.contextWindowTokens > 0)
-            ClaudeContextUsage(
-              usedTokens: usedContextOf(usage),
-              contextWindowTokens: usage.contextWindowTokens,
-            ),
-        ];
-
-      default:
-        return const [];
-    }
+  /// El lector devuelve mapas porque es lo único que cruza un puerto de
+  /// isolate y el runner de tareas lo manda tal cual; acá, que no cruza nada,
+  /// se convierte al tipo de una vez.
+  ClaudeEvent _eventFrom(Map<String, dynamic> message) {
+    return switch (message['type']) {
+      'sessionStarted' => ClaudeSessionStarted(message['sessionId'] as String),
+      'assistantText' => ClaudeAssistantText(message['text'] as String),
+      'reasoningChunk' => ClaudeReasoningChunk(message['text'] as String),
+      'toolUse' => ClaudeToolUse(
+        message['name'] as String,
+        (message['input'] as Map?)?.cast<String, dynamic>(),
+      ),
+      'permissionDenied' => ClaudePermissionDenied(
+        toolName: message['toolName'] as String,
+        message: message['message'] as String,
+      ),
+      'subagentStarted' => ClaudeSubagentStarted(
+        id: message['id'] as String,
+        agentType: message['agentType'] as String,
+        ask: message['ask'] as String,
+        prompt: message['prompt'] as String,
+      ),
+      'subagentText' => ClaudeSubagentText(
+        message['id'] as String,
+        message['text'] as String,
+      ),
+      'subagentReasoning' => ClaudeSubagentReasoning(
+        message['id'] as String,
+        message['text'] as String,
+      ),
+      'subagentToolUse' => ClaudeSubagentToolUse(
+        message['id'] as String,
+        message['name'] as String,
+        (message['input'] as Map?)?.cast<String, dynamic>(),
+      ),
+      'subagentFinished' => ClaudeSubagentFinished(
+        id: message['id'] as String,
+        result: message['result'] as String,
+        isError: message['isError'] as bool,
+      ),
+      'turnCompleted' => ClaudeTurnCompleted(
+        isError: message['isError'] as bool,
+        costUsd: (message['costUsd'] as num).toDouble(),
+        durationMs: message['durationMs'] as int,
+        model: message['model'] as String,
+        inputTokens: message['inputTokens'] as int,
+        outputTokens: message['outputTokens'] as int,
+        cacheReadTokens: message['cacheReadTokens'] as int,
+        cacheCreationTokens: message['cacheCreationTokens'] as int,
+      ),
+      'contextUsage' => ClaudeContextUsage(
+        usedTokens: message['usedTokens'] as int,
+        contextWindowTokens: message['contextWindowTokens'] as int,
+      ),
+      _ => ClaudeFailure('Evento desconocido del CLI: ${message['type']}'),
+    };
   }
 }

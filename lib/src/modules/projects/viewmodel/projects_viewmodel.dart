@@ -42,6 +42,7 @@ import 'package:keel_ui/src/modules/projects/model/roadmap_format_skill.dart';
 import 'package:keel_ui/src/modules/projects/model/project.dart';
 import 'package:keel_ui/src/modules/projects/model/session.dart';
 import 'package:keel_ui/src/modules/projects/model/session_live_turn.dart';
+import 'package:keel_ui/src/modules/projects/model/session_subagent.dart';
 import 'package:keel_ui/src/modules/projects/model/session_plan_item.dart';
 import 'package:keel_ui/src/modules/projects/repository/projects_repository.dart';
 import 'package:keel_ui/src/modules/tools/model/tool.dart';
@@ -2075,6 +2076,91 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
           final path = FileEditCollector.filePathFor(name, input);
           if (path != null) await collector.noteBeforeEdit(path);
 
+        case TaskSubagentStarted(
+          id: final id,
+          agentType: final agentType,
+          ask: final ask,
+          prompt: final prompt,
+        ):
+          _updateSession(
+            projectId,
+            sessionId,
+            (session) => session.copyWith(
+              subagents: [
+                ...session.subagents,
+                SessionSubagent(
+                  id: id,
+                  parentProfileId: member.id,
+                  agentType: agentType,
+                  ask: ask,
+                  prompt: prompt,
+                  startedAt: DateTime.now(),
+                ),
+              ],
+            ),
+          );
+
+        case TaskSubagentReasoning(id: final id, text: final chunk):
+          _updateSubagent(
+            projectId,
+            sessionId,
+            id,
+            (subagent) => subagent.copyWith(
+              reasoning: subagent.reasoning + chunk,
+              phase: SubagentPhase.thinking,
+              clearActivity: true,
+            ),
+          );
+
+        case TaskSubagentToolUse(
+          id: final id,
+          name: final name,
+          input: final input,
+        ):
+          final activity = AgentToolActivity.fromToolUse(name, input);
+          _updateSubagent(
+            projectId,
+            sessionId,
+            id,
+            (subagent) => subagent.copyWith(
+              activity: activity,
+              phase: SubagentPhase.working,
+              tools: [...subagent.tools, activity],
+            ),
+          );
+
+        case TaskSubagentText(id: final id, text: final chunk):
+          _updateSubagent(
+            projectId,
+            sessionId,
+            id,
+            (subagent) => subagent.copyWith(
+              text: subagent.text + chunk,
+              phase: SubagentPhase.writing,
+              clearActivity: true,
+            ),
+          );
+
+        // Lo que devuelve un subagente es su resultado, no un mensaje del
+        // hilo: firmarlo como si lo hubiera escrito el padre es justamente lo
+        // que hacía que no se pudiera ver quién hizo qué.
+        case TaskSubagentFinished(
+          id: final id,
+          result: final result,
+          isError: final isError,
+        ):
+          _updateSubagent(
+            projectId,
+            sessionId,
+            id,
+            (subagent) => subagent.copyWith(
+              result: result,
+              phase: isError ? SubagentPhase.failed : SubagentPhase.done,
+              finishedAt: DateTime.now(),
+              clearActivity: true,
+            ),
+          );
+
         case TaskReasoningChunk(text: final chunk):
           reasoning.write(chunk);
           _updateLiveTurn(
@@ -3267,6 +3353,26 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
 
   /// Narrows [_updateSession] to the turn in flight, so a chunk that arrives
   /// after the turn ended is dropped instead of resurrecting a dead strip.
+  /// Un subagente que ya arrancó. Si el id no está, no hace nada: un evento
+  /// de un `Task` que nunca vimos abrir es de otro turno, no un subagente
+  /// nuevo sin pedido.
+  void _updateSubagent(
+    String projectId,
+    String sessionId,
+    String id,
+    SessionSubagent Function(SessionSubagent subagent) update,
+  ) {
+    _updateSession(projectId, sessionId, (session) {
+      if (session.subagents.every((entry) => entry.id != id)) return session;
+      return session.copyWith(
+        subagents: [
+          for (final entry in session.subagents)
+            if (entry.id == id) update(entry) else entry,
+        ],
+      );
+    });
+  }
+
   void _updateLiveTurn(
     String projectId,
     String sessionId,

@@ -10,8 +10,8 @@ import 'package:logger_rs/logger_rs.dart';
 // The one thing this library does not re-declare: the permission list. Two
 // copies of "what an agent is allowed to touch" drifting apart is exactly the
 // kind of divergence that must not happen silently.
+import 'package:keel_ui/src/core/services/claude_stream_events.dart';
 import 'package:keel_ui/src/core/services/cli_turn_workspace.dart';
-import 'package:keel_ui/src/core/services/turn_usage.dart';
 import 'package:keel_ui/src/core/services/claude_cli_service.dart'
     show kAlwaysAllowedTools, kCliSystemHints;
 // Same reason: which model names belong to which CLI is decided in ONE

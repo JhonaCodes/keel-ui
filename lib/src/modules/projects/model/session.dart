@@ -4,6 +4,7 @@ import 'package:keel_ui/src/modules/agents/model/chat_message.dart';
 import 'package:keel_ui/src/modules/agents/model/permission_request.dart';
 import 'package:keel_ui/src/modules/projects/model/session_plan_item.dart';
 import 'package:keel_ui/src/modules/projects/model/session_live_turn.dart';
+import 'package:keel_ui/src/modules/projects/model/session_subagent.dart';
 
 enum SessionStatus { running, finished, failed }
 
@@ -74,6 +75,11 @@ class Session {
   /// open. Not persisted — see [SessionLiveTurn].
   final SessionLiveTurn? liveTurn;
 
+  /// Los subagentes que abrieron los miembros de esta sesión, en el orden en
+  /// que arrancaron. A diferencia de [liveTurn] esto SÍ se guarda: lo que un
+  /// subagente devolvió es historia del hilo, igual que un mensaje.
+  final List<SessionSubagent> subagents;
+
   const Session({
     required this.id,
     required this.title,
@@ -93,6 +99,7 @@ class Session {
     this.contextWindowTokens,
     this.pendingPermission,
     this.liveTurn,
+    this.subagents = const [],
   });
 
   /// How full the context is, 0..1, or null while nothing has reported yet.
@@ -122,6 +129,7 @@ class Session {
     bool clearPendingPermission = false,
     SessionLiveTurn? liveTurn,
     bool clearLiveTurn = false,
+    List<SessionSubagent>? subagents,
   }) {
     return Session(
       id: id,
@@ -145,6 +153,7 @@ class Session {
           ? null
           : (pendingPermission ?? this.pendingPermission),
       liveTurn: clearLiveTurn ? null : (liveTurn ?? this.liveTurn),
+      subagents: subagents ?? this.subagents,
     );
   }
 
@@ -165,6 +174,7 @@ class Session {
     'costByProfileId': costByProfileId,
     'contextUsedTokens': contextUsedTokens,
     'contextWindowTokens': contextWindowTokens,
+    'subagents': [for (final subagent in subagents) subagent.toJson()],
   };
 
   factory Session.fromJson(Map<String, dynamic> json) {
@@ -198,6 +208,10 @@ class Session {
           const {},
       contextUsedTokens: json['contextUsedTokens'] as int?,
       contextWindowTokens: json['contextWindowTokens'] as int?,
+      subagents: [
+        for (final entry in json['subagents'] as List? ?? const [])
+          SessionSubagent.fromJson(entry as Map<String, dynamic>),
+      ],
     );
   }
 
@@ -223,7 +237,8 @@ class Session {
           contextUsedTokens == other.contextUsedTokens &&
           contextWindowTokens == other.contextWindowTokens &&
           pendingPermission == other.pendingPermission &&
-          liveTurn == other.liveTurn;
+          liveTurn == other.liveTurn &&
+          listEquals(subagents, other.subagents);
 
   @override
   int get hashCode => Object.hash(
@@ -249,6 +264,7 @@ class Session {
     contextWindowTokens,
     pendingPermission,
     liveTurn,
+    Object.hashAll(subagents),
   );
 
   @override

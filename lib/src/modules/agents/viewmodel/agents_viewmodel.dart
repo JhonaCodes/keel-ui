@@ -511,6 +511,33 @@ class AgentsViewModel extends ViewModel<AgentsState> {
           final filePath = FileEditCollector.filePathFor(name, input);
           if (filePath != null) await fileEdits.noteBeforeEdit(filePath);
 
+        // El chat 1:1 no tiene mapa donde poner un subagente, pero sí puede
+        // decir qué está haciendo: la tira pasa a hablar de ÉL en vez de
+        // quedarse en «delegando» hasta que vuelva.
+        case ClaudeSubagentStarted(agentType: final type, ask: final ask):
+          _setCurrentActivity(
+            agentId,
+            AgentToolActivity(
+              kind: AgentToolKind.task,
+              label: ask.isEmpty ? type : '$type · $ask',
+            ),
+          );
+
+        case ClaudeSubagentToolUse(name: final name, input: final input):
+          _setCurrentActivity(
+            agentId,
+            AgentToolActivity.fromToolUse(name, input),
+          );
+
+        case ClaudeSubagentFinished():
+          _setCurrentActivity(agentId, null);
+
+        // Lo que un subagente escribe y piensa NO entra al mensaje del padre.
+        // Mezclarlos era el error que la bandera vino a arreglar; acá todavía
+        // no hay dónde mostrarlos firmados bien, así que no se muestran.
+        case ClaudeSubagentText() || ClaudeSubagentReasoning():
+          break;
+
         case ClaudeReasoningChunk(text: final chunk):
           _appendLiveReasoning(agentId, chunk);
 

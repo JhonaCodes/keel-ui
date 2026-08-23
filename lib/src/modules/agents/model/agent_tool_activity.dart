@@ -79,7 +79,18 @@ class AgentToolActivity {
       AgentToolKind.glob => 'Buscando archivos ${str('pattern') ?? ''}',
       AgentToolKind.webFetch => 'Abriendo ${str('url') ?? 'sitio web'}',
       AgentToolKind.webSearch => 'Buscando en la web: ${str('query') ?? ''}',
-      AgentToolKind.task => 'Delegando tarea a un subagente',
+      // Con el pedido a la vista. La frase sola —«delegando tarea a un
+      // subagente»— es exactamente la información que no sirve: no dice a
+      // quién ni para qué, que es lo único que uno quiere saber.
+      AgentToolKind.task => switch ((
+        str('subagent_type'),
+        str('description'),
+      )) {
+        (final type?, final what?) => 'Delegando a $type: $what',
+        (final type?, null) => 'Delegando a $type',
+        (null, final what?) => 'Delegando: $what',
+        _ => 'Delegando tarea a un subagente',
+      },
       AgentToolKind.todoWrite => 'Actualizando lista de tareas',
       AgentToolKind.notebookEdit =>
         'Editando notebook ${str('notebook_path') ?? ''}',

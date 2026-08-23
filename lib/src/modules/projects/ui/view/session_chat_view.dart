@@ -835,7 +835,23 @@ class _NextPlanItemBar extends StatelessWidget {
                   ),
                 ),
               ],
-              const SizedBox(width: 12),
+              const SizedBox(width: 6),
+              // Decir que NO tiene que costar lo mismo que decir que sí.
+              // Sin esto, un punto que ya no aplica dejaba la sesión sin
+              // poder cerrar nunca: la única salida era hacerlo igual o
+              // mentir marcándolo cumplido.
+              TextButton(
+                onPressed: () => ProjectsService.instance.notifier
+                    .discardPlanItem(project.id, session.id, next.id),
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  foregroundColor: scheme.onSurfaceVariant,
+                ),
+                child: const Text('No va', style: TextStyle(fontSize: 12)),
+              ),
+              const SizedBox(width: 6),
               FilledButton.tonal(
                 onPressed: () => ProjectsService.instance.notifier
                     .continueWithNextPlanItem(project.id, session.id),

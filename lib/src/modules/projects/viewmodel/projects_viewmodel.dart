@@ -525,7 +525,8 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
                   '(antes ${anterior.length})',
       );
       for (final item in plan) {
-        buffer.write('\n${item.done ? '✓' : '○'}  ${item.text}');
+        final marca = item.discarded ? '–' : (item.done ? '✓' : '○');
+        buffer.write('\n$marca  ${item.text}');
       }
       _appendMessage(
         projectId,
@@ -576,6 +577,12 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
         if (matchDe(item) case final buscado?)
           () {
             encontrados.add(buscado);
+            // Lo que el usuario descartó no lo devuelve el agente. Decidir
+            // que algo no se hace es suyo, y marcarlo cumplido por atrás
+            // borraría esa decisión sin que nadie se entere. Cuenta como
+            // encontrado igual: no es un error del agente, es que ya no
+            // aplica.
+            if (item.discarded) return item;
             return item.copyWith(done: true, doneByProfileId: byProfileId);
           }()
         else
@@ -622,18 +629,64 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
   }
 
   /// Des/marca un punto a mano — el veredicto final es del usuario.
+  ///
+  /// Sobre uno DESCARTADO no marca nada: lo devuelve a la mesa. Es el único
+  /// camino de vuelta, y ponerlo acá evita que tocar un punto tachado lo
+  /// selle como cumplido, que es exactamente lo contrario de lo que se pidió.
   void togglePlanItem(String projectId, String sessionId, String itemId) {
     _updateSession(projectId, sessionId, (session) {
       return session.copyWith(
         plan: [
           for (final item in session.plan)
-            if (item.id == itemId)
-              item.copyWith(done: !item.done, clearDoneBy: item.done)
+            if (item.id != itemId)
+              item
+            else if (item.discarded)
+              item.copyWith(discarded: false)
             else
-              item,
+              item.copyWith(done: !item.done, clearDoneBy: item.done),
         ],
       );
     });
+    unawaited(_persist());
+  }
+
+  /// Saca un punto de la mesa: no se va a hacer.
+  ///
+  /// No es marcarlo cumplido —eso le mentiría al hilo y al chequeo de
+  /// cierre— ni borrarlo: queda escrito que se decidió no hacerlo, y con eso
+  /// la sesión puede cerrar sin que el punto la trabe para siempre.
+  ///
+  /// Queda dicho en el hilo porque es una decisión del usuario que cambia lo
+  /// que el equipo tiene que hacer, y el hilo es donde el equipo mira.
+  void discardPlanItem(String projectId, String sessionId, String itemId) {
+    final item = planOf(
+      projectId,
+      sessionId,
+    ).where((entry) => entry.id == itemId).firstOrNull;
+    if (item == null || item.discarded) return;
+
+    _updateSession(projectId, sessionId, (session) {
+      return session.copyWith(
+        plan: [
+          for (final entry in session.plan)
+            if (entry.id == itemId)
+              entry.copyWith(discarded: true, done: false, clearDoneBy: true)
+            else
+              entry,
+        ],
+      );
+    });
+    _appendMessage(
+      projectId,
+      sessionId,
+      ChatMessage(
+        role: ChatRole.system,
+        text:
+            'El usuario descartó el punto "${item.text}": no se hace. No '
+            'cuenta como cumplido y la sesión ya no lo espera.',
+        timestamp: DateTime.now(),
+      ),
+    );
     unawaited(_persist());
   }
 
@@ -1107,7 +1160,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     String? lastAnswer,
   }) async {
     final plan = planOf(projectId, sessionId);
-    final pendientes = plan.where((item) => !item.done).toList();
+    final pendientes = plan.pending.toList();
     if (pendientes.isEmpty) {
       // Plan vacío no es plan cumplido. Una sesión sin plan cierra como
       // siempre SI produjo algo; si el ciclo terminó sin plan y sin un solo
@@ -1191,7 +1244,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
       allowConsults: false,
     );
 
-    final quedan = planOf(projectId, sessionId).where((item) => !item.done);
+    final quedan = planOf(projectId, sessionId).pending;
     if (quedan.isEmpty) {
       _finishSession(projectId, sessionId, SessionStatus.finished);
       return;
@@ -1470,8 +1523,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
   }
 
   /// El próximo punto del plan sin cumplir, o null si no queda ninguno.
-  SessionPlanItem? _nextPendingItem(Session session) =>
-      session.plan.where((item) => !item.done).firstOrNull;
+  SessionPlanItem? _nextPendingItem(Session session) => session.plan.current;
 
   /// Un "seguí" pelado: una orden de continuar y nada más.
   ///
@@ -1543,7 +1595,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
       return;
     }
 
-    final restantes = session.plan.where((entry) => !entry.done).length;
+    final restantes = session.plan.pending.length;
     _appendMessage(
       projectId,
       sessionId,
@@ -3005,12 +3057,17 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
 
     final buffer = StringBuffer();
     buffer.writeln(
-      'PLAN DE LA SESIÓN (${plan.doneCount} de ${plan.length} cumplidos) — es '
+      'PLAN DE LA SESIÓN (${plan.doneCount} de ${plan.length} cumplidos'
+      '${plan.discardedCount == 0 ? '' : ', ${plan.discardedCount} descartados por el usuario — marcados [-], no se hacen'}) — es '
       'lo que el usuario mira para saber qué falta:',
     );
     for (final item in plan) {
       final puesto = item.ownerRole == null ? '' : ' (${item.ownerRole})';
-      buffer.writeln('${item.done ? '[x]' : '[ ]'}$puesto ${item.text}');
+      // Tres estados y no dos: `[-]` es un punto que el usuario sacó de la
+      // mesa. Sin esa marca el agente lo lee como pendiente y sale a
+      // hacerlo, que es justo lo que se acaba de decidir que no.
+      final marca = item.discarded ? '[-]' : (item.done ? '[x]' : '[ ]');
+      buffer.writeln('$marca$puesto ${item.text}');
     }
 
     if (isConsult) {

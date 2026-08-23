@@ -22,12 +22,25 @@ class SessionPlanItem {
   /// Quién lo marcó. Null mientras esté pendiente.
   final String? doneByProfileId;
 
+  /// Lo sacaste vos de la mesa: no se va a hacer, y no cuenta como cumplido.
+  ///
+  /// Es un tercer estado y no un `done` piadoso. Marcarlo cumplido sería
+  /// mentirle al hilo, al chequeo de cierre y al que lea la sesión en un mes;
+  /// borrarlo directamente perdería que ALGUIEN decidió no hacerlo, que suele
+  /// ser lo más importante del plan.
+  final bool discarded;
+
+  /// Si todavía cuenta como trabajo por hacer. Lo cumplido y lo descartado no
+  /// cuentan, y esa es la única pregunta que le hace el resto del sistema.
+  bool get pending => !done && !discarded;
+
   const SessionPlanItem({
     required this.id,
     required this.text,
     this.done = false,
     this.ownerRole,
     this.doneByProfileId,
+    this.discarded = false,
   });
 
   SessionPlanItem copyWith({
@@ -35,6 +48,7 @@ class SessionPlanItem {
     bool? done,
     String? ownerRole,
     String? doneByProfileId,
+    bool? discarded,
     bool clearDoneBy = false,
   }) {
     return SessionPlanItem(
@@ -45,6 +59,7 @@ class SessionPlanItem {
       doneByProfileId: clearDoneBy
           ? null
           : doneByProfileId ?? this.doneByProfileId,
+      discarded: discarded ?? this.discarded,
     );
   }
 
@@ -54,6 +69,7 @@ class SessionPlanItem {
     'done': done,
     'ownerRole': ownerRole,
     'doneByProfileId': doneByProfileId,
+    'discarded': discarded,
   };
 
   factory SessionPlanItem.fromJson(Map<String, dynamic> json) {
@@ -63,6 +79,7 @@ class SessionPlanItem {
       done: json['done'] as bool? ?? false,
       ownerRole: json['ownerRole'] as String?,
       doneByProfileId: json['doneByProfileId'] as String?,
+      discarded: json['discarded'] as bool? ?? false,
     );
   }
 
@@ -74,10 +91,12 @@ class SessionPlanItem {
           id == other.id &&
           text == other.text &&
           done == other.done &&
+          discarded == other.discarded &&
           doneByProfileId == other.doneByProfileId;
 
   @override
-  int get hashCode => Object.hash(id, text, done, doneByProfileId);
+  int get hashCode =>
+      Object.hash(id, text, done, discarded, doneByProfileId);
 
   @override
   String toString() =>
@@ -92,9 +111,16 @@ typedef PlanEntry = ({String text, String? ownerRole});
 extension SessionPlanSummary on List<SessionPlanItem> {
   int get doneCount => where((item) => item.done).length;
 
-  /// El primer punto pendiente — el que se está haciendo ahora, o el que
-  /// sigue. Null cuando el plan está completo.
-  SessionPlanItem? get current => where((item) => !item.done).firstOrNull;
+  int get discardedCount => where((item) => item.discarded).length;
 
-  bool get isComplete => isNotEmpty && doneCount == length;
+  /// Los que todavía son trabajo. Es lo que mira el cierre de la sesión.
+  Iterable<SessionPlanItem> get pending => where((item) => item.pending);
+
+  /// El primer punto pendiente — el que se está haciendo ahora, o el que
+  /// sigue. Null cuando no queda nada por hacer.
+  SessionPlanItem? get current => pending.firstOrNull;
+
+  /// Nada por hacer. Un punto descartado cierra el plan igual que uno
+  /// cumplido: la diferencia está en el registro, no en si falta trabajo.
+  bool get isComplete => isNotEmpty && pending.isEmpty;
 }

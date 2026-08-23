@@ -209,6 +209,11 @@ Mapa de lo que existe en esta app y cómo se relaciona:
   del cierre — en cualquier otro momento son una respuesta a quien tiene la
   palabra). Por eso un punto es una unidad entregable, no una sesión de media
   hora.
+  El usuario puede DESCARTAR un punto desde la barra ("No va"): queda tachado
+  y marcado `[-]` en el plan del turno, NO cuenta como cumplido, y la sesión
+  cierra igual sin esperarlo. Un punto descartado no se marca hecho aunque un
+  agente lo intente — la decisión es del usuario. Si te preguntan por un
+  punto `[-]`, no lo hagas: se decidió que no va.
 - **Motor por proyecto**: proveedor, modelo y esfuerzo de un miembro se
   pueden fijar SOLO para un proyecto, desde la línea que aparece bajo su
   nombre en el panel de workflow. Vale para todos sus pasos ahí y no toca su

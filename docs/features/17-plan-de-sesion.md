@@ -67,6 +67,39 @@ Un turno de CONSULTA tampoco lleva las tools del plan — no solo la
 instrucción: la tool no está. El consultado ve el plan como contexto y lo
 marca quien ejecuta el paso.
 
+## Decir que no cuesta lo mismo que decir que sí
+
+La barra que ofrece el próximo punto tenía **un solo botón**: *Seguir*. Un
+punto que ya no aplica —porque cambió el pedido, o porque resultó ser trabajo
+de otro— dejaba la sesión sin poder cerrar nunca: las únicas salidas eran
+hacerlo igual, o marcarlo cumplido mintiéndole al hilo.
+
+Al lado de *Seguir* está ahora **No va**, y un punto descartado es un
+**tercer estado**, no un `done` piadoso:
+
+| | Cuenta como hecho | Sigue pendiente | Queda escrito |
+|---|---|---|---|
+| cumplido | sí | no | sí |
+| **descartado** | **no** | **no** | **sí** |
+| borrado (la cruz) | no | no | **no** |
+
+La diferencia con borrarlo es lo que importa: que ALGUIEN decidió no hacer
+algo suele ser lo más importante del plan, y una sesión que se lee en un mes
+tiene que poder distinguir «se hizo» de «se decidió que no».
+
+Consecuencias, todas en la misma dirección:
+
+- El cierre mira lo **pendiente**, no lo no-cumplido, así que la sesión cierra
+  con puntos descartados adentro.
+- El plan del turno lo muestra como `[-]` y la cabecera dice cuántos descartó
+  el usuario. Sin esa marca el agente lo lee como pendiente y sale a hacerlo,
+  que es justo lo que se acaba de decidir que no.
+- `complete_plan_items` **no puede resucitarlo**: lo cuenta como encontrado
+  —no es un error del agente— y lo deja descartado. La decisión es del
+  usuario y no se borra por atrás.
+- En la lista del sidebar va tachado con su propio icono, y **tocarlo lo
+  devuelve a la mesa** — volver no es cumplir, así que vuelve pendiente.
+
 ## Un punto del plan = una vuelta del workflow
 
 El flujo era **una sola pasada**. Con un plan de siete puntos, el paso 1

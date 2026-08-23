@@ -51,8 +51,15 @@ class SessionPlanList extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(top: 4, left: 18),
               child: Text(
-                'plan completo',
-                style: TextStyle(fontSize: 10, color: scheme.tertiary),
+                plan.discardedCount == 0
+                    ? 'plan completo'
+                    : 'plan cerrado · ${plan.discardedCount} descartados',
+                style: TextStyle(
+                  fontSize: 10,
+                  color: plan.discardedCount == 0
+                      ? scheme.tertiary
+                      : scheme.outline,
+                ),
               ),
             ),
           // Acá había un botón para arrancar el próximo punto. Se movió a la
@@ -92,10 +99,13 @@ class _PlanRowState extends State<_PlanRow> {
     final scheme = Theme.of(context).colorScheme;
     final item = widget.item;
 
-    final (icon, color) = switch ((item.done, widget.isCurrent)) {
-      (true, _) => (Icons.check, scheme.tertiary),
-      (false, true) => (Icons.play_arrow, scheme.primary),
-      (false, false) => (Icons.circle_outlined, scheme.outlineVariant),
+    // Tres estados, no dos: descartado NO es cumplido. El tachado los une
+    // —los dos salieron de la lista de lo que falta— y el icono los separa.
+    final (icon, color) = switch ((item.discarded, item.done)) {
+      (true, _) => (Icons.do_not_disturb_alt, scheme.outlineVariant),
+      (_, true) => (Icons.check, scheme.tertiary),
+      _ when widget.isCurrent => (Icons.play_arrow, scheme.primary),
+      _ => (Icons.circle_outlined, scheme.outlineVariant),
     };
 
     return MouseRegion(
@@ -124,10 +134,10 @@ class _PlanRowState extends State<_PlanRow> {
                       style: TextStyle(
                         fontSize: 11,
                         height: 1.25,
-                        color: item.done ? scheme.outline : scheme.onSurface,
-                        decoration: item.done
-                            ? TextDecoration.lineThrough
-                            : null,
+                        color: item.pending ? scheme.onSurface : scheme.outline,
+                        decoration: item.pending
+                            ? null
+                            : TextDecoration.lineThrough,
                         decorationColor: scheme.outline,
                         fontWeight: widget.isCurrent
                             ? FontWeight.w600
@@ -137,7 +147,7 @@ class _PlanRowState extends State<_PlanRow> {
                     // A qué PUESTO le toca — no a qué agente: el mismo plan
                     // sirve en el proyecto de Rust y en la de Flutter, donde
                     // ese puesto lo ocupa otro.
-                    if (item.ownerRole != null && !item.done)
+                    if (item.ownerRole != null && item.pending)
                       Text(
                         item.ownerRole!,
                         maxLines: 1,

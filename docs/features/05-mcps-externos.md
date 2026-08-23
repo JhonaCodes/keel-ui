@@ -65,3 +65,16 @@ que el grant persiste. Aplica al turno siguiente.
 
 Los agentes codex (F6) no reciben MCPs externos en v1 (su config va por
 TOML propio).
+
+## Lo que se sumó después
+
+Este documento describe el mecanismo: cómo se registra un servidor y cómo
+llega a un turno. Lo que vino encima —el catálogo de integraciones conocidas,
+pegar la configuración publicada, probar la conexión de verdad, y sacar el
+token de un header desde un secret— está en
+[F28](28-catalogo-de-integraciones.md).
+
+Dos cosas de acá quedaron viejas y conviene leerlas con F28 al lado: el
+transporte ahora también puede ser `sse`, y un servidor remoto ya **no** está
+limitado a headers en texto plano.
+

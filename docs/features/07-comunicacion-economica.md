@@ -101,3 +101,15 @@ los pasos restantes.
   de cada mensaje queda solo cuánto tardó.
 - Limitación conocida: los turnos codex reportan costo 0 (su JSONL no lo
   emite).
+
+## Y el ledger que sí es una serie
+
+Lo de arriba es un acumulado por sesión: cuánto lleva gastado ESTE canal.
+Sirve para eso y no para más — no se puede preguntar "cuánto gasté el
+martes", porque el dato de cada turno se sumaba y se descartaba.
+
+[F30](30-maquina.md) agrega el registro por turno que faltaba, con los cuatro
+contadores de tokens y el modelo. Los dos conviven: el acumulado de la sesión
+es del canal y viaja con él; el ledger es de la máquina y se poda a noventa
+días.
+

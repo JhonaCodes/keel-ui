@@ -21,6 +21,26 @@ class ProjectsRepository {
   static const _sessionPrefixBase = 'session_';
   static const _msgPrefixBase = 'msg_';
 
+  /// Hash del último mensaje escrito bajo cada clave.
+  ///
+  /// Un mensaje con ediciones de archivo lleva el contenido ENTERO de cada
+  /// archivo, antes y después. Sin esto, cada turno preguntaba «¿cambió?»
+  /// serializando los doscientos mensajes de la sesión —y los dos lados,
+  /// porque [_unchanged] compara JSON contra JSON—: megabytes de basura por
+  /// turno, con ocho miembros escribiendo a la vez. Eso es buena parte de lo
+  /// que ponía la app pastosa mientras el workflow corría.
+  ///
+  /// El hash de un objeto Dart no paga eso: la VM cachea el de cada String,
+  /// así que a partir de la segunda vez es aritmética. Se anota DESPUÉS de
+  /// que la base confirmó, igual que el índice en memoria de [LocalDatabase]
+  /// y por la misma razón: un fallo no puede dejar anotado que se escribió.
+  ///
+  /// Es estática porque el repositorio se instancia en cada acceso. Y el
+  /// trato que acepta: una colisión de hash entre dos versiones del MISMO
+  /// mensaje saltearía una escritura. Es aritméticamente despreciable, y lo
+  /// que se perdería es el costo anotado en el último mensaje de un turno.
+  static final Map<String, int> _writtenMessages = {};
+
   Future<List<Project>> load() async {
     final projectRecords = await LocalDatabase.getAllWithPrefix(_projectPrefix);
     final projects = <Project>[];
@@ -123,16 +143,24 @@ class ProjectsRepository {
     };
 
     for (var index = 0; index < session.messages.length; index++) {
-      final messageJson = session.messages[index].toJson();
+      final key = '$msgPrefix$index';
+      final message = session.messages[index];
+      final fingerprint = message.hashCode;
+      if (_writtenMessages[key] == fingerprint) continue;
+
+      final messageJson = message.toJson();
       messageJson['seq'] = index;
-      if (_unchanged(messageJson, existingBySeq[index])) continue;
-      await LocalDatabase.put('$msgPrefix$index', messageJson);
+      if (!_unchanged(messageJson, existingBySeq[index])) {
+        await LocalDatabase.put(key, messageJson);
+      }
+      _writtenMessages[key] = fingerprint;
     }
 
     for (final record in existingMsgRecords) {
       final seq = record['seq'] as int?;
       if (seq != null && seq >= session.messages.length) {
         await LocalDatabase.delete('$msgPrefix$seq');
+        _writtenMessages.remove('$msgPrefix$seq');
       }
     }
 
@@ -160,6 +188,7 @@ class ProjectsRepository {
     for (final record in msgRecords) {
       await LocalDatabase.delete('$msgPrefix${record['seq']}');
     }
+    _writtenMessages.removeWhere((key, _) => key.startsWith(msgPrefix));
     await LocalDatabase.delete('$_sessionPrefixBase${projectId}_$sessionId');
   }
 }

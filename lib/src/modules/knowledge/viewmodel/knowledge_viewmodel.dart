@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:isolate';
 
 import 'package:flutter/foundation.dart';
 import 'package:logger_rs/logger_rs.dart';
@@ -390,27 +391,14 @@ class KnowledgeViewModel extends ViewModel<KnowledgeState> {
     }
 
     try {
-      var budget = _maxIndexedFiles;
-      final nodes = _scan(
-        directory,
-        root,
-        () => budget,
-        (used) => budget = used,
-      );
-      var portada = '';
-      for (final candidate in kKnowledgeIndexFileNames) {
-        final file = File('$root/$candidate');
-        if (!file.existsSync()) continue;
-        portada = file.readAsStringSync();
-        break;
-      }
+      // A otro isolate: recorrer hasta 5000 entradas con un `stat` cada una
+      // no puede pasar entre frame y frame.
+      final scan = await Isolate.run(() => scanKnowledgeTree(root));
       return KnowledgeIndex(
         rootPath: root,
-        nodes: nodes,
-        indexContent: portada.length > kKnowledgeIndexPromptLimit
-            ? '${portada.substring(0, kKnowledgeIndexPromptLimit)}\n…'
-            : portada,
-        problem: budget <= 0
+        nodes: scan.nodes,
+        indexContent: scan.indexContent,
+        problem: scan.truncated
             ? 'Más de $_maxIndexedFiles archivos: el árbol está recortado. '
                   'Apuntá la base a una carpeta más chica.'
             : '',
@@ -424,56 +412,6 @@ class KnowledgeViewModel extends ViewModel<KnowledgeState> {
   /// Escaneo recursivo, ordenado carpetas-primero-y-alfabético, saltando lo
   /// que nunca es documentación. Las carpetas que quedan vacías después del
   /// filtro no se listan.
-  List<KnowledgeNode> _scan(
-    Directory directory,
-    String root,
-    int Function() budget,
-    void Function(int) spend,
-  ) {
-    final entities = directory.listSync()
-      ..sort((a, b) => a.path.compareTo(b.path));
-    final directories = <KnowledgeNode>[];
-    final files = <KnowledgeNode>[];
-
-    for (final entity in entities) {
-      final name = entity.path.split('/').last;
-      if (name.startsWith('.')) continue;
-
-      if (entity is Directory) {
-        if (_skippedDirectories.contains(name)) continue;
-        // El tope corta TAMBIÉN acá. Estando solo en la rama de archivos, un
-        // árbol grande se seguía recorriendo entero aunque el presupuesto ya
-        // estuviera agotado: se pagaba el `listSync` de todo para después
-        // tirarlo.
-        if (budget() <= 0) break;
-        final children = _scan(entity, root, budget, spend);
-        if (children.isEmpty) continue;
-        directories.add(
-          KnowledgeNode(
-            name: name,
-            relativePath: entity.path.substring(root.length + 1),
-            isDirectory: true,
-            children: children,
-          ),
-        );
-        continue;
-      }
-
-      if (entity is! File) continue;
-      if (budget() <= 0) break;
-      spend(budget() - 1);
-      files.add(
-        KnowledgeNode(
-          name: name,
-          relativePath: entity.path.substring(root.length + 1),
-          isDirectory: false,
-        ),
-      );
-    }
-
-    return [...directories, ...files];
-  }
-
   // ── sincronización ──────────────────────────────────────────────────
 
   /// Actualiza una base git (clone o pull) y la reindexa. Una base local no
@@ -684,4 +622,93 @@ ${buffer.toString().trim()}''';
 mixin KnowledgeService {
   static final ReactiveNotifier<KnowledgeViewModel> instance =
       ReactiveNotifier<KnowledgeViewModel>(() => KnowledgeViewModel());
+}
+
+/// Lo que sale de mirar la carpeta de una base: el árbol, su portada y si
+/// hubo que recortar.
+typedef KnowledgeScan = ({
+  List<KnowledgeNode> nodes,
+  String indexContent,
+  bool truncated,
+});
+
+/// Recorre la carpeta de una base y arma su árbol. **Corre en otro isolate.**
+///
+/// Es de nivel superior a propósito: hasta 5000 entradas de `listSync` con un
+/// `stat` cada una es medio segundo largo en un repo grande, y eso en el hilo
+/// de la interfaz son frames perdidos justo mientras alguien escribe.
+KnowledgeScan scanKnowledgeTree(String root) {
+  var budget = _maxIndexedFiles;
+  final nodes = _scanTree(
+    Directory(root),
+    root,
+    () => budget,
+    (used) => budget = used,
+  );
+
+  var portada = '';
+  for (final candidate in kKnowledgeIndexFileNames) {
+    final file = File('$root/$candidate');
+    if (!file.existsSync()) continue;
+    portada = file.readAsStringSync();
+    break;
+  }
+
+  return (
+    nodes: nodes,
+    indexContent: portada.length > kKnowledgeIndexPromptLimit
+        ? '${portada.substring(0, kKnowledgeIndexPromptLimit)}\n…'
+        : portada,
+    truncated: budget <= 0,
+  );
+}
+
+List<KnowledgeNode> _scanTree(
+  Directory directory,
+  String root,
+  int Function() budget,
+  void Function(int) spend,
+) {
+  final entities = directory.listSync()
+    ..sort((a, b) => a.path.compareTo(b.path));
+  final directories = <KnowledgeNode>[];
+  final files = <KnowledgeNode>[];
+
+  for (final entity in entities) {
+    final name = entity.path.split('/').last;
+    if (name.startsWith('.')) continue;
+
+    if (entity is Directory) {
+      if (_skippedDirectories.contains(name)) continue;
+      // El tope corta TAMBIÉN acá. Estando solo en la rama de archivos, un
+      // árbol grande se seguía recorriendo entero aunque el presupuesto ya
+      // estuviera agotado: se pagaba el `listSync` de todo para después
+      // tirarlo.
+      if (budget() <= 0) break;
+      final children = _scanTree(entity, root, budget, spend);
+      if (children.isEmpty) continue;
+      directories.add(
+        KnowledgeNode(
+          name: name,
+          relativePath: entity.path.substring(root.length + 1),
+          isDirectory: true,
+          children: children,
+        ),
+      );
+      continue;
+    }
+
+    if (entity is! File) continue;
+    if (budget() <= 0) break;
+    spend(budget() - 1);
+    files.add(
+      KnowledgeNode(
+        name: name,
+        relativePath: entity.path.substring(root.length + 1),
+        isDirectory: false,
+      ),
+    );
+  }
+
+  return [...directories, ...files];
 }

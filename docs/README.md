@@ -79,6 +79,10 @@ completo; esto es el detalle.
   como referencia de lo que la UI tiene que parecer.
 - **`plantillas/TASKS/`** — el esqueleto de un roadmap de proyecto (F23),
   para copiar dentro de un repo.
+- **[Compilar y distribuir](compilar-y-distribuir.md)** — cómo se produce lo
+  que la gente descarga: macOS, Linux, y por qué Windows todavía no. No es un
+  feature; es el proceso, con las restricciones de cada plataforma y las
+  trampas que ya nos costaron una vez.
 
 > No hay F9. Se numeró y no se escribió, y renumerar veinte archivos para
 > tapar un hueco cuesta más de lo que vale.

@@ -164,7 +164,8 @@ Mapa de lo que existe en esta app y cómo se relaciona:
   consultas volviendo por arriba—. Cada par que se consulta tiene su propio
   corredor recto, y el cuadro con lo que se dijeron se para EN EL MEDIO de
   ese camino: la ida entra por un costado del cuadro y la vuelta sale por el
-  otro. Cerrado se apaga pero no desaparece. El cuadro muestra la primera
+  otro. El cuadro mide lo que dice —una respuesta corta es más baja que una
+  larga— y queda centrado en su corredor igual. Cerrado se apaga pero no desaparece. El cuadro muestra la primera
   frase y se TOCA: abre la ficha del que contestó, con la pregunta y la
   respuesta enteras. Lo mismo hace el `↩ N` del pie de un nodo.
 - **Cómo navega la ventana principal**: el área central muestra UN lente a la

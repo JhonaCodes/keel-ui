@@ -9,7 +9,9 @@ import 'package:keel_ui/src/modules/projects/model/project.dart';
 import 'package:keel_ui/src/modules/projects/model/session.dart';
 import 'package:keel_ui/src/modules/projects/model/session_live_turn.dart';
 import 'package:keel_ui/src/modules/projects/model/session_subagent.dart';
+import 'package:keel_ui/src/modules/projects/model/session_map_layout.dart';
 import 'package:keel_ui/src/modules/projects/ui/view/session_map_view.dart';
+import 'package:keel_ui/src/modules/projects/ui/widget/map_callout_box.dart';
 import 'package:keel_ui/src/modules/projects/ui/widget/map_legend.dart';
 import 'package:keel_ui/src/modules/projects/ui/widget/map_node_card.dart';
 import 'package:keel_ui/src/modules/workflows/model/workflow.dart';
@@ -103,20 +105,16 @@ Session _session({
   currentStepIndex: currentStepIndex,
 );
 
-ChatMessage _said(
-  String author,
-  String text, {
-  int? step,
-  String? consultOf,
-}) => ChatMessage(
-  role: ChatRole.assistant,
-  text: text,
-  timestamp: _epoch,
-  authorProfileId: author,
-  stepIndex: step,
-  consultOfProfileId: consultOf,
-  durationMs: 9000,
-);
+ChatMessage _said(String author, String text, {int? step, String? consultOf}) =>
+    ChatMessage(
+      role: ChatRole.assistant,
+      text: text,
+      timestamp: _epoch,
+      authorProfileId: author,
+      stepIndex: step,
+      consultOfProfileId: consultOf,
+      durationMs: 9000,
+    );
 
 void main() {
   group('el lienzo se dibuja entero y sin desbordes', () {
@@ -272,10 +270,59 @@ void main() {
 
       // Sin cortar: un encabezado a la mitad no dice el par, que es lo único
       // que aporta.
-      expect(
-        find.text('PLANIFICADOR → FLUTTER-EXPERT'),
-        findsOneWidget,
+      expect(find.text('PLANIFICADOR → FLUTTER-EXPERT'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('mide lo que dice: corto es más bajo que largo', (
+      tester,
+    ) async {
+      // Con el alto fijo todos los cuadros salían idénticos, y eso es
+      // información tirada: de un vistazo no se distingue una respuesta de
+      // una línea de una de dos.
+      double altoDelCuadro(String encabezado) => tester
+          .getSize(
+            find.ancestor(
+              of: find.text(encabezado),
+              matching: find.byType(MapCalloutBox),
+            ),
+          )
+          .height;
+
+      await tester.pumpWidget(
+        _app(
+          session: _session(
+            currentStepIndex: 3,
+            messages: [
+              _said('planificador', 'Charter cerrado.', step: 0),
+              _said(
+                'flutter-expert',
+                'Rojo puesto. @planificador ¿el contrato lleva version?',
+                step: 1,
+              ),
+              _said('planificador', 'No.', consultOf: 'flutter-expert'),
+              _said(
+                'auditor-tests',
+                'Reviso. @auditor ¿la compuerta?',
+                step: 3,
+              ),
+              _said(
+                'auditor',
+                'La compuerta sigue exactamente igual que en el ciclo '
+                    'anterior y no hay nada nuevo que revisar de mi lado.',
+                consultOf: 'auditor-tests',
+              ),
+            ],
+          ),
+        ),
       );
+      await tester.pump();
+
+      final corto = altoDelCuadro('PLANIFICADOR → FLUTTER-EXPERT');
+      final largo = altoDelCuadro('AUDITOR → AUDITOR-TESTS');
+      expect(largo, greaterThan(corto));
+      // Y ninguno se pasa de lo que la geometría reservó para su fila.
+      expect(largo, lessThanOrEqualTo(MapLayout.calloutHeight));
       expect(tester.takeException(), isNull);
     });
 

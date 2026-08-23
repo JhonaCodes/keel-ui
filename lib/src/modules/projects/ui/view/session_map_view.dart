@@ -403,18 +403,27 @@ class _Canvas extends StatelessWidget {
         if (layout.calloutRects[callout.pairId] case final rect?)
           Positioned(
             left: rect.left,
-            top: rect.top,
+            // Se ancla por el CENTRO, no por arriba: `rect.center.dy` es
+            // justo el punto entre la ida y la vuelta, y la traslación de
+            // media altura lo deja parado ahí mida lo que mida.
+            //
+            // Sin esto había que fijarle el alto, y con el alto fijo una
+            // respuesta de una línea ocupaba lo mismo que una de dos: todos
+            // los cuadros idénticos, que es información tirada a la basura.
+            // `MapLayout.calloutHeight` sigue siendo el alto RESERVADO —el
+            // máximo— y por eso las filas no se tocan aunque el de arriba
+            // mida menos.
+            top: rect.center.dy,
             width: rect.width,
-            // Con alto FIJO: el cuadro se para encima de sus dos rieles y
-            // taparlos es su trabajo. Un cuadro que crece con el texto dejaría
-            // la línea asomando por abajo en unos y no en otros.
-            height: rect.height,
-            child: _ConsultCallout(
-              callout: callout,
-              onOpen: () {
-                final node = map.nodeById(callout.answererId);
-                if (node != null) onOpen(node);
-              },
+            child: FractionalTranslation(
+              translation: const Offset(0, -0.5),
+              child: _ConsultCallout(
+                callout: callout,
+                onOpen: () {
+                  final node = map.nodeById(callout.answererId);
+                  if (node != null) onOpen(node);
+                },
+              ),
             ),
           ),
     ];

@@ -159,11 +159,17 @@ otro. Antes flotaba arriba y la línea le pasaba por debajo, y eso son dos
 cosas separadas que hay que unir con la vista; así son una sola, con lo que se
 dijeron puesto en el medio del camino.
 
-Es un rótulo, no una tarjeta: 216 × 50, dos líneas de texto de diez puntos y
-un encabezado de ocho. El encabezado entra entero incluso con dos handles
-largos —cortado a la mitad no dice el par, que es lo único que aporta— y el
-alto es **fijo**, porque taparle los rieles es su trabajo y un cuadro que
-crece con el texto los dejaría asomando en unos y en otros no.
+Es un rótulo, no una tarjeta: 216 de ancho, dos líneas de texto de diez
+puntos y un encabezado de ocho. El encabezado entra entero incluso con dos
+handles largos — cortado a la mitad no dice el par, que es lo único que
+aporta.
+
+El alto **no** es fijo: el cuadro se ancla por su CENTRO al punto entre la
+ida y la vuelta, así que mide lo que dice y queda parado en el corredor
+igual. Los 50 puntos que reserva la geometría son el MÁXIMO —encabezado y
+dos líneas— y sirven para separar las filas. Con el alto fijo, una respuesta
+de una línea ocupaba lo mismo que una de dos y todos los cuadros salían
+idénticos: información tirada a la basura.
 
 ### Y se toca
 

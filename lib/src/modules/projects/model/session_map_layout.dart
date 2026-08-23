@@ -30,9 +30,10 @@ class MapLayout {
   /// El cuadro de una réplica, arriba. Más ancho que el nodo y que su
   /// columna: el encabezado lleva los dos handles y una flecha.
   ///
-  /// El alto es FIJO y el cuadro se dibuja adentro de esa caja: la geometría
-  /// de acá y lo que se pinta tienen que coincidir, porque ahora el cuadro se
-  /// para encima de sus dos rieles y taparlos es su trabajo.
+  /// El alto es lo RESERVADO, no lo dibujado: es lo que mide un cuadro lleno
+  /// —encabezado y dos líneas— y con eso se separan las filas. El que dice
+  /// menos se dibuja más bajo y queda centrado en su corredor igual, así que
+  /// la diferencia entre una respuesta corta y una larga se ve.
   static const calloutWidth = 216.0;
   static const calloutHeight = 50.0;
 

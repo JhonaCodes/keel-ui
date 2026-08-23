@@ -5,6 +5,7 @@ import 'package:keel_ui/src/core/ui/app_theme.dart';
 import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
 import 'package:keel_ui/src/modules/agents/model/agent_tool_activity.dart';
 import 'package:keel_ui/src/modules/agents/model/chat_message.dart';
+import 'package:keel_ui/src/modules/agents/ui/widget/markdown_text.dart';
 import 'package:keel_ui/src/modules/projects/model/project.dart';
 import 'package:keel_ui/src/modules/projects/model/session.dart';
 import 'package:keel_ui/src/modules/projects/model/session_live_turn.dart';
@@ -357,6 +358,37 @@ void main() {
       expect(find.text('La instrucción de Charter.'), findsOneWidget);
       expect(find.text('paso 1 · Charter'), findsOneWidget);
       expect(find.text('Escribile a @planificador…'), findsOneWidget);
+    });
+
+    testWidgets('lo que dijo se lee como markdown y entero', (tester) async {
+      const cierre =
+          '## Cierre del Paso 1\n\n'
+          '**Dejé listo:** el glosario base.\n\n'
+          '- `order` se traduce siempre como `orden`\n'
+          '- Los verbos mantienen el registro';
+
+      await tester.pumpWidget(
+        _app(
+          session: _session(messages: [_said('planificador', cierre, step: 0)]),
+        ),
+      );
+      await tester.pump();
+
+      await tester.tap(find.text('planificador'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(find.text('QUÉ RESOLVIÓ'), findsOneWidget);
+      // Renderizado: el encabezado se ve sin sus almohadillas.
+      expect(find.byType(MarkdownText), findsWidgets);
+      expect(find.textContaining('## Cierre'), findsNothing);
+      expect(find.textContaining('**Dejé listo:**'), findsNothing);
+      // Y entero: el cuadro del lienzo muestra la primera frase, la ficha no
+      // recorta nada.
+      expect(
+        find.textContaining('Los verbos mantienen el registro'),
+        findsWidgets,
+      );
     });
 
     testWidgets('un subagente en curso dice por qué no se le escribe', (

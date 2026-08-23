@@ -292,7 +292,9 @@ Mapa de lo que existe en esta app y cómo se relaciona:
   que separa su pensamiento del de su padre. Sus tokens no se pueden separar:
   el CLI los suma al turno del padre, y el mapa lo dice así.
   Un clic en cualquier nodo abre su panel: le pidió · cómo razona · qué hizo ·
-  qué devolvió · números, y un campo para escribirle. A un subagente EN CURSO
+  qué devolvió · números, y un campo para escribirle. Adentro del panel se lee
+  lo que dijo ENTERO y renderizado como markdown; el cuadro del lienzo muestra
+  su primera frase, sin marcas, porque mide dos centímetros. A un subagente EN CURSO
   no se le puede escribir —el CLI no abre ese canal—; lo que se escriba ahí
   le llega al miembro que lo abrió. El mapa es de MIRAR: no tenés tools para
   moverlo ni para cambiarlo.

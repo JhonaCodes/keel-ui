@@ -236,8 +236,12 @@ class ClaudeStreamReader {
 /// Es lo que el mapa muestra como «qué resolvió». Pedirle al modelo que se
 /// resuma cuesta otro turno y puede mentir sobre lo que hizo; su primera frase
 /// no puede.
+///
+/// Sale sin marcas de markdown. Un cuadro de dos líneas no puede renderizarlo
+/// —no hay lugar para un encabezado— así que lo único que hacían las
+/// almohadillas y los asteriscos ahí era gastar caracteres y verse rotos.
 String firstSentenceOf(String text, {int maxLength = 120}) {
-  final flat = text.replaceAll(RegExp(r'\s+'), ' ').trim();
+  final flat = stripMarkdown(text).replaceAll(RegExp(r'\s+'), ' ').trim();
   if (flat.isEmpty) return '';
 
   final end = RegExp(r'[.!?](\s|$)').firstMatch(flat);
@@ -245,4 +249,35 @@ String firstSentenceOf(String text, {int maxLength = 120}) {
   if (sentence.length <= maxLength) return sentence;
   final cut = sentence.lastIndexOf(' ', maxLength);
   return '${sentence.substring(0, cut < 40 ? maxLength : cut)}…';
+}
+
+/// El texto sin las marcas de markdown, para los lugares que lo muestran
+/// crudo.
+///
+/// No es un renderizador ni pretende serlo: es lo que hace falta para que un
+/// cierre que empieza con `## Cierre del paso 3` se lea «Cierre del paso 3»
+/// en un cuadro de dos líneas. Donde SÍ hay lugar para renderizarlo —la ficha
+/// de un nodo, el hilo, una burbuja— no se llama a esto: se muestra el texto
+/// entero con `MarkdownText`.
+String stripMarkdown(String text) {
+  var out = text;
+  // Reglas horizontales: solas en su línea, no dicen nada aplanadas.
+  out = out.replaceAll(RegExp(r'^\s*([-*_])\1{2,}\s*$', multiLine: true), '');
+  // Encabezados y citas al empezar la línea.
+  out = out.replaceAll(RegExp(r'^\s{0,3}#{1,6}\s+', multiLine: true), '');
+  out = out.replaceAll(RegExp(r'^\s{0,3}>\s?', multiLine: true), '');
+  // Viñetas y numeración: la marca se va, el punto queda.
+  out = out.replaceAll(RegExp(r'^\s*[-*+]\s+', multiLine: true), '');
+  out = out.replaceAll(RegExp(r'^\s*\d+[.)]\s+', multiLine: true), '');
+  // Enlaces e imágenes: queda el texto, que es lo que se lee. Con
+  // `replaceAllMapped` y no con `replaceAll`: el segundo escribe `$1`
+  // literal, porque en Dart el reemplazo es una cadena y no un patrón.
+  out = out.replaceAllMapped(
+    RegExp(r'!?\[([^\]]*)\]\([^)]*\)'),
+    (match) => match.group(1) ?? '',
+  );
+  // Énfasis y código. El backtick se saca sin dejar nada: `orden` se lee
+  // igual, y en un cuadro chico las comillas son ruido.
+  out = out.replaceAll(RegExp(r'\*\*|__|`+'), '');
+  return out;
 }

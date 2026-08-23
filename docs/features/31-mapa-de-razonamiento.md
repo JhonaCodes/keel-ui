@@ -124,6 +124,12 @@ El texto de «resolvió» es **la primera frase de lo que escribió**, no un
 resumen generado: pedirle al modelo que se resuma cuesta otro turno y puede
 mentir sobre lo que hizo.
 
+Esa frase sale **sin marcas de markdown**. Un cuadro de dos líneas no puede
+renderizar un encabezado, así que un cierre que empieza con `## Cierre del
+paso 3` se leía literalmente con sus almohadillas, sus asteriscos y a veces
+un `---` colgando adelante. Ahora se lee «Cierre del paso 3». El texto entero,
+con su markdown puesto, está a un clic: adentro de la ficha.
+
 ## La réplica: un cuadro por par, y su propio corredor
 
 En el lienzo hay **como mucho un cuadro por par de nodos**. Pide → el cuadro
@@ -210,6 +216,13 @@ que corre. Un padre que largó doce llenaría el carril y taparía a los demás.
 Un clic abre el panel del agente, por el costado derecho, con cinco secciones
 plegables: **le pidió · cómo razona · qué hizo · qué devolvió · números**, y
 abajo el campo para escribirle.
+
+Adentro se lee **lo que dijo entero y como markdown**, igual que en el chat:
+el cuadro del lienzo mide dos centímetros y por eso muestra un recorte, pero
+acá no hay nada que obligue a recortar ni a mostrar el andamiaje. La única
+excepción es «cómo razona», que sigue en monoespaciada a propósito: es el
+flujo crudo del modelo, y verlo así es parte de saber que estás mirando lo que
+pensó y no lo que escribió.
 
 «Escribirle» no significa lo mismo en los tres casos:
 

@@ -4,6 +4,7 @@ import 'package:keel_ui/src/core/ui/form_panel.dart';
 import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
 import 'package:keel_ui/src/modules/agents/model/agent_tool_activity.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/agent_activity_indicator.dart';
+import 'package:keel_ui/src/modules/agents/ui/widget/markdown_text.dart';
 import 'package:keel_ui/src/modules/projects/model/member_color.dart';
 import 'package:keel_ui/src/modules/projects/model/project.dart';
 import 'package:keel_ui/src/modules/projects/model/session_map.dart';
@@ -102,82 +103,90 @@ class _MapNodeInspectorScreenState extends State<MapNodeInspectorScreen> {
         children: [
           _Header(node: _node, owner: _owner),
           const Divider(height: 1),
+          // Una sola por toda la ficha, como en el chat: seleccionar cruzando
+          // dos secciones tiene que funcionar, y con un `SelectableText` por
+          // bloque cada uno es una isla.
           Expanded(
-            child: ListView(
-              padding: EdgeInsets.zero,
-              children: [
-                if (subagent != null) ...[
-                  _Section(
-                    icon: Icons.account_tree_outlined,
-                    label: 'le pidió',
-                    child: _Body(text: subagent.prompt),
-                  ),
-                  _Section(
-                    icon: Icons.psychology_outlined,
-                    label: 'cómo razona',
-                    trailing: subagent.isRunning ? 'en vivo' : null,
-                    child: _Body(
-                      text: subagent.reasoning,
-                      empty:
-                          'No dejó pensamiento visible. Con modelos que no lo '
-                          'emiten, acá no hay nada que mostrar.',
-                      mono: true,
-                    ),
-                  ),
-                  _Section(
-                    icon: Icons.terminal,
-                    label: 'qué hizo',
-                    trailing: '${subagent.tools.length}',
-                    child: _Tools(tools: subagent.tools),
-                  ),
-                  if (subagent.result.isNotEmpty)
+            child: SelectionArea(
+              child: ListView(
+                padding: EdgeInsets.zero,
+                children: [
+                  if (subagent != null) ...[
                     _Section(
-                      icon: Icons.check,
-                      label: 'qué devolvió',
-                      child: _Body(text: subagent.result),
+                      icon: Icons.account_tree_outlined,
+                      label: 'le pidió',
+                      child: _Body(text: subagent.prompt),
                     ),
-                ] else ...[
-                  _Section(
-                    icon: Icons.assignment_outlined,
-                    label: 'el encargo',
-                    child: _Body(
-                      text: _node.stepInstruction,
-                      empty:
-                          'Este nodo no viene de un paso del workflow: habla '
-                          'cuando lo consultan.',
-                    ),
-                  ),
-                  _Section(
-                    icon: Icons.psychology_outlined,
-                    label: 'cómo razona',
-                    trailing: _node.isLive ? 'en vivo' : null,
-                    child: _Body(
-                      text: _node.reasoning,
-                      empty: 'Todavía no razonó nada en este paso.',
-                      mono: true,
-                    ),
-                  ),
-                  if (_node.resolved.isNotEmpty)
                     _Section(
-                      icon: Icons.check,
-                      label: 'qué resolvió',
-                      child: _Body(text: _node.resolved),
+                      icon: Icons.psychology_outlined,
+                      label: 'cómo razona',
+                      trailing: subagent.isRunning ? 'en vivo' : null,
+                      child: _Body(
+                        text: subagent.reasoning,
+                        empty:
+                            'No dejó pensamiento visible. Con modelos que no lo '
+                            'emiten, acá no hay nada que mostrar.',
+                        mono: true,
+                      ),
                     ),
+                    _Section(
+                      icon: Icons.terminal,
+                      label: 'qué hizo',
+                      trailing: '${subagent.tools.length}',
+                      child: _Tools(tools: subagent.tools),
+                    ),
+                    if (subagent.result.isNotEmpty)
+                      _Section(
+                        icon: Icons.check,
+                        label: 'qué devolvió',
+                        child: _Body(text: subagent.result),
+                      ),
+                  ] else ...[
+                    _Section(
+                      icon: Icons.assignment_outlined,
+                      label: 'el encargo',
+                      child: _Body(
+                        text: _node.stepInstruction,
+                        empty:
+                            'Este nodo no viene de un paso del workflow: habla '
+                            'cuando lo consultan.',
+                      ),
+                    ),
+                    _Section(
+                      icon: Icons.psychology_outlined,
+                      label: 'cómo razona',
+                      trailing: _node.isLive ? 'en vivo' : null,
+                      child: _Body(
+                        text: _node.reasoning,
+                        empty: 'Todavía no razonó nada en este paso.',
+                        mono: true,
+                      ),
+                    ),
+                    if (_node.said.isNotEmpty)
+                      _Section(
+                        icon: Icons.check,
+                        label: 'qué resolvió',
+                        // Lo que dijo ENTERO. El cuadro del lienzo muestra su
+                        // primera frase porque mide dos centímetros; acá
+                        // adentro no hay nada que obligue a recortar.
+                        child: _Body(text: _node.said),
+                      ),
+                  ],
+                  if (_node.consults.isNotEmpty)
+                    _Section(
+                      icon: Icons.reply,
+                      label: 'le consultaron',
+                      trailing: '${_node.consults.length}',
+                      child: _Consults(consults: _node.consults),
+                    ),
+                  _Section(
+                    icon: Icons.pin_outlined,
+                    label: 'números',
+                    child: _Numbers(node: _node),
+                  ),
+                  const SizedBox(height: 12),
                 ],
-                if (_node.consults.isNotEmpty)
-                  _Section(
-                    icon: Icons.reply,
-                    label: 'le consultaron',
-                    trailing: '${_node.consults.length}',
-                    child: _Consults(consults: _node.consults),
-                  ),
-                _Section(
-                  icon: Icons.pin_outlined,
-                  label: 'números',
-                  child: _Numbers(node: _node),
-                ),
-                const SizedBox(height: 12),
-              ],
+              ),
             ),
           ),
           if (subagent != null && subagent.isRunning)
@@ -381,14 +390,26 @@ class _Body extends StatelessWidget {
       );
     }
 
-    return SelectableText(
+    // El razonamiento no: es el flujo crudo del modelo, y leerlo en
+    // monoespaciada es parte de saber que estás mirando lo que pensó y no lo
+    // que escribió. Todo lo demás sale de un agente en markdown, y mostrarlo
+    // crudo es mostrar el andamiaje en vez del contenido.
+    if (mono) {
+      return Text(
+        text.trim(),
+        style: TextStyle(
+          fontFamily: 'monospace',
+          fontSize: 11.5,
+          height: 1.55,
+          color: scheme.onSurfaceVariant,
+        ),
+      );
+    }
+
+    return MarkdownText(
       text.trim(),
-      style: TextStyle(
-        fontFamily: mono ? 'monospace' : null,
-        fontSize: mono ? 11.5 : 12.5,
-        height: 1.55,
-        color: scheme.onSurfaceVariant,
-      ),
+      color: scheme.onSurfaceVariant,
+      fontSize: 12.5,
     );
   }
 }
@@ -474,15 +495,17 @@ class _Quote extends StatelessWidget {
           left: BorderSide(color: color.withValues(alpha: 0.7), width: 2),
         ),
       ),
-      child: SelectableText(
-        body.isEmpty ? empty : body,
-        style: TextStyle(
-          fontSize: 12.5,
-          height: 1.45,
-          fontStyle: body.isEmpty ? FontStyle.italic : null,
-          color: body.isEmpty ? scheme.outline : scheme.onSurfaceVariant,
-        ),
-      ),
+      child: body.isEmpty
+          ? Text(
+              empty,
+              style: TextStyle(
+                fontSize: 12.5,
+                height: 1.45,
+                fontStyle: FontStyle.italic,
+                color: scheme.outline,
+              ),
+            )
+          : MarkdownText(body, color: scheme.onSurfaceVariant, fontSize: 12.5),
     );
   }
 }

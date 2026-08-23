@@ -118,7 +118,17 @@ class MapNode {
 
   /// La primera frase de lo que escribió. No es un resumen generado: pedirle
   /// al modelo que se resuma cuesta otro turno y puede mentir.
+  ///
+  /// Es lo que entra en el cuadro del lienzo, donde hay ciento y pico de
+  /// puntos de ancho. Para leerlo entero está [said].
   final String resolved;
+
+  /// Todo lo que escribió, tal cual, con su markdown.
+  ///
+  /// [resolved] es esto aplanado y cortado en la primera frase: sirve para el
+  /// cuadro y para nada más. Adentro de la ficha no hay límite de ancho, y
+  /// mostrar ahí el recorte es esconder lo que la ficha existe para mostrar.
+  final String said;
 
   /// Si lo único que dijo fue contestar una consulta. Un miembro puede
   /// contestar desde un paso que todavía no le tocó, y decir «resolvió» ahí
@@ -162,6 +172,7 @@ class MapNode {
     this.stepInstruction = '',
     this.state = MapNodeState.idle,
     this.resolved = '',
+    this.said = '',
     this.answeredOnly = false,
     this.reasoning = '',
     this.activity,
@@ -394,6 +405,7 @@ class SessionMap {
             waiting: waiting && isCurrent,
           ),
           resolved: own.isEmpty ? '' : firstSentenceOf(own.last.text),
+          said: own.isEmpty ? '' : own.last.text.trim(),
           answeredOnly: own.isNotEmpty && !tookTheStep,
           reasoning: own.isEmpty ? '' : (own.last.reasoning ?? ''),
           activity: isCurrent ? live.activity : null,
@@ -438,6 +450,9 @@ class SessionMap {
             state: _subagentStateOf(subagent),
             resolved: subagent.phase == SubagentPhase.done
                 ? firstSentenceOf(subagent.result)
+                : '',
+            said: subagent.phase == SubagentPhase.done
+                ? subagent.result.trim()
                 : '',
             reasoning: subagent.reasoning,
             activity: subagent.activity,

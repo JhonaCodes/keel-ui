@@ -110,6 +110,22 @@ Mapa de lo que existe en esta app y cómo se relaciona:
   los miembros de ese proyecto; una skill asignada a un perfil viaja con ese
   perfil a todos los proyectos donde sea miembro. El conocimiento propio de
   un proyecto se registra, por eso, como regla de su proyecto.
+
+  Un proyecto puede apuntar a un **worktree de git aparte** —otra carpeta del
+  mismo repo, con otra rama, para trabajar en dos cosas distintas a la vez—.
+  Eso NO se configura: la app lo detecta con `git worktree list` y muestra una
+  franja arriba de la vista del proyecto que dice en qué rama estás y cuál es
+  el worktree principal. Ahí mismo está **Unificar**, que trae `main`, mueve
+  la rama al worktree principal, borra la carpeta de al lado y muda el
+  proyecto a la carpeta principal. No unifica si hay una sesión corriendo, si
+  hay cambios sin commitear de cualquiera de los dos lados, si el worktree
+  está bloqueado o si estás en HEAD suelto; y avisa qué archivos IGNORADOS
+  (`.env`, `build/`) se van con la carpeta, porque `git worktree remove` la
+  borra entera. Nunca mergea ni rebasea: si la rama quedó atrás de `main`, lo
+  dice con el número y lo deja en manos del usuario.
+  Cuando un turno corre en un worktree aparte, el system prompt del miembro
+  suma una sección WORKTREE que le dice que la rama YA existe y que NO cree
+  otra — sin eso, la sección ENTREGA lo llevaría a abrir una rama de más.
 - **Tableros (sección Banco)**: una UI chiquita para que el USUARIO dispare
   algo contra su propia app — lanzar una oferta, mandarse un push de prueba,
   pegarle a un endpoint que está escribiendo. Tiene campos arriba, botones en

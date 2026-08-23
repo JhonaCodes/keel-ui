@@ -41,6 +41,7 @@ completo; esto es el detalle.
 | [F8](features/08-agente-por-sesion.md) | Agente temporal por sesión |
 | [F29](features/29-tableros.md) | Tableros de prueba |
 | [F32](features/32-una-sola-navegacion.md) | Una sola navegación |
+| [F34](features/34-worktrees.md) | Trabajar en otro worktree, y volver |
 
 ## La conversación
 

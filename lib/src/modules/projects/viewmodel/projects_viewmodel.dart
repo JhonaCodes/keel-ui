@@ -1,11 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:logger_rs/logger_rs.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
 
 import 'package:keel_ui/src/core/services/file_edit_collector.dart';
+import 'package:keel_ui/src/integrations/git_worktree/git_worktree.dart';
 import 'package:keel_ui/src/integrations/prompt_insights/prompt_insights.dart';
 import 'package:keel_ui/src/integrations/task_runner/task_runner.dart';
 import 'package:keel_ui/src/integrations/machine/machine.dart';
@@ -117,6 +117,39 @@ const _deliveryPrompt =
     'línea propia de tu respuesta, FUERA de bloques de código: así queda '
     'clickeable y el encabezado de la sesión muestra "PR #N". Cerrar el '
     'último ciclo sin la URL del PR en el hilo es cerrar sin entregar.';
+
+/// Lo que hay que decirle a un agente que corre en un worktree de al lado.
+///
+/// La sección ENTREGA le pide crear una rama para la sesión. Acá eso está
+/// MAL: la rama ya existe —es la razón de que la carpeta exista— y abrir otra
+/// encima parte el mismo trabajo en dos ramas y dos PRs.
+///
+/// Y no es algo que pueda deducir solo: `git status` le dice en qué rama
+/// está, no que esa rama sea la de este worktree ni que haya otra copia del
+/// repo al lado. Por eso se declara, y por eso se declara siempre igual.
+String _worktreePrompt(WorktreePlace place) {
+  if (!place.isLinked) return '';
+  final branch = place.branch;
+  final root = place.main?.path ?? '';
+  return [
+    'WORKTREE: este directorio es un worktree APARTE del repo, no el '
+        'principal.',
+    if (branch.isNotEmpty)
+      'Ya está parado en la rama `$branch`, que es la rama de este trabajo: '
+          'commiteá acá y NO crees otra rama ni te cambies de rama. Donde la '
+          'sección ENTREGA dice "creá una rama para la sesión", esa rama ya '
+          'está creada y es esta.'
+    else
+      'Está en HEAD suelto, sin rama. Antes de commitear, decilo en tu '
+          'respuesta y pedí que se resuelva: no inventes una rama.',
+    if (root.isNotEmpty)
+      'El worktree principal del repo está en `$root` y NO es tuyo en este '
+          'turno: no le hagas checkout, no le cambies de rama, no escribas '
+          'adentro.',
+    'Acá `.git` es un archivo y no una carpeta. Es normal en un worktree y no '
+        'hay nada que arreglar.',
+  ].join(' ');
+}
 
 /// Nothing an agent does may be invisible. The CLI can spawn subagents of its
 /// own, which run outside the channel, cost money, and answer to nobody the
@@ -1775,8 +1808,12 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     return members.firstOrNull;
   }
 
-  /// Fills in the working directory of a project that arrived without one
-  /// (catalog import strips paths on purpose — they're machine-local).
+  /// Muda un proyecto de carpeta.
+  ///
+  /// Dos usos, los dos legítimos: completar la ruta de un proyecto que llegó
+  /// sin ella (el respaldo saca las rutas a propósito — son de esta máquina),
+  /// y seguir a un worktree que se unificó en el principal, donde la carpeta
+  /// vieja directamente dejó de existir.
   void setProjectWorkingDirectory(String id, String path) {
     _updateProject(id, (project) => project.copyWith(workingDirectory: path));
     unawaited(_persist());
@@ -1922,8 +1959,19 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
         server.name: server.toMcpServerEntry(externalSecretValues),
     };
 
-    // La ENTREGA (PR en draft) solo aplica donde hay repo.
-    final usesGit = Directory('${project.workingDirectory}/.git').existsSync();
+    // La ENTREGA (PR en draft) solo aplica donde hay repo, y DÓNDE está
+    // parado el repo cambia lo que hay que pedirle al agente.
+    //
+    // Antes esto era `Directory('$dir/.git').existsSync()`, y fallaba en dos
+    // casos: en un worktree de al lado `.git` es un ARCHIVO que apunta al
+    // principal, y en una subcarpeta del repo no está. En los dos daba falso,
+    // y con eso el agente no recibía la sección de entrega — la parte que le
+    // dice que abra el PR. Preguntarle a git es la respuesta correcta en los
+    // tres casos.
+    final place = await WorktreeService.instance.notifier.ensure(
+      project.workingDirectory,
+    );
+    final usesGit = place.isRepo;
 
     // Codex recibe el system prompt solo en el PRIMER turno de su sesión: en
     // turnos resumidos el estado del plan quedaría congelado en el turno 1.
@@ -1992,6 +2040,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
           isConsult: consultOfProfileId != null,
           hasPlanTools: planEntry != null,
           usesGit: usesGit,
+          place: place,
         ),
         mcpConfig: mcpServers.isEmpty
             ? null
@@ -2998,6 +3047,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     required bool isConsult,
     required bool hasPlanTools,
     required bool usesGit,
+    required WorktreePlace place,
   }) {
     final buffer = StringBuffer();
 
@@ -3156,6 +3206,11 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     if (!isConsult && usesGit) {
       buffer.writeln();
       buffer.writeln(_deliveryPrompt);
+      final worktree = _worktreePrompt(place);
+      if (worktree.isNotEmpty) {
+        buffer.writeln();
+        buffer.writeln(worktree);
+      }
     }
 
     buffer.writeln();

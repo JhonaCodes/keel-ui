@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
 
 import 'package:keel_ui/src/core/ui/form_panel.dart';
+import 'package:keel_ui/src/integrations/git_worktree/git_worktree.dart';
 import 'package:keel_ui/src/modules/agent_profiles/ui/screen/agent_profiles_screen.dart';
 import 'package:keel_ui/src/modules/agents/model/agent.dart';
 import 'package:keel_ui/src/modules/agents/viewmodel/agents_viewmodel.dart';
@@ -178,26 +179,37 @@ class _ConversationArea extends StatelessWidget {
             boardId != null &&
             BoardsService.instance.notifier.boardById(boardId) != null,
       );
-      return switch (lens) {
-        WorkspaceLens.projectState => ProjectStateView(
-          key: ValueKey('estado-${openProject.id}'),
-          project: openProject,
-        ),
-        WorkspaceLens.boards => ProjectBoardsView(
-          key: ValueKey('tableros-${openProject.id}'),
-          project: openProject,
-        ),
-        WorkspaceLens.board => BoardRunView(
-          key: ValueKey(boardId),
-          boardId: boardId!,
-        ),
-        // Sin ninguna abierta la vista muestra su propio vacío, con el
-        // botón para abrir una. Ese caso ya lo sabía resolver.
-        _ => SessionChatView(
-          key: ValueKey(openProject.id),
-          project: openProject,
-        ),
-      };
+      // La franja del worktree va ARRIBA de las cuatro vistas y no adentro
+      // de ninguna: dónde estás parado no es una pregunta del estado, ni del
+      // tablero, ni de la sesión. Si el proyecto corre en el worktree
+      // principal —lo normal— no ocupa nada.
+      return Column(
+        children: [
+          WorktreeStrip(project: openProject),
+          Expanded(
+            child: switch (lens) {
+              WorkspaceLens.projectState => ProjectStateView(
+                key: ValueKey('estado-${openProject.id}'),
+                project: openProject,
+              ),
+              WorkspaceLens.boards => ProjectBoardsView(
+                key: ValueKey('tableros-${openProject.id}'),
+                project: openProject,
+              ),
+              WorkspaceLens.board => BoardRunView(
+                key: ValueKey(boardId),
+                boardId: boardId!,
+              ),
+              // Sin ninguna abierta la vista muestra su propio vacío, con el
+              // botón para abrir una. Ese caso ya lo sabía resolver.
+              _ => SessionChatView(
+                key: ValueKey(openProject.id),
+                project: openProject,
+              ),
+            },
+          ),
+        ],
+      );
     }
 
     final openAgent = agent;

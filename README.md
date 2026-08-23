@@ -182,6 +182,13 @@ forma de que el menú marque una cosa y el centro muestre otra
 Todo formulario abre como panel deslizante a la derecha; `showDialog` queda
 para lo informativo y para el sí/no.
 
+Si el directorio de un proyecto es un **worktree de git aparte** —otra carpeta
+del mismo repo, para hacer dos cosas a la vez— la app lo detecta sola y lo
+dice en una franja: en qué rama estás y cuál es el principal. Ahí mismo está
+**Unificar**, que trae `main`, mueve la rama al worktree principal y saca la
+carpeta de al lado, enumerando antes lo que se borra con ella
+([F34](docs/features/34-worktrees.md)).
+
 Un agente, un workflow o una skill se **empaquetan en un zip** con todo lo
 que necesitan y se instalan del otro lado en un paso. Lo que entra se revisa
 antes —comandos, rutas personales de otro, inyección de prompt, texto

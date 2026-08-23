@@ -124,6 +124,7 @@ class _ProjectChannel extends StatelessWidget {
                     workflow: workflow,
                   ),
                   SessionTab.map => SessionMapView(
+                    project: project,
                     session: session,
                     members: members,
                     workflow: workflow,
@@ -167,16 +168,21 @@ class _ProjectChannel extends StatelessWidget {
             ],
           ),
         ),
-        const VerticalDivider(width: 1),
-        SizedBox(
-          width: 272,
-          child: WorkflowProgressPanel(
-            project: project,
-            session: session,
-            workflow: workflow,
-            members: members,
+        // En el mapa el panel se retira: dice lo mismo que el lienzo ya
+        // muestra —los pasos, de quién es cada uno, cuál va— y son 272 px
+        // que el mapa necesita más que él.
+        if (tab == SessionTab.chat) ...[
+          const VerticalDivider(width: 1),
+          SizedBox(
+            width: 272,
+            child: WorkflowProgressPanel(
+              project: project,
+              session: session,
+              workflow: workflow,
+              members: members,
+            ),
           ),
-        ),
+        ],
       ],
     );
   }

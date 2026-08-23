@@ -86,11 +86,20 @@ class MapNode {
   final int? stepIndex;
   final String stepTitle;
 
+  /// La instrucción del paso, tal como la escribe el workflow. Es el encargo
+  /// de verdad; el título es solo su nombre.
+  final String stepInstruction;
+
   final MapNodeState state;
 
   /// La primera frase de lo que escribió. No es un resumen generado: pedirle
   /// al modelo que se resuma cuesta otro turno y puede mentir.
   final String resolved;
+
+  /// Si lo único que dijo fue contestar una consulta. Un miembro puede
+  /// contestar desde un paso que todavía no le tocó, y decir «resolvió» ahí
+  /// sería decir que ese paso ya pasó.
+  final bool answeredOnly;
 
   final String reasoning;
   final AgentToolActivity? activity;
@@ -121,8 +130,10 @@ class MapNode {
     this.colorIndex = -1,
     this.stepIndex,
     this.stepTitle = '',
+    this.stepInstruction = '',
     this.state = MapNodeState.idle,
     this.resolved = '',
+    this.answeredOnly = false,
     this.reasoning = '',
     this.activity,
     this.elapsed = Duration.zero,
@@ -262,6 +273,14 @@ class SessionMap {
           ? mine.length
           : (mine.length > kSubagentsDrawn ? kSubagentsDrawn : mine.length);
 
+      // Contestar una consulta NO hace avanzar el workflow: el paso se
+      // enciende solo cuando alguien lo tomó de verdad. Sin esta distinción,
+      // un miembro que contestó desde un paso futuro dejaba la flecha
+      // encendida hasta él y el mapa mentía sobre dónde va el trabajo.
+      final tookTheStep = own.any(
+        (message) => message.consultOfProfileId == null,
+      );
+
       nodes.add(
         MapNode(
           id: post.id,
@@ -272,12 +291,14 @@ class SessionMap {
           colorIndex: colorOf[post.profileId] ?? -1,
           stepIndex: post.stepIndex,
           stepTitle: post.stepTitle,
+          stepInstruction: post.instruction,
           state: _stateOf(
             own: own,
             live: isCurrent ? live : null,
             waiting: waiting && isCurrent,
           ),
           resolved: own.isEmpty ? '' : firstSentenceOf(own.last.text),
+          answeredOnly: own.isNotEmpty && !tookTheStep,
           reasoning: own.isEmpty ? '' : (own.last.reasoning ?? ''),
           activity: isCurrent ? live.activity : null,
           elapsed: Duration(
@@ -300,8 +321,8 @@ class SessionMap {
         MapEdge(
           fromId: previousId,
           toId: post.id,
-          kind: own.isEmpty ? MapEdgeKind.untraveled : MapEdgeKind.forward,
-          live: isCurrent && own.isEmpty,
+          kind: tookTheStep ? MapEdgeKind.forward : MapEdgeKind.untraveled,
+          live: isCurrent && !tookTheStep,
         ),
       );
       previousId = post.id;
@@ -386,6 +407,7 @@ class _Post {
   final String profileId;
   final int? stepIndex;
   final String stepTitle;
+  final String instruction;
 
   const _Post({
     required this.id,
@@ -394,6 +416,7 @@ class _Post {
     required this.profileId,
     required this.stepIndex,
     this.stepTitle = '',
+    this.instruction = '',
   });
 }
 
@@ -433,6 +456,7 @@ List<_Post> _postsOf({
         profileId: owner.id,
         stepIndex: index,
         stepTitle: steps[index].title,
+        instruction: steps[index].instruction,
       ),
     );
     placed.add(owner.id);

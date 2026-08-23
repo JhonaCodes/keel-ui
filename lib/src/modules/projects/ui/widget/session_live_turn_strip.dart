@@ -6,6 +6,7 @@ import 'package:keel_ui/src/modules/agents/ui/widget/agent_activity_indicator.da
 import 'package:keel_ui/src/modules/agents/ui/widget/reasoning_panel.dart';
 import 'package:keel_ui/src/modules/projects/model/member_color.dart';
 import 'package:keel_ui/src/modules/projects/model/session_live_turn.dart';
+import 'package:keel_ui/src/modules/projects/ui/widget/turn_phase_label.dart';
 
 /// How far the text sits from the left edge: avatar width plus its gap, so
 /// everything under the header lines up with the handle above it.
@@ -120,70 +121,8 @@ class _LiveHeader extends StatelessWidget {
         if (current != null)
           Expanded(child: AgentActivityIndicator(activity: current))
         else
-          _PhaseLabel(phase: phase, accent: accent),
+          TurnPhaseLabel(phase: phase, accent: accent),
       ],
-    );
-  }
-}
-
-/// The pulsing "pensando…" / "escribiendo…" line. It breathes because the two
-/// states it covers produce no output of their own — without motion the
-/// channel looks frozen while the agent is in fact working.
-class _PhaseLabel extends StatefulWidget {
-  const _PhaseLabel({required this.phase, required this.accent});
-
-  final TurnPhase phase;
-  final Color accent;
-
-  @override
-  State<_PhaseLabel> createState() => _PhaseLabelState();
-}
-
-class _PhaseLabelState extends State<_PhaseLabel>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 1100),
-  )..repeat(reverse: true);
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  static IconData _iconFor(TurnPhase phase) => switch (phase) {
-    TurnPhase.thinking => Icons.psychology_outlined,
-    TurnPhase.writing => Icons.edit_note,
-    TurnPhase.working => Icons.bolt_outlined,
-  };
-
-  static String _labelFor(TurnPhase phase) => switch (phase) {
-    TurnPhase.thinking => 'pensando…',
-    TurnPhase.writing => 'escribiendo…',
-    TurnPhase.working => 'trabajando…',
-  };
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, child) {
-        return Opacity(opacity: 0.45 + 0.55 * _controller.value, child: child);
-      },
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(_iconFor(widget.phase), size: 14, color: widget.accent),
-          const SizedBox(width: 6),
-          Text(
-            _labelFor(widget.phase),
-            style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12),
-          ),
-        ],
-      ),
     );
   }
 }

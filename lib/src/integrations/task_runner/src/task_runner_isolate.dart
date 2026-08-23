@@ -5,7 +5,17 @@ part of '../task_runner.dart';
 class _IsolateBootstrap {
   final SendPort mainSendPort;
   final Map<String, dynamic> specMessage;
-  const _IsolateBootstrap(this.mainSendPort, this.specMessage);
+
+  /// El PATH del usuario, ya resuelto por el isolate principal. Sin esto el
+  /// CLI se busca en el PATH mínimo que `launchd` le da a una app abierta
+  /// desde el Finder, donde `claude` no está.
+  final String userPath;
+
+  const _IsolateBootstrap(
+    this.mainSendPort,
+    this.specMessage,
+    this.userPath,
+  );
 }
 
 /// Runs entirely inside the worker isolate. Owns the CLI [Process] end to
@@ -30,6 +40,7 @@ void _taskRunnerEntryPoint(_IsolateBootstrap bootstrap) {
   unawaited(
     _runInIsolate(
       spec: spec,
+      userPath: bootstrap.userPath,
       mainSendPort: bootstrap.mainSendPort,
       commandPort: commandPort,
       isCancelled: () => cancelled,
@@ -49,6 +60,7 @@ void _taskRunnerEntryPoint(_IsolateBootstrap bootstrap) {
 
 Future<void> _runInIsolate({
   required TaskRunSpec spec,
+  required String userPath,
   required SendPort mainSendPort,
   required ReceivePort commandPort,
   required bool Function() isCancelled,
@@ -149,6 +161,10 @@ Future<void> _runInIsolate({
       executable,
       arguments,
       workingDirectory: spec.workingDirectory,
+      // El PATH va explícito porque el heredado es el de `launchd`, no el de
+      // la terminal. `runInShell` sigue puesto: es el `sh` el que resuelve el
+      // nombre, y lo resuelve contra ESTE PATH.
+      environment: {'PATH': userPath},
       runInShell: true,
     );
   } catch (error) {

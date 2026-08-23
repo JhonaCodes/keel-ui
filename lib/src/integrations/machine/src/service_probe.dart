@@ -78,17 +78,21 @@ Future<List<CliService>> detectServices() async {
 }
 
 Future<CliService> _probeService(CliService service) async {
-  final located = await Process.run('which', [service.binary]);
-  final path = '${located.stdout}'.trim();
-  if (located.exitCode != 0 || path.isEmpty) return service;
+  // Se busca en el PATH del usuario, no con `which`: `which` heredaba el PATH
+  // mínimo de `launchd` y en la app instalada no encontraba ni uno solo de
+  // estos binarios, así que la máquina se veía vacía.
+  final path = await UserShellPath.locate(service.binary);
+  if (path == null) return service;
 
-  final version = await _readVersion(service.binary);
+  final version = await _readVersion(path);
   return service.seen(path: path, version: version);
 }
 
-Future<String> _readVersion(String binary) async {
+/// [executable] es la ruta ABSOLUTA: `Process.run` resuelve los nombres
+/// sueltos contra el PATH de la app, que es justamente el que no sirve.
+Future<String> _readVersion(String executable) async {
   try {
-    final result = await Process.run(binary, const [
+    final result = await Process.run(executable, const [
       '--version',
     ]).timeout(_versionTimeout);
     // Alguno escribe la versión en stderr. Da igual de dónde salga: lo que

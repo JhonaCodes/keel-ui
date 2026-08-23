@@ -43,3 +43,6 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Credenciales de compilación (webhook de Discord). Nunca al repositorio.
+keel_secrets.json

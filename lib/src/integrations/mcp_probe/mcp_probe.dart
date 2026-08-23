@@ -23,6 +23,8 @@ import 'package:dart_mcp/stdio.dart';
 import 'package:http/http.dart' as http;
 import 'package:logger_rs/logger_rs.dart';
 
+import 'package:keel_ui/src/core/services/user_shell_path.dart';
+
 import 'package:keel_ui/src/modules/mcp_servers/model/mcp_probe_result.dart';
 import 'package:keel_ui/src/modules/mcp_servers/model/mcp_server_config.dart';
 

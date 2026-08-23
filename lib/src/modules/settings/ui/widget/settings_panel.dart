@@ -7,7 +7,10 @@ import 'package:keel_ui/src/core/ui/form_panel.dart';
 import 'package:keel_ui/src/integrations/catalog_backup/catalog_backup.dart';
 import 'package:keel_ui/src/integrations/jobs_api/jobs_api.dart';
 import 'package:keel_ui/src/integrations/system_vault/system_vault.dart';
+import 'package:keel_ui/src/core/services/external_link_service.dart';
 import 'package:keel_ui/src/modules/settings/model/app_settings.dart';
+import 'package:keel_ui/src/modules/settings/model/keel_about.dart';
+import 'package:keel_ui/src/modules/settings/ui/widget/terms_panel.dart';
 import 'package:keel_ui/src/modules/settings/viewmodel/settings_viewmodel.dart';
 
 Future<void> openSettingsPanel(BuildContext context) {
@@ -142,6 +145,8 @@ class SettingsPanel extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               const _JobsApiInfo(),
+              const SizedBox(height: 32),
+              const _AboutKeel(),
             ],
           );
         },
@@ -418,6 +423,85 @@ class _JobsApiInfo extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+}
+
+/// Quién hizo esto, dónde se habla de esto, y con qué permiso se usa.
+///
+/// El aviso de licencia va acá y no escondido en un archivo del repositorio
+/// porque es lo único que ve quien recibe la app compilada: el `LICENSE` lo
+/// lee quien clona, y quien clona no es a quien hay que avisarle.
+class _AboutKeel extends StatelessWidget {
+  const _AboutKeel();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Divider(),
+        const SizedBox(height: 16),
+        Text('Acerca de Keel', style: theme.textTheme.labelLarge),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            const _AboutLink(
+              icon: Icons.forum_outlined,
+              label: 'Comunidad en Discord',
+              url: KeelAbout.community,
+            ),
+            const _AboutLink(
+              icon: Icons.public,
+              label: 'jhonacode.com',
+              url: KeelAbout.website,
+            ),
+            OutlinedButton.icon(
+              onPressed: () => openTermsPanel(context),
+              icon: const Icon(Icons.gavel_outlined, size: 18),
+              label: const Text('Términos de uso'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Text(
+          KeelAbout.copyright,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          KeelAbout.licenseNotice,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _AboutLink extends StatelessWidget {
+  const _AboutLink({
+    required this.icon,
+    required this.label,
+    required this.url,
+  });
+
+  final IconData icon;
+  final String label;
+  final String url;
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton.icon(
+      onPressed: () => openExternalUrl(url),
+      icon: Icon(icon, size: 18),
+      label: Text(label),
     );
   }
 }

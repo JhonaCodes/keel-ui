@@ -13,6 +13,10 @@ import 'package:logger_rs/logger_rs.dart';
 import 'package:keel_ui/src/core/services/claude_stream_events.dart';
 import 'package:keel_ui/src/core/services/cli_turn_workspace.dart';
 import 'package:keel_ui/src/core/services/cli_turn_contract.dart';
+// El PATH del usuario se resuelve del lado del isolate principal y viaja
+// en el bootstrap: leerlo cuesta abrir un shell de login, y el isolate
+// del turno es nuevo en cada corrida.
+import 'package:keel_ui/src/core/services/user_shell_path.dart';
 // Same reason: which model names belong to which CLI is decided in ONE
 // place, so a project turn cannot hand codex a Claude alias the 1:1 path
 // already knows to withhold.

@@ -47,9 +47,14 @@ Future<TaskRun> _startTaskRun(TaskRunSpec spec) async {
     }
   });
 
+  // Antes de levantar el isolate: adentro no se puede esperar a que un shell
+  // de login conteste sin retrasar cada turno, y acá la lectura ya está
+  // memoizada desde el primer probe de servicios.
+  final userPath = await UserShellPath.resolved();
+
   isolate = await Isolate.spawn(
     _taskRunnerEntryPoint,
-    _IsolateBootstrap(receivePort.sendPort, spec.toMessage()),
+    _IsolateBootstrap(receivePort.sendPort, spec.toMessage(), userPath),
     onError: receivePort.sendPort,
   );
 

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
 
@@ -153,7 +154,13 @@ class AgentRail extends StatelessWidget {
             // Con Respaldo y Ajustes: son las que hablan de la app y no del
             // trabajo. Fallas arriba de todas ellas porque es la única que
             // se mira porque se prendió, no porque la fuiste a buscar.
-            const _FaultsRailButton(),
+            //
+            // Solo en debug: en una compilación instalada, un stack de Dart no
+            // le dice nada a quien la usa y un punto rojo permanente solo
+            // asusta. Ahí las fallas se siguen anotando igual y salen por el
+            // canal de reportes, que es donde alguien puede hacer algo con
+            // ellas. Ver `reportToDiscord`.
+            if (kDebugMode) const _FaultsRailButton(),
             _MachineRailButton(onPressed: onOpenMachine),
             _VaultRailButton(onPressed: () => openSettingsPanel(context)),
             _RailButton(

@@ -1,0 +1,144 @@
+Keel — Licencia propietaria
+Copyright © 2026 Jhonatan Ortiz (JhonaCode). Todos los derechos reservados.
+https://jhonacode.com
+
+
+1. TITULARIDAD
+
+Keel, su código fuente, su diseño, su nombre, su documentación y todo el
+material que lo acompaña son propiedad exclusiva de Jhonatan Ortiz
+(JhonaCode). Este software NO es software libre ni de código abierto, y no se
+distribuye bajo ninguna licencia permisiva —MIT, Apache, BSD, GPL ni ninguna
+otra—.
+
+
+2. LO QUE NO SE PERMITE SIN AUTORIZACIÓN ESCRITA
+
+Queda prohibido, sin permiso previo, expreso y por escrito del titular:
+
+  a) usar el software, en todo o en parte, con cualquier fin —personal,
+     académico, interno o comercial—;
+  b) copiar, reproducir, publicar o poner a disposición de terceros el código
+     fuente o cualquier compilación del mismo;
+  c) modificar, adaptar, traducir o crear obras derivadas;
+  d) distribuir, sublicenciar, vender, alquilar, prestar o ceder el software
+     por cualquier medio, gratuito u oneroso;
+  e) ofrecer el software como servicio a terceros;
+  f) descompilar, desensamblar o aplicar ingeniería inversa, salvo en la
+     medida en que la ley aplicable lo permita de forma imperativa;
+  g) eludir o desactivar cualquier medida técnica de protección;
+  h) retirar, alterar u ocultar los avisos de copyright, autoría o esta misma
+     licencia;
+  i) emplear el nombre, el logotipo o la imagen de Keel o de JhonaCode;
+  j) emplear el software, o cualquier parte de él, para entrenar modelos de
+     aprendizaje automático o sistemas de inteligencia artificial.
+
+El acceso a este repositorio, o la recepción de una copia por cualquier vía,
+no otorga por sí mismo ninguno de los derechos anteriores.
+
+
+3. DISTRIBUCIÓN EXCLUSIVA
+
+El titular se reserva de forma exclusiva el derecho de distribuir el software.
+El ÚNICO canal autorizado de descarga es https://jhonacode.com
+
+Queda prohibido republicar, espejar, alojar en otro sitio, incluir en
+repositorios de paquetes, tiendas de aplicaciones, imágenes de contenedor o
+cualquier otro canal de distribución, de forma gratuita u onerosa.
+
+Cualquier copia obtenida por una vía distinta carece de autorización y puede
+haber sido alterada. El titular no responde por tales copias, por su
+comportamiento ni por los daños que ocasionen, y nada de lo que hagan le es
+atribuible. Una compilación modificada por un tercero no es Keel, aunque use
+ese nombre.
+
+
+4. USO POR CUENTA Y RIESGO DEL USUARIO
+
+El software ejecuta herramientas de línea de comandos de terceros con los
+permisos que el usuario les otorgue, que pueden incluir acceso completo al
+sistema de archivos. Esas herramientas pueden crear, modificar y eliminar
+archivos y ejecutar comandos.
+
+El usuario es el único responsable de los permisos que concede, de las
+instrucciones que imparte y de mantener copias de respaldo de su información.
+El titular no responde por pérdida ni corrupción de datos.
+
+El software no está diseñado ni verificado para entornos críticos —medicina,
+aviación, transporte, energía, control industrial o similares— y no debe
+emplearse en ellos.
+
+
+5. INDEMNIDAD
+
+El usuario mantendrá indemne al titular frente a cualquier reclamación, daño,
+pérdida o gasto —incluidos honorarios de abogados— derivados de su uso del
+software, de lo que produzca mediante él o del incumplimiento de esta
+licencia.
+
+
+6. AUTORIZACIONES
+
+Cualquier permiso debe constar por escrito y otorgado por el titular. Un
+permiso concedido para un uso concreto no se extiende a ningún otro, no es
+transferible y puede revocarse.
+
+Para solicitarlo: https://jhonacode.com
+
+
+7. SIN GARANTÍA
+
+EL SOFTWARE SE PROPORCIONA "TAL CUAL" Y "SEGÚN DISPONIBILIDAD", SIN GARANTÍA
+DE NINGÚN TIPO, EXPRESA O IMPLÍCITA, INCLUIDAS —SIN LIMITARSE A ELLAS— LAS
+GARANTÍAS DE COMERCIABILIDAD, IDONEIDAD PARA UN FIN DETERMINADO Y NO
+INFRACCIÓN.
+
+
+8. LIMITACIÓN DE RESPONSABILIDAD
+
+En la máxima medida permitida por la ley, el titular no responderá por daños
+indirectos, incidentales, especiales o consecuentes, ni por lucro cesante,
+pérdida de datos o interrupción de actividad, aun habiendo sido advertido de
+tal posibilidad. Cualquier responsabilidad que llegara a determinarse quedará
+limitada al importe abonado por el software en los doce meses anteriores al
+hecho, que es cero: el software no se comercializa y las donaciones no
+constituyen pago por él.
+
+
+9. DONACIONES
+
+Las donaciones son voluntarias. No constituyen compra, no otorgan licencia ni
+derecho de uso, no incluyen soporte ni prioridad, no generan obligación alguna
+del titular y no son reembolsables.
+
+
+10. COMPONENTES DE TERCEROS
+
+Keel se apoya en bibliotecas y herramientas de terceros, cada una con su
+propia licencia y sus propios términos. Esta licencia se aplica al código de
+Keel, no a esas dependencias. El titular no responde por ellas ni por los
+servicios que el usuario decida conectar.
+
+
+11. NULIDAD PARCIAL
+
+Si alguna disposición de esta licencia fuera declarada inválida o inaplicable,
+las restantes conservarán plena vigencia. La falta de ejercicio de un derecho
+por parte del titular no supone renuncia al mismo. Entre las partes no existe
+sociedad, relación laboral, franquicia ni representación de ningún tipo.
+
+
+12. LEY APLICABLE
+
+Esta licencia se rige por las leyes del país de residencia del titular, con
+sometimiento a los tribunales competentes de ese lugar.
+
+
+13. INCUMPLIMIENTO Y TERMINACIÓN
+
+Cualquier uso fuera de lo autorizado extingue de inmediato y sin aviso todo
+permiso concedido, y podrá dar lugar a las acciones legales que correspondan.
+Al terminar, el usuario debe cesar todo uso y eliminar las copias en su poder.
+
+Las cláusulas sobre titularidad, garantía, responsabilidad e indemnidad
+subsisten a la terminación.

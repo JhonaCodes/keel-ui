@@ -16,19 +16,24 @@
 /// | Un error de build o de layout | `FlutterError.onError` |
 /// | Una excepción asíncrona sin dueño | `PlatformDispatcher.onError` |
 ///
-/// Lo que NO hace: mandar nada afuera. Keel no tiene servidor ni cuenta, y
-/// una falla que se sube a algún lado es una falla que viaja con las rutas
-/// de tus proyectos adentro. El diario vive en la misma base local que todo
-/// el resto, y el aviso es un punto rojo en el rail —más, si la ventana no
-/// está enfocada, una notificación de macOS.
+/// El diario vive en la misma base local que todo el resto, y el aviso es un
+/// punto rojo en el rail —más, si la ventana no está enfocada, una
+/// notificación de macOS.
+///
+/// Además puede reportar a un canal de Discord, si la compilación trae el
+/// webhook (ver [reportToDiscord]). Es opcional y viene apagado: una falla
+/// lleva adentro las rutas de tus proyectos y el texto de la excepción, así
+/// que mandarla afuera es una decisión de quien compila, no el default.
 library;
 
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
 import 'package:logger_rs/logger_rs.dart';
 import 'package:logging/logging.dart' show Level, Logger;
 import 'package:reactive_notifier/reactive_notifier.dart';
@@ -41,6 +46,7 @@ import 'package:keel_ui/src/shared/shared.dart';
 part 'src/fault.dart';
 part 'src/fault_capture.dart';
 part 'src/fault_notice.dart';
+part 'src/fault_discord.dart';
 part 'src/ui/faults_panel.dart';
 
 /// Todo lo que falló, lo más nuevo arriba.
@@ -103,6 +109,7 @@ class FaultJournalViewModel extends ViewModel<FaultJournalState> {
     String where = '',
     String detail = '',
     String context = '',
+    FaultSeverity severity = FaultSeverity.error,
   }) async {
     final clean = _oneLine(message);
     if (clean.isEmpty || _publishing) return;
@@ -138,6 +145,7 @@ class FaultJournalViewModel extends ViewModel<FaultJournalState> {
       message: clean,
       detail: _capped(detail),
       context: context,
+      severity: severity,
     );
 
     final cutoff = now.subtract(retention);
@@ -158,6 +166,7 @@ class FaultJournalViewModel extends ViewModel<FaultJournalState> {
       await _write(() => _repository.remove(vieja.id));
     }
     unawaited(noticeOf(fault));
+    unawaited(reportToDiscord(fault));
   }
 
   /// Las marca vistas. Lo llama el panel al abrirse: mirarlas ES verlas, y

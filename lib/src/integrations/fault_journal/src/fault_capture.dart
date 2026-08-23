@@ -32,6 +32,11 @@ void installFaultCapture() {
     _record(
       message: error == null ? record.message : '${record.message}: $error',
       where: faultOriginOf(stack),
+      // `Log.f` publica en SHOUT y `Log.e` en SEVERE: la severidad ya venía
+      // dicha en la llamada, solo faltaba no tirarla.
+      severity: record.level >= Level.SHOUT
+          ? FaultSeverity.critica
+          : FaultSeverity.error,
       detail: [
         record.message,
         if (error != null) '$error',
@@ -52,6 +57,7 @@ void installFaultCapture() {
       message: details.exceptionAsString(),
       where: faultOriginOf(details.stack),
       context: details.context?.toDescription() ?? '',
+      severity: FaultSeverity.interfaz,
       detail: [
         details.exceptionAsString(),
         if (details.stack != null) '${details.stack}',
@@ -100,6 +106,7 @@ void _record({
   String where = '',
   String detail = '',
   String context = '',
+  FaultSeverity severity = FaultSeverity.error,
 }) {
   unawaited(
     FaultJournalService.instance.notifier.record(
@@ -107,6 +114,7 @@ void _record({
       where: where,
       detail: detail,
       context: context,
+      severity: severity,
     ),
   );
 }

@@ -5,6 +5,41 @@ part of '../fault_journal.dart';
 /// mismo andamiaje del framework.
 const _kDetailCap = 4000;
 
+/// Qué tan grave es lo que pasó.
+///
+/// No se inventa: sale de por dónde entró la falla. `logger_rs` publica
+/// `Log.f` como `SHOUT` y `Log.e` como `SEVERE`, y lo que revienta dibujando
+/// llega por `FlutterError.onError`, que es otra cosa —la app sigue viva y
+/// el usuario ve un recuadro gris, no una pantalla muerta—.
+///
+/// El color es el de la barra lateral del embed de Discord, que es donde se
+/// lee la severidad de un vistazo sin abrir nada.
+enum FaultSeverity {
+  /// `Log.f`. Lo que se anota cuando algo no puede seguir.
+  critica('Crítica', 0x992D22),
+
+  /// `Log.e` y las excepciones asíncronas sin dueño. El grueso del diario.
+  error('Error', 0xED4245),
+
+  /// Un build o un layout que reventó. Grave, pero la app sigue de pie.
+  interfaz('Interfaz', 0xFAA61A);
+
+  const FaultSeverity(this.label, this.color);
+
+  /// Cómo se nombra para una persona.
+  final String label;
+
+  /// RGB para la barra lateral del embed.
+  final int color;
+
+  /// La severidad guardada, o [error] si la fila es anterior a que esto
+  /// existiera —el diario es append-only y no se migra por un campo nuevo—.
+  static FaultSeverity fromName(String? name) => values.firstWhere(
+    (severity) => severity.name == name,
+    orElse: () => FaultSeverity.error,
+  );
+}
+
 /// Algo que se rompió, con lo que hace falta para entender qué fue.
 class Fault {
   final String id;
@@ -40,6 +75,9 @@ class Fault {
 
   final bool seen;
 
+  /// Qué tan grave. Ver [FaultSeverity].
+  final FaultSeverity severity;
+
   const Fault({
     required this.id,
     required this.at,
@@ -50,6 +88,7 @@ class Fault {
     this.detail = '',
     this.context = '',
     this.seen = false,
+    this.severity = FaultSeverity.error,
   });
 
   /// Si esta falla es "la misma" que la que se está anotando. La comparación
@@ -68,6 +107,7 @@ class Fault {
     message: message,
     detail: detail,
     context: context,
+    severity: severity,
     // Repetirse la vuelve a poner sin ver: que ya hayas leído la primera no
     // dice nada sobre que siga pasando.
     seen: false,
@@ -84,6 +124,7 @@ class Fault {
           message: message,
           detail: detail,
           context: context,
+          severity: severity,
           seen: true,
         );
 
@@ -91,6 +132,7 @@ class Fault {
   /// pegarlo en una sesión y preguntarle a un agente qué pasó.
   String get asText => [
     message,
+    'Severidad: ${severity.label}',
     if (where.isNotEmpty) 'Dónde: $where',
     if (context.isNotEmpty) 'Contexto: $context',
     'Cuándo: ${lastAt.toIso8601String()}${count > 1 ? ' (×$count)' : ''}',
@@ -107,6 +149,7 @@ class Fault {
     'detail': detail,
     'context': context,
     'seen': seen,
+    'severity': severity.name,
   };
 
   factory Fault.fromJson(Map<String, dynamic> json) {
@@ -121,6 +164,7 @@ class Fault {
       detail: json['detail'] as String? ?? '',
       context: json['context'] as String? ?? '',
       seen: json['seen'] as bool? ?? false,
+      severity: FaultSeverity.fromName(json['severity'] as String?),
     );
   }
 

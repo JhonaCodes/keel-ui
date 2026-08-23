@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:logger_rs/logger_rs.dart';
 
+import 'package:keel_ui/src/core/services/user_shell_path.dart';
 import 'package:keel_ui/src/modules/tools/model/tool.dart';
 
 /// stdout/stderr are truncated to this many characters each before going
@@ -53,15 +54,35 @@ class ToolExecutionService {
       );
       await script.writeAsString(tool.code);
 
+      // Ruta absoluta, no el nombre: sin `runInShell`, `Process.start` busca
+      // el runtime en el PATH de la app —el mínimo de `launchd`— y no en el
+      // del usuario, que es donde están `python3`, `node` y compañía.
+      final executable = await UserShellPath.locate(tool.runtime.executable);
+      if (executable == null) {
+        return ToolRunResult(
+          exitCode: -1,
+          stdout: '',
+          stderr:
+              'No se encontró ${tool.runtime.executable} en el PATH. '
+              '¿Está instalado en esta máquina?',
+          timedOut: false,
+        );
+      }
+
       final Process process;
       try {
         process = await Process.start(
-          tool.runtime.executable,
+          executable,
           [script.path, ...args],
           workingDirectory: workingDirectory,
           // Declared secrets ride on TOP of the inherited environment —
           // Process.start merges when includeParentEnvironment stays true.
-          environment: environment,
+          // El PATH del usuario va debajo para que el script pueda invocar
+          // otros binarios suyos; un secret que se llame PATH sigue ganando.
+          environment: {
+            ...await UserShellPath.environment(),
+            ...environment,
+          },
         );
       } catch (error) {
         Log.e('Failed to start tool "${tool.name}"', error: error);

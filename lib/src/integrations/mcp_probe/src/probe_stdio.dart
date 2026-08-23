@@ -2,15 +2,18 @@ part of '../mcp_probe.dart';
 
 /// Levanta el comando, habla JSON-RPC por su stdin/stdout y lo mata.
 ///
-/// `runInShell` sigue la convención del resto de la app: es lo que hace que
-/// `npx` se resuelva contra el PATH del usuario. Como es un solo comando,
-/// `sh -c` termina haciendo `exec`, así que el pid que queda ES el del
-/// servidor y matarlo lo mata de verdad.
+/// `runInShell` es lo que hace que `npx` se resuelva contra el PATH que se le
+/// pasa —el del usuario, no el mínimo que hereda una app abierta desde el
+/// Finder—. Como es un solo comando, `sh -c` termina haciendo `exec`, así que
+/// el pid que queda ES el del servidor y matarlo lo mata de verdad.
 Future<McpProbeResult> _probeStdio(
   McpServerConfig config,
   Map<String, String> secretValues,
 ) async {
+  // El PATH del usuario va primero: lo que declare el servidor gana, porque
+  // un servidor que fija su propio PATH lo hace a propósito.
   final environment = <String, String>{
+    ...await UserShellPath.environment(),
     ...config.env,
     for (final entry in config.secretEnv.entries)
       entry.key: ?secretValues[entry.value],

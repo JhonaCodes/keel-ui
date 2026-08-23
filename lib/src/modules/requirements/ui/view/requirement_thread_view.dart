@@ -6,6 +6,7 @@ import 'package:keel_ui/src/modules/projects/model/project.dart';
 import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
 import 'package:keel_ui/src/modules/requirements/model/internal_requirement.dart';
 import 'package:keel_ui/src/modules/requirements/viewmodel/requirements_viewmodel.dart';
+import 'package:keel_ui/src/modules/workspace/viewmodel/workspace_viewmodel.dart';
 
 /// Los dos lados, con su color. Origen y destino se distinguen a simple vista
 /// o el hilo se vuelve una pared de texto de dos autores anónimos.
@@ -517,6 +518,14 @@ class _ClosureBar extends StatelessWidget {
         requirement.status == RequirementStatus.abierto &&
         (destino?.maintained ?? false);
 
+    // Ya tomado: el botón de tomar se fue, y sin esto no queda ninguna
+    // puerta al trabajo que el requerimiento arrancó. La sesión se busca en
+    // el destino porque puede haberse borrado: un id guardado no garantiza
+    // que lo que apunta siga existiendo.
+    final trabajando = destino?.sessions
+        .where((session) => session.id == requirement.takenInSessionId)
+        .firstOrNull;
+
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
       decoration: BoxDecoration(
@@ -554,6 +563,15 @@ class _ClosureBar extends StatelessWidget {
             FilledButton.tonal(
               onPressed: () => _tomarYEvaluar(context),
               child: const Text('Tomar y evaluar'),
+            )
+          else if (trabajando != null)
+            TextButton.icon(
+              icon: const Icon(Icons.arrow_forward, size: 15),
+              onPressed: () => WorkspaceService.instance.notifier.openSession(
+                destino!.id,
+                trabajando.id,
+              ),
+              label: const Text('Ir a la sesión'),
             ),
           if (pidieronCierre)
             TextButton(
@@ -586,7 +604,7 @@ class _ClosureBar extends StatelessWidget {
         .firstOrNull;
     if (to == null) return;
 
-    projects.startRequirementSession(
+    final sessionId = projects.startRequirementSession(
       projectId: to.id,
       sessionTitle: '${requirement.code} · ${requirement.title}',
       request: renderRequirementForTurn(
@@ -595,6 +613,12 @@ class _ClosureBar extends StatelessWidget {
         toProject: to.name,
       ),
     );
+    if (sessionId == null) return;
+    // Un botón que apretaste SÍ navega. La regla de que crear no es ir vale
+    // para lo que arranca solo —una tool, la API— no para esto: apretar
+    // «tomar» y quedarte mirando el requerimiento es quedarte mirando el
+    // lado que ya leíste, mientras el trabajo empieza en otra pantalla.
+    WorkspaceService.instance.notifier.openSession(to.id, sessionId);
   }
 
   Future<void> _rechazar(

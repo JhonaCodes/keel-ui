@@ -94,6 +94,17 @@ del destino no arrastre nada del contexto de quien pidió.
 
 Y corre sola. El origen sigue con lo suyo y se entera cuando hay respuesta.
 
+**«Tomar y evaluar» te lleva a esa sesión.** Es un botón que apretaste: la
+regla de que crear no es ir vale para lo que arranca solo —una tool, la
+API—, no para esto. Quedarte mirando el requerimiento después de apretar es
+quedarte mirando el lado que ya leíste, mientras el trabajo empieza en otra
+pantalla.
+
+Una vez tomado, el botón se va y en su lugar queda **«Ir a la sesión»**, que
+es la única puerta de vuelta al trabajo que el requerimiento arrancó. Solo
+aparece si esa sesión todavía existe: un id guardado no garantiza que lo que
+apunta siga estando.
+
 ## La compuerta
 
 Un agente **no puede** abrir un requerimiento contra un repo que no esté

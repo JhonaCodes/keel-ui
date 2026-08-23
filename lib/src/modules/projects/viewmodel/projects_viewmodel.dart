@@ -751,13 +751,16 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
   ///
   /// El pedido inicial es el requerimiento renderizado y nada más: el hilo
   /// del que pidió no viaja, y de este lado no hay forma de alcanzarlo.
-  void startRequirementSession({
+  ///
+  /// Devuelve el id de la sesión, para que quien apretó el botón navegue
+  /// hacia ella. Acá no se navega: crear no es ir.
+  String? startRequirementSession({
     required String projectId,
     required String sessionTitle,
     required String request,
   }) {
     final project = _projectById(projectId);
-    if (project == null) return;
+    if (project == null) return null;
 
     final session = Session(
       id: generateUuidV4(),
@@ -773,6 +776,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     );
     unawaited(_persist());
     unawaited(sendToChannel(projectId, request));
+    return session.id;
   }
 
   /// Abre la sesión que le da formato al roadmap del proyecto.

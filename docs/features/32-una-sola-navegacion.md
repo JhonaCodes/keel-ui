@@ -35,7 +35,7 @@ cosas que antes estaban separadas: mueve la selección en el ViewModel que
 corresponda y deja dicho qué lente queda.
 
 ```
-openSession(proyecto, sesión)  → selectSession(...)      + lente sesión
+openSession(proyecto, sesión)  → selectProject + selectSession + lente sesión
 openProjectState(proyecto)     → showProjectState(...)   + lente estado
 openBoards(proyecto)           → selectProject(...)      + lente tableros
 openBoard(tablero)             →                           lente tablero
@@ -43,6 +43,12 @@ openProject(proyecto)          → selectProject(...)      + donde lo dejaste
 ```
 
 La pantalla no guarda nada: dibuja lo que el lente diga.
+
+`openSession` selecciona el **proyecto** además de la sesión. `selectSession`
+solo marca cuál está activa DENTRO de un proyecto, y el área central dibuja
+la del proyecto seleccionado: mientras todo lo que llamaba ahí venía de un
+proyecto ya abierto la diferencia no se veía. Desde un requerimiento —que
+vive en otro lente y apunta al proyecto DESTINO— se ve enseguida.
 
 ## Seleccionar no es navegar
 

@@ -2,10 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:keel_ui/src/core/services/local_database.dart';
+import 'package:keel_ui/src/modules/projects/model/project.dart';
+import 'package:keel_ui/src/modules/projects/model/session.dart';
+import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
 import 'package:keel_ui/src/modules/requirements/model/internal_requirement.dart';
 import 'package:keel_ui/src/modules/requirements/ui/view/requirement_thread_view.dart';
+import 'package:keel_ui/src/modules/workspace/model/workspace_lens.dart';
+import 'package:keel_ui/src/modules/workspace/viewmodel/workspace_viewmodel.dart';
 
-InternalRequirement _requerimiento({List<RequirementEntry> thread = const []}) {
+InternalRequirement _requerimiento({
+  List<RequirementEntry> thread = const [],
+  RequirementStatus status = RequirementStatus.abierto,
+  String? takenInSessionId,
+}) {
   final ahora = DateTime(2026, 8, 23, 17);
   return InternalRequirement(
     id: 'req-1',
@@ -20,8 +29,32 @@ InternalRequirement _requerimiento({List<RequirementEntry> thread = const []}) {
     createdAt: ahora,
     updatedAt: ahora,
     thread: thread,
+    status: status,
+    takenInSessionId: takenInSessionId,
+    takenByHandle: takenInSessionId == null ? null : 'i18n-traductor',
   );
 }
+
+/// El proyecto destino, con las sesiones que se le pasen.
+void _conDestino({List<Session> sessions = const []}) {
+  ProjectsService.instance.notifier.updateState(
+    ProjectsState(
+      projects: [
+        Project(
+          id: 'p-destino',
+          name: 'keel-ui',
+          purpose: '',
+          workingDirectory: '/tmp',
+          createdAt: DateTime(2026, 8, 23),
+          sessions: sessions,
+        ),
+      ],
+    ),
+  );
+}
+
+Session _sesion(String id) =>
+    Session(id: id, title: 'REQ-0001', createdAt: DateTime(2026, 8, 23));
 
 void main() {
   LocalDatabase.markUnavailable();
@@ -32,9 +65,7 @@ void main() {
   ) async {
     await tester.pumpWidget(
       MaterialApp(
-        home: Scaffold(
-          body: RequirementThreadView(requirement: requirement),
-        ),
+        home: Scaffold(body: RequirementThreadView(requirement: requirement)),
       ),
     );
     await tester.pump();
@@ -59,7 +90,7 @@ void main() {
               kind: RequirementEntryKind.avance,
               text: 'Entrada número $index del hilo.',
               authorHandle: 'i18n-traductor',
-            createdAt: DateTime(2026, 8, 23, 17, index),
+              createdAt: DateTime(2026, 8, 23, 17, index),
             ),
         ],
       ),
@@ -77,5 +108,74 @@ void main() {
 
     expect(tester.takeException(), isNull);
     expect(find.textContaining('Traducir toda la interfaz'), findsOneWidget);
+  });
+
+  group('volver al trabajo que arrancó', () {
+    setUp(() {
+      WorkspaceService.instance.notifier.cleanState();
+      ProjectsService.instance.notifier.updateState(const ProjectsState());
+    });
+
+    testWidgets('tomar y evaluar arranca la sesión y va hacia ella', (
+      tester,
+    ) async {
+      _conDestino();
+      await abrir(tester, _requerimiento());
+
+      await tester.tap(find.text('Tomar y evaluar'));
+      await tester.pump();
+
+      final projects = ProjectsService.instance.notifier.data;
+      final abierta = projects.selectedProject?.activeSession;
+      expect(abierta, isNotNull);
+      expect(abierta!.title, startsWith('REQ-0001 ·'));
+      // Y la pantalla se movió: apretar y quedarte mirando el requerimiento
+      // es quedarte mirando el lado que ya leíste.
+      expect(
+        WorkspaceService.instance.notifier.data.lens,
+        WorkspaceLens.session,
+      );
+      expect(projects.selectedProjectId, 'p-destino');
+    });
+
+    testWidgets('tomado: hay una puerta a la sesión, y lleva ahí', (
+      tester,
+    ) async {
+      _conDestino(sessions: [_sesion('s-req')]);
+      await abrir(
+        tester,
+        _requerimiento(
+          status: RequirementStatus.tomado,
+          takenInSessionId: 's-req',
+        ),
+      );
+
+      expect(find.text('Tomar y evaluar'), findsNothing);
+      await tester.tap(find.text('Ir a la sesión'));
+      await tester.pump();
+
+      final workspace = WorkspaceService.instance.notifier;
+      expect(workspace.data.lens, WorkspaceLens.session);
+      // El PROYECTO también: el área central dibuja la sesión del proyecto
+      // seleccionado, y el requerimiento apunta a otro.
+      final projects = ProjectsService.instance.notifier.data;
+      expect(projects.selectedProjectId, 'p-destino');
+      expect(projects.selectedProject?.activeSessionId, 's-req');
+    });
+
+    testWidgets('si la sesión se borró, no se ofrece ir a ningún lado', (
+      tester,
+    ) async {
+      _conDestino();
+      await abrir(
+        tester,
+        _requerimiento(
+          status: RequirementStatus.tomado,
+          takenInSessionId: 's-que-ya-no-esta',
+        ),
+      );
+
+      expect(find.text('Ir a la sesión'), findsNothing);
+    });
   });
 }

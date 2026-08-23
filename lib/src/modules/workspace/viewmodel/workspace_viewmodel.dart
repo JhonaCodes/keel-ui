@@ -62,7 +62,15 @@ class WorkspaceViewModel extends ViewModel<WorkspaceState> {
     updateState(WorkspaceState(lens: WorkspaceLens.board, boardId: boardId));
   }
 
+  /// Va a una sesión concreta de un proyecto concreto.
+  ///
+  /// Selecciona el PROYECTO además de la sesión: `selectSession` solo marca
+  /// cuál está activa dentro del proyecto, y el área central dibuja la del
+  /// proyecto seleccionado. Mientras todo lo que llamaba acá venía de un
+  /// proyecto ya abierto eso no se notaba; desde un requerimiento —que vive
+  /// en otro lente y apunta al proyecto DESTINO— se notaba enseguida.
   void openSession(String projectId, String sessionId) {
+    _projects.selectProject(projectId);
     _projects.selectSession(projectId, sessionId);
     _show(WorkspaceLens.session);
   }

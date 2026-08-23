@@ -87,6 +87,9 @@ Mapa de lo que existe en esta app y cómo se relaciona:
   El veredicto del destino tiene cuatro formas: viable, bloqueado (nombrando
   qué va primero), no viable, y **ya-resuelto** —existe, pero de otra forma
   que la que pidieron—, que es el caso que más se da.
+  Tomar uno abre una sesión NUEVA en el proyecto destino y la pantalla va
+  hacia ella; una vez tomado, el hilo ofrece "Ir a la sesión" para volver al
+  trabajo que arrancó.
   Un agente NO puede abrir un requerimiento contra un repo que no esté
   registrado como proyecto: la tool falla y le dice que lo exprese en su
   respuesta y pida que se registre. Si te preguntan por eso, la salida es

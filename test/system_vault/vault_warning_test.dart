@@ -12,6 +12,33 @@ void main() {
       expect(state.needsAttention, isTrue);
     });
 
+    test('un respaldo que reventó gana sobre todo lo demás', () {
+      // El caso que estuvo callado durante horas: el zip viejo sigue en el
+      // disco con su fecha, el repo está al día, y el respaldo automático
+      // viene fallando cada quince minutos sin que nada lo diga.
+      final state = SystemVaultState(
+        configured: true,
+        lastBackupAt: _stamp,
+        isRepo: true,
+        hasRemote: true,
+        lastFailure: 'El vault falló: object is unsendable',
+      );
+      expect(state.warning, contains('La última operación del vault falló'));
+      expect(state.warning, contains('unsendable'));
+      expect(state.needsAttention, isTrue);
+    });
+
+    test('y desaparece en cuanto uno sale bien', () {
+      final state = SystemVaultState(
+        configured: true,
+        lastBackupAt: _stamp,
+        isRepo: true,
+        hasRemote: true,
+        lastFailure: 'algo',
+      ).copyWith(clearFailure: true);
+      expect(state.warning, isNull);
+    });
+
     test('con carpeta pero sin ningún respaldo todavía', () {
       const state = SystemVaultState(configured: true);
       expect(state.warning, contains('Todavía no hay ningún respaldo'));

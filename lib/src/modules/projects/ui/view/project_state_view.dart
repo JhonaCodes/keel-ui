@@ -15,6 +15,7 @@ import 'package:keel_ui/src/modules/requirements/model/internal_requirement.dart
 import 'package:keel_ui/src/modules/requirements/viewmodel/requirements_viewmodel.dart';
 import 'package:keel_ui/src/modules/roadmap/model/task_claim.dart';
 import 'package:keel_ui/src/modules/roadmap/viewmodel/task_claims_viewmodel.dart';
+import 'package:keel_ui/src/modules/workspace/viewmodel/workspace_viewmodel.dart';
 
 /// Cada cuánto se vuelve a leer la carpeta como piso.
 ///
@@ -833,6 +834,19 @@ class _SinFormato extends StatelessWidget {
   final RoadmapFormatCheck? check;
   final Project project;
 
+  /// Abre la sesión de formato y VA a ella.
+  ///
+  /// Las dos cosas, siempre: el botón dejaba la sesión creada en el sidebar y
+  /// a vos mirando la misma pantalla de error, sin ninguna señal de que algo
+  /// había pasado. Crear no es ir —esa regla vale para lo que arranca solo—,
+  /// así que el que apreta es el que navega.
+  void _abrir(BuildContext context) {
+    final sessionId = ProjectsService.instance.notifier
+        .startRoadmapFormatSession(project.id);
+    if (sessionId == null) return;
+    WorkspaceService.instance.notifier.openSession(project.id, sessionId);
+  }
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -840,6 +854,7 @@ class _SinFormato extends StatelessWidget {
     final findings = check?.findings ?? const <FormatFinding>[];
     final passed = check?.passed ?? const <String>[];
     final sinCarpeta = project.workingDirectory.trim().isEmpty;
+    final pendiente = ProjectsViewModel.openFormatSessionOf(project);
 
     return Center(
       child: SingleChildScrollView(
@@ -893,16 +908,40 @@ class _SinFormato extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 20),
-                FilledButton.icon(
-                  onPressed: () => ProjectsService.instance.notifier
-                      .startRoadmapFormatSession(project.id),
-                  icon: const Icon(Icons.auto_awesome, size: 16),
-                  label: const Text('Definir el formato'),
-                ),
+                // Con una sesión de formato ya abierta el botón NO ofrece
+                // abrir otra: te lleva a la que hay. Dos sesiones arreglando
+                // la misma carpeta se pisan los archivos, y la única salida
+                // sensata desde acá es ir a mirar la que está trabajando.
+                if (pendiente == null)
+                  FilledButton.icon(
+                    onPressed: () => _abrir(context),
+                    icon: const Icon(Icons.auto_awesome, size: 16),
+                    label: const Text('Definir el formato'),
+                  )
+                else
+                  OutlinedButton.icon(
+                    onPressed: () => _abrir(context),
+                    icon: Icon(
+                      pendiente.isRunning
+                          ? Icons.hourglass_top
+                          : Icons.forum_outlined,
+                      size: 16,
+                    ),
+                    label: Text(
+                      pendiente.isRunning
+                          ? 'Está trabajando — ir a la sesión'
+                          : 'Ir a la sesión abierta',
+                    ),
+                  ),
                 const SizedBox(height: 12),
                 Text(
-                  'Abre una sesión con el formato y las plantillas adentro, y '
-                  'no la deja cerrar hasta que estos chequeos pasen.',
+                  pendiente == null
+                      ? 'Abre una sesión con el formato y las plantillas '
+                            'adentro, y no la deja cerrar hasta que estos '
+                            'chequeos pasen.'
+                      : 'Ya hay una sesión abierta para esto. Cuando cierre, '
+                            'el chequeo vuelve a correr solo y esta pantalla '
+                            'pasa a mostrar el roadmap.',
                   textAlign: TextAlign.center,
                   style: text.bodySmall?.copyWith(
                     fontSize: 11,

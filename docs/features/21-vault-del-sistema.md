@@ -75,13 +75,22 @@ tiene una entrada **Respaldo** con un punto rojo, y Configuración un aviso
 escrito, que contestan el primer peldaño que falla:
 
 1. No elegiste carpeta de vault.
-2. No hay ningún respaldo todavía.
-3. El vault no es un repo git.
-4. El repo no tiene remoto.
-5. Hay N respaldos commiteados sin subir.
+2. **La última operación falló.**
+3. No hay ningún respaldo todavía.
+4. El vault no es un repo git.
+5. El repo no tiene remoto.
+6. Hay N respaldos commiteados sin subir.
 
 Es una escalera y se contesta uno solo: avisarle "tenés 3 sin subir" a
 alguien que ni siquiera configuró un remoto no lo ayuda a nada.
+
+El peldaño 2 se agregó después de que pasara: un respaldo que revienta es
+**invisible** sin él. El zip viejo sigue en el disco con su fecha, así que
+`lastBackupAt` dice que hay respaldo, el repo está al día y los peldaños de
+abajo pasan de largo. Con el automático cada quince minutos, eso son horas
+fallando en silencio mientras la pantalla dice que todo está bien. Al aviso
+va la PRIMERA línea del error —un error de isolate son doscientas líneas de
+`<- _child in Instance of ...`— y el texto entero queda en el panel.
 
 ## El zip es determinista, y de eso depende que git aguante
 

@@ -452,8 +452,10 @@ copia al zip: sus archivos ya están en el repo, en claro.
 El respaldo corre SOLO cada 15 minutos y al cerrar la app, pero llega solo
 hasta el commit local: subir al remoto lo decide el usuario. Si te pregunta
 si está todo a salvo, mirá el estado que te da `describe_system` — si dice
-que hay respaldos sin subir, o que falta remoto, decíselo y ofrecé
-`backup_system` con `push: true`.
+que hay respaldos sin subir, o que falta remoto, o que la última operación
+del vault FALLÓ, decíselo y ofrecé `backup_system` con `push: true`. Ese
+aviso de falla es el primero de la escalera: mientras esté, lo que dice la
+fecha del último respaldo no vale, porque el zip que hay es el viejo.
 
 Aparte existe el RESPALDO EN UN ARCHIVO (Configuración → Respaldo en un
 archivo): un único JSON con selección por secciones, que es el ÚNICO camino

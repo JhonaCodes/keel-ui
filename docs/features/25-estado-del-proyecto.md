@@ -83,6 +83,20 @@ Esa sesión arranca con el diagnóstico ya adentro del pedido y con un skill
 reservado, `keel-formato-de-tareas`, que lleva la especificación entera y las
 plantillas inlineadas: el agente no depende de leer nuestro repo.
 
+**El botón abre la sesión Y te lleva.** Antes solo la creaba: quedaba en el
+sidebar y vos seguías mirando la misma pantalla de error, sin ninguna señal
+de que algo había pasado. Crear no es ir —esa regla vale para lo que arranca
+solo, no para lo que apretaste—, así que el que navega es el botón.
+
+Y mientras esa sesión siga abierta, el botón **deja de ofrecer abrir otra**:
+pasa a decir *ir a la sesión abierta*, o *está trabajando* si hay un turno en
+vuelo. Dos sesiones arreglando la misma carpeta se pisan los archivos, y la
+segunda arrancaría con un diagnóstico que la primera está cambiando abajo
+suyo. La regla vive en el ViewModel y no en el botón: pedir la sesión dos
+veces devuelve la misma. Una que quedó en `failed` **cuenta como abierta** —
+ese es el veredicto de «arreglá eso y volvé a cerrar», no una para
+descartar.
+
 ### El agente tiene que poder chequearlo mientras lo arma
 
 `check_roadmap_format` es una tool del turno, y existe por un error que se vio

@@ -731,9 +731,21 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
   /// La especificación del formato no viaja acá: vive en el skill
   /// [kRoadmapFormatSkillName], que se siembra en cada arranque y llega por
   /// el system prompt como cualquier otro.
-  void startRoadmapFormatSession(String projectId) {
+  ///
+  /// Devuelve el id de la sesión que hay que mirar, para que quien apretó el
+  /// botón navegue hacia ella. Acá no se navega: crear no es ir, y esa regla
+  /// vale también para lo que arranca solo.
+  ///
+  /// **Una sola a la vez.** Si ya hay una sin terminar, devuelve esa y no
+  /// abre otra: dos sesiones arreglando la MISMA carpeta se pisan los
+  /// archivos, y la segunda arrancaría con un diagnóstico que la primera está
+  /// cambiando abajo suyo.
+  String? startRoadmapFormatSession(String projectId) {
     final project = _projectById(projectId);
-    if (project == null) return;
+    if (project == null) return null;
+
+    final pending = openFormatSessionOf(project);
+    if (pending != null) return pending.id;
 
     final check = checkRoadmapFormat(project.workingDirectory);
     final session = Session(
@@ -751,6 +763,21 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     );
     unawaited(_persist());
     unawaited(sendToChannel(projectId, _roadmapFormatRequest(project, check)));
+    return session.id;
+  }
+
+  /// La sesión de formato de [project] que todavía no cerró, si hay alguna.
+  ///
+  /// `failed` cuenta como abierta y no es un descuido: cuando el chequeo no
+  /// pasa, la sesión queda en `failed` a propósito —el veredicto es «arreglá
+  /// eso y volvé a cerrar»— y sigue siendo la sesión donde continuar.
+  static Session? openFormatSessionOf(Project project) {
+    for (final session in project.sessions) {
+      if (session.isFormatSession && session.status != SessionStatus.finished) {
+        return session;
+      }
+    }
+    return null;
   }
 
   String _roadmapFormatRequest(Project project, RoadmapFormatCheck check) {

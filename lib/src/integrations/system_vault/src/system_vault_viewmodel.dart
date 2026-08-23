@@ -28,6 +28,16 @@ class SystemVaultState {
   /// mira uno.
   final BackupPreview? preview;
 
+  /// La primera línea de lo último que falló, o vacío si lo último salió
+  /// bien.
+  ///
+  /// Existe porque un respaldo que revienta es INVISIBLE de otra forma: el
+  /// zip viejo sigue en el disco con su fecha, así que `lastBackupAt` dice
+  /// que hay respaldo y la escalera de abajo pasa de largo. Con el respaldo
+  /// automático cada quince minutos, eso son horas de fallar en silencio
+  /// mientras la pantalla dice que todo está bien.
+  final String lastFailure;
+
   const SystemVaultState({
     this.busy = false,
     this.log = '',
@@ -37,6 +47,7 @@ class SystemVaultState {
     this.hasRemote = false,
     this.unpushedCommits = 0,
     this.preview,
+    this.lastFailure = '',
   });
 
   /// Qué le falta al respaldo para estar realmente a salvo, o null si no le
@@ -49,6 +60,11 @@ class SystemVaultState {
   String? get warning {
     if (!configured) {
       return 'No elegiste carpeta de vault: nada de esto está respaldado.';
+    }
+    // Primero que todo: si lo último reventó, cualquier otro peldaño estaría
+    // hablando de un respaldo que no se escribió.
+    if (lastFailure.isNotEmpty) {
+      return 'La última operación del vault falló: $lastFailure';
     }
     if (lastBackupAt == null) {
       return 'Todavía no hay ningún respaldo en el vault.';
@@ -81,8 +97,10 @@ class SystemVaultState {
     bool? hasRemote,
     int? unpushedCommits,
     BackupPreview? preview,
+    String? lastFailure,
     bool clearPreview = false,
     bool clearLastBackup = false,
+    bool clearFailure = false,
   }) {
     return SystemVaultState(
       busy: busy ?? this.busy,
@@ -95,6 +113,7 @@ class SystemVaultState {
       hasRemote: hasRemote ?? this.hasRemote,
       unpushedCommits: unpushedCommits ?? this.unpushedCommits,
       preview: clearPreview ? null : (preview ?? this.preview),
+      lastFailure: clearFailure ? '' : (lastFailure ?? this.lastFailure),
     );
   }
 
@@ -560,6 +579,26 @@ class SystemVaultViewModel extends ViewModel<SystemVaultState> {
 
   // ── plomería ────────────────────────────────────────────────────────
 
+  /// Deja anotado que falló, para que el aviso lo diga sin que nadie tenga
+  /// que abrir el panel.
+  ///
+  /// Al aviso va solo la PRIMERA línea: un error de isolate son doscientas
+  /// líneas de `<- _child in Instance of ...` y eso no entra en una franja.
+  /// El texto entero queda en [SystemVaultState.log], que es donde se mira.
+  String _failed(String message) {
+    final headline = message.split('\n').first.trim();
+    updateState(
+      data.copyWith(
+        busy: false,
+        log: message,
+        lastFailure: headline.length > 160
+            ? '${headline.substring(0, 157)}…'
+            : headline,
+      ),
+    );
+    return message;
+  }
+
   Future<String> _guarded(Future<String> Function() operation) async {
     if (data.busy) return 'Ya hay una operación del vault en curso.';
     updateState(data.copyWith(busy: true, log: ''));
@@ -569,20 +608,16 @@ class SystemVaultViewModel extends ViewModel<SystemVaultState> {
       // sistema vacío y lo escribiría encima del bueno.
       await awaitCatalogsReady();
       final message = await operation();
-      updateState(data.copyWith(busy: false, log: message));
+      updateState(data.copyWith(busy: false, log: message, clearFailure: true));
       await refreshStatus();
       return message;
     } on _VaultException catch (error) {
-      updateState(data.copyWith(busy: false, log: error.message));
-      return error.message;
+      return _failed(error.message);
     } on VaultFormatException catch (error) {
-      updateState(data.copyWith(busy: false, log: error.message));
-      return error.message;
+      return _failed(error.message);
     } catch (error) {
-      final message = 'El vault falló: $error';
       Log.e('System vault operation failed', error: error);
-      updateState(data.copyWith(busy: false, log: message));
-      return message;
+      return _failed('El vault falló: $error');
     }
   }
 }

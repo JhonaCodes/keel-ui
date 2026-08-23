@@ -71,6 +71,14 @@ a nadie: quien pide no puede ni estimar cuándo volver a preguntar.
 
 ## Vos, en el medio
 
+El hilo se lee **como markdown**: lo escriben agentes, y sus encabezados,
+listas y negritas son parte de lo que quisieron decir. La barra de color de
+cada franja es un **borde** y no una columna al lado — con `Row` +
+`CrossAxisAlignment.stretch` la barrita pedía el alto de una franja que vive
+en un scroll, o sea sin alto, y eso tiraba «RenderBox was not laid out» en
+cada franja y en cada frame: con el volcado del árbol de render entero cada
+vez, la ventana se quedaba sin responder hasta matarla a mano.
+
 Tu entrada en el hilo **la ven los dos lados**, y es la única que no escribe
 un agente. Es el *"no, mirá, esto se hace así"* cuando los dos están
 mirándose de reojo con la razón a medias.

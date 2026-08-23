@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:keel_ui/src/integrations/requirements_mcp/requirements_mcp.dart';
+import 'package:keel_ui/src/modules/agents/ui/widget/markdown_text.dart';
 import 'package:keel_ui/src/modules/projects/model/project.dart';
 import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
 import 'package:keel_ui/src/modules/requirements/model/internal_requirement.dart';
@@ -69,33 +70,39 @@ class _RequirementThreadViewState extends State<RequirementThreadView> {
         ),
         const Divider(height: 1),
         Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(22, 16, 22, 20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _Band(
-                  side: RequirementSide.origen,
-                  handle: requirement.openedByHandle,
-                  at: requirement.createdAt,
-                  child: _Pedido(requirement: requirement),
-                ),
-                if (requirement.takenByHandle != null)
-                  _TakenNote(requirement: requirement),
-                if (requirement.verdict != null)
-                  _VerdictBox(verdict: requirement.verdict!),
-                for (final entry in requirement.thread)
-                  if (entry.kind != RequirementEntryKind.evaluacion)
-                    _Band(
-                      side: entry.side,
-                      handle: entry.authorHandle,
-                      at: entry.createdAt,
-                      child: Text(
-                        entry.text,
-                        style: const TextStyle(fontSize: 12.6),
+          // Una sola para todo el hilo, como en el chat: seleccionar cruzando
+          // dos franjas tiene que funcionar.
+          child: SelectionArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(22, 16, 22, 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _Band(
+                    side: RequirementSide.origen,
+                    handle: requirement.openedByHandle,
+                    at: requirement.createdAt,
+                    child: _Pedido(requirement: requirement),
+                  ),
+                  if (requirement.takenByHandle != null)
+                    _TakenNote(requirement: requirement),
+                  if (requirement.verdict != null)
+                    _VerdictBox(verdict: requirement.verdict!),
+                  for (final entry in requirement.thread)
+                    if (entry.kind != RequirementEntryKind.evaluacion)
+                      _Band(
+                        side: entry.side,
+                        handle: entry.authorHandle,
+                        at: entry.createdAt,
+                        // Lo escribe un agente, o sea que viene en markdown.
+                        child: MarkdownText(
+                          entry.text,
+                          color: Theme.of(context).colorScheme.onSurface,
+                          fontSize: 12.6,
+                        ),
                       ),
-                    ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -244,62 +251,62 @@ class _Band extends StatelessWidget {
       RequirementSide.usuario => scheme.primary,
     };
 
+    // La barra es un BORDE y no una columna al lado.
+    //
+    // Con `Row` + `CrossAxisAlignment.stretch` la barrita pide el alto de la
+    // franja, y acá adentro nadie lo sabe: la franja vive en un
+    // `SingleChildScrollView`, o sea con alto sin límite. Eso tira "RenderBox
+    // was not laid out" en CADA franja y en CADA frame, con el volcado del
+    // árbol de render entero cada vez — que es lo que dejaba la ventana sin
+    // responder hasta matarla a mano. El mismo error ya había aparecido en la
+    // ficha de un nodo del mapa; acá quedaba el otro.
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Container(
-            width: 3,
-            decoration: BoxDecoration(
-              color: color,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      child: Container(
+        padding: const EdgeInsets.only(left: 10),
+        decoration: BoxDecoration(
+          border: Border(left: BorderSide(color: color, width: 3)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Wrap(
+              spacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                Wrap(
-                  spacing: 8,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    Text(
-                      side.label.toUpperCase(),
-                      style: TextStyle(
-                        fontFamily: 'monospace',
-                        fontSize: 10,
-                        letterSpacing: 0.8,
-                        color: color,
-                      ),
-                    ),
-                    if (handle != null)
-                      Text(
-                        '@$handle',
-                        style: TextStyle(
-                          fontFamily: 'monospace',
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          color: color,
-                        ),
-                      ),
-                    Text(
-                      _cuando(at),
-                      style: TextStyle(
-                        fontFamily: 'monospace',
-                        fontSize: 11,
-                        color: scheme.outline,
-                      ),
-                    ),
-                  ],
+                Text(
+                  side.label.toUpperCase(),
+                  style: TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 10,
+                    letterSpacing: 0.8,
+                    color: color,
+                  ),
                 ),
-                const SizedBox(height: 4),
-                child,
+                if (handle != null)
+                  Text(
+                    '@$handle',
+                    style: TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: color,
+                    ),
+                  ),
+                Text(
+                  _cuando(at),
+                  style: TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 11,
+                    color: scheme.outline,
+                  ),
+                ),
               ],
             ),
-          ),
-        ],
+            const SizedBox(height: 4),
+            child,
+          ],
+        ),
       ),
     );
   }
@@ -320,34 +327,23 @@ class _Pedido extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    // La etiqueta va DENTRO del markdown y no como un `TextSpan` al lado:
+    // así se sigue leyendo como una frase —«Necesito que…»— y lo que escribió
+    // el agente se renderiza en vez de mostrar sus asteriscos.
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text.rich(
-          TextSpan(
-            children: [
-              const TextSpan(
-                text: 'Necesito ',
-                style: TextStyle(fontWeight: FontWeight.w600),
-              ),
-              TextSpan(text: requirement.need),
-            ],
-          ),
-          style: const TextStyle(fontSize: 12.6),
+        MarkdownText(
+          '**Necesito** ${requirement.need}',
+          color: scheme.onSurface,
+          fontSize: 12.6,
         ),
         if (requirement.context.isNotEmpty) ...[
           const SizedBox(height: 4),
-          Text.rich(
-            TextSpan(
-              children: [
-                const TextSpan(
-                  text: 'Contexto: ',
-                  style: TextStyle(fontWeight: FontWeight.w600),
-                ),
-                TextSpan(text: requirement.context),
-              ],
-            ),
-            style: TextStyle(fontSize: 12.6, color: scheme.onSurfaceVariant),
+          MarkdownText(
+            '**Contexto:** ${requirement.context}',
+            color: scheme.onSurfaceVariant,
+            fontSize: 12.6,
           ),
         ],
       ],
@@ -428,7 +424,7 @@ class _VerdictBox extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 5),
-          Text(verdict.reason, style: const TextStyle(fontSize: 12.6)),
+          MarkdownText(verdict.reason, color: scheme.onSurface, fontSize: 12.6),
           if (verdict.prerequisites.isNotEmpty) ...[
             const SizedBox(height: 6),
             for (final item in verdict.prerequisites)

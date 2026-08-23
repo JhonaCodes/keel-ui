@@ -1,15 +1,19 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:desktop_multi_window/desktop_multi_window.dart';
+import 'package:reactive_notifier/reactive_notifier.dart';
 
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/core/services/agent_bridge_channel.dart';
 import 'package:keel_ui/src/core/services/app_window_arguments.dart';
 import 'package:keel_ui/src/core/services/legacy_json_migration.dart';
 import 'package:keel_ui/src/core/services/station_to_project_migration.dart';
 import 'package:keel_ui/src/core/services/local_database.dart';
 import 'package:keel_ui/src/core/services/main_window_size.dart';
+import 'package:keel_ui/src/core/ui/app_locale.dart';
 import 'package:keel_ui/src/core/ui/app_theme.dart';
 import 'package:keel_ui/src/integrations/app_update/app_update.dart';
 import 'package:keel_ui/src/integrations/assistant_mcp/assistant_mcp_server.dart';
@@ -34,6 +38,8 @@ import 'package:keel_ui/src/modules/assistant/model/keelai_seed.dart';
 import 'package:keel_ui/src/modules/projects/model/roadmap_format_skill.dart';
 import 'package:keel_ui/src/modules/assistant/service/assistant_window_bridge.dart';
 import 'package:keel_ui/src/modules/assistant/ui/screen/assistant_window.dart';
+import 'package:keel_ui/src/modules/settings/model/app_settings.dart';
+import 'package:keel_ui/src/modules/settings/viewmodel/settings_viewmodel.dart';
 
 Future<void> main(List<String> rawArgs) async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -84,6 +90,7 @@ Future<void> main(List<String> rawArgs) async {
       await MainWindowSize.restore();
       await seedKeelAi();
       await seedRoadmapFormatSkill();
+      await seedRoadmapFormatWorkflow();
       await AssistantMcpServer.start();
       await UserToolsMcpServer.start();
       await SessionPlanMcpServer.ensureStarted();
@@ -168,14 +175,28 @@ class KeelUiApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Keel',
-      debugShowCheckedModeBanner: false,
-      theme: buildAppTheme(),
-      // Arriba de todo, incluidos los paneles laterales: son rutas de este
-      // mismo Navigator, y el `builder` los envuelve.
-      builder: (context, child) => AppBusyOverlay(child: child!),
-      home: const VaultBootGate(child: AgentsScreen()),
+    return ReactiveViewModelBuilder<SettingsViewModel, AppSettings>(
+      viewmodel: SettingsService.instance.notifier,
+      build: (settings, viewmodel, keep) {
+        return MaterialApp(
+          title: 'Keel',
+          debugShowCheckedModeBanner: false,
+          theme: buildAppTheme(),
+          // Cambiar el idioma en Ajustes actualiza esto en vivo: es el mismo
+          // AppSettings que ya sostiene el resto de la configuración.
+          locale: localeForLanguageCode(settings.language),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          // Arriba de todo, incluidos los paneles laterales: son rutas de
+          // este mismo Navigator, y el `builder` los envuelve.
+          builder: (context, child) => AppBusyOverlay(child: child!),
+          home: const VaultBootGate(child: AgentsScreen()),
+        );
+      },
     );
   }
 }

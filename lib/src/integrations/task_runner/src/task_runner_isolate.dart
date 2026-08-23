@@ -329,4 +329,3 @@ List<Map<String, dynamic>> _parseCodexEventToMessages(
       return const [];
   }
 }
-

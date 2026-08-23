@@ -73,6 +73,8 @@ Map<String, List<Map<String, dynamic>>> catalogAsJson() {
     byCategory['workflows']!.add({
       'name': workflow.name,
       'whenToApply': workflow.whenToApply,
+      'skillNames': workflow.skillNames,
+      'buildsRoadmap': workflow.buildsRoadmap,
       'steps': [
         for (final step in workflow.steps)
           {
@@ -432,6 +434,8 @@ Future<String> mergeCatalogJson(
           instruction: step['instruction'] as String? ?? '',
         ),
     ];
+    final skillNames =
+        (json['skillNames'] as List?)?.cast<String>() ?? const <String>[];
     final existing = workflows.data.workflows
         .where((workflow) => workflow.name == name)
         .firstOrNull;
@@ -440,12 +444,16 @@ Future<String> mergeCatalogJson(
             name: name,
             whenToApply: json['whenToApply'] as String? ?? '',
             steps: steps,
+            skillNames: skillNames,
+            buildsRoadmap: json['buildsRoadmap'] as bool? ?? false,
           )
         : workflows.updateWorkflow(
             existing.id,
             name: name,
             whenToApply: json['whenToApply'] as String? ?? '',
             steps: steps,
+            skillNames: skillNames,
+            buildsRoadmap: json['buildsRoadmap'] as bool? ?? false,
           );
     track(error, existed: existing != null, label: 'workflow $name');
   }

@@ -116,9 +116,7 @@ class FaultJournalViewModel extends ViewModel<FaultJournalState> {
     // segundos y se lleva puesto todo lo que había antes.
     if (previous != null && previous.sameAs(clean, where)) {
       final bumped = previous.again(now);
-      final state = FaultJournalState(
-        faults: [bumped, ...data.faults.skip(1)],
-      );
+      final state = FaultJournalState(faults: [bumped, ...data.faults.skip(1)]);
       // Un error de layout falla UNA VEZ POR FRAME, y publicar redibuja:
       // avisar de cada repetición es pedirle a la pantalla que se dibuje de
       // nuevo para contar que dibujarse falló. El contador se guarda igual;

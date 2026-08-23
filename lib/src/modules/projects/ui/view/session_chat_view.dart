@@ -21,6 +21,7 @@ import 'package:keel_ui/src/modules/projects/ui/widget/session_message_bubble.da
 import 'package:keel_ui/src/modules/projects/ui/widget/workflow_progress_panel.dart';
 import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
 import 'package:keel_ui/src/modules/workflows/model/workflow.dart';
+import 'package:keel_ui/src/modules/workflows/ui/screen/workflow_picker_panel.dart';
 import 'package:keel_ui/src/modules/workflows/viewmodel/workflows_viewmodel.dart';
 import 'package:keel_ui/src/modules/workspace/viewmodel/workspace_viewmodel.dart';
 import 'package:keel_ui/src/shared/shared.dart';
@@ -64,7 +65,14 @@ class _SessionChatViewState extends State<SessionChatView> {
                 session: widget.project.activeSession,
               ),
               allProfiles: profilesState.profiles,
-              workflow: projects.activeWorkflowOf(widget.project),
+              // El de la SESIÓN abierta, no el del proyecto: dos sesiones
+              // del mismo proyecto pueden correr flujos distintos, y el
+              // panel de la derecha tiene que mostrar el que está corriendo
+              // acá.
+              workflow: switch (widget.project.activeSession) {
+                final Session open => projects.workflowOf(open),
+                _ => projects.defaultWorkflowOf(widget.project),
+              },
               tab: _tab,
               onTabChanged: (tab) => setState(() => _tab = tab),
             );
@@ -492,9 +500,10 @@ class _ChannelHeader extends StatelessWidget {
           ? 'Sin sesión abierta'
           : project.purpose;
     } else {
+      // El workflow salió de acá: pasó a ser una ficha que se puede tocar,
+      // porque ya no es un dato del proyecto que solo se mira.
       subtitle = [
         'Sesión: ${open.title}',
-        if (workflow != null) workflow!.name,
         if (open.contextUsageRatio != null)
           'contexto ${(open.contextUsageRatio! * 100).round()}%',
       ].join(' · ');
@@ -536,41 +545,68 @@ class _ChannelHeader extends StatelessWidget {
               ],
             ),
           ),
-          if (_pullRequest() case final pr?) _PullRequestChip(pr: pr),
-          if (open != null)
-            IconButton(
-              tooltip: 'Agentes de esta sesión',
-              icon: const Icon(Icons.person_add_alt_outlined, size: 20),
-              onPressed: () => openSessionAgentPicker(
-                context,
-                projectId: project.id,
-                sessionId: open.id,
+          const SizedBox(width: 8),
+          // Todo lo de la derecha, junto y encogible.
+          //
+          // Son seis cosas de ancho fijo —PR, workflow, agentes, pestañas,
+          // caras, contador— y en un panel angosto no entran: la fila las
+          // acomodaba a todas con su tamaño natural y desbordaba por la
+          // derecha. Con `FittedBox` el grupo entero se achica en vez de
+          // salirse, y el título de la izquierda sigue cortándose primero.
+          Flexible(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerRight,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (_pullRequest() case final pr?) _PullRequestChip(pr: pr),
+                  if (open != null)
+                    _WorkflowChip(
+                      project: project,
+                      session: open,
+                      workflow: workflow,
+                    ),
+                  if (open != null)
+                    IconButton(
+                      tooltip: 'Agentes de esta sesión',
+                      icon: const Icon(Icons.person_add_alt_outlined, size: 20),
+                      onPressed: () => openSessionAgentPicker(
+                        context,
+                        projectId: project.id,
+                        sessionId: open.id,
+                      ),
+                    ),
+                  SegmentedButton<SessionTab>(
+                    segments: const [
+                      ButtonSegment(
+                        value: SessionTab.chat,
+                        icon: Icon(Icons.forum_outlined, size: 16),
+                        label: Text('Chat'),
+                      ),
+                      ButtonSegment(
+                        value: SessionTab.map,
+                        icon: Icon(Icons.hub_outlined, size: 16),
+                        label: Text('Mapa'),
+                      ),
+                    ],
+                    selected: {tab},
+                    showSelectedIcon: false,
+                    style: const ButtonStyle(
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    onSelectionChanged: (values) => onTabChanged(values.first),
+                  ),
+                  const SizedBox(width: 12),
+                  _Facepile(members: members),
+                  const SizedBox(width: 8),
+                  Text(
+                    '${members.length}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
               ),
             ),
-          SegmentedButton<SessionTab>(
-            segments: const [
-              ButtonSegment(
-                value: SessionTab.chat,
-                icon: Icon(Icons.forum_outlined, size: 16),
-                label: Text('Chat'),
-              ),
-              ButtonSegment(
-                value: SessionTab.map,
-                icon: Icon(Icons.hub_outlined, size: 16),
-                label: Text('Mapa'),
-              ),
-            ],
-            selected: {tab},
-            showSelectedIcon: false,
-            style: const ButtonStyle(visualDensity: VisualDensity.compact),
-            onSelectionChanged: (values) => onTabChanged(values.first),
-          ),
-          const SizedBox(width: 12),
-          _Facepile(members: members),
-          const SizedBox(width: 8),
-          Text(
-            '${members.length}',
-            style: Theme.of(context).textTheme.bodySmall,
           ),
         ],
       ),
@@ -868,6 +904,101 @@ class _NextPlanItemBar extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Con qué workflow corre esta sesión, y —mientras no arrancó— el botón para
+/// cambiarlo.
+///
+/// Era una palabra en el subtítulo, al lado del nombre de la sesión y del
+/// porcentaje de contexto: información, no decisión. Desde que cada sesión
+/// elige su flujo es una decisión, y las decisiones se tocan.
+class _WorkflowChip extends StatelessWidget {
+  const _WorkflowChip({
+    required this.project,
+    required this.session,
+    required this.workflow,
+  });
+
+  final Project project;
+  final Session session;
+  final Workflow? workflow;
+
+  /// Cambiarlo con pasos ya corridos dejaría medio hilo hecho por una fila
+  /// de agentes y la otra mitad por otra, y el `3/7` contando sobre una
+  /// escala que esa sesión nunca usó.
+  bool get _canChange => session.messages.isEmpty;
+
+  Future<void> _pick(BuildContext context) async {
+    final projects = ProjectsService.instance.notifier;
+    final picked = await openWorkflowPicker(
+      context,
+      options: projects.choosableWorkflowsOf(project),
+      currentId: session.workflowId,
+      title: 'Con qué workflow corre',
+      note:
+          'Esta sesión y ninguna otra. Un proyecto hace trabajos de clases '
+          'distintas —armar la carpeta de tareas, resolver un ticket, evaluar '
+          'un requerimiento— y cada uno quiere otra fila de agentes.',
+    );
+    if (picked == null) return;
+    projects.setSessionWorkflow(project.id, session.id, picked);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final name = workflow?.name ?? 'sin workflow';
+    final label = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: workflow == null ? scheme.error : scheme.outlineVariant,
+          width: 0.5,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.account_tree_outlined,
+            size: 13,
+            color: workflow == null ? scheme.error : scheme.outline,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            name,
+            style: TextStyle(
+              fontFamily: 'monospace',
+              fontSize: 11,
+              color: workflow == null ? scheme.error : scheme.onSurfaceVariant,
+            ),
+          ),
+          if (_canChange) ...[
+            const SizedBox(width: 4),
+            Icon(Icons.unfold_more, size: 12, color: scheme.outline),
+          ],
+        ],
+      ),
+    );
+
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: Tooltip(
+        message: _canChange
+            ? 'Con qué workflow corre esta sesión'
+            : 'La sesión ya arrancó con «$name»: el workflow queda fijo',
+        child: _canChange
+            ? InkWell(
+                onTap: () => _pick(context),
+                borderRadius: BorderRadius.circular(6),
+                child: label,
+              )
+            : Opacity(opacity: 0.75, child: label),
       ),
     );
   }

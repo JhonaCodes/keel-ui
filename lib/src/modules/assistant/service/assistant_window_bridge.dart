@@ -240,6 +240,7 @@ class AssistantWindowBridge {
       agent: content.agent,
       sessions: content.sessions,
       chatFontScale: content.chatFontScale,
+      language: content.language,
     );
     return jsonEncode(wire.toJson());
   }
@@ -267,6 +268,7 @@ class AssistantWindowBridge {
       agent: active == null ? null : _boundedSnapshot(active),
       // Resuelto acá: en main la base sí está, en la sub-ventana no.
       chatFontScale: SettingsService.instance.notifier.data.chatFontScale,
+      language: SettingsService.instance.notifier.data.language,
       sessions: [
         for (final session in sessions)
           AssistantSessionSummary.fromAgent(session),

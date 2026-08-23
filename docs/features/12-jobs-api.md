@@ -13,7 +13,8 @@ esto es el enchufe.
 - Auth: `Authorization: Bearer <token>` — token persistido, visible y
   regenerable en Configuración → API de trabajos programados.
 - `POST /projects/<nombre>/sessions` con `{"prompt": "..."}` → crea una sesión
-  NUEVA en ese proyecto, manda el prompt (el workflow activo arranca) y
+  NUEVA en ese proyecto, manda el prompt (arranca el workflow por defecto del
+  proyecto: un trabajo programado no tiene a nadie que elija otro) y
   responde 202 con `{sessionId}`. 409 si el proyecto no tiene carpeta de
   trabajo; 404 si no existe.
 - `GET /sessions/<id>` → `{status, isRunning, costUsd, messages}`.

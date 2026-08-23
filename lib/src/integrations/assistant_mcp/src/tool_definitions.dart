@@ -423,6 +423,14 @@ final List<Tool> keelAiTools = [
           ),
           description: 'Pasos nuevos, en orden. Reemplazan a los actuales.',
         ),
+        'skills': Schema.list(
+          items: Schema.string(),
+          description:
+              'Skills que este workflow le suma a TODOS sus turnos, por '
+              'nombre. Reemplazan a las actuales. Son distintas de las del '
+              'agente: las del agente son quién es, estas son qué está '
+              'haciendo.',
+        ),
         'new_name': Schema.string(description: 'Renombrar (opcional).'),
       },
       required: ['name'],
@@ -594,12 +602,24 @@ final List<Tool> keelAiTools = [
         'Crea un workflow (nombre, cuándo se aplica, pasos ordenados). '
         'Idempotente por nombre. Cada paso nombra el ROL o el HANDLE de un '
         'agente ya registrado: listá los agentes ANTES de escribir los '
-        'pasos.',
+        'pasos. Un proyecto puede tener varios y cada SESIÓN elige con cuál '
+        'corre, así que conviene uno por clase de trabajo en vez de uno '
+        'gigante que sirva para todo.',
     inputSchema: ObjectSchema(
       properties: {
         'name': Schema.string(description: 'Nombre único del workflow.'),
         'when_to_apply': Schema.string(
-          description: 'En qué situación se aplica este workflow.',
+          description:
+              'En qué situación se aplica este workflow. Es el texto que se '
+              'lee al elegir con cuál corre una sesión: escribilo para que '
+              'sirva para decidir.',
+        ),
+        'skills': Schema.list(
+          items: Schema.string(),
+          description:
+              'Skills que este workflow le suma a TODOS sus turnos, por '
+              'nombre. Son distintas de las del agente: las del agente son '
+              'quién es, estas son qué está haciendo.',
         ),
         'steps': Schema.list(
           description: 'Pasos del workflow, en el orden en que se ejecutan.',

@@ -69,7 +69,8 @@ class WorkflowStep {
 }
 
 /// A registered, reusable sequence of steps. [whenToApply] describes the
-/// trigger/condition in free text (read by whoever decides to run it).
+/// trigger/condition in free text — y desde que una sesión elige con cuál
+/// corre, ese texto es lo que se lee para elegir.
 class Workflow {
   final String id;
   final String name;
@@ -77,24 +78,46 @@ class Workflow {
   final List<WorkflowStep> steps;
   final DateTime createdAt;
 
+  /// Skills que este workflow suma a TODOS sus turnos, por nombre.
+  ///
+  /// Distintas de las del agente: las del agente son quién es —un experto en
+  /// Flutter lo es en todos lados— y estas son qué está haciendo. El mismo
+  /// agente formateando la carpeta de tareas necesita saber el formato; ese
+  /// mismo agente resolviendo un ticket, no.
+  final List<String> skillNames;
+
+  /// Este workflow CONSTRUYE la carpeta de tareas.
+  ///
+  /// Dos cosas cuelgan de acá, y las dos son de la carpeta y no del
+  /// workflow en general: sus turnos reciben el lector del roadmap aunque la
+  /// carpeta todavía no exista —es justo la que la está creando— y al cerrar
+  /// se chequea el formato antes de sellar la sesión.
+  final bool buildsRoadmap;
+
   const Workflow({
     required this.id,
     required this.name,
     required this.whenToApply,
     required this.createdAt,
     this.steps = const [],
+    this.skillNames = const [],
+    this.buildsRoadmap = false,
   });
 
   Workflow copyWith({
     String? name,
     String? whenToApply,
     List<WorkflowStep>? steps,
+    List<String>? skillNames,
+    bool? buildsRoadmap,
   }) {
     return Workflow(
       id: id,
       name: name ?? this.name,
       whenToApply: whenToApply ?? this.whenToApply,
       steps: steps ?? this.steps,
+      skillNames: skillNames ?? this.skillNames,
+      buildsRoadmap: buildsRoadmap ?? this.buildsRoadmap,
       createdAt: createdAt,
     );
   }
@@ -104,6 +127,8 @@ class Workflow {
     'name': name,
     'whenToApply': whenToApply,
     'steps': steps.map((step) => step.toJson()).toList(),
+    'skillNames': skillNames,
+    'buildsRoadmap': buildsRoadmap,
     'createdAt': createdAt.toIso8601String(),
   };
 
@@ -115,6 +140,8 @@ class Workflow {
       steps: (json['steps'] as List? ?? const [])
           .map((entry) => WorkflowStep.fromJson(entry as Map<String, dynamic>))
           .toList(),
+      skillNames: (json['skillNames'] as List?)?.cast<String>() ?? const [],
+      buildsRoadmap: json['buildsRoadmap'] as bool? ?? false,
       createdAt: DateTime.parse(json['createdAt'] as String),
     );
   }
@@ -128,11 +155,20 @@ class Workflow {
           name == other.name &&
           whenToApply == other.whenToApply &&
           listEquals(steps, other.steps) &&
+          listEquals(skillNames, other.skillNames) &&
+          buildsRoadmap == other.buildsRoadmap &&
           createdAt == other.createdAt;
 
   @override
-  int get hashCode =>
-      Object.hash(id, name, whenToApply, Object.hashAll(steps), createdAt);
+  int get hashCode => Object.hash(
+    id,
+    name,
+    whenToApply,
+    Object.hashAll(steps),
+    Object.hashAll(skillNames),
+    buildsRoadmap,
+    createdAt,
+  );
 
   @override
   String toString() =>

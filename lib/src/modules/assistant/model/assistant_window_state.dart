@@ -282,12 +282,18 @@ class AssistantWindowState {
   /// would use.
   final double chatFontScale;
 
+  /// El idioma elegido en Ajustes (`'en'`, `'es_CO'`, o `''` para el del
+  /// sistema), resuelto en MAIN por la misma razón que [chatFontScale]: esta
+  /// ventana no tiene base propia y no puede leerlo por su cuenta.
+  final String language;
+
   const AssistantWindowState({
     this.seq = 0,
     this.activeAgentId,
     this.agent,
     this.sessions = const [],
     this.chatFontScale = kDefaultChatFontScale,
+    this.language = '',
   });
 
   Map<String, dynamic> toJson() => {
@@ -296,6 +302,7 @@ class AssistantWindowState {
     'agent': agent?.toJson(),
     'sessions': sessions.map((session) => session.toJson()).toList(),
     'chatFontScale': chatFontScale,
+    'language': language,
   };
 
   factory AssistantWindowState.fromJson(Map<String, dynamic> json) {
@@ -309,6 +316,7 @@ class AssistantWindowState {
             ),
       chatFontScale:
           (json['chatFontScale'] as num?)?.toDouble() ?? kDefaultChatFontScale,
+      language: json['language'] as String? ?? '',
       sessions: (json['sessions'] as List)
           .map(
             (entry) =>
@@ -327,7 +335,8 @@ class AssistantWindowState {
           activeAgentId == other.activeAgentId &&
           agent == other.agent &&
           listEquals(sessions, other.sessions) &&
-          chatFontScale == other.chatFontScale;
+          chatFontScale == other.chatFontScale &&
+          language == other.language;
 
   @override
   int get hashCode => Object.hash(
@@ -336,6 +345,7 @@ class AssistantWindowState {
     agent,
     Object.hashAll(sessions),
     chatFontScale,
+    language,
   );
 
   @override

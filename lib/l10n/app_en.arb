@@ -1,0 +1,145 @@
+{
+  "@@locale": "en",
+  "@@author": "i18n-discovery workflow",
+
+  "buttonApply": "Apply",
+  "buttonApplySelection": "Apply selection",
+  "buttonCancel": "Cancel",
+  "buttonCreate": "Create",
+  "buttonCreateEntity": "Create {entity}",
+  "@buttonCreateEntity": {
+    "placeholders": {
+      "entity": {
+        "type": "String",
+        "example": "Agent"
+      }
+    }
+  },
+  "buttonDelete": "Delete",
+  "buttonEdit": "Edit",
+  "buttonSave": "Save",
+  "buttonSearch": "Search",
+
+  "actionCloneVault": "Clone vault",
+  "actionCloneAndRead": "Clone and read",
+  "actionChooseDestinationAndExport": "Choose destination and export",
+  "actionExportBackup": "Export backup",
+  "actionExportPackage": "Export a package",
+  "actionSaveZip": "Save the zip…",
+  "actionImportBackup": "Import backup",
+  "actionIncludeSecrets": "Include secrets (with their VALUES)",
+  "actionReadBackup": "Read the backup",
+  "actionRestoreFromVault": "Restore from the vault",
+  "actionRestoreSelection": "Restore selection",
+  "actionBringEverythingAndStart": "Bring everything and start",
+  "actionUnifyInMain": "Unify in main",
+  "actionReviewAgain": "Review again",
+  "actionStartFromScratch": "Start from scratch",
+  "actionReadyEnter": "All set — continue",
+
+  "labelAgents": "Agents",
+  "labelWorkflows": "Workflows",
+  "labelSkills": "Skills",
+  "labelProject": "Project",
+  "labelSession": "Session",
+  "labelRules": "Rules",
+  "labelHooks": "Hooks",
+  "labelTools": "Tools",
+  "labelIntegrations": "Integrations",
+  "labelKnowledgeBases": "Knowledge Bases",
+  "labelSecrets": "Secrets",
+  "labelSettings": "Settings",
+
+  "messageErrorGeneric": "Something went wrong. Try again.",
+  "messageErrorNetwork": "Could not connect. Check your network.",
+  "messageErrorFileContainsNothing": "The file contains nothing applicable.",
+  "messageErrorBackupContainsNothing": "The backup contains nothing applicable.",
+  "messageSuccessCreated": "{entity} created successfully.",
+  "@messageSuccessCreated": {
+    "placeholders": {
+      "entity": {
+        "type": "String",
+        "example": "Agent"
+      }
+    }
+  },
+  "messageSuccessSaved": "Saved.",
+  "messageSuccessDeleted": "{entity} deleted.",
+  "@messageSuccessDeleted": {
+    "placeholders": {
+      "entity": {
+        "type": "String",
+        "example": "Agent"
+      }
+    }
+  },
+
+  "confirmationDeleteTitle": "Delete {entity}?",
+  "@confirmationDeleteTitle": {
+    "placeholders": {
+      "entity": {
+        "type": "String",
+        "example": "Agent"
+      }
+    }
+  },
+  "confirmationDeleteMessage": "Are you sure? This cannot be undone.",
+  "confirmationProceed": "Proceed",
+
+  "placeholderSearchByName": "Search by name…",
+  "placeholderFilterResults": "Filter results…",
+  "placeholderAskAboutLine": "Ask about this line…",
+
+  "hintFieldRequired": "Field required.",
+  "hintEmailInvalid": "Invalid email.",
+  "hintPasswordTooShort": "Password must be at least 8 characters.",
+
+  "tooltipWorktreeSeparate": "Separate worktree",
+  "tooltipOpenInFinder": "Open in Finder",
+  "tooltipCopyToClipboard": "Copy to clipboard",
+
+  "languageEnglish": "English",
+  "languageSpanish": "Español (Colombia)",
+
+  "settingLanguage": "Language",
+  "settingTheme": "Theme",
+  "settingThemeDark": "Dark",
+  "settingThemeLight": "Light",
+
+  "countAgent": "{count, plural, =1 {1 agent} other {{count} agents}}",
+  "@countAgent": {
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "5"
+      }
+    }
+  },
+  "countSession": "{count, plural, =1 {1 session} other {{count} sessions}}",
+  "@countSession": {
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "5"
+      }
+    }
+  },
+  "countWorkflow": "{count, plural, =1 {1 workflow} other {{count} workflows}}",
+  "@countWorkflow": {
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "5"
+      }
+    }
+  },
+  "countFound": "{count, plural, =0 {No results found} =1 {1 result found} other {{count} results found}}",
+  "@countFound": {
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "5"
+      }
+    }
+  }
+}

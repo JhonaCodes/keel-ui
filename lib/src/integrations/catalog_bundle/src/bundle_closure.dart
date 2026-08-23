@@ -115,10 +115,21 @@ BundleClosure buildBundleClosure({
     case BundleKind.workflow:
       if (take('workflows', name, nameFor: 'workflow')) {
         final workflow = picked['workflows']![name]!;
+        // Las skills que el workflow declara viajan con él: sin eso, del
+        // otro lado llega un flujo que le pide a sus turnos un saber que ahí
+        // no existe.
+        for (final skill
+            in (workflow['skillNames'] as List?)?.cast<String>() ??
+                const <String>[]) {
+          take('skills', skill, nameFor: 'skill');
+        }
         final roles = {
           for (final step in workflow['steps'] as List? ?? const [])
             if (step is Map && step['role'] is String) step['role'] as String,
         };
+        // `*` no es un puesto: es «cualquiera del proyecto», y buscarle
+        // candidatos daría siempre «puesto sin ningún agente».
+        roles.remove(kAnyRole);
         // Un workflow no nombra agentes: nombra PUESTOS, y el proyecto pone
         // quién los ocupa. Se empaqueta a todos los que hoy podrían ocupar
         // cada puesto — es lo único que hace que el workflow arranque del

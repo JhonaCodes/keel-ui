@@ -24,7 +24,9 @@ class _BackupExportPanelState extends State<BackupExportPanel> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Exportar respaldo')),
+      appBar: AppBar(
+        title: Text(AppLocalizations.of(context).actionExportBackup),
+      ),
       body: ReactiveViewModelBuilder<CatalogBackupViewModel, CatalogBackupState>(
         viewmodel: CatalogBackupService.instance.notifier,
         build: (backup, viewmodel, keep) {
@@ -54,7 +56,7 @@ class _BackupExportPanelState extends State<BackupExportPanel> {
                 value: _includeSecrets,
                 contentPadding: EdgeInsets.zero,
                 controlAffinity: ListTileControlAffinity.leading,
-                title: const Text('Incluir secrets (con sus VALORES)'),
+                title: Text(AppLocalizations.of(context).actionIncludeSecrets),
                 subtitle: const Text(
                   'El archivo los lleva en texto plano. Solo para llevarlos '
                   'a otra máquina tuya — nunca lo compartas.',
@@ -71,7 +73,9 @@ class _BackupExportPanelState extends State<BackupExportPanel> {
                         includeSecrets: _includeSecrets,
                       ),
                 icon: const Icon(Icons.save_alt, size: 18),
-                label: const Text('Elegir destino y exportar'),
+                label: Text(
+                  AppLocalizations.of(context).actionChooseDestinationAndExport,
+                ),
               ),
               if (backup.busy) ...[
                 const SizedBox(height: 12),
@@ -144,7 +148,9 @@ class _BackupImportPanelState extends State<BackupImportPanel> {
               ),
               if (preview != null && preview.isEmpty) ...[
                 const SizedBox(height: 12),
-                const Text('El archivo no trae nada aplicable.'),
+                Text(
+                  AppLocalizations.of(context).messageErrorFileContainsNothing,
+                ),
               ],
               if (preview != null && !preview.isEmpty) ...[
                 const SizedBox(height: 16),

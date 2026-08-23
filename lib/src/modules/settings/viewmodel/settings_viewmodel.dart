@@ -58,6 +58,12 @@ class SettingsViewModel extends ViewModel<AppSettings> {
     unawaited(_repository.save(data));
   }
 
+  /// `'en'`, `'es_CO'`, o `''` para seguir el idioma del sistema.
+  void setLanguage(String language) {
+    updateState(data.copyWith(language: language));
+    unawaited(_repository.save(data));
+  }
+
   /// Aplica los ajustes que venían en un respaldo.
   ///
   /// Solo lo que tiene sentido en cualquier máquina: el tamaño del texto,

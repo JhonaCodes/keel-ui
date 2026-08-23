@@ -1,4 +1,7 @@
+import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
 import 'package:keel_ui/src/modules/skills/viewmodel/skills_viewmodel.dart';
+import 'package:keel_ui/src/modules/workflows/model/workflow.dart';
+import 'package:keel_ui/src/modules/workflows/viewmodel/workflows_viewmodel.dart';
 
 /// El nombre del skill que describe el formato de la carpeta de tareas.
 ///
@@ -11,6 +14,13 @@ const kRoadmapFormatSkillName = 'keel-formato-de-tareas';
 /// Cómo se llama la sesión que arma el formato. Fija a propósito: es la que
 /// el chequeo obligatorio busca al cerrar.
 const kRoadmapFormatSessionTitle = 'Definir el formato';
+
+/// El workflow con el que corre esa sesión.
+///
+/// Reservado y re-sembrado en cada arranque, igual que el skill. Es de la
+/// app y no de un proyecto: cualquiera puede armar su carpeta de tareas sin
+/// tener que acordarse de engancharlo.
+const kRoadmapFormatWorkflowName = 'keel-formato-de-tareas';
 
 const kRoadmapFormatSkillContent = '''
 # El formato de la carpeta de tareas (keel-ui)
@@ -181,3 +191,74 @@ Future<void> seedRoadmapFormatSkill() async {
     );
   }
 }
+
+/// El workflow que arma la carpeta de tareas.
+///
+/// Un solo paso, y con `*` de puesto. Cualquier otra cosa lo rompería en la
+/// mitad de los proyectos: esto no es trabajo de un `implementador` ni de un
+/// `auditor` —es escribir unos markdown con un formato que el skill explica—
+/// y exigir un rol que el proyecto no tenga sería negarle a un proyecto
+/// nuevo justo lo que más necesita.
+///
+/// Que sea UN paso también es la mitad del arreglo. Antes esta sesión corría
+/// el workflow del proyecto entero: formatear `TASKS/` pasaba por
+/// implementador, auditor, verificador y entrega, y terminaba abriendo un PR
+/// en draft por unos archivos de texto.
+List<WorkflowStep> _formatSteps() => const [
+  WorkflowStep(
+    id: 'formato',
+    title: 'Formato',
+    role: kAnyRole,
+    instruction:
+        'Dejá la carpeta de tareas del proyecto con el formato que describe '
+        'el skill $kRoadmapFormatSkillName, sin inventar tareas: lo que no '
+        'sepas, preguntalo. Cuando termines, cerrá diciendo qué quedó '
+        'escrito y qué falta decidir.',
+  ),
+];
+
+/// Deja el workflow de formato registrado y al día.
+///
+/// Se re-sincroniza en cada arranque como el skill: el chequeo del cierre y
+/// el lector de la carpeta están escritos contra esto, así que una edición a
+/// mano vuelve a lo que dice el código.
+Future<void> seedRoadmapFormatWorkflow() async {
+  final workflows = WorkflowsService.instance.notifier;
+  await workflows.ready;
+
+  const whenToApply =
+      'Cuando un proyecto todavía no tiene su carpeta TASKS/, o la tiene con '
+      'un formato que Keel no puede leer.';
+
+  final existing = workflows.data.workflows
+      .where((workflow) => workflow.name == kRoadmapFormatWorkflowName)
+      .firstOrNull;
+
+  if (existing == null) {
+    workflows.createWorkflow(
+      name: kRoadmapFormatWorkflowName,
+      whenToApply: whenToApply,
+      steps: _formatSteps(),
+      skillNames: const [kRoadmapFormatSkillName],
+      buildsRoadmap: true,
+    );
+    return;
+  }
+
+  workflows.updateWorkflow(
+    existing.id,
+    name: kRoadmapFormatWorkflowName,
+    whenToApply: whenToApply,
+    steps: _formatSteps(),
+    skillNames: const [kRoadmapFormatSkillName],
+    buildsRoadmap: true,
+  );
+}
+
+/// El id del workflow de formato, o vacío si todavía no se sembró.
+String roadmapFormatWorkflowId() =>
+    WorkflowsService.instance.notifier.data.workflows
+        .where((workflow) => workflow.name == kRoadmapFormatWorkflowName)
+        .firstOrNull
+        ?.id ??
+    '';

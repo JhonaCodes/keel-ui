@@ -26,7 +26,9 @@ class WorktreePanel extends StatelessWidget {
         final report = state.report;
 
         return Scaffold(
-          appBar: AppBar(title: const Text('Worktree aparte')),
+          appBar: AppBar(
+            title: Text(AppLocalizations.of(context).tooltipWorktreeSeparate),
+          ),
           body: switch ((plan, report)) {
             (_, final WorktreeUnifyReport done) => _Report(report: done),
             (final WorktreeUnifyPlan ready, _) => _Plan(
@@ -157,7 +159,7 @@ class _Plan extends StatelessWidget {
               onPressed: busy || !plan.canRun
                   ? null
                   : () => WorktreeService.instance.notifier.unify(project),
-              label: const Text('Unificar en el principal'),
+              label: Text(AppLocalizations.of(context).actionUnifyInMain),
             ),
           ],
         ),

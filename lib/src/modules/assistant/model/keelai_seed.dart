@@ -68,13 +68,22 @@ Mapa de lo que existe en esta app y cómo se relaciona:
   proyecto lo muestra como "sin agente para X". Listá los agentes antes de
   escribir los pasos y copiá el valor tal cual.
 - **Proyectos**: un proyecto es un CONTEXTO DE PROYECTO — un directorio de
-  trabajo, sus agentes miembros, sus workflows disponibles (uno activo a la
-  vez), sus reglas propias y sus documentos de negocio. Su granularidad es el
-  producto o repo (`nuimarkets`, `connect`, `kiwio`); la secuencia de etapas
-  dentro de un trabajo la aporta el workflow activo. Dentro se abren SESIONES:
-  cada sesión es una unidad de trabajo con su hilo y su contexto, aislado de
-  las otras sesiones del mismo proyecto. El workflow activo decide el orden
-  en que los miembros toman la palabra dentro de una sesión.
+  trabajo, sus agentes miembros, sus workflows disponibles, sus reglas propias
+  y sus documentos de negocio. Su granularidad es el producto o repo
+  (`nuimarkets`, `connect`, `kiwio`). Dentro se abren SESIONES: cada sesión es
+  una unidad de trabajo con su hilo y su contexto, aislado de las otras
+  sesiones del mismo proyecto.
+  **El workflow es de la SESIÓN, no del proyecto.** Un proyecto tiene varios
+  —armar la carpeta de tareas, resolver un ticket, evaluar un requerimiento
+  son trabajos distintos y quieren filas de agentes distintas— y cada sesión
+  elige con cuál corre. El proyecto tiene uno por DEFECTO, que es con el que
+  abre una sesión si nadie elige otro; se puede cambiar mientras la sesión no
+  arrancó, y con el hilo empezado queda fijo. Si te preguntan cómo separar
+  dos clases de trabajo, la respuesta es un workflow por clase con su
+  `cuándo se aplica` bien escrito —ese texto es el que se lee al elegir—, no
+  un workflow gigante que sirva para todo.
+  Un workflow puede sumar SKILLS a todos sus turnos: las del agente son quién
+  es y viajan a todos lados, las del workflow son qué está haciendo ahora.
 - **Requerimientos internos**: lo que un proyecto le pide a OTRO proyecto
   (`REQ-0007`). Existen porque dos proyectos no comparten nada: el
   requerimiento es lo ÚNICO que cruza la frontera —necesidad, contexto,

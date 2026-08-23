@@ -219,7 +219,6 @@ class _SessionsSection extends StatelessWidget {
     final navigator = WorkspaceService.instance.notifier;
     final onSessions = workspace.lens == WorkspaceLens.session;
     final active = project.activeSessionId;
-    final totalSteps = ProjectsService.instance.notifier.stepCountFor(project);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -245,7 +244,12 @@ class _SessionsSection extends StatelessWidget {
             _SessionRow(
               session: session,
               projectId: project.id,
-              totalSteps: totalSteps,
+              // El `3/7` es de la SESIÓN: dos sesiones del mismo proyecto
+              // pueden correr flujos de largos distintos, y contar las de
+              // una sobre la escala de la otra sería mentir con precisión.
+              totalSteps: ProjectsService.instance.notifier.stepCountOf(
+                session,
+              ),
               selected: onSessions && active == session.id,
               onTap: () => navigator.openSession(project.id, session.id),
             ),

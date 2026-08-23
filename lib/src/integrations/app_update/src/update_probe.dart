@@ -114,11 +114,7 @@ Future<KeelVersion> readKeelVersion(
   final branch = await _git(['rev-parse', '--abbrev-ref', 'HEAD'], cwd: root);
   final head = await _git(['log', '-1', _kLogFormat], cwd: root);
   final status = await _git(['status', '--porcelain'], cwd: root);
-  final upstream = await _git([
-    'rev-parse',
-    '--abbrev-ref',
-    '@{u}',
-  ], cwd: root);
+  final upstream = await _git(['rev-parse', '--abbrev-ref', '@{u}'], cwd: root);
 
   if (fetch && upstream.ok) {
     // Falla y sigue: sin red se muestra lo que se sabe del repo local, que

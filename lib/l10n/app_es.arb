@@ -1,0 +1,134 @@
+{
+  "@@locale": "es",
+  "@@author": "i18n-discovery workflow",
+  "buttonApply": "Aplicar",
+  "buttonApplySelection": "Aplicar lo seleccionado",
+  "buttonCancel": "Cancelar",
+  "buttonCreate": "Crear",
+  "buttonCreateEntity": "Crear {entity}",
+  "@buttonCreateEntity": {
+    "placeholders": {
+      "entity": {
+        "type": "String",
+        "example": "Agente"
+      }
+    }
+  },
+  "buttonDelete": "Eliminar",
+  "buttonEdit": "Editar",
+  "buttonSave": "Guardar",
+  "buttonSearch": "Buscar",
+  "actionCloneVault": "Clonar vault",
+  "actionCloneAndRead": "Clonar y leer",
+  "actionChooseDestinationAndExport": "Elegir destino y exportar",
+  "actionExportBackup": "Exportar respaldo",
+  "actionExportPackage": "Exportar un paquete",
+  "actionSaveZip": "Guardar el zip…",
+  "actionImportBackup": "Importar respaldo",
+  "actionIncludeSecrets": "Incluir secrets (con sus VALORES)",
+  "actionReadBackup": "Leer el respaldo",
+  "actionRestoreFromVault": "Restaurar desde el vault",
+  "actionRestoreSelection": "Restaurar lo seleccionado",
+  "actionBringEverythingAndStart": "Traer todo e iniciar",
+  "actionUnifyInMain": "Unificar en el principal",
+  "actionReviewAgain": "Volver a revisar",
+  "actionStartFromScratch": "Empezar de cero",
+  "actionReadyEnter": "Listo — entrar",
+  "labelAgents": "Agentes",
+  "labelWorkflows": "Workflows",
+  "labelSkills": "Skills",
+  "labelProject": "Proyecto",
+  "labelSession": "Sesión",
+  "labelRules": "Reglas",
+  "labelHooks": "Hooks",
+  "labelTools": "Herramientas",
+  "labelIntegrations": "Integraciones",
+  "labelKnowledgeBases": "Bases de saber",
+  "labelSecrets": "Secretos",
+  "labelSettings": "Ajustes",
+  "messageErrorGeneric": "Algo salió mal. Intenta de nuevo.",
+  "messageErrorNetwork": "No se pudo conectar. Verifica tu red.",
+  "messageErrorFileContainsNothing": "El archivo no contiene nada aplicable.",
+  "messageErrorBackupContainsNothing": "El respaldo no contiene nada aplicable.",
+  "messageSuccessCreated": "{entity} creado exitosamente.",
+  "@messageSuccessCreated": {
+    "placeholders": {
+      "entity": {
+        "type": "String",
+        "example": "Agente"
+      }
+    }
+  },
+  "messageSuccessSaved": "Guardado.",
+  "messageSuccessDeleted": "{entity} eliminado.",
+  "@messageSuccessDeleted": {
+    "placeholders": {
+      "entity": {
+        "type": "String",
+        "example": "Agente"
+      }
+    }
+  },
+  "confirmationDeleteTitle": "¿Eliminar {entity}?",
+  "@confirmationDeleteTitle": {
+    "placeholders": {
+      "entity": {
+        "type": "String",
+        "example": "Agente"
+      }
+    }
+  },
+  "confirmationDeleteMessage": "¿Estás seguro? Esto no se puede deshacer.",
+  "confirmationProceed": "Continuar",
+  "placeholderSearchByName": "Busca por nombre…",
+  "placeholderFilterResults": "Filtra los resultados…",
+  "placeholderAskAboutLine": "Pregunta sobre esta línea…",
+  "hintFieldRequired": "Campo requerido.",
+  "hintEmailInvalid": "Email inválido.",
+  "hintPasswordTooShort": "La contraseña debe tener al menos 8 caracteres.",
+  "tooltipWorktreeSeparate": "Worktree aparte",
+  "tooltipOpenInFinder": "Abrir en Finder",
+  "tooltipCopyToClipboard": "Copiar al portapapeles",
+  "languageEnglish": "English",
+  "languageSpanish": "Español (Colombia)",
+  "settingLanguage": "Idioma",
+  "settingTheme": "Tema",
+  "settingThemeDark": "Oscuro",
+  "settingThemeLight": "Claro",
+  "countAgent": "{count, plural, =1 {1 agente} other {{count} agentes}}",
+  "@countAgent": {
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "5"
+      }
+    }
+  },
+  "countSession": "{count, plural, =1 {1 sesión} other {{count} sesiones}}",
+  "@countSession": {
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "5"
+      }
+    }
+  },
+  "countWorkflow": "{count, plural, =1 {1 workflow} other {{count} workflows}}",
+  "@countWorkflow": {
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "5"
+      }
+    }
+  },
+  "countFound": "{count, plural, =0 {No se encontraron resultados} =1 {1 resultado encontrado} other {{count} resultados encontrados}}",
+  "@countFound": {
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "5"
+      }
+    }
+  }
+}

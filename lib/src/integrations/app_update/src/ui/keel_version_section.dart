@@ -320,7 +320,8 @@ class _Actions extends StatelessWidget {
               onPressed: busy ? null : () => viewmodel.check(force: true),
               child: const Text('Revisar'),
             ),
-            if (plan.canRelaunch && (state.version.stale || state.report != null))
+            if (plan.canRelaunch &&
+                (state.version.stale || state.report != null))
               OutlinedButton.icon(
                 icon: const Icon(Icons.restart_alt, size: 16),
                 onPressed: busy ? null : viewmodel.relaunch,

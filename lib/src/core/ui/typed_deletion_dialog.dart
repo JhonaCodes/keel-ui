@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
+
 /// Una consecuencia del borrado: lo que se lleva, con la cantidad al frente.
 typedef DeletionConsequence = ({String lead, String rest});
 
@@ -19,7 +21,7 @@ Future<bool> confirmTypedDeletion(
   required String expected,
   required List<DeletionConsequence> consequences,
   String? reassurance,
-  String confirmLabel = 'Eliminar',
+  String? confirmLabel,
 }) async {
   final confirmed = await showDialog<bool>(
     context: context,
@@ -47,7 +49,7 @@ class _TypedDeletionDialog extends StatefulWidget {
   final String expected;
   final List<DeletionConsequence> consequences;
   final String? reassurance;
-  final String confirmLabel;
+  final String? confirmLabel;
 
   @override
   State<_TypedDeletionDialog> createState() => _TypedDeletionDialogState();
@@ -68,6 +70,8 @@ class _TypedDeletionDialogState extends State<_TypedDeletionDialog> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
+    final t = AppLocalizations.of(context);
+    final confirmLabel = widget.confirmLabel ?? t.buttonDelete;
 
     return AlertDialog(
       title: Text(widget.title),
@@ -77,7 +81,7 @@ class _TypedDeletionDialogState extends State<_TypedDeletionDialog> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('Esto no se puede deshacer.', style: text.bodyMedium),
+            Text(t.confirmationDeleteMessage, style: text.bodyMedium),
             const SizedBox(height: 14),
             Container(
               padding: const EdgeInsets.only(left: 12),
@@ -170,11 +174,11 @@ class _TypedDeletionDialogState extends State<_TypedDeletionDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(false),
-          child: const Text('Cancelar'),
+          child: Text(t.buttonCancel),
         ),
         FilledButton(
           onPressed: _matches ? () => Navigator.of(context).pop(true) : null,
-          child: Text(widget.confirmLabel),
+          child: Text(confirmLabel),
         ),
       ],
     );

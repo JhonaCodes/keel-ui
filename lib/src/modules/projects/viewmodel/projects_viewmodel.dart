@@ -251,16 +251,41 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
   /// alone the flag never clears: the composer stays disabled, the progress
   /// bar spins forever, and `sendToChannel` returns early on every message.
   /// The channel looks hung because, as far as the state is concerned, it is.
+  /// Lo que hay que arreglar de lo guardado antes de mostrarlo.
+  ///
+  /// Dos cosas: una sesión no puede quedar «corriendo» después de cerrar la
+  /// app —el proceso que la corría murió con ella— y las sesiones de cuando
+  /// el workflow era del PROYECTO no traen con cuál corrieron. Se les
+  /// escribe uno: el de formato a las que llevaban la vieja marca, el de por
+  /// defecto al resto. Es una migración de una sola vez, no un `?? default`
+  /// colgando para siempre: en cuanto se guarda queda el id de verdad.
   List<Project> _revived(List<Project> projects) {
+    final formatId = roadmapFormatWorkflowId();
     return [
       for (final project in projects)
         project.copyWith(
           sessions: [
             for (final session in project.sessions)
-              session.isRunning ? session.copyWith(isRunning: false) : session,
+              revivedSession(session, project, formatId),
           ],
         ),
     ];
+  }
+
+  /// Cómo queda UNA sesión guardada al revivirla. Pura: es la mitad de
+  /// [_revived] que se puede mirar sin base de datos.
+  static Session revivedSession(
+    Session session,
+    Project project,
+    String formatWorkflowId,
+  ) {
+    final workflowId = switch (session.workflowId) {
+      kSessionFormatMigrationMark => formatWorkflowId,
+      '' => project.activeWorkflowId ?? '',
+      final id => id,
+    };
+    if (!session.isRunning && workflowId == session.workflowId) return session;
+    return session.copyWith(isRunning: false, workflowId: workflowId);
   }
 
   // ── alta y configuración ────────────────────────────────────────────
@@ -758,6 +783,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     required String projectId,
     required String sessionTitle,
     required String request,
+    String? workflowId,
   }) {
     final project = _projectById(projectId);
     if (project == null) return null;
@@ -766,6 +792,10 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
       id: generateUuidV4(),
       title: sessionTitle,
       createdAt: DateTime.now(),
+      // Evaluar un requerimiento no es lo mismo que resolver un ticket, y el
+      // proyecto destino puede tener un workflow para eso. Quien lo toma
+      // elige; sin elección, el de siempre.
+      workflowId: workflowId ?? project.activeWorkflowId ?? '',
     );
     _updateProject(
       projectId,
@@ -809,7 +839,10 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
       id: generateUuidV4(),
       title: kRoadmapFormatSessionTitle,
       createdAt: DateTime.now(),
-      isFormatSession: true,
+      // Su propio workflow: un paso, cualquier miembro, el skill del formato
+      // adentro. Antes corría el del proyecto —implementador, auditor,
+      // verificador, entrega— y terminaba abriendo un PR por unos markdown.
+      workflowId: roadmapFormatWorkflowId(),
     );
     _updateProject(
       projectId,
@@ -830,7 +863,8 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
   /// eso y volvé a cerrar»— y sigue siendo la sesión donde continuar.
   static Session? openFormatSessionOf(Project project) {
     for (final session in project.sessions) {
-      if (session.isFormatSession && session.status != SessionStatus.finished) {
+      if (session.status == SessionStatus.finished) continue;
+      if (_workflowById(session.workflowId)?.buildsRoadmap ?? false) {
         return session;
       }
     }
@@ -979,11 +1013,15 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
         : answer;
   }
 
-  void createSession(String projectId) {
+  void createSession(String projectId, {String? workflowId}) {
+    final project = _projectById(projectId);
     final session = Session(
       id: generateUuidV4(),
       title: kDefaultSessionTitle,
       createdAt: DateTime.now(),
+      // Sin elección, el de siempre. Elegir otro es un click en el hilo, y
+      // solo mientras no arrancó.
+      workflowId: workflowId ?? project?.activeWorkflowId ?? '',
     );
     _updateProject(
       projectId,
@@ -1053,7 +1091,8 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     final project = _projectById(projectId);
     if (project == null) return;
 
-    final workflow = activeWorkflowOf(project);
+    final session = _sessionById(project, sessionId);
+    final workflow = session == null ? null : workflowOf(session);
     if (workflow == null) {
       _appendMessage(
         projectId,
@@ -1061,8 +1100,8 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
         ChatMessage(
           role: ChatRole.error,
           text:
-              'Este proyecto no tiene un workflow activo. Agregá uno para que '
-              'sepa cómo repartir el trabajo.',
+              'Esta sesión no tiene un workflow con el cual correr. Elegí uno '
+              'arriba del hilo para que sepa cómo repartir el trabajo.',
           timestamp: DateTime.now(),
         ),
       );
@@ -1330,9 +1369,17 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
           sessionId,
           ChatMessage(
             role: ChatRole.error,
-            text:
-                'Ningún agente de este proyecto tiene el rol "${step.role}", '
-                'que pide el paso "${step.title}". El flujo se detiene acá.',
+            // `*` no es un rol que falte: es «cualquiera», y que no lo
+            // resuelva nadie significa que el proyecto no tiene un solo
+            // miembro. Decir «ningún agente tiene el rol *» sería mandar a
+            // buscar un puesto que no existe.
+            text: step.role.trim() == kAnyRole
+                ? 'Este proyecto no tiene ningún agente, y el paso '
+                      '"${step.title}" lo puede hacer cualquiera. Sumale al '
+                      'menos uno para que haya quién lo tome.'
+                : 'Ningún agente de este proyecto tiene el rol '
+                      '"${step.role}", que pide el paso "${step.title}". El '
+                      'flujo se detiene acá.',
             timestamp: DateTime.now(),
             stepIndex: index,
           ),
@@ -1414,9 +1461,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     // fue. El stack viaja por la misma razón — es lo que deja saber de qué
     // archivo salió.
     final project = _projectById(projectId);
-    final session = project == null
-        ? null
-        : _sessionById(project, sessionId);
+    final session = project == null ? null : _sessionById(project, sessionId);
     Log.e(
       'El flujo se cortó'
       '${project == null ? '' : ' en "${project.name}"'}'
@@ -1887,7 +1932,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
   /// it falls back to whoever spoke last, and finally to any member — a
   /// question inside a session must always land on somebody, never bounce.
   AgentProfile? _followUpOwner(Project project, Session session) {
-    final workflow = activeWorkflowOf(project);
+    final workflow = workflowOf(session);
     if (workflow != null && session.currentStepIndex < workflow.steps.length) {
       final owner = _memberForRole(
         project,
@@ -2023,6 +2068,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     // justo cuando le pedían verificar el roadmap, y contestaba lo único
     // honesto que podía: que no tenía con qué.
     final isConsult = consultOfProfileId != null;
+    final turnWorkflow = _workflowRunning(project, sessionId);
     final roadmapEntry = isCodex
         ? null
         : RoadmapMcpServer.mcpServerEntryFor(
@@ -2031,10 +2077,9 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
             profileId: member.id,
             workingDirectory: project.workingDirectory,
             readOnly: isConsult,
-            // La sesión que arma el formato todavía no tiene la carpeta: es
-            // justo la que necesita poder chequearlo mientras la construye.
-            evenWithoutFolder:
-                _sessionById(project, sessionId)?.isFormatSession ?? false,
+            // El workflow que CONSTRUYE la carpeta todavía no la tiene: es
+            // justo el que necesita poder chequearla mientras la arma.
+            evenWithoutFolder: turnWorkflow?.buildsRoadmap ?? false,
           );
     // Los tableros de prueba. Un turno de consulta tampoco los recibe: viene
     // a contestar una pregunta y se va, y dejarle armar una UI en el
@@ -2732,11 +2777,9 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     final project = _projectById(projectId);
     if (project == null) return;
 
-    final members = membersOf(
-      project,
-      session: _sessionById(project, sessionId),
-    );
-    final workflow = activeWorkflowOf(project);
+    final open = _sessionById(project, sessionId);
+    final members = membersOf(project, session: open);
+    final workflow = open == null ? null : workflowOf(open);
     final asked = <String>{};
 
     // Sobre el texto SIN código: un @handle dentro de un diff o de un
@@ -3222,14 +3265,18 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
       'discutas identidades — leé la firma.',
     );
 
-    if (session?.isFormatSession ?? false) {
-      final formato = skills
-          .where((skill) => skill.name == kRoadmapFormatSkillName)
-          .firstOrNull;
-      if (formato != null) {
-        buffer.writeln();
-        buffer.writeln(formato.content);
-      }
+    // Las skills del WORKFLOW, no las del agente: las del agente son quién
+    // es y viajan a todos lados; estas son qué está haciendo ahora. El mismo
+    // agente formateando la carpeta necesita saber el formato, y resolviendo
+    // un ticket no.
+    for (final name
+        in session == null
+            ? const <String>[]
+            : (workflowOf(session)?.skillNames ?? const <String>[])) {
+      final extra = skills.where((skill) => skill.name == name).firstOrNull;
+      if (extra == null) continue;
+      buffer.writeln();
+      buffer.writeln(extra.content);
     }
 
     if (!project.maintained) {
@@ -3338,11 +3385,60 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
   String? workingDirectoryOf(String projectId) =>
       _projectById(projectId)?.workingDirectory;
 
-  Workflow? activeWorkflowOf(Project project) {
-    final id = project.activeWorkflowId;
-    if (id == null) return null;
+  /// El workflow POR DEFECTO del proyecto: con cuál abre una sesión nueva si
+  /// nadie elige otro. No es con el que corre cada sesión — eso lo dice la
+  /// sesión, que es donde el dato pertenece.
+  Workflow? defaultWorkflowOf(Project project) =>
+      _workflowById(project.activeWorkflowId);
+
+  /// Con qué corre ESTA sesión. Null mientras no eligió ninguno.
+  Workflow? workflowOf(Session session) => _workflowById(session.workflowId);
+
+  /// El de la sesión [sessionId] de [project], si esa sesión sigue existiendo.
+  Workflow? _workflowRunning(Project project, String sessionId) {
+    final session = _sessionById(project, sessionId);
+    return session == null ? null : workflowOf(session);
+  }
+
+  static Workflow? _workflowById(String? id) {
+    if (id == null || id.isEmpty) return null;
     final workflows = WorkflowsService.instance.notifier.data.workflows;
     return workflows.where((workflow) => workflow.id == id).firstOrNull;
+  }
+
+  /// Los workflows que este proyecto puede elegir, en el orden en que se
+  /// atarron. El de formato entra siempre: es de la app, no del proyecto, y
+  /// obligar a engancharlo sería obligar a configurar lo único que un
+  /// proyecto recién creado necesita sí o sí.
+  List<Workflow> choosableWorkflowsOf(Project project) {
+    final all = WorkflowsService.instance.notifier.data.workflows;
+    final chosen = [
+      for (final id in project.workflowIds)
+        ...all.where((workflow) => workflow.id == id),
+    ];
+    final formato = all
+        .where((workflow) => workflow.name == kRoadmapFormatWorkflowName)
+        .firstOrNull;
+    if (formato != null && !chosen.any((flow) => flow.id == formato.id)) {
+      chosen.add(formato);
+    }
+    return chosen;
+  }
+
+  /// Cambia el workflow de una sesión. **Solo antes de que arranque**: con
+  /// pasos corridos, la mitad del hilo salió de otra fila de agentes y el
+  /// `3/7` pasaría a contar sobre una escala que nunca se usó.
+  bool setSessionWorkflow(String projectId, String sessionId, String id) {
+    final project = _projectById(projectId);
+    final session = project == null ? null : _sessionById(project, sessionId);
+    if (session == null || session.messages.isNotEmpty) return false;
+    _updateSession(
+      projectId,
+      sessionId,
+      (open) => open.copyWith(workflowId: id),
+    );
+    unawaited(_persist());
+    return true;
   }
 
   /// The roster a turn sees: the project's members plus [session]'s own
@@ -3389,9 +3485,15 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     unawaited(_persist());
   }
 
-  int stepCountFor(Project project) {
-    return activeWorkflowOf(project)?.steps.length ?? 0;
-  }
+  /// Cuántos pasos tiene el workflow por defecto del proyecto. Es lo que
+  /// mira el radar, que estima sobre el proyecto entero y no sobre una
+  /// sesión.
+  int stepCountFor(Project project) =>
+      defaultWorkflowOf(project)?.steps.length ?? 0;
+
+  /// Cuántos pasos tiene el workflow de ESTA sesión. Es el `3/7` del
+  /// sidebar, que es de la sesión y no del proyecto.
+  int stepCountOf(Session session) => workflowOf(session)?.steps.length ?? 0;
 
   AgentProfile? _memberForRole(
     Project project,
@@ -3450,7 +3552,10 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
   SessionStatus _formatCheckVerdict(String projectId, String sessionId) {
     final project = _projectById(projectId);
     final session = project == null ? null : _sessionById(project, sessionId);
-    if (project == null || session == null || !session.isFormatSession) {
+    final buildsRoadmap = session == null
+        ? false
+        : (workflowOf(session)?.buildsRoadmap ?? false);
+    if (project == null || session == null || !buildsRoadmap) {
       return SessionStatus.finished;
     }
 

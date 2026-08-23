@@ -40,6 +40,8 @@ class WorkflowsViewModel extends ViewModel<WorkflowsState> {
     required String name,
     required String whenToApply,
     required List<WorkflowStep> steps,
+    List<String> skillNames = const [],
+    bool buildsRoadmap = false,
   }) {
     final error = _validateName(name);
     if (error != null) return error;
@@ -49,6 +51,8 @@ class WorkflowsViewModel extends ViewModel<WorkflowsState> {
       name: name,
       whenToApply: whenToApply.trim(),
       steps: steps,
+      skillNames: skillNames,
+      buildsRoadmap: buildsRoadmap,
       createdAt: DateTime.now(),
     );
     final workflows = [...data.workflows, workflow];
@@ -59,11 +63,16 @@ class WorkflowsViewModel extends ViewModel<WorkflowsState> {
 
   /// Updates an existing workflow. Returns a user-facing error message on
   /// failure (invalid or duplicate name), or null on success.
+  /// Lo que no se pasa NO se toca. `buildsRoadmap` no está en ningún
+  /// formulario —lo pone el sistema en el workflow que arma la carpeta— y un
+  /// `required` acá lo habría borrado en cada edición de nombre.
   String? updateWorkflow(
     String id, {
     required String name,
     required String whenToApply,
     required List<WorkflowStep> steps,
+    List<String>? skillNames,
+    bool? buildsRoadmap,
   }) {
     final error = _validateName(name, excludingId: id);
     if (error != null) return error;
@@ -75,6 +84,8 @@ class WorkflowsViewModel extends ViewModel<WorkflowsState> {
                   name: name,
                   whenToApply: whenToApply.trim(),
                   steps: steps,
+                  skillNames: skillNames,
+                  buildsRoadmap: buildsRoadmap,
                 )
               : workflow,
         )

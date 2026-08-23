@@ -95,8 +95,7 @@ class SessionPlanItem {
           doneByProfileId == other.doneByProfileId;
 
   @override
-  int get hashCode =>
-      Object.hash(id, text, done, discarded, doneByProfileId);
+  int get hashCode => Object.hash(id, text, done, discarded, doneByProfileId);
 
   @override
   String toString() =>

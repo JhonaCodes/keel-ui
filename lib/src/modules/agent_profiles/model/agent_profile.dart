@@ -33,9 +33,18 @@ String? validateAgentProfileName(String value) {
 /// paso que dice "auditor" y el agente `@auditor` son inequívocamente lo
 /// mismo; sin esta segunda pasada, un workflow escrito con handles queda con
 /// todos sus pasos huérfanos aunque el proyecto tenga a los nueve miembros.
+/// El puesto que dice «cualquiera del proyecto».
+///
+/// Un workflow que sirve en todos lados no puede nombrar un puesto que solo
+/// existe en algunos: el que arma la carpeta de tareas hace un trabajo que
+/// cualquier miembro puede hacer, y pedirle un `planificador` lo rompería en
+/// todo proyecto que no tenga ese rol.
+const kAnyRole = '*';
+
 AgentProfile? memberForRole(Iterable<AgentProfile> members, String role) {
   final wanted = role.trim().toLowerCase();
   if (wanted.isEmpty) return null;
+  if (wanted == kAnyRole) return members.firstOrNull;
   for (final member in members) {
     if (member.role.trim().toLowerCase() == wanted) return member;
   }

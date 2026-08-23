@@ -318,6 +318,9 @@ const _readOnlyTools = {
         whenToApply:
             arguments['when_to_apply'] as String? ?? workflow.whenToApply,
         steps: steps,
+        skillNames: arguments['skills'] == null
+            ? null
+            : _stringList(arguments['skills']),
       );
       return (
         error == null,
@@ -378,6 +381,7 @@ const _readOnlyTools = {
           name: arguments['name'] as String,
           whenToApply: arguments['when_to_apply'] as String? ?? '',
           steps: _parseToolSteps(arguments['steps']),
+          skillNames: _stringList(arguments['skills']),
         ),
       );
       return (result.ok, result.message);

@@ -301,6 +301,7 @@ AssistantActionResult executeWorkflowAction(CreateWorkflowAction action) {
     name: action.name,
     whenToApply: action.whenToApply,
     steps: action.steps,
+    skillNames: action.skillNames,
   );
   if (error != null) {
     return AssistantActionResult(action: action, ok: false, message: error);

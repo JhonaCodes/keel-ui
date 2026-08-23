@@ -50,6 +50,10 @@ class AppSettings {
   final double windowWidth;
   final double windowHeight;
 
+  /// Idioma elegido en Ajustes: `'en'`, `'es_CO'`, o vacío para seguir el
+  /// idioma del sistema operativo (comportamiento por defecto de Flutter).
+  final String language;
+
   const AppSettings({
     this.chatFontScale = kDefaultChatFontScale,
     this.extraAllowedTools = const [],
@@ -59,6 +63,7 @@ class AppSettings {
     this.knowledgeRepoUrl = '',
     this.windowWidth = kDefaultWindowWidth,
     this.windowHeight = kDefaultWindowHeight,
+    this.language = '',
   });
 
   AppSettings copyWith({
@@ -70,6 +75,7 @@ class AppSettings {
     String? knowledgeRepoUrl,
     double? windowWidth,
     double? windowHeight,
+    String? language,
   }) {
     return AppSettings(
       chatFontScale: chatFontScale ?? this.chatFontScale,
@@ -80,6 +86,7 @@ class AppSettings {
       knowledgeRepoUrl: knowledgeRepoUrl ?? this.knowledgeRepoUrl,
       windowWidth: windowWidth ?? this.windowWidth,
       windowHeight: windowHeight ?? this.windowHeight,
+      language: language ?? this.language,
     );
   }
 
@@ -92,6 +99,7 @@ class AppSettings {
     'knowledgeRepoUrl': knowledgeRepoUrl,
     'windowWidth': windowWidth,
     'windowHeight': windowHeight,
+    'language': language,
   };
 
   factory AppSettings.fromJson(Map<String, dynamic> json) {
@@ -108,6 +116,7 @@ class AppSettings {
           (json['windowWidth'] as num?)?.toDouble() ?? kDefaultWindowWidth,
       windowHeight:
           (json['windowHeight'] as num?)?.toDouble() ?? kDefaultWindowHeight,
+      language: json['language'] as String? ?? '',
     );
   }
 
@@ -121,6 +130,7 @@ class AppSettings {
           vaultRepoUrl == other.vaultRepoUrl &&
           vaultOnboardingDone == other.vaultOnboardingDone &&
           knowledgeRepoUrl == other.knowledgeRepoUrl &&
+          language == other.language &&
           extraAllowedTools.length == other.extraAllowedTools.length &&
           extraAllowedTools.every(other.extraAllowedTools.contains);
 
@@ -132,6 +142,7 @@ class AppSettings {
     vaultRepoUrl,
     vaultOnboardingDone,
     knowledgeRepoUrl,
+    language,
   );
 
   @override
@@ -140,5 +151,6 @@ class AppSettings {
       'extraAllowedTools: $extraAllowedTools, '
       'vaultPath: $vaultPath, '
       'vaultRepoUrl: $vaultRepoUrl, '
-      'knowledgeRepoUrl: $knowledgeRepoUrl)';
+      'knowledgeRepoUrl: $knowledgeRepoUrl, '
+      'language: $language)';
 }

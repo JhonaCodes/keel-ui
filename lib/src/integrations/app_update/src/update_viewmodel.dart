@@ -84,7 +84,10 @@ class AppUpdateViewModel extends ViewModel<AppUpdateState> {
     running: _runningSessions(),
   );
 
-  static int _runningSessions() => ProjectsService.instance.notifier.data
+  static int _runningSessions() => ProjectsService
+      .instance
+      .notifier
+      .data
       .projects
       .expand((project) => project.sessions)
       .where((session) => session.isRunning)

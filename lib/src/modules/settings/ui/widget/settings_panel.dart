@@ -2,6 +2,7 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
 
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/core/ui/form_panel.dart';
 import 'package:keel_ui/src/integrations/catalog_backup/catalog_backup.dart';
 import 'package:keel_ui/src/integrations/jobs_api/jobs_api.dart';
@@ -48,6 +49,8 @@ class SettingsPanel extends StatelessWidget {
                   ),
                 ],
               ),
+              const SizedBox(height: 24),
+              _LanguageField(language: settings.language),
               const SizedBox(height: 24),
               Text(
                 'Permisos de escritura',
@@ -189,6 +192,43 @@ class _RepoUrlFieldState extends State<_RepoUrlField> {
             borderRadius: BorderRadius.all(Radius.circular(16)),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Selector de idioma. `language` vacío sigue el idioma del sistema
+/// operativo — no hay una opción explícita para eso en el dropdown porque
+/// "Español (Colombia)"/"English" ya cubren el par soportado.
+class _LanguageField extends StatelessWidget {
+  final String language;
+
+  const _LanguageField({required this.language});
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
+    // Vacío = sigue el idioma del sistema: el dropdown muestra lo que
+    // Flutter ya resolvió para esta ventana, no un valor inventado.
+    final resolved = language.isEmpty
+        ? Localizations.localeOf(context).languageCode
+        : language;
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      title: Text(
+        t.settingLanguage,
+        style: Theme.of(context).textTheme.labelLarge,
+      ),
+      trailing: DropdownButton<String>(
+        value: resolved.startsWith('es') ? 'es_CO' : 'en',
+        items: [
+          DropdownMenuItem(value: 'es_CO', child: Text(t.languageSpanish)),
+          DropdownMenuItem(value: 'en', child: Text(t.languageEnglish)),
+        ],
+        onChanged: (value) {
+          if (value == null) return;
+          SettingsService.instance.notifier.setLanguage(value);
+        },
       ),
     );
   }

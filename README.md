@@ -75,7 +75,10 @@ flowchart TD
   hilo. Dos sesiones del mismo proyecto **no se ven** entre sí.
 - **Workflow** — pasos ordenados, cada uno con el ROL que le toca. Por eso el
   mismo workflow sirve en un proyecto Flutter y en uno de Rust: el paso dice
-  "revisor", no "@dart-expert".
+  "revisor", no "@dart-expert". **Es de la sesión, no del proyecto**: armar la
+  carpeta de tareas, resolver un ticket y evaluar un requerimiento son
+  trabajos distintos y cada uno quiere otra fila de agentes
+  ([F37](docs/features/37-un-workflow-por-sesion.md)).
 
 ## Cómo se arma un turno
 
@@ -214,9 +217,10 @@ bajaste. El botón trae los commits; reconstruir abre la Terminal, porque el
 1. Registrás dos agentes: `@flutter-expert` (rol `implementador`) y
    `@code-auditor` (rol `auditor`).
 2. Creás un workflow de dos pasos: *implementar* → *auditar*, por rol.
-3. Creás el proyecto `mi-app`, apuntás su directorio de trabajo al repo,
-   sumás los dos agentes y activás el workflow.
-4. Abrís una sesión y escribís qué querés.
+3. Creás el proyecto `mi-app`, apuntás su directorio de trabajo al repo y
+   sumás los dos agentes y el workflow.
+4. Abrís una sesión —arranca con el workflow por defecto, y podés cambiárselo
+   mientras no haya escrito nadie— y escribís qué querés.
 5. El primero que habla escribe el **plan**: puntos verificables, cada uno
    con el puesto que lo hace.
 6. Cada paso corre en su turno. Lo que edita queda con su diff en el hilo.

@@ -8,6 +8,14 @@ import 'package:keel_ui/src/modules/projects/model/session_subagent.dart';
 
 enum SessionStatus { running, finished, failed }
 
+/// Lo que queda escrito en [Session.workflowId] al leer una sesión guardada
+/// cuando «ser la sesión de formato» todavía era un booleano.
+///
+/// Vive un solo arranque: `ProjectsViewModel` la cambia por el id del
+/// workflow de formato al revivir los proyectos, y el guardado siguiente ya
+/// escribe el id de verdad.
+const kSessionFormatMigrationMark = 'migrar:formato';
+
 SessionStatus _statusFromName(String? name) {
   return switch (name) {
     'finished' => SessionStatus.finished,
@@ -47,12 +55,17 @@ class Session {
   final int currentStepIndex;
   final bool isRunning;
 
-  /// Si esta sesión existe para dejar la carpeta de tareas con el formato.
+  /// Con qué workflow corre ESTA sesión.
   ///
-  /// Es una marca y no el título, porque el título se puede renombrar y lo
-  /// que cuelga de esto no es cosmético: el skill del formato viaja en el
-  /// turno, y al cerrar corre un chequeo que puede negarse a sellarla.
-  final bool isFormatSession;
+  /// El workflow era del proyecto y ahora es de la sesión, que es donde
+  /// siempre perteneció: un proyecto hace cosas de clases distintas —armar
+  /// la carpeta de tareas, resolver un ticket, evaluar un requerimiento— y
+  /// mandarlas a todas por la misma fila de agentes es la razón por la que
+  /// formatear unos markdown terminaba abriendo un PR.
+  ///
+  /// Vacío solo mientras la sesión no arrancó y nadie eligió. Las sesiones
+  /// guardadas antes de que esto existiera se migran al abrir la app.
+  final String workflowId;
 
   /// Accumulated cost of every CLI turn this session ran (USD), total and
   /// broken down by member profile — the ledger that makes the economics of
@@ -90,7 +103,7 @@ class Session {
     this.extraProfileIds = const [],
     this.plan = const [],
     this.request = '',
-    this.isFormatSession = false,
+    this.workflowId = '',
     this.currentStepIndex = 0,
     this.isRunning = false,
     this.costUsd = 0,
@@ -118,7 +131,7 @@ class Session {
     List<String>? extraProfileIds,
     List<SessionPlanItem>? plan,
     String? request,
-    bool? isFormatSession,
+    String? workflowId,
     int? currentStepIndex,
     bool? isRunning,
     double? costUsd,
@@ -142,7 +155,7 @@ class Session {
       extraProfileIds: extraProfileIds ?? this.extraProfileIds,
       plan: plan ?? this.plan,
       request: request ?? this.request,
-      isFormatSession: isFormatSession ?? this.isFormatSession,
+      workflowId: workflowId ?? this.workflowId,
       currentStepIndex: currentStepIndex ?? this.currentStepIndex,
       isRunning: isRunning ?? this.isRunning,
       costUsd: costUsd ?? this.costUsd,
@@ -167,7 +180,7 @@ class Session {
     'extraProfileIds': extraProfileIds,
     'plan': plan.map((item) => item.toJson()).toList(),
     'request': request,
-    'isFormatSession': isFormatSession,
+    'workflowId': workflowId,
     'currentStepIndex': currentStepIndex,
     'isRunning': isRunning,
     'costUsd': costUsd,
@@ -197,7 +210,14 @@ class Session {
           )
           .toList(),
       request: json['request'] as String? ?? '',
-      isFormatSession: json['isFormatSession'] as bool? ?? false,
+      // Lo de antes era un booleano. Se traduce a una marca que `_revived`
+      // cambia por el id del workflow de formato en el primer arranque, y
+      // que desaparece en cuanto se guarda de nuevo.
+      workflowId:
+          json['workflowId'] as String? ??
+          ((json['isFormatSession'] as bool? ?? false)
+              ? kSessionFormatMigrationMark
+              : ''),
       currentStepIndex: json['currentStepIndex'] as int? ?? 0,
       isRunning: json['isRunning'] as bool? ?? false,
       costUsd: (json['costUsd'] as num?)?.toDouble() ?? 0,
@@ -229,7 +249,7 @@ class Session {
           listEquals(extraProfileIds, other.extraProfileIds) &&
           listEquals(plan, other.plan) &&
           request == other.request &&
-          isFormatSession == other.isFormatSession &&
+          workflowId == other.workflowId &&
           currentStepIndex == other.currentStepIndex &&
           isRunning == other.isRunning &&
           costUsd == other.costUsd &&
@@ -253,7 +273,7 @@ class Session {
     Object.hashAll(extraProfileIds),
     Object.hashAll(plan),
     request,
-    isFormatSession,
+    workflowId,
     currentStepIndex,
     isRunning,
     costUsd,

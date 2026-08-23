@@ -17,6 +17,7 @@ import 'package:flutter/material.dart';
 import 'package:logger_rs/logger_rs.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
 
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/core/ui/form_panel.dart';
 import 'package:keel_ui/src/integrations/catalog_shape/catalog_shape.dart';
 import 'package:keel_ui/src/modules/app_status/viewmodel/app_status_viewmodel.dart';

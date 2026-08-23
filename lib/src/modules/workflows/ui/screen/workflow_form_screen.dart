@@ -5,6 +5,7 @@ import 'package:keel_ui/src/core/ui/form_panel.dart';
 import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
 import 'package:keel_ui/src/modules/agent_profiles/viewmodel/agent_profiles_viewmodel.dart';
 import 'package:keel_ui/src/modules/agents/model/agent_icon_colors.dart';
+import 'package:keel_ui/src/modules/skills/ui/widget/skill_multi_select.dart';
 import 'package:keel_ui/src/modules/workflows/model/workflow.dart';
 import 'package:keel_ui/src/modules/workflows/viewmodel/workflows_viewmodel.dart';
 import 'package:keel_ui/src/shared/shared.dart';
@@ -44,6 +45,7 @@ class _WorkflowFormScreenState extends State<WorkflowFormScreen> {
     text: widget.initial?.whenToApply,
   );
   late List<WorkflowStep> _steps = [...?widget.initial?.steps];
+  late List<String> _skillNames = [...?widget.initial?.skillNames];
   String? _nameError;
   String? _formError;
 
@@ -113,12 +115,17 @@ class _WorkflowFormScreenState extends State<WorkflowFormScreen> {
             name: name,
             whenToApply: _whenToApplyController.text,
             steps: _steps,
+            skillNames: _skillNames,
           )
+        // `buildsRoadmap` no viaja: no está en el formulario y pasarlo en
+        // null es lo que hace que editarle el nombre al workflow de formato
+        // no le saque lo que lo hace ser el de formato.
         : viewmodel.updateWorkflow(
             initial.id,
             name: name,
             whenToApply: _whenToApplyController.text,
             steps: _steps,
+            skillNames: _skillNames,
           );
 
     if (error != null) {
@@ -180,6 +187,20 @@ class _WorkflowFormScreenState extends State<WorkflowFormScreen> {
                   child: Text(
                     'Así el proyecto sabe cuál de sus workflows corresponde '
                     'a lo que pediste.',
+                    style: TextStyle(fontSize: 11),
+                  ),
+                ),
+                const _SectionDivider('Skills'),
+                SkillMultiSelect(
+                  selectedNames: _skillNames,
+                  onChanged: (names) => setState(() => _skillNames = names),
+                ),
+                const Padding(
+                  padding: EdgeInsets.only(top: 6, left: 4),
+                  child: Text(
+                    'Van a TODOS los turnos de este workflow, además de las '
+                    'del agente. Las del agente son quién es; estas son qué '
+                    'está haciendo.',
                     style: TextStyle(fontSize: 11),
                   ),
                 ),

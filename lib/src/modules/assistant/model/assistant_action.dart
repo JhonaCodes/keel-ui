@@ -73,10 +73,14 @@ class CreateWorkflowAction extends AssistantAction {
   final String whenToApply;
   final List<WorkflowStep> steps;
 
+  /// Skills que el workflow le suma a todos sus turnos, por nombre.
+  final List<String> skillNames;
+
   const CreateWorkflowAction({
     required this.name,
     required this.whenToApply,
     required this.steps,
+    this.skillNames = const [],
   });
 }
 

@@ -170,9 +170,8 @@ class _FaultRowState extends State<_FaultRow> {
                     visualDensity: VisualDensity.compact,
                     iconSize: 15,
                     icon: const Icon(Icons.copy_all_outlined),
-                    onPressed: () => Clipboard.setData(
-                      ClipboardData(text: fault.asText),
-                    ),
+                    onPressed: () =>
+                        Clipboard.setData(ClipboardData(text: fault.asText)),
                   ),
                   if (fault.detail.isNotEmpty)
                     Icon(

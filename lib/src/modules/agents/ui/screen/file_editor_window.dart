@@ -1,8 +1,11 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:window_manager/window_manager.dart';
 
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
+import 'package:keel_ui/src/core/ui/app_locale.dart';
 import 'package:keel_ui/src/core/ui/app_theme.dart';
 
 import 'package:keel_ui/src/core/services/agent_bridge_channel.dart';
@@ -85,6 +88,13 @@ class _FileEditorWindowState extends State<FileEditorWindow> {
         brightness: Brightness.dark,
         useMaterial3: true,
       ),
+      locale: localeForLanguageCode(widget.arguments.localeCode),
+      localizationsDelegates: const [
+        AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: AppLocalizations.supportedLocales,
       home: Scaffold(
         appBar: AppBar(title: Text(_fileName)),
         body: Padding(

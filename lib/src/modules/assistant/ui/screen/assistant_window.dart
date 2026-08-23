@@ -1,9 +1,12 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
 import 'package:window_manager/window_manager.dart';
 
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
+import 'package:keel_ui/src/core/ui/app_locale.dart';
 import 'package:keel_ui/src/core/ui/app_theme.dart';
 import 'package:keel_ui/src/modules/agents/ui/view/chat_view.dart';
 import 'package:keel_ui/src/modules/assistant/model/assistant_window_state.dart';
@@ -59,52 +62,59 @@ class _AssistantWindowState extends State<AssistantWindow> {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Asistente',
-      debugShowCheckedModeBanner: false,
-      theme: buildAppTheme(),
-      home:
-          ReactiveViewModelBuilder<
-            AssistantWindowViewModel,
-            AssistantWindowState
-          >(
-            viewmodel: AssistantWindowClientService.instance.notifier,
-            build: (state, viewmodel, keep) {
-              final snapshot = state.agent;
-              return Scaffold(
-                appBar: AppBar(
-                  title: const Text('Asistente'),
-                  actions: [
-                    if (state.sessions.length > 1)
-                      _SessionsMenu(
-                        sessions: state.sessions,
-                        selectedId: state.activeAgentId,
-                        onSelect: (id) =>
-                            unawaited(viewmodel.selectSession(id)),
-                      ),
-                    IconButton(
-                      tooltip: 'Nueva conversación',
-                      icon: const Icon(Icons.add_comment_outlined),
-                      onPressed: () => unawaited(viewmodel.newSession()),
-                    ),
-                  ],
+    return ReactiveViewModelBuilder<
+      AssistantWindowViewModel,
+      AssistantWindowState
+    >(
+      viewmodel: AssistantWindowClientService.instance.notifier,
+      build: (state, viewmodel, keep) {
+        final snapshot = state.agent;
+        return MaterialApp(
+          title: 'Asistente',
+          debugShowCheckedModeBanner: false,
+          theme: buildAppTheme(),
+          // Empujado desde MAIN junto con el resto del estado — ver
+          // `language` en `AssistantWindowState`.
+          locale: localeForLanguageCode(state.language),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(
+            appBar: AppBar(
+              title: const Text('Asistente'),
+              actions: [
+                if (state.sessions.length > 1)
+                  _SessionsMenu(
+                    sessions: state.sessions,
+                    selectedId: state.activeAgentId,
+                    onSelect: (id) => unawaited(viewmodel.selectSession(id)),
+                  ),
+                IconButton(
+                  tooltip: 'Nueva conversación',
+                  icon: const Icon(Icons.add_comment_outlined),
+                  onPressed: () => unawaited(viewmodel.newSession()),
                 ),
-                body: snapshot == null
-                    ? const Center(child: CircularProgressIndicator())
-                    : ChatView(
-                        key: ValueKey(snapshot.id),
-                        agent: snapshot.toAgent(),
-                        controller: _composer,
-                        actions: const BridgeChatActions(),
-                        fontScaleOverride: state.chatFontScale,
-                        emptyState: AssistantWelcomeCard(
-                          onExampleTap: (prompt) =>
-                              setState(() => _composer.text = prompt),
-                        ),
-                      ),
-              );
-            },
+              ],
+            ),
+            body: snapshot == null
+                ? const Center(child: CircularProgressIndicator())
+                : ChatView(
+                    key: ValueKey(snapshot.id),
+                    agent: snapshot.toAgent(),
+                    controller: _composer,
+                    actions: const BridgeChatActions(),
+                    fontScaleOverride: state.chatFontScale,
+                    emptyState: AssistantWelcomeCard(
+                      onExampleTap: (prompt) =>
+                          setState(() => _composer.text = prompt),
+                    ),
+                  ),
           ),
+        );
+      },
     );
   }
 }

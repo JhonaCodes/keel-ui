@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:keel_ui/src/core/services/local_database.dart';
 import 'package:keel_ui/src/core/ui/app_theme.dart';
 import 'package:keel_ui/src/modules/projects/model/project.dart';
+import 'package:keel_ui/src/modules/projects/model/roadmap_format_skill.dart';
 import 'package:keel_ui/src/modules/projects/model/session.dart';
 import 'package:keel_ui/src/modules/projects/ui/view/project_state_view.dart';
 import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
@@ -16,6 +17,9 @@ ProjectsViewModel get _projects => ProjectsService.instance.notifier;
 WorkspaceViewModel get _workspace => WorkspaceService.instance.notifier;
 
 /// Un proyecto con UNA sesión en el estado que se quiera probar.
+///
+/// «Ser la sesión de formato» ya no es un booleano: es correr el workflow
+/// que construye la carpeta de tareas.
 Project _conFormato(SessionStatus status, {bool formato = true}) => Project(
   id: 'p',
   name: 'p',
@@ -28,7 +32,7 @@ Project _conFormato(SessionStatus status, {bool formato = true}) => Project(
       title: 'Definir el formato',
       createdAt: DateTime(2026, 8, 23),
       status: status,
-      isFormatSession: formato,
+      workflowId: formato ? roadmapFormatWorkflowId() : 'otro-cualquiera',
     ),
   ],
 );
@@ -41,6 +45,9 @@ void main() {
 
   setUp(() async {
     tmp = Directory.systemTemp.createTempSync('keel-formato');
+    // El workflow de formato es de la app y se siembra al arrancar; en un
+    // test hay que sembrarlo a mano.
+    await seedRoadmapFormatWorkflow();
     await _projects.ready;
     for (final project in [..._projects.data.projects]) {
       _projects.deleteProject(project.id);
@@ -64,11 +71,9 @@ void main() {
     if (tmp.existsSync()) tmp.deleteSync(recursive: true);
   });
 
-  Session? formatSessionOf(String id) => _projects.data.projects
-      .firstWhere((project) => project.id == id)
-      .sessions
-      .where((session) => session.isFormatSession)
-      .firstOrNull;
+  Session? formatSessionOf(String id) => ProjectsViewModel.openFormatSessionOf(
+    _projects.data.projects.firstWhere((project) => project.id == id),
+  );
 
   group('la sesión que arregla el formato', () {
     test('devuelve su id para que el que apretó navegue', () {
@@ -79,6 +84,21 @@ void main() {
       expect(formatSessionOf(projectId)?.title, 'Definir el formato');
     });
 
+    test('corre con SU workflow, no con el del proyecto', () {
+      final sessionId = _projects.startRoadmapFormatSession(projectId);
+      final session = _projects.data.projects.single.sessions
+          .firstWhere((entry) => entry.id == sessionId);
+      final workflow = _projects.workflowOf(session);
+
+      // Un paso, cualquier miembro, el skill del formato adentro. Antes esto
+      // corría el workflow del proyecto entero y terminaba abriendo un PR
+      // por unos markdown.
+      expect(workflow?.name, kRoadmapFormatWorkflowName);
+      expect(workflow?.steps, hasLength(1));
+      expect(workflow?.buildsRoadmap, isTrue);
+      expect(workflow?.skillNames, contains(kRoadmapFormatSkillName));
+    });
+
     test('pedirla dos veces no abre dos: devuelve la que ya está', () {
       final primera = _projects.startRoadmapFormatSession(projectId);
       final segunda = _projects.startRoadmapFormatSession(projectId);
@@ -86,7 +106,9 @@ void main() {
       expect(segunda, primera);
       final project = _projects.data.projects.single;
       expect(
-        project.sessions.where((s) => s.isFormatSession).length,
+        project.sessions
+            .where((s) => s.workflowId == roadmapFormatWorkflowId())
+            .length,
         1,
         reason: 'dos sesiones sobre la misma carpeta se pisan los archivos',
       );
@@ -157,16 +179,21 @@ void main() {
       await tester.pumpWidget(app());
       await tester.pump();
 
+      // El texto cambia según esté corriendo o esperándote; lo que no cambia
+      // es que ya no ofrece abrir otra.
       expect(find.text('Definir el formato'), findsNothing);
-      expect(find.text('Ir a la sesión abierta'), findsOneWidget);
+      final ir = find.textContaining('ir a la sesión').evaluate().isNotEmpty
+          ? find.textContaining('ir a la sesión')
+          : find.text('Ir a la sesión abierta');
+      expect(ir, findsOneWidget);
 
-      await tester.tap(find.text('Ir a la sesión abierta'));
+      await tester.tap(ir);
       await tester.pump();
 
       expect(_workspace.data.lens, WorkspaceLens.session);
       expect(
         _projects.data.projects.single.sessions
-            .where((s) => s.isFormatSession)
+            .where((s) => s.workflowId == roadmapFormatWorkflowId())
             .length,
         1,
       );

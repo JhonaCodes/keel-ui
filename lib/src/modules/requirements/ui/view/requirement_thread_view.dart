@@ -6,6 +6,7 @@ import 'package:keel_ui/src/modules/projects/model/project.dart';
 import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
 import 'package:keel_ui/src/modules/requirements/model/internal_requirement.dart';
 import 'package:keel_ui/src/modules/requirements/viewmodel/requirements_viewmodel.dart';
+import 'package:keel_ui/src/modules/workflows/ui/screen/workflow_picker_panel.dart';
 import 'package:keel_ui/src/modules/workspace/viewmodel/workspace_viewmodel.dart';
 
 /// Los dos lados, con su color. Origen y destino se distinguen a simple vista
@@ -594,7 +595,7 @@ class _ClosureBar extends StatelessWidget {
   /// renderizado como pedido. No es una elección de estilo: una sesión nueva
   /// es la única forma de que el trabajo del destino no arrastre nada del
   /// contexto de quien pidió.
-  void _tomarYEvaluar(BuildContext context) {
+  Future<void> _tomarYEvaluar(BuildContext context) async {
     final projects = ProjectsService.instance.notifier;
     final from = projects.data.projects
         .where((project) => project.id == requirement.fromProjectId)
@@ -604,6 +605,27 @@ class _ClosureBar extends StatelessWidget {
         .firstOrNull;
     if (to == null) return;
 
+    // Evaluar un requerimiento no es resolver un ticket, y el destino puede
+    // tener un workflow para cada cosa. Con uno solo no se pregunta: una
+    // pregunta con una sola respuesta es un click de más.
+    final options = projects.choosableWorkflowsOf(to);
+    var workflowId = to.activeWorkflowId ?? '';
+    if (options.length > 1) {
+      final picked = await openWorkflowPicker(
+        context,
+        options: options,
+        currentId: workflowId,
+        title: 'Con qué workflow lo evalúa',
+        note:
+            'Va a abrir una sesión nueva en #${to.name}. Elegí la fila de '
+            'agentes que corresponde a este pedido — evaluar un requerimiento '
+            'rara vez es lo mismo que resolver un ticket.',
+      );
+      if (picked == null) return;
+      workflowId = picked;
+    }
+    if (!context.mounted) return;
+
     final sessionId = projects.startRequirementSession(
       projectId: to.id,
       sessionTitle: '${requirement.code} · ${requirement.title}',
@@ -612,6 +634,7 @@ class _ClosureBar extends StatelessWidget {
         fromProject: from?.name ?? 'un proyecto que ya no existe',
         toProject: to.name,
       ),
+      workflowId: workflowId,
     );
     if (sessionId == null) return;
     // Un botón que apretaste SÍ navega. La regla de que crear no es ir vale

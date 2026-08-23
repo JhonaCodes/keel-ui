@@ -23,7 +23,9 @@ class _VaultRestorePanelState extends State<VaultRestorePanel> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Restaurar desde el vault')),
+      appBar: AppBar(
+        title: Text(AppLocalizations.of(context).actionRestoreFromVault),
+      ),
       body: ReactiveViewModelBuilder<SystemVaultViewModel, SystemVaultState>(
         viewmodel: SystemVaultService.instance.notifier,
         build: (vault, viewmodel, keep) {
@@ -100,7 +102,9 @@ class _VaultClonePanelState extends State<VaultClonePanel> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Clonar vault')),
+      appBar: AppBar(
+        title: Text(AppLocalizations.of(context).actionCloneVault),
+      ),
       body: ReactiveViewModelBuilder<SystemVaultViewModel, SystemVaultState>(
         viewmodel: SystemVaultService.instance.notifier,
         build: (vault, viewmodel, keep) {
@@ -149,7 +153,7 @@ class _VaultClonePanelState extends State<VaultClonePanel> {
                         setState(() => _sections = null);
                       },
                 icon: const Icon(Icons.cloud_download_outlined, size: 18),
-                label: const Text('Clonar y leer'),
+                label: Text(AppLocalizations.of(context).actionCloneAndRead),
               ),
               _VaultPreview(
                 preview: preview,

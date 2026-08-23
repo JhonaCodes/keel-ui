@@ -157,7 +157,16 @@ flowchart LR
     SES --> CENTRO
     REQ --> CENTRO
     SUELTOS --> CENTRO
+
+    CENTRO --> CHAT["Chat<br>el hilo compartido"]
+    CENTRO --> MAPA["Mapa<br>el recorrido, con zoom"]
 ```
+
+Una sesión se mira de dos formas. **Chat** es el hilo: quién dijo qué, en
+orden. **Mapa** es el mismo trabajo como recorrido —una columna por paso, los
+subagentes colgando abajo, las consultas volviendo por arriba— y ahí se ve lo
+que el hilo no puede mostrar: en qué anda cada uno *ahora* y qué está
+razonando mientras lo hace ([F31](docs/features/31-mapa-de-razonamiento.md)).
 
 La regla que ordena todo eso: **el riel abre cosas que se cierran**
 —catálogos, formularios, configuración— y el sidebar elige **qué conversación

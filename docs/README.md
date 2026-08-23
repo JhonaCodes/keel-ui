@@ -61,12 +61,14 @@ completo; esto es el detalle.
 | [F12](features/12-jobs-api.md) | API local de trabajos programados |
 | [F27](features/27-arranque-y-espera.md) | El arranque, y decir que estás esperando |
 | [F30](features/30-maquina.md) | Servicios, consumo y fierro |
+| [F31](features/31-mapa-de-razonamiento.md) | El mapa: ver cómo se piensa |
 
 ## Lo demás
 
-- **`mockup/`** — los dos dibujos que se aprobaron antes de escribir Dart:
-  [proyectos y requerimientos](mockup/proyectos-y-requerimientos.html) y
-  [integraciones, tableros y máquina](mockup/integraciones-tableros-y-maquina.html).
+- **`mockup/`** — los dibujos que se aprobaron antes de escribir Dart:
+  [proyectos y requerimientos](mockup/proyectos-y-requerimientos.html),
+  [integraciones, tableros y máquina](mockup/integraciones-tableros-y-maquina.html)
+  y [el mapa de razonamiento](mockup/mapa-de-razonamiento.html).
   Están hechos con los tokens exactos de `app_theme.dart`, así que sirven
   como referencia de lo que la UI tiene que parecer.
 - **`plantillas/TASKS/`** — el esqueleto de un roadmap de proyecto (F23),

@@ -204,6 +204,25 @@ Mapa de lo que existe en esta app y cómo se relaciona:
   para el porcentaje de contexto y se tiraban. Los CLIs que aparecen como
   "detectado, sin adaptador" están instalados pero Keel todavía no sabe
   correrlos: no se le pueden asignar a un agente.
+- **El mapa de la sesión**: el canal de un proyecto tiene dos pestañas, Chat
+  y **Mapa**. El mapa es un lienzo que se recorre con zoom y arrastre, con
+  tres carriles fijos —arriba vuelve, al medio avanza, abajo se delega— y una
+  columna por PASO del workflow, no por agente: un workflow puede darle
+  cuatro pasos al mismo miembro y colapsarlos sería un nudo de flechas.
+  Cada nodo es un solo cuadro que cambia de estado (reposo, pensando,
+  trabajando, escribiendo, contestando, esperándote, cerrado, cortó) y le
+  cuelga un cuadro punteado con la primera frase de lo que resolvió. Nada se
+  apila: diez consultas entre el mismo par son un contador, no diez globos.
+  Cuando un miembro abre un subagente con `Task`, el subagente tiene NODO
+  PROPIO en el carril de abajo, con lo que se le pidió, lo que está razonando
+  y lo que devolvió — el CLI corre con `--forward-subagent-text`, que es lo
+  que separa su pensamiento del de su padre. Sus tokens no se pueden separar:
+  el CLI los suma al turno del padre, y el mapa lo dice así.
+  Un clic en cualquier nodo abre su panel: le pidió · cómo razona · qué hizo ·
+  qué devolvió · números, y un campo para escribirle. A un subagente EN CURSO
+  no se le puede escribir —el CLI no abre ese canal—; lo que se escriba ahí
+  le llega al miembro que lo abrió. El mapa es de MIRAR: no tenés tools para
+  moverlo ni para cambiarlo.
 - **Vos mismo (Keel AI)**: tu chat vive en una VENTANA propia del sistema
   operativo; mientras conversás, la app principal se actualiza en vivo con
   cada cosa que creás.

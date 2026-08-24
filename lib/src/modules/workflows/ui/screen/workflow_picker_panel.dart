@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:keel_ui/src/core/ui/form_panel.dart';
 import 'package:keel_ui/src/modules/workflows/model/workflow.dart';
 
-/// Elegir con qué workflow corre algo. Devuelve el id, o null si te fuiste.
+/// Elegir con qué workflow adaptativo corre algo. Devuelve el id, o null si
+/// te fuiste.
 ///
 /// Existe porque un proyecto hace trabajos de clases distintas —armar la
 /// carpeta de tareas, resolver un ticket, evaluar un requerimiento— y cada
@@ -67,9 +68,8 @@ class _WorkflowPicker extends StatelessWidget {
             ),
           if (options.isEmpty)
             Text(
-              'Este proyecto no tiene ningún workflow enganchado. Agregale uno '
-              'desde el formulario del proyecto: sin workflow no hay quién '
-              'tome el trabajo ni en qué orden.',
+              'Este proyecto no tiene ningún workflow enganchado. Agregale '
+              'uno desde el formulario del proyecto.',
               style: TextStyle(
                 fontSize: 12.5,
                 height: 1.5,
@@ -129,8 +129,7 @@ class _Option extends StatelessWidget {
                           color: current ? scheme.primary : scheme.onSurface,
                         ),
                       ),
-                      // Para qué sirve, escrito por quien lo armó. Es lo
-                      // único que permite elegir sin abrir los pasos.
+                      // Para qué sirve, escrito por quien lo armó.
                       if (workflow.whenToApply.trim().isNotEmpty) ...[
                         const SizedBox(height: 4),
                         Text(
@@ -145,11 +144,11 @@ class _Option extends StatelessWidget {
                       const SizedBox(height: 5),
                       Text(
                         [
-                          workflow.steps.length == 1
-                              ? '1 paso'
-                              : '${workflow.steps.length} pasos',
-                          for (final step in workflow.steps.take(4)) step.role,
-                          if (workflow.steps.length > 4) '…',
+                          workflow.kind.name,
+                          workflow.policy.resolutionRole.isEmpty
+                              ? 'responsable dinámico'
+                              : workflow.policy.resolutionRole,
+                          '${workflow.policy.maxReplans} reformulaciones',
                         ].join('  ·  '),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,

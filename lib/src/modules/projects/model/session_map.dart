@@ -5,6 +5,7 @@ import 'package:keel_ui/src/modules/agents/model/chat_message.dart';
 import 'package:keel_ui/src/modules/projects/model/session.dart';
 import 'package:keel_ui/src/modules/projects/model/session_live_turn.dart';
 import 'package:keel_ui/src/modules/projects/model/session_subagent.dart';
+import 'package:keel_ui/src/modules/projects/model/work_node.dart';
 import 'package:keel_ui/src/modules/workflows/model/workflow.dart';
 
 /// Cuántos subagentes se dibujan por padre antes de agruparlos.
@@ -15,7 +16,7 @@ import 'package:keel_ui/src/modules/workflows/model/workflow.dart';
 /// abre.
 const kSubagentsDrawn = 4;
 
-enum MapNodeKind { you, step, free, subagent, end }
+enum MapNodeKind { you, work, free, subagent, end }
 
 /// Los ocho estados de un nodo. Es el mismo cuadro cambiando de estado: nada
 /// se apila, nada se acumula.
@@ -33,7 +34,7 @@ enum MapNodeState {
 /// Un evento del mapa, un tipo de línea. Trazo continuo avanza, guiones
 /// largos piden, puntos contestan.
 enum MapEdgeKind {
-  /// El paso del workflow cambió de dueño.
+  /// Una dependencia del grafo quedó satisfecha.
   forward,
 
   /// Alguien volvió a llamar a un nodo de un paso anterior.
@@ -107,12 +108,11 @@ class MapNode {
   /// dibujen encima.
   final int laneSlot;
 
-  final int? stepIndex;
-  final String stepTitle;
+  final String? workNodeId;
+  final String nodeTitle;
 
-  /// La instrucción del paso, tal como la escribe el workflow. Es el encargo
-  /// de verdad; el título es solo su nombre.
-  final String stepInstruction;
+  /// El encargo persistido del nodo. El título es solo su nombre visible.
+  final String nodeInstruction;
 
   final MapNodeState state;
 
@@ -167,9 +167,9 @@ class MapNode {
     this.laneSlot = 0,
     this.profileId,
     this.colorIndex = -1,
-    this.stepIndex,
-    this.stepTitle = '',
-    this.stepInstruction = '',
+    this.workNodeId,
+    this.nodeTitle = '',
+    this.nodeInstruction = '',
     this.state = MapNodeState.idle,
     this.resolved = '',
     this.said = '',
@@ -228,9 +228,8 @@ class MapEdge {
 /// La sesión vista como un recorrido, con carriles fijos: arriba vuelve, al
 /// medio avanza, abajo se delega.
 ///
-/// Las columnas son PASOS, no agentes: un workflow puede darle cuatro pasos
-/// al mismo miembro, y colapsarlos en un solo cuadro convierte una línea
-/// recta en un nudo de flechas que vuelven sobre sí mismas.
+/// Las columnas representan la profundidad de las dependencias, no agentes ni
+/// índices. Dos nodos independientes comparten columna y conservan su grafo.
 /// El cuadro punteado de una réplica: qué se preguntaron dos nodos.
 ///
 /// **Uno por par y nunca dos.** Cuando el mismo par vuelve a hablar, este
@@ -331,6 +330,7 @@ class SessionMap {
     final posts = _postsOf(
       messages: messages,
       members: members,
+      session: session,
       workflow: workflow,
     );
     final firstPostOf = <String, String>{};
@@ -338,13 +338,35 @@ class SessionMap {
       firstPostOf.putIfAbsent(post.profileId, () => post.id);
     }
 
+    final workById = {
+      for (final node in session?.resolutionCase?.nodes ?? const <WorkNode>[])
+        node.id: node,
+    };
+    final workDepth = <String, int>{};
+    int depthOf(String id, [Set<String>? visiting]) {
+      final cached = workDepth[id];
+      if (cached != null) return cached;
+      final work = workById[id];
+      final seen = {...?visiting};
+      if (work == null || !seen.add(id)) return 0;
+      var depth = 0;
+      for (final dependencyId in work.dependencyIds) {
+        final dependencyDepth = depthOf(dependencyId, seen);
+        if (dependencyDepth > depth) depth = dependencyDepth;
+      }
+      return workDepth[id] = depth + 1;
+    }
+
     final nodes = <MapNode>[
       const MapNode(id: 'you', kind: MapNodeKind.you, label: 'vos', column: 0),
     ];
     final edges = <MapEdge>[];
+    final postByWorkNodeId = <String, _Post>{
+      for (final post in posts)
+        if (post.workNodeId != null) post.workNodeId!: post,
+    };
 
-    // ── la fila principal ────────────────────────────────────────────────
-    var previousId = 'you';
+    // ── los nodos de trabajo ─────────────────────────────────────────────
     for (var index = 0; index < posts.length; index++) {
       final post = posts[index];
       final isFirstPost = firstPostOf[post.profileId] == post.id;
@@ -372,7 +394,7 @@ class SessionMap {
       final mine = [
         for (final subagent in subagents)
           if (subagent.parentProfileId == post.profileId &&
-              subagent.parentStepIndex == post.stepIndex)
+              subagent.parentWorkNodeId == post.workNodeId)
             subagent,
       ];
 
@@ -380,10 +402,8 @@ class SessionMap {
           ? mine.length
           : (mine.length > kSubagentsDrawn ? kSubagentsDrawn : mine.length);
 
-      // Contestar una consulta NO hace avanzar el workflow: el paso se
-      // enciende solo cuando alguien lo tomó de verdad. Sin esta distinción,
-      // un miembro que contestó desde un paso futuro dejaba la flecha
-      // encendida hasta él y el mapa mentía sobre dónde va el trabajo.
+      // Contestar una consulta no satisface una dependencia ni completa el
+      // nodo. Por eso se distingue de trabajo efectivo del nodo.
       final tookTheStep = own.any(
         (message) => message.consultOfProfileId == null,
       );
@@ -393,12 +413,14 @@ class SessionMap {
           id: post.id,
           kind: post.kind,
           label: post.label,
-          column: index + 1,
+          column: post.workNodeId == null
+              ? index + 1
+              : depthOf(post.workNodeId!),
           profileId: post.profileId,
           colorIndex: colorOf[post.profileId] ?? -1,
-          stepIndex: post.stepIndex,
-          stepTitle: post.stepTitle,
-          stepInstruction: post.instruction,
+          workNodeId: post.workNodeId,
+          nodeTitle: post.nodeTitle,
+          nodeInstruction: post.instruction,
           state: _stateOf(
             own: own,
             live: isCurrent ? live : null,
@@ -425,15 +447,39 @@ class SessionMap {
         ),
       );
 
-      edges.add(
-        MapEdge(
-          fromId: previousId,
-          toId: post.id,
-          kind: tookTheStep ? MapEdgeKind.forward : MapEdgeKind.untraveled,
-          live: isCurrent && !tookTheStep,
-        ),
-      );
-      previousId = post.id;
+      final dependencies = post.workNodeId == null
+          ? const <String>[]
+          : workById[post.workNodeId]?.dependencyIds ?? const <String>[];
+      final relationKind =
+          post.workNodeId != null &&
+              workById[post.workNodeId]?.status != WorkNodeStatus.pending
+          ? MapEdgeKind.forward
+          : tookTheStep
+          ? MapEdgeKind.forward
+          : MapEdgeKind.untraveled;
+      if (dependencies.isEmpty) {
+        edges.add(
+          MapEdge(
+            fromId: 'you',
+            toId: post.id,
+            kind: relationKind,
+            live: isCurrent && !tookTheStep,
+          ),
+        );
+      } else {
+        for (final dependencyId in dependencies) {
+          final dependency = postByWorkNodeId[dependencyId];
+          if (dependency == null) continue;
+          edges.add(
+            MapEdge(
+              fromId: dependency.id,
+              toId: post.id,
+              kind: relationKind,
+              live: isCurrent && !tookTheStep,
+            ),
+          );
+        }
+      }
 
       // ── el carril de abajo ─────────────────────────────────────────────
       for (var slot = 0; slot < drawn; slot++) {
@@ -443,7 +489,9 @@ class SessionMap {
             id: 'sub:${subagent.id}',
             kind: MapNodeKind.subagent,
             label: subagent.agentType,
-            column: index + 1,
+            column: post.workNodeId == null
+                ? index + 1
+                : depthOf(post.workNodeId!),
             lane: 1,
             laneSlot: slot,
             profileId: post.profileId,
@@ -482,7 +530,12 @@ class SessionMap {
         id: 'end',
         kind: MapNodeKind.end,
         label: 'fin',
-        column: posts.length + 1,
+        column:
+            nodes.fold(
+              0,
+              (last, node) => node.column > last ? node.column : last,
+            ) +
+            1,
         state: switch (session?.status) {
           SessionStatus.finished => MapNodeState.done,
           SessionStatus.failed => MapNodeState.failed,
@@ -490,17 +543,26 @@ class SessionMap {
         },
       ),
     );
-    edges.add(
-      MapEdge(
-        fromId: previousId,
-        toId: 'end',
-        kind: switch ((finished, failed)) {
-          (true, _) => MapEdgeKind.finish,
-          (_, true) => MapEdgeKind.failed,
-          _ => MapEdgeKind.untraveled,
-        },
-      ),
-    );
+    final dependedOn = {
+      for (final node in workById.values) ...node.dependencyIds,
+    };
+    final terminals = postByWorkNodeId.entries
+        .where((entry) => !dependedOn.contains(entry.key))
+        .map((entry) => entry.value)
+        .toList();
+    for (final terminal in terminals.isEmpty ? posts : terminals) {
+      edges.add(
+        MapEdge(
+          fromId: terminal.id,
+          toId: 'end',
+          kind: switch ((finished, failed)) {
+            (true, _) => MapEdgeKind.finish,
+            (_, true) => MapEdgeKind.failed,
+            _ => MapEdgeKind.untraveled,
+          },
+        ),
+      );
+    }
 
     final back = _backEdges(
       messages: messages,
@@ -515,15 +577,15 @@ class SessionMap {
   }
 }
 
-/// Un lugar donde pasa trabajo: un paso del workflow, o un miembro que habló
-/// fuera de todo paso.
+/// Un lugar donde pasa trabajo: un nodo de resolución o un miembro que habló
+/// fuera de un caso.
 class _Post {
   final String id;
   final MapNodeKind kind;
   final String label;
   final String profileId;
-  final int? stepIndex;
-  final String stepTitle;
+  final String? workNodeId;
+  final String nodeTitle;
   final String instruction;
 
   const _Post({
@@ -531,56 +593,64 @@ class _Post {
     required this.kind,
     required this.label,
     required this.profileId,
-    required this.stepIndex,
-    this.stepTitle = '',
+    required this.workNodeId,
+    this.nodeTitle = '',
     this.instruction = '',
   });
 }
 
 /// Si este mensaje cuelga de este nodo.
 ///
-/// [isFirstPost] importa por las respuestas a consultas: llevan el paso del
-/// que PREGUNTÓ, no el del que contestó, así que se cuelgan del primer nodo
-/// del que contestó y no de un paso ajeno —ni de los cuatro que ese miembro
-/// tenga en el workflow.
+/// [isFirstPost] importa por las respuestas a consultas: se cuelgan del primer
+/// nodo del que contestó y no del nodo del que preguntó.
 bool _belongsTo(ChatMessage message, _Post post, {required bool isFirstPost}) {
   if (message.role != ChatRole.assistant) return false;
   if (message.authorProfileId != post.profileId) return false;
   if (message.consultOfProfileId != null) return isFirstPost;
-  return message.stepIndex == post.stepIndex;
+  return message.workNodeId == post.workNodeId;
 }
 
-/// Las columnas, en orden. Con workflow son sus pasos; sin workflow, los
-/// miembros en el orden en que aparecen. Los que hablaron sin paso se cuelgan
-/// al final, antes del fin.
+/// Los nodos del caso se ordenan visualmente por dependencias. Fuera de un
+/// caso, los miembros se agregan detrás según su primera intervención.
 List<_Post> _postsOf({
   required List<ChatMessage> messages,
   required List<AgentProfile> members,
+  required Session? session,
   required Workflow? workflow,
 }) {
   final posts = <_Post>[];
   final placed = <String>{};
 
-  final steps = workflow?.steps ?? const <WorkflowStep>[];
-  for (var index = 0; index < steps.length; index++) {
-    final owner = memberForRole(members, steps[index].role);
+  final work = session?.resolutionCase?.nodes ?? const <WorkNode>[];
+  for (var index = 0; index < work.length; index++) {
+    final persistedOwner = work[index].ownerProfileId.isEmpty
+        ? null
+        : members
+              .where((member) => member.id == work[index].ownerProfileId)
+              .firstOrNull;
+    final owner =
+        persistedOwner ??
+        memberForRole(members, work[index].ownerRole) ??
+        members.firstOrNull;
     if (owner == null) continue;
     posts.add(
       _Post(
-        id: 'step:$index',
-        kind: MapNodeKind.step,
+        id: 'node:${work[index].id}',
+        kind: MapNodeKind.work,
         label: owner.name,
         profileId: owner.id,
-        stepIndex: index,
-        stepTitle: steps[index].title,
-        instruction: steps[index].instruction,
+        workNodeId: work[index].id,
+        nodeTitle: work[index].title.isEmpty
+            ? work[index].kind.name
+            : work[index].title,
+        instruction: work[index].instruction,
       ),
     );
     placed.add(owner.id);
   }
 
-  // Sin workflow no hay columnas prestadas: el elenco se ordena por quién
-  // habló primero, y los que todavía no hablaron van detrás, en reposo.
+  // Fuera de un caso, el elenco se ordena por quién habló primero; quien no
+  // habló todavía queda detrás, en reposo.
   final spoke = <String>[];
   for (final message in messages) {
     final author = message.authorProfileId;
@@ -588,11 +658,7 @@ List<_Post> _postsOf({
     if (!spoke.contains(author)) spoke.add(author);
   }
 
-  for (final id in [
-    ...spoke,
-    if (workflow == null)
-      for (final member in members) member.id,
-  ]) {
+  for (final id in [...spoke, for (final member in members) member.id]) {
     if (placed.contains(id)) continue;
     final member = members.where((entry) => entry.id == id).firstOrNull;
     if (member == null) continue;
@@ -603,7 +669,7 @@ List<_Post> _postsOf({
         kind: MapNodeKind.free,
         label: member.name,
         profileId: id,
-        stepIndex: null,
+        workNodeId: null,
       ),
     );
   }
@@ -617,8 +683,7 @@ bool _isCurrentPost(
   List<_Post> posts,
   SessionLiveTurn live,
 ) {
-  // Un turno de consulta no está parado en el paso en curso: está parado
-  // donde vive el que contesta.
+  // Un turno de consulta no pertenece al nodo activo: vive donde contesta.
   if (live.consultOfProfileId != null) {
     final first = posts.firstWhere(
       (entry) => entry.profileId == live.profileId,
@@ -626,12 +691,16 @@ bool _isCurrentPost(
     );
     return first.id == post.id;
   }
-  if (post.stepIndex == null) {
+  if (post.workNodeId == null) {
     return posts.every(
-      (entry) => entry.profileId != post.profileId || entry.stepIndex == null,
+      (entry) => entry.profileId != post.profileId || entry.workNodeId == null,
     );
   }
-  return post.stepIndex == session?.currentStepIndex;
+  final runningNodeId = session?.resolutionCase?.nodes
+      .where((node) => node.status == WorkNodeStatus.running)
+      .firstOrNull
+      ?.id;
+  return post.workNodeId == runningNodeId;
 }
 
 MapNodeState _stateOf({

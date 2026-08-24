@@ -5,6 +5,7 @@ import 'package:keel_ui/src/modules/agents/model/agent_model_option.dart';
 import 'package:keel_ui/src/modules/agents/model/effort_level.dart';
 import 'package:keel_ui/src/modules/assistant/model/assistant_action.dart';
 import 'package:keel_ui/src/modules/knowledge/viewmodel/knowledge_viewmodel.dart';
+import 'package:keel_ui/src/modules/hooks/viewmodel/hooks_viewmodel.dart';
 import 'package:keel_ui/src/modules/mcp_servers/viewmodel/mcp_servers_viewmodel.dart';
 import 'package:keel_ui/src/modules/rules/viewmodel/rules_viewmodel.dart';
 import 'package:keel_ui/src/modules/skills/viewmodel/skills_viewmodel.dart';
@@ -12,6 +13,7 @@ import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
 import 'package:keel_ui/src/modules/tools/model/tool.dart';
 import 'package:keel_ui/src/modules/tools/viewmodel/tools_viewmodel.dart';
 import 'package:keel_ui/src/modules/workflows/viewmodel/workflows_viewmodel.dart';
+import 'package:keel_ui/src/modules/workflows/model/workflow.dart';
 
 /// Runs every parsed action against the same ViewModels the app's own forms
 /// use — nothing here talks to a repository directly. [actions] must already
@@ -122,7 +124,8 @@ AssistantActionResult executeAgentAction(CreateAgentAction action) {
       action: action,
       ok: false,
       message:
-          'Proveedor "$providerAlias" desconocido — válidos: claude, codex.',
+          'Proveedor "$providerAlias" desconocido — válidos: '
+          '${AgentProvider.values.map((entry) => entry.alias).join(', ')}.',
     );
   }
 
@@ -169,12 +172,17 @@ AssistantActionResult executeAgentAction(CreateAgentAction action) {
       (base) => base.name,
     ),
   );
+  final hooks = _keepKnown(
+    action.hookNames,
+    known: HooksService.instance.notifier.data.hooks.map((hook) => hook.name),
+  );
   final dropped = _describeDropped({
     'skills': skills.dropped,
     'reglas': rules.dropped,
     'tools': tools.dropped,
     'MCPs': mcpServers.dropped,
     'bases de saber': knowledgeBases.dropped,
+    'hooks': hooks.dropped,
   });
 
   if (existing == null) {
@@ -188,6 +196,7 @@ AssistantActionResult executeAgentAction(CreateAgentAction action) {
       systemPrompt: systemPrompt,
       skills: skills.kept,
       rules: rules.kept,
+      hooks: hooks.kept,
       tools: tools.kept,
       mcpServers: mcpServers.kept,
       knowledgeBaseNames: knowledgeBases.kept,
@@ -195,8 +204,12 @@ AssistantActionResult executeAgentAction(CreateAgentAction action) {
       provider: provider ?? AgentProvider.claude,
       // Per provider: a codex agent seeded with a Claude alias would carry a
       // model its own CLI has never heard of.
-      model: defaultModelFor(provider ?? AgentProvider.claude),
-      effort: kDefaultEffortAlias,
+      model: action.model?.trim().isNotEmpty == true
+          ? action.model!.trim()
+          : defaultModelFor(provider ?? AgentProvider.claude),
+      effort: action.effort?.trim().isNotEmpty == true
+          ? action.effort!.trim()
+          : kDefaultEffortAlias,
       // Not attributed to keelai: this agent isn't spawned inside a project
       // session, so a "spawn" edge in a project's map view would be spurious.
       createdByProfileId: null,
@@ -222,6 +235,7 @@ AssistantActionResult executeAgentAction(CreateAgentAction action) {
     ...existing.knowledgeBaseNames,
     ...knowledgeBases.kept,
   }.toList();
+  final mergedHooks = {...existing.hooks, ...hooks.kept}.toList();
   final instructions = action.instructions;
   final systemPrompt = instructions == null
       ? existing.systemPrompt
@@ -230,6 +244,14 @@ AssistantActionResult executeAgentAction(CreateAgentAction action) {
           instructions,
         ].where((part) => part.isNotEmpty).join('\n\n');
 
+  final resolvedProvider = provider ?? existing.provider;
+  final requestedModel = action.model?.trim();
+  final resolvedModel = requestedModel?.isNotEmpty == true
+      ? requestedModel!
+      : provider != null && provider != existing.provider
+      ? defaultModelFor(resolvedProvider)
+      : existing.model;
+  final requestedEffort = action.effort?.trim();
   final error = viewmodel.updateProfile(
     existing.id,
     name: existing.name,
@@ -237,13 +259,16 @@ AssistantActionResult executeAgentAction(CreateAgentAction action) {
     systemPrompt: systemPrompt,
     skills: mergedSkills,
     rules: mergedRules,
+    hooks: mergedHooks,
     tools: mergedTools,
     mcpServers: mergedMcpServers,
     knowledgeBaseNames: mergedKnowledgeBases,
     canManageSystem: action.systemBuilder,
-    provider: provider,
-    model: existing.model,
-    effort: existing.effort,
+    provider: resolvedProvider,
+    model: resolvedModel,
+    effort: requestedEffort?.isNotEmpty == true
+        ? requestedEffort!
+        : existing.effort,
   );
   return AssistantActionResult(
     action: action,
@@ -281,55 +306,76 @@ String _describeDropped(Map<String, List<String>> byKind) {
 
 AssistantActionResult executeWorkflowAction(CreateWorkflowAction action) {
   final viewmodel = WorkflowsService.instance.notifier;
-  if (viewmodel.data.workflows.any(
-    (workflow) => workflow.name == action.name,
-  )) {
-    return AssistantActionResult(
-      action: action,
-      ok: true,
-      message: 'El workflow "${action.name}" ya existía, lo reusé.',
-    );
-  }
-  if (action.steps.isEmpty) {
-    return AssistantActionResult(
-      action: action,
-      ok: false,
-      message: 'El workflow "${action.name}" no tiene pasos válidos.',
-    );
-  }
-  final error = viewmodel.createWorkflow(
-    name: action.name,
-    whenToApply: action.whenToApply,
-    steps: action.steps,
-    skillNames: action.skillNames,
+  final existing = viewmodel.data.workflows
+      .where((workflow) => workflow.name == action.name)
+      .firstOrNull;
+  final policy = WorkflowPolicy(
+    resolutionRole: action.resolutionRole,
+    requiredSkillNames: action.skillNames,
+    requiredRuleNames: action.requiredRuleNames,
+    requiredKnowledgeBaseNames: action.requiredKnowledgeBaseNames,
+    qualityGates: action.qualityGates.isEmpty
+        ? _defaultWorkflowGates(action.kind)
+        : action.qualityGates,
+    maxReplans: action.maxReplans ?? 2,
+    maxSubagents: action.maxSubagents ?? 2,
   );
+  final error = existing == null
+      ? viewmodel.createWorkflow(
+          name: action.name,
+          whenToApply: action.whenToApply,
+          kind: action.kind,
+          policy: policy,
+          skillNames: action.skillNames,
+          buildsRoadmap: action.buildsRoadmap ?? false,
+          capabilities: action.capabilities.isEmpty
+              ? null
+              : action.capabilities,
+        )
+      : viewmodel.updateWorkflow(
+          existing.id,
+          name: action.name,
+          whenToApply: action.whenToApply.isEmpty
+              ? existing.whenToApply
+              : action.whenToApply,
+          kind: action.kind,
+          policy: policy,
+          skillNames: action.skillNames,
+          buildsRoadmap: action.buildsRoadmap,
+          capabilities: action.capabilities.isEmpty
+              ? null
+              : action.capabilities,
+        );
   if (error != null) {
     return AssistantActionResult(action: action, ok: false, message: error);
   }
 
-  // Un paso encuentra a su agente por rol (o, si nadie lo tiene, por
-  // handle). Un rol que no le corresponde a NINGÚN perfil registrado deja al
-  // paso huérfano: el proyecto lo muestra como "sin agente para X" y ese
-  // paso no lo ejecuta nadie. No se rechaza el workflow —el agente que falta
-  // puede registrarse después— pero se nombra, porque en silencio se
-  // descubre recién cuando la sesión se traba.
   final profiles = AgentProfilesService.instance.notifier.data.profiles;
-  final huerfanos = <String>{
-    for (final step in action.steps)
-      if (memberForRole(profiles, step.role) == null) step.role,
-  };
+  final hasOwner =
+      action.resolutionRole.trim().isEmpty ||
+      memberForRole(profiles, action.resolutionRole) != null;
 
   return AssistantActionResult(
     action: action,
     ok: true,
-    message: huerfanos.isEmpty
-        ? 'Creé el workflow "${action.name}" (${action.steps.length} pasos).'
-        : 'Creé el workflow "${action.name}" (${action.steps.length} pasos). '
-              '⚠️ Ningún agente registrado responde a: '
-              '${huerfanos.join(', ')} — esos pasos quedan sin dueño hasta '
-              'que exista un agente con ese rol o ese handle.',
+    message: hasOwner
+        ? '${existing == null ? 'Creé' : 'Actualicé'} el workflow '
+              '"${action.name}" (${action.kind.name}).'
+        : '${existing == null ? 'Creé' : 'Actualicé'} el workflow '
+              '"${action.name}", pero el responsable '
+              '"${action.resolutionRole}" todavía no existe. El preflight '
+              'lo bloqueará hasta que se asigne.',
   );
 }
+
+List<WorkflowQualityGate> _defaultWorkflowGates(WorkflowKind kind) =>
+    kind == WorkflowKind.migration
+    ? WorkflowQualityGate.values
+    : const [
+        WorkflowQualityGate.analysis,
+        WorkflowQualityGate.focusedTests,
+        WorkflowQualityGate.regression,
+      ];
 
 AssistantActionResult executeProjectAction(CreateProjectAction action) {
   final profiles = AgentProfilesService.instance.notifier.data.profiles;
@@ -371,6 +417,10 @@ AssistantActionResult executeProjectAction(CreateProjectAction action) {
       (base) => base.name,
     ),
   );
+  final hooks = _keepKnown(
+    action.hookNames,
+    known: HooksService.instance.notifier.data.hooks.map((hook) => hook.name),
+  );
 
   final error = ProjectsService.instance.notifier.createProject(
     name: action.name,
@@ -379,7 +429,9 @@ AssistantActionResult executeProjectAction(CreateProjectAction action) {
     profileIds: profileIds,
     workflowIds: workflowIds,
     ruleNames: rules.kept,
+    hookNames: hooks.kept,
     knowledgeBaseNames: bases.kept,
+    maintained: action.maintained,
   );
   if (error != null) {
     return AssistantActionResult(action: action, ok: false, message: error);
@@ -394,6 +446,8 @@ AssistantActionResult executeProjectAction(CreateProjectAction action) {
       'no encontré la regla ${rules.dropped.join(', ')}',
     if (bases.dropped.isNotEmpty)
       'no encontré la base de saber ${bases.dropped.join(', ')}',
+    if (hooks.dropped.isNotEmpty)
+      'no encontré el hook ${hooks.dropped.join(', ')}',
   ];
   final message = warnings.isEmpty
       ? 'Creé el proyecto "${action.name}".'

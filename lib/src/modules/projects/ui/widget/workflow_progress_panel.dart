@@ -4,23 +4,34 @@ import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
 import 'package:keel_ui/src/modules/agents/model/agent_model_option.dart';
 import 'package:keel_ui/src/modules/agents/model/agent_provider.dart';
 import 'package:keel_ui/src/modules/agents/model/effort_level.dart';
-import 'package:keel_ui/src/modules/rules/ui/screen/rule_form_screen.dart';
 import 'package:keel_ui/src/modules/knowledge/ui/screen/knowledge_base_form_screen.dart';
 import 'package:keel_ui/src/modules/knowledge/viewmodel/knowledge_viewmodel.dart';
-import 'package:keel_ui/src/modules/rules/viewmodel/rules_viewmodel.dart';
-import 'package:keel_ui/src/modules/workflows/viewmodel/workflows_viewmodel.dart';
 import 'package:keel_ui/src/modules/projects/model/member_color.dart';
+import 'package:keel_ui/src/modules/projects/model/migration_coverage.dart';
 import 'package:keel_ui/src/modules/projects/model/project.dart';
+import 'package:keel_ui/src/modules/projects/model/resolution_case.dart';
+import 'package:keel_ui/src/modules/projects/model/resolution_finding.dart';
 import 'package:keel_ui/src/modules/projects/model/session.dart';
+import 'package:keel_ui/src/modules/projects/model/work_node.dart';
 import 'package:keel_ui/src/modules/projects/ui/widget/member_engine_panel.dart';
 import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
+import 'package:keel_ui/src/modules/rules/ui/screen/rule_form_screen.dart';
+import 'package:keel_ui/src/modules/rules/viewmodel/rules_viewmodel.dart';
+import 'package:keel_ui/src/modules/secrets/ui/widget/provider_credential_card.dart';
 import 'package:keel_ui/src/modules/workflows/model/workflow.dart';
+import 'package:keel_ui/src/modules/workflows/viewmodel/workflows_viewmodel.dart';
 
-enum _StepState { done, current, pending }
+enum _CapabilityState {
+  done,
+  current,
+  pending,
+  blocked,
+  available,
+  notRequired,
+}
 
-/// The running workflow beside the thread: which step is on, who owns it, and
-/// what is still coming. Progress lives here so the conversation stays a
-/// conversation.
+/// The 272 px workflow rail from the product mockup, backed by adaptive
+/// capabilities and persisted graph nodes rather than positional steps.
 class WorkflowProgressPanel extends StatelessWidget {
   const WorkflowProgressPanel({
     super.key,
@@ -35,123 +46,232 @@ class WorkflowProgressPanel extends StatelessWidget {
   final Workflow? workflow;
   final List<AgentProfile> members;
 
-  AgentProfile? _ownerOf(WorkflowStep step) =>
-      memberForRole(members, step.role);
+  List<WorkflowCapability> get _capabilities {
+    final flow = workflow;
+    if (flow == null) return const [];
+    return flow.capabilities.isEmpty
+        ? defaultWorkflowCapabilities(flow.kind, flow.policy.resolutionRole)
+        : flow.capabilities;
+  }
 
-  /// El dueño del paso con el motor que le toca en este proyecto.
-  AgentProfile? _engineOf(WorkflowStep step) {
-    final owner = _ownerOf(step);
+  WorkNode? _nodeOf(String capabilityId) => session?.resolutionCase?.nodes
+      .where((node) => node.id == capabilityId)
+      .firstOrNull;
+
+  AgentProfile? _ownerOf(WorkflowCapability capability) {
+    final node = _nodeOf(capability.id);
+    final profileId = node?.ownerProfileId.isNotEmpty == true
+        ? node!.ownerProfileId
+        : workflow == null
+        ? null
+        : project.assignedProfileId(workflow!.id, capability.id);
+    if (profileId != null) {
+      final exact = members
+          .where((member) => member.id == profileId)
+          .firstOrNull;
+      if (exact != null) return exact;
+    }
+    return memberForRole(members, node?.ownerRole ?? capability.role);
+  }
+
+  AgentProfile? _engineOf(WorkflowCapability capability) {
+    final owner = _ownerOf(capability);
     return owner == null ? null : project.tuned(owner);
   }
 
-  /// Cambia proveedor, modelo o esfuerzo del dueño del paso, solo acá.
-  ///
-  /// El ajuste es del MIEMBRO en este proyecto, no del paso: si `flutter-expert`
-  /// tiene tres pasos, los tres pasan a correr con lo que se elija. Que sea por
-  /// miembro y no por paso es a propósito — el mismo agente pensando distinto
-  /// según el paso es una diferencia que nadie puede sostener en la cabeza.
-  Future<void> _tuneEngine(BuildContext context, WorkflowStep step) async {
-    final owner = _ownerOf(step);
-    if (owner == null) return;
-    await openMemberEnginePanel(context, project: project, member: owner);
+  WorkflowCapability _displayCapability(WorkflowCapability capability) {
+    final node = _nodeOf(capability.id);
+    if (node == null || node.title.isNotEmpty) return capability;
+    final title = switch (node.kind) {
+      WorkNodeKind.triage => 'Triage y contrato',
+      WorkNodeKind.impact => 'Impacto end-to-end',
+      WorkNodeKind.implementation => 'Implementación',
+      WorkNodeKind.verification => 'Verificación',
+      WorkNodeKind.custom => capability.title,
+    };
+    return capability.copyWith(title: title);
   }
 
-  /// Cambia a quién le toca el paso [stepIndex], eligiendo entre los
-  /// puestos que este proyecto sí tiene.
-  ///
-  /// Esto edita el WORKFLOW, que es compartido: si `tdd` lo usan cuatro
-  /// proyectos, el cambio vale para las cuatro. Es lo correcto cuando el
-  /// paso nombra un agente puntual —eso lo ata a un stack— y se arregla
-  /// poniéndole el puesto; por eso el diálogo lo dice antes de aplicar.
-  Future<void> _assignStepRole(BuildContext context, int stepIndex) async {
-    final flow = workflow;
-    if (flow == null) return;
-
-    final roles = <String>{
-      for (final member in members)
-        if (member.role.trim().isNotEmpty) member.role.trim(),
-    }.toList()..sort();
-
-    if (roles.isEmpty) {
-      return;
+  _CapabilityState _stateOf(WorkflowCapability capability) {
+    final node = _nodeOf(capability.id);
+    if (node == null) {
+      if (capability.activation == WorkflowCapabilityActivation.optional) {
+        return session?.resolutionCase?.status == ResolutionCaseStatus.completed
+            ? _CapabilityState.notRequired
+            : _CapabilityState.available;
+      }
+      return _CapabilityState.pending;
     }
+    return switch (node.status) {
+      WorkNodeStatus.done => _CapabilityState.done,
+      WorkNodeStatus.running => _CapabilityState.current,
+      WorkNodeStatus.pending => _CapabilityState.pending,
+      WorkNodeStatus.paused ||
+      WorkNodeStatus.blocked => _CapabilityState.blocked,
+    };
+  }
 
-    final usadas = ProjectsService.instance.notifier.data.projects
-        .where((entry) => entry.workflowIds.contains(flow.id))
-        .length;
+  bool _canAssign(WorkflowCapability capability) {
+    final status = _nodeOf(capability.id)?.status;
+    return status != WorkNodeStatus.running && status != WorkNodeStatus.done;
+  }
 
+  Future<void> _assignProjectAgent(
+    BuildContext context,
+    WorkflowCapability capability,
+  ) async {
+    final flow = workflow;
+    if (flow == null || !_canAssign(capability)) return;
     final picked = await showDialog<String>(
       context: context,
       builder: (context) => SimpleDialog(
-        title: Text('Quién hace "${flow.steps[stepIndex].title}"'),
+        title: Text('Agente para "${capability.title}"'),
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 10),
             child: Text(
-              usadas > 1
-                  ? 'El paso pide el rol "${flow.steps[stepIndex].role}". '
-                        'Elegí uno de los puestos de este proyecto. El '
-                        'workflow "${flow.name}" lo usan $usadas proyectos: '
-                        'el cambio vale para todas, y en cada una lo toma su '
-                        'propio miembro con ese rol.'
-                  : 'El paso pide el rol "${flow.steps[stepIndex].role}". '
-                        'Elegí uno de los puestos de este proyecto.',
+              'Este override solo afecta #${project.name}. El nodo guardará '
+              'el agente concreto cuando pase el preflight.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ),
+          SimpleDialogOption(
+            onPressed: () => Navigator.of(context).pop(''),
+            child: Text('Usar default (${capability.role})'),
+          ),
+          for (final member in members)
+            SimpleDialogOption(
+              onPressed: () => Navigator.of(context).pop(member.id),
+              child: Text('@${member.name} · ${member.role}'),
+            ),
+        ],
+      ),
+    );
+    if (picked == null) return;
+    ProjectsService.instance.notifier.setWorkflowNodeAssignment(
+      project.id,
+      flow.id,
+      capability.id,
+      picked.isEmpty ? null : picked,
+    );
+  }
+
+  Future<void> _assignSharedRole(
+    BuildContext context,
+    WorkflowCapability capability,
+  ) async {
+    final flow = workflow;
+    if (flow == null || !_canAssign(capability)) return;
+    final roles = {
+      for (final member in members)
+        if (member.role.trim().isNotEmpty) member.role.trim(),
+    }.toList()..sort();
+    final picked = await showDialog<String>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: const Text('Modificar default compartido'),
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 10),
+            child: Text(
+              'Este cambio modifica el workflow "${flow.name}" en todos los '
+              'proyectos. Los overrides concretos se conservan.',
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ),
           for (final role in roles)
             SimpleDialogOption(
               onPressed: () => Navigator.of(context).pop(role),
-              child: Text(
-                '$role  —  ${members.where((m) => m.role.trim() == role).map((m) => '@${m.name}').join(', ')}',
-              ),
+              child: Text(role),
             ),
         ],
       ),
     );
     if (picked == null) return;
-
-    final steps = [
-      for (var i = 0; i < flow.steps.length; i++)
-        if (i == stepIndex)
-          WorkflowStep(
-            id: flow.steps[i].id,
-            title: flow.steps[i].title,
-            role: picked,
-            instruction: flow.steps[i].instruction,
-          )
-        else
-          flow.steps[i],
-    ];
     WorkflowsService.instance.notifier.updateWorkflow(
       flow.id,
       name: flow.name,
       whenToApply: flow.whenToApply,
-      steps: steps,
+      capabilities: [
+        for (final entry in _capabilities)
+          entry.id == capability.id ? entry.copyWith(role: picked) : entry,
+      ],
     );
   }
 
-  /// Los puestos que este proyecto sí puede cubrir. Un paso huérfano sin
-  /// esta lista es un callejón: decir "sin agente para X" no dice qué poner
-  /// en su lugar, y el rol correcto está a la vista de nadie.
-  List<String> get _availableRoles => [
-    for (final member in members)
-      if (member.role.trim().isNotEmpty) '${member.role} (@${member.name})',
-  ];
+  Future<void> _tuneEngine(
+    BuildContext context,
+    WorkflowCapability capability,
+  ) async {
+    final owner = _ownerOf(capability);
+    if (owner == null || !_canAssign(capability)) return;
+    await openMemberEnginePanel(context, project: project, member: owner);
+  }
 
-  /// Picks a registered rule and attaches it to the project, or jumps
-  /// straight to registering a new one when the catalog is empty.
+  String? _consultedIn(String nodeId) {
+    final names = <String>{};
+    for (final message in session?.messages ?? const []) {
+      if (message.workNodeId != nodeId ||
+          message.consultOfProfileId == null ||
+          message.authorProfileId == null) {
+        continue;
+      }
+      final member = members
+          .where((entry) => entry.id == message.authorProfileId)
+          .firstOrNull;
+      if (member != null) names.add(member.name);
+    }
+    return names.isEmpty ? null : 'consultó a ${names.join(', ')}';
+  }
+
+  List<ResolutionFinding> _findingsOf(String nodeId) =>
+      session?.resolutionCase?.findings
+          .where((finding) => finding.affectedNodeId == nodeId)
+          .toList() ??
+      const [];
+
+  List<String> _gatesOf(String capabilityId) {
+    final gates = workflow?.policy.qualityGates ?? const [];
+    return [
+      for (final gate in gates)
+        if ((gate == WorkflowQualityGate.analysis &&
+                capabilityId == 'triage') ||
+            (gate != WorkflowQualityGate.analysis &&
+                capabilityId == 'verification'))
+          gate.name,
+    ];
+  }
+
+  String? _coverageOf(String capabilityId) {
+    if (capabilityId != 'impact') return null;
+    final coverage = session?.resolutionCase?.coverage ?? const [];
+    if (coverage.isEmpty) return null;
+    final resolved = coverage
+        .where((entry) => entry.status != MigrationCoverageStatus.pending)
+        .length;
+    return 'matriz $resolved/${coverage.length}';
+  }
+
+  Future<void> _activateCapability(
+    BuildContext context,
+    WorkflowCapability capability,
+  ) async {
+    final open = session;
+    if (open == null) return;
+    final error = await ProjectsService.instance.notifier
+        .activateWorkflowCapability(project.id, open.id, capability.id);
+    if (error != null && context.mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error)));
+    }
+  }
+
   Future<void> _addRule(BuildContext context) async {
     final rules = RulesService.instance.notifier.data.rules
         .where((rule) => !project.ruleNames.contains(rule.name))
         .toList();
-
-    if (rules.isEmpty) {
-      await openRuleFormScreen(context);
-      return;
-    }
-
-    if (!context.mounted) return;
+    if (rules.isEmpty) return openRuleFormScreen(context);
     final picked = await showDialog<String>(
       context: context,
       builder: (context) => SimpleDialog(
@@ -165,27 +285,20 @@ class WorkflowProgressPanel extends StatelessWidget {
         ],
       ),
     );
-    if (picked == null) return;
-    ProjectsService.instance.notifier.addRule(project.id, picked);
+    if (picked != null) {
+      ProjectsService.instance.notifier.addRule(project.id, picked);
+    }
   }
 
-  /// Suma una base de saber registrada a este proyecto, o manda a crear una
-  /// cuando todavía no hay ninguna disponible.
-  Future<void> _addKnowledgeBase(BuildContext context) async {
+  Future<void> _addKnowledge(BuildContext context) async {
     final bases = KnowledgeService.instance.notifier.data.bases
         .where((base) => !project.knowledgeBaseNames.contains(base.name))
         .toList();
-
-    if (bases.isEmpty) {
-      await openKnowledgeBaseFormScreen(context);
-      return;
-    }
-
-    if (!context.mounted) return;
+    if (bases.isEmpty) return openKnowledgeBaseFormScreen(context);
     final picked = await showDialog<String>(
       context: context,
       builder: (context) => SimpleDialog(
-        title: const Text('Agregar base de saber'),
+        title: const Text('Agregar conocimiento'),
         children: [
           for (final base in bases)
             SimpleDialogOption(
@@ -195,54 +308,58 @@ class WorkflowProgressPanel extends StatelessWidget {
         ],
       ),
     );
-    if (picked == null) return;
-    ProjectsService.instance.notifier.addKnowledgeBase(project.id, picked);
-  }
-
-  /// Who this step consulted, read back from the thread: a message tagged
-  /// with the step and carrying `consultOfProfileId` means its author was
-  /// asked something while that step was running.
-  String? _consultedIn(int stepIndex) {
-    final open = session;
-    if (open == null) return null;
-
-    final names = <String>{};
-    for (final message in open.messages) {
-      if (message.stepIndex != stepIndex) continue;
-      final answererId = message.authorProfileId;
-      if (message.consultOfProfileId == null || answererId == null) continue;
-      final answerer = members.where((m) => m.id == answererId).firstOrNull;
-      if (answerer != null) names.add(answerer.name);
+    if (picked != null) {
+      ProjectsService.instance.notifier.addKnowledgeBase(project.id, picked);
     }
-    if (names.isEmpty) return null;
-    return 'consultó a ${names.join(', ')}';
-  }
-
-  _StepState _stateOf(int index) {
-    final open = session;
-    if (open == null) return _StepState.pending;
-    if (open.status == SessionStatus.finished) return _StepState.done;
-    if (index < open.currentStepIndex) return _StepState.done;
-    if (index == open.currentStepIndex) return _StepState.current;
-    return _StepState.pending;
   }
 
   @override
   Widget build(BuildContext context) {
     final flow = workflow;
+    final resolution = session?.resolutionCase;
+    final done =
+        resolution?.nodes
+            .where((node) => node.status == WorkNodeStatus.done)
+            .length ??
+        0;
+    final active =
+        resolution?.nodes.length ??
+        _capabilities
+            .where(
+              (entry) =>
+                  entry.activation == WorkflowCapabilityActivation.required,
+            )
+            .length;
+    final engines = {
+      for (final capability in _capabilities)
+        if (_ownerOf(capability) case final owner?)
+          project.tuned(owner).provider,
+    };
+    final requiredSkills = {
+      ...?flow?.skillNames,
+      ...?flow?.policy.requiredSkillNames,
+    };
+    final rules = {...?flow?.policy.requiredRuleNames, ...project.ruleNames};
+    final knowledge = {
+      ...?flow?.policy.requiredKnowledgeBaseNames,
+      ...project.knowledgeBaseNames,
+    };
+    final preflight = resolution?.preflight;
+    final credentialProviders = {
+      ...engines.where((entry) => entry.requiresApiKey),
+      for (final secret in preflight?.missingSecrets ?? const <String>[])
+        ...AgentProvider.values.where((entry) => entry.secretName == secret),
+    };
 
     return ListView(
-      padding: const EdgeInsets.symmetric(vertical: 14),
+      padding: const EdgeInsets.symmetric(vertical: 8),
       children: [
-        _GroupHead(label: flow == null ? 'Workflow' : 'Workflow en curso'),
+        const _GroupHead(label: 'WORKFLOW EN CURSO'),
         if (flow == null)
-          const _PanelNote(
-            'Este proyecto no tiene un workflow activo. Agregá uno para que '
-            'sepa cómo repartir el trabajo.',
-          )
+          const _PanelNote('Este proyecto no tiene un workflow seleccionado.')
         else ...[
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+            padding: const EdgeInsets.fromLTRB(16, 0, 12, 10),
             child: Row(
               children: [
                 Expanded(
@@ -253,58 +370,90 @@ class WorkflowProgressPanel extends StatelessWidget {
                     ),
                   ),
                 ),
-                if (session != null)
-                  Text(
-                    '${(session!.currentStepIndex + 1).clamp(1, flow.steps.length)}'
-                    ' de ${flow.steps.length}',
-                    style: TextStyle(
-                      fontFamily: 'monospace',
-                      fontSize: 10,
-                      color: Theme.of(context).colorScheme.outline,
-                    ),
+                Text(
+                  '$done de $active',
+                  style: TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 10,
+                    color: Theme.of(context).colorScheme.outline,
                   ),
+                ),
               ],
             ),
           ),
-          for (var index = 0; index < flow.steps.length; index++)
-            _StepRow(
-              step: flow.steps[index],
-              index: index,
-              isLast: index == flow.steps.length - 1,
-              state: _stateOf(index),
-              owner: _ownerOf(flow.steps[index]),
-              // El motor con el que ese miembro corre ACÁ, que puede no ser
-              // el de su ficha. Es lo que se va a ejecutar, así que es lo
-              // que se muestra.
-              engine: _engineOf(flow.steps[index]),
+          if (preflight != null && preflight.performed && !preflight.ready)
+            _PanelNote('Preflight bloqueado: ${preflight.errorSummary}'),
+          for (var index = 0; index < _capabilities.length; index++)
+            _CapabilityRow(
+              capability: _displayCapability(_capabilities[index]),
+              isLast: index == _capabilities.length - 1,
+              state: _stateOf(_capabilities[index]),
+              owner: _ownerOf(_capabilities[index]),
+              engine: _engineOf(_capabilities[index]),
               isTuned: project.memberTuning.containsKey(
-                _ownerOf(flow.steps[index])?.id,
+                _ownerOf(_capabilities[index])?.id,
               ),
               ownerIndex: members.indexWhere(
-                (m) => m.id == _ownerOf(flow.steps[index])?.id,
+                (member) => member.id == _ownerOf(_capabilities[index])?.id,
               ),
-              consulted: _consultedIn(index),
-              availableRoles: _availableRoles,
-              onAssign: () => _assignStepRole(context, index),
-              onTuneEngine: () => _tuneEngine(context, flow.steps[index]),
+              consulted: _consultedIn(_capabilities[index].id),
+              findings: _findingsOf(_capabilities[index].id),
+              gates: _gatesOf(_capabilities[index].id),
+              coverage: _coverageOf(_capabilities[index].id),
+              canEdit: _canAssign(_capabilities[index]),
+              onAssign: () =>
+                  _assignProjectAgent(context, _capabilities[index]),
+              onSharedRole: () =>
+                  _assignSharedRole(context, _capabilities[index]),
+              onTuneEngine: () => _tuneEngine(context, _capabilities[index]),
+              onActivate: () =>
+                  _activateCapability(context, _capabilities[index]),
+            ),
+        ],
+        if (requiredSkills.isNotEmpty) ...[
+          const _GroupHead(label: 'Skills'),
+          for (final skill in requiredSkills)
+            _BulletRow(
+              label: skill,
+              filled: false,
+              required: true,
+              missing: preflight?.missingSkills.contains(skill) ?? false,
             ),
         ],
         _GroupHead(label: 'Reglas', onAdd: () => _addRule(context)),
-        for (final rule in project.ruleNames)
+        for (final rule in rules)
           _BulletRow(
             label: rule,
             filled: true,
-            onRemove: () =>
-                ProjectsService.instance.notifier.removeRule(project.id, rule),
+            required: flow?.policy.requiredRuleNames.contains(rule) ?? false,
+            missing: preflight?.missingRules.contains(rule) ?? false,
+            onRemove: project.ruleNames.contains(rule)
+                ? () => ProjectsService.instance.notifier.removeRule(
+                    project.id,
+                    rule,
+                  )
+                : null,
           ),
-        _GroupHead(label: 'Saber', onAdd: () => _addKnowledgeBase(context)),
-        for (final baseName in project.knowledgeBaseNames)
+        _GroupHead(
+          label: 'Conocimiento y documentación',
+          onAdd: () => _addKnowledge(context),
+        ),
+        for (final base in knowledge)
           _BulletRow(
-            label: baseName,
-            filled: true,
-            onRemove: () => ProjectsService.instance.notifier
-                .removeKnowledgeBase(project.id, baseName),
+            label: base,
+            filled: false,
+            required:
+                flow?.policy.requiredKnowledgeBaseNames.contains(base) ?? false,
+            missing: preflight?.missingKnowledge.contains(base) ?? false,
+            onRemove: project.knowledgeBaseNames.contains(base)
+                ? () => ProjectsService.instance.notifier.removeKnowledgeBase(
+                    project.id,
+                    base,
+                  )
+                : null,
           ),
+        for (final provider in credentialProviders)
+          ProviderCredentialCard(provider: provider, compact: true),
       ],
     );
   }
@@ -318,29 +467,28 @@ class _GroupHead extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     return Padding(
-      padding: EdgeInsets.fromLTRB(16, 14, onAdd == null ? 16 : 6, 6),
+      padding: EdgeInsets.fromLTRB(16, 12, onAdd == null ? 16 : 6, 5),
       child: Row(
         children: [
           Expanded(
             child: Text(
-              label.toUpperCase(),
+              label,
               style: TextStyle(
                 fontFamily: 'monospace',
                 fontSize: 10,
-                letterSpacing: 1.2,
-                color: scheme.outline,
+                letterSpacing: 1.1,
+                color: Theme.of(context).colorScheme.outline,
               ),
             ),
           ),
           if (onAdd != null)
             IconButton(
               tooltip: 'Agregar a este proyecto',
+              onPressed: onAdd,
               icon: const Icon(Icons.add, size: 15),
               constraints: const BoxConstraints.tightFor(width: 26, height: 26),
               padding: EdgeInsets.zero,
-              onPressed: onAdd,
             ),
         ],
       ),
@@ -348,10 +496,9 @@ class _GroupHead extends StatelessWidget {
   }
 }
 
-class _StepRow extends StatelessWidget {
-  const _StepRow({
-    required this.step,
-    required this.index,
+class _CapabilityRow extends StatelessWidget {
+  const _CapabilityRow({
+    required this.capability,
     required this.isLast,
     required this.state,
     required this.owner,
@@ -359,54 +506,46 @@ class _StepRow extends StatelessWidget {
     required this.isTuned,
     required this.ownerIndex,
     required this.consulted,
-    required this.availableRoles,
+    required this.findings,
+    required this.gates,
+    required this.coverage,
+    required this.canEdit,
     required this.onAssign,
+    required this.onSharedRole,
     required this.onTuneEngine,
+    required this.onActivate,
   });
 
-  final WorkflowStep step;
-  final List<String> availableRoles;
-  final VoidCallback onAssign;
-  final VoidCallback onTuneEngine;
-  final int index;
+  final WorkflowCapability capability;
   final bool isLast;
-  final _StepState state;
+  final _CapabilityState state;
   final AgentProfile? owner;
-
-  /// [owner] con el motor de este proyecto aplicado. Null cuando el paso está
-  /// huérfano.
   final AgentProfile? engine;
-
-  /// Si ese motor es un ajuste de este proyecto y no el de su ficha.
   final bool isTuned;
   final int ownerIndex;
   final String? consulted;
+  final List<ResolutionFinding> findings;
+  final List<String> gates;
+  final String? coverage;
+  final bool canEdit;
+  final VoidCallback onAssign;
+  final VoidCallback onSharedRole;
+  final VoidCallback onTuneEngine;
+  final VoidCallback onActivate;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-
-    // The mockup distinguishes the three states by *shape*, not only colour:
-    // done is a solid dot, the current step is a ring, pending is a faint
-    // outline. Reading the panel at a glance depends on that difference.
-    final beadFill = switch (state) {
-      _StepState.done => scheme.tertiary,
-      _StepState.current => Colors.transparent,
-      _StepState.pending => Colors.transparent,
+    final accent = switch (state) {
+      _CapabilityState.done => scheme.tertiary,
+      _CapabilityState.current => scheme.primary,
+      _CapabilityState.blocked => scheme.error,
+      _CapabilityState.available => scheme.secondary,
+      _CapabilityState.pending ||
+      _CapabilityState.notRequired => scheme.outline,
     };
-    final beadBorder = switch (state) {
-      _StepState.done => scheme.tertiary,
-      _StepState.current => scheme.primary,
-      _StepState.pending => scheme.outline,
-    };
-    final beadWidth = state == _StepState.current ? 2.5 : 1.5;
-
-    final label = switch (state) {
-      _StepState.done => 'listo',
-      _StepState.current => 'ahora',
-      _StepState.pending => '',
-    };
-
+    final filled = state == _CapabilityState.done;
+    final faded = state == _CapabilityState.notRequired;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: IntrinsicHeight(
@@ -420,9 +559,12 @@ class _StepRow extends StatelessWidget {
                   height: 11,
                   margin: const EdgeInsets.only(top: 3),
                   decoration: BoxDecoration(
-                    color: beadFill,
+                    color: filled ? accent : Colors.transparent,
                     shape: BoxShape.circle,
-                    border: Border.all(color: beadBorder, width: beadWidth),
+                    border: Border.all(
+                      color: accent,
+                      width: state == _CapabilityState.current ? 2.5 : 1.5,
+                    ),
                   ),
                 ),
                 if (!isLast)
@@ -430,9 +572,7 @@ class _StepRow extends StatelessWidget {
                     child: Container(
                       width: 1.5,
                       margin: const EdgeInsets.symmetric(vertical: 3),
-                      color: state == _StepState.done
-                          ? scheme.tertiary
-                          : scheme.outlineVariant,
+                      color: filled ? accent : scheme.outlineVariant,
                     ),
                   ),
               ],
@@ -440,65 +580,66 @@ class _StepRow extends StatelessWidget {
             const SizedBox(width: 10),
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.only(bottom: 14),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            step.title,
-                            style: TextStyle(
-                              fontSize: 12.5,
-                              fontWeight: state == _StepState.current
-                                  ? FontWeight.bold
-                                  : FontWeight.normal,
-                              color: state == _StepState.pending
-                                  ? scheme.outline
-                                  : scheme.onSurface,
+                padding: const EdgeInsets.only(bottom: 13),
+                child: Opacity(
+                  opacity: faded ? 0.48 : 1,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              capability.title,
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: state == _CapabilityState.current
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
+                              ),
                             ),
                           ),
-                        ),
-                        if (label.isNotEmpty)
-                          Text(
-                            label,
-                            style: TextStyle(
-                              fontFamily: 'monospace',
-                              fontSize: 10,
-                              color: state == _StepState.done
-                                  ? scheme.tertiary
-                                  : scheme.primary,
-                            ),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 3),
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.smart_toy_outlined,
-                          size: 15,
-                          color: owner == null
-                              ? scheme.error
-                              : memberColorFor(ownerIndex),
-                        ),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: InkWell(
-                            onTap: onAssign,
+                          InkWell(
+                            onTap: state == _CapabilityState.available
+                                ? onActivate
+                                : null,
                             child: Tooltip(
-                              message: owner != null
-                                  ? '${owner!.role} — el paso pide '
-                                        '"${step.role}". Click para cambiarlo.'
-                                  : 'Ningún miembro de este proyecto tiene el '
-                                        'rol "${step.role}".\n'
-                                        'Puestos disponibles acá:\n'
-                                        '${availableRoles.isEmpty ? '(el proyecto no tiene miembros)' : availableRoles.join('\n')}\n'
-                                        'Click para elegir uno.',
-                              waitDuration: const Duration(milliseconds: 400),
+                              message: state == _CapabilityState.available
+                                  ? 'Activar esta capacidad opcional'
+                                  : _stateLabel(state),
                               child: Text(
-                                owner?.name ?? 'sin agente para "${step.role}"',
+                                _stateLabel(state),
+                                style: TextStyle(
+                                  fontFamily: 'monospace',
+                                  fontSize: 9.5,
+                                  color: accent,
+                                  decoration:
+                                      state == _CapabilityState.available
+                                      ? TextDecoration.underline
+                                      : null,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 3),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.smart_toy_outlined,
+                            size: 15,
+                            color: owner == null
+                                ? scheme.error
+                                : memberColorFor(ownerIndex),
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: InkWell(
+                              onTap: canEdit ? onAssign : null,
+                              child: Text(
+                                owner?.name ??
+                                    'sin agente para ${capability.role}',
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
                                   fontFamily: 'monospace',
@@ -510,28 +651,60 @@ class _StepRow extends StatelessWidget {
                               ),
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                    if (engine != null)
-                      _EngineLine(
-                        engine: engine!,
-                        isTuned: isTuned,
-                        onTap: onTuneEngine,
+                          if (canEdit)
+                            InkWell(
+                              onTap: onSharedRole,
+                              child: Tooltip(
+                                message: 'Modificar rol default del workflow',
+                                child: Icon(
+                                  Icons.more_horiz,
+                                  size: 15,
+                                  color: scheme.outline,
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
-                    if (consulted != null)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 4),
-                        child: Text(
+                      if (engine != null)
+                        _EngineLine(
+                          engine: engine!,
+                          isTuned: isTuned,
+                          onTap: canEdit ? onTuneEngine : null,
+                        ),
+                      if (consulted != null)
+                        Text(
                           consulted!,
                           style: TextStyle(
-                            fontSize: 11,
+                            fontSize: 10.5,
                             fontStyle: FontStyle.italic,
                             color: scheme.outline,
                           ),
                         ),
-                      ),
-                  ],
+                      if (gates.isNotEmpty)
+                        Text(
+                          'gates · ${gates.join(', ')}',
+                          style: TextStyle(
+                            fontSize: 9.5,
+                            color: scheme.outline,
+                          ),
+                        ),
+                      if (coverage != null)
+                        Text(
+                          coverage!,
+                          style: TextStyle(
+                            fontSize: 9.5,
+                            color: scheme.outline,
+                          ),
+                        ),
+                      for (final finding in findings)
+                        Text(
+                          '⚠ ${finding.evidence.summary}',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontSize: 10, color: scheme.error),
+                        ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -542,12 +715,15 @@ class _StepRow extends StatelessWidget {
   }
 }
 
-/// Con qué motor corre el dueño del paso: modelo, esfuerzo y —cuando es un
-/// ajuste de este proyecto— un punto que lo marca.
-///
-/// Va a la vista y no detrás de un tooltip porque es la línea que explica el
-/// costo: un paso en Opus vale varias veces uno en Sonnet, y eso no se nota
-/// hasta que llega la factura.
+String _stateLabel(_CapabilityState state) => switch (state) {
+  _CapabilityState.done => 'listo',
+  _CapabilityState.current => 'ahora',
+  _CapabilityState.pending => 'pendiente',
+  _CapabilityState.blocked => 'bloqueado',
+  _CapabilityState.available => 'disponible',
+  _CapabilityState.notRequired => 'no requerido',
+};
+
 class _EngineLine extends StatelessWidget {
   const _EngineLine({
     required this.engine,
@@ -557,53 +733,27 @@ class _EngineLine extends StatelessWidget {
 
   final AgentProfile engine;
   final bool isTuned;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    // Codex resuelve el esfuerzo en su propia config: nombrarlo acá sería
-    // decir que se aplica algo que el turno nunca manda.
-    final texto = engine.provider == AgentProvider.codex
-        ? modelLabelFor(engine.provider, engine.model)
-        : '${modelLabelFor(engine.provider, engine.model)} · '
-              '${effortLabel(engine.effort)}';
-
+    final effort = engine.provider == AgentProvider.codex
+        ? ''
+        : ' · ${effortLabel(engine.effort)}';
     return Padding(
       padding: const EdgeInsets.only(top: 3, left: 21),
       child: InkWell(
         onTap: onTap,
-        child: Tooltip(
-          message: isTuned
-              ? 'Motor fijado para este proyecto. Click para cambiarlo.'
-              : 'El motor de su ficha, igual que en todas partes. Click para '
-                    'cambiarlo solo acá.',
-          waitDuration: const Duration(milliseconds: 400),
-          child: Row(
-            children: [
-              if (isTuned) ...[
-                Container(
-                  width: 5,
-                  height: 5,
-                  decoration: BoxDecoration(
-                    color: scheme.primary,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                const SizedBox(width: 5),
-              ],
-              Flexible(
-                child: Text(
-                  texto,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontFamily: 'monospace',
-                    color: isTuned ? scheme.primary : scheme.outlineVariant,
-                  ),
-                ),
-              ),
-            ],
+        child: Text(
+          '${modelLabelFor(engine.provider, engine.model)}$effort · '
+          '${engine.provider.label}',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontFamily: 'monospace',
+            fontSize: 10,
+            color: isTuned ? scheme.primary : scheme.outlineVariant,
           ),
         ),
       ),
@@ -611,72 +761,69 @@ class _EngineLine extends StatelessWidget {
   }
 }
 
-/// A rule or a document: the mockup marks them with a small accent square —
-/// solid for rules, hollow for documents — not with a Material icon.
-class _BulletRow extends StatefulWidget {
+class _BulletRow extends StatelessWidget {
   const _BulletRow({
     required this.label,
     required this.filled,
-    required this.onRemove,
+    required this.required,
+    this.missing = false,
+    this.onRemove,
   });
 
   final String label;
   final bool filled;
-  final VoidCallback onRemove;
-
-  @override
-  State<_BulletRow> createState() => _BulletRowState();
-}
-
-class _BulletRowState extends State<_BulletRow> {
-  bool _hovering = false;
+  final bool required;
+  final bool missing;
+  final VoidCallback? onRemove;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-
-    return MouseRegion(
-      onEnter: (_) => setState(() => _hovering = true),
-      onExit: (_) => setState(() => _hovering = false),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 3, 6, 3),
-        child: Row(
-          children: [
-            Container(
-              width: 8,
-              height: 8,
-              decoration: BoxDecoration(
-                color: widget.filled ? scheme.primary : Colors.transparent,
-                border: Border.all(color: scheme.primary, width: 1.2),
-                borderRadius: BorderRadius.circular(1),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 3, 6, 3),
+      child: Row(
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(
+              color: filled && !missing ? scheme.primary : Colors.transparent,
+              border: Border.all(
+                color: missing ? scheme.error : scheme.primary,
+                width: 1.2,
               ),
             ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                widget.label,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 12),
+          ),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Text(
+              label,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 12,
+                color: missing ? scheme.error : null,
               ),
             ),
-            SizedBox(
-              width: 26,
-              height: 26,
-              child: _hovering
-                  ? IconButton(
-                      tooltip: 'Quitar de este proyecto',
-                      icon: const Icon(Icons.close, size: 13),
-                      constraints: const BoxConstraints.tightFor(
-                        width: 26,
-                        height: 26,
-                      ),
-                      padding: EdgeInsets.zero,
-                      onPressed: widget.onRemove,
-                    )
-                  : null,
+          ),
+          if (required)
+            Tooltip(
+              message: 'Requerido por el workflow',
+              child: Icon(Icons.lock_outline, size: 12, color: scheme.outline),
             ),
-          ],
-        ),
+          if (missing)
+            Tooltip(
+              message: 'Faltante: bloquea el preflight',
+              child: Icon(Icons.error_outline, size: 13, color: scheme.error),
+            ),
+          if (onRemove != null)
+            IconButton(
+              tooltip: 'Quitar de este proyecto',
+              onPressed: onRemove,
+              icon: const Icon(Icons.close, size: 13),
+              constraints: const BoxConstraints.tightFor(width: 26, height: 26),
+              padding: EdgeInsets.zero,
+            ),
+        ],
       ),
     );
   }
@@ -688,10 +835,8 @@ class _PanelNote extends StatelessWidget {
   final String text;
 
   @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      child: Text(text, style: Theme.of(context).textTheme.bodySmall),
-    );
-  }
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+    child: Text(text, style: Theme.of(context).textTheme.bodySmall),
+  );
 }

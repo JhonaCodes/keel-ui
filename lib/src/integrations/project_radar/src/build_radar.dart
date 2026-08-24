@@ -113,8 +113,8 @@ ProjectRadar buildProjectRadar({
           id: session.id,
           title: session.title,
           status: session.status,
-          stepIndex: session.currentStepIndex,
-          totalSteps: totalSteps,
+          nodeIndex: _activeNodeIndex(session),
+          totalNodes: session.resolutionCase?.nodes.length ?? totalSteps,
           planDone: session.plan.doneCount,
           planTotal: session.plan.length,
           contextRatio: session.contextUsageRatio,
@@ -124,6 +124,13 @@ ProjectRadar buildProjectRadar({
     ],
     stuck: stuck,
   );
+}
+
+int _activeNodeIndex(Session session) {
+  final index = session.resolutionCase?.nodes.indexWhere(
+    (node) => node.status == WorkNodeStatus.running,
+  );
+  return index == null || index < 0 ? 0 : index;
 }
 
 /// La toma manda sobre el archivo: `estado: libre` con alguien trabajándola es

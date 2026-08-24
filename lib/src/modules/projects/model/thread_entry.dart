@@ -22,26 +22,26 @@ class ThreadHandoff extends ThreadEntry {
 /// *why* the speaker changed without any of that state having to be recorded
 /// while the session ran — it is all derivable from the messages themselves.
 ///
-/// Three markers, matching the flow: the workflow starting, a step finishing
-/// and passing to the next, and a consult returning control to the step owner.
+/// Markers show an adaptive case and consultations without implying a fixed
+/// sequence of roles.
 List<ThreadEntry> buildThreadEntries({
   required List<ChatMessage> messages,
   required Workflow? workflow,
 }) {
   final entries = <ThreadEntry>[];
-  int? lastStepIndex;
+  String? lastNodeId;
   var wasConsult = false;
   var openedFlow = false;
 
   for (final message in messages) {
     final isAssistant = message.role == ChatRole.assistant;
-    final stepIndex = message.stepIndex;
+    final nodeId = message.workNodeId;
     final isConsult = message.consultOfProfileId != null;
 
     if (isAssistant && !openedFlow && workflow != null) {
       entries.add(
         ThreadHandoff(
-          '${workflow.name} · ${workflow.steps.length} pasos',
+          '${workflow.name} · resolución adaptativa',
           message.timestamp,
         ),
       );
@@ -49,21 +49,14 @@ List<ThreadEntry> buildThreadEntries({
     }
 
     if (isAssistant && !isConsult) {
-      if (wasConsult && stepIndex != null) {
+      if (wasConsult && nodeId != null) {
+        entries.add(ThreadHandoff('vuelve al responsable', message.timestamp));
+      } else if (lastNodeId != null && nodeId != null && lastNodeId != nodeId) {
         entries.add(
-          ThreadHandoff('vuelve al paso ${stepIndex + 1}', message.timestamp),
-        );
-      } else if (lastStepIndex != null &&
-          stepIndex != null &&
-          stepIndex > lastStepIndex) {
-        entries.add(
-          ThreadHandoff(
-            'paso ${lastStepIndex + 1} listo → paso ${stepIndex + 1}',
-            message.timestamp,
-          ),
+          ThreadHandoff('evidencia nueva → siguiente nodo', message.timestamp),
         );
       }
-      lastStepIndex = stepIndex ?? lastStepIndex;
+      lastNodeId = nodeId ?? lastNodeId;
     }
 
     entries.add(ThreadMessage(message));

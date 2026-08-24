@@ -8,6 +8,7 @@ import 'package:keel_ui/src/core/ui/app_theme.dart';
 import 'package:keel_ui/src/modules/projects/model/project.dart';
 import 'package:keel_ui/src/modules/projects/model/roadmap_format_skill.dart';
 import 'package:keel_ui/src/modules/projects/model/session.dart';
+import 'package:keel_ui/src/modules/workflows/model/workflow.dart';
 import 'package:keel_ui/src/modules/projects/ui/view/project_state_view.dart';
 import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
 import 'package:keel_ui/src/modules/workspace/model/workspace_lens.dart';
@@ -86,15 +87,14 @@ void main() {
 
     test('corre con SU workflow, no con el del proyecto', () {
       final sessionId = _projects.startRoadmapFormatSession(projectId);
-      final session = _projects.data.projects.single.sessions
-          .firstWhere((entry) => entry.id == sessionId);
+      final session = _projects.data.projects.single.sessions.firstWhere(
+        (entry) => entry.id == sessionId,
+      );
       final workflow = _projects.workflowOf(session);
 
-      // Un paso, cualquier miembro, el skill del formato adentro. Antes esto
-      // corría el workflow del proyecto entero y terminaba abriendo un PR
-      // por unos markdown.
+      // El workflow de formato queda aislado del trabajo del proyecto.
       expect(workflow?.name, kRoadmapFormatWorkflowName);
-      expect(workflow?.steps, hasLength(1));
+      expect(workflow?.kind, WorkflowKind.roadmap);
       expect(workflow?.buildsRoadmap, isTrue);
       expect(workflow?.skillNames, contains(kRoadmapFormatSkillName));
     });

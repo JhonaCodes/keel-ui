@@ -39,20 +39,31 @@ class WorkflowsViewModel extends ViewModel<WorkflowsState> {
   String? createWorkflow({
     required String name,
     required String whenToApply,
-    required List<WorkflowStep> steps,
     List<String> skillNames = const [],
     bool buildsRoadmap = false,
+    WorkflowKind kind = WorkflowKind.general,
+    WorkflowPolicy policy = const WorkflowPolicy(),
+    List<WorkflowCapability>? capabilities,
   }) {
     final error = _validateName(name);
     if (error != null) return error;
+    final resolvedCapabilities =
+        capabilities ??
+        defaultWorkflowCapabilities(kind, policy.resolutionRole);
+    final capabilitiesError = validateWorkflowCapabilities(
+      resolvedCapabilities,
+    );
+    if (capabilitiesError != null) return capabilitiesError;
 
     final workflow = Workflow(
       id: generateUuidV4(),
       name: name,
       whenToApply: whenToApply.trim(),
-      steps: steps,
       skillNames: skillNames,
       buildsRoadmap: buildsRoadmap,
+      kind: kind,
+      policy: policy,
+      capabilities: resolvedCapabilities,
       createdAt: DateTime.now(),
     );
     final workflows = [...data.workflows, workflow];
@@ -70,12 +81,18 @@ class WorkflowsViewModel extends ViewModel<WorkflowsState> {
     String id, {
     required String name,
     required String whenToApply,
-    required List<WorkflowStep> steps,
     List<String>? skillNames,
     bool? buildsRoadmap,
+    WorkflowKind? kind,
+    WorkflowPolicy? policy,
+    List<WorkflowCapability>? capabilities,
   }) {
     final error = _validateName(name, excludingId: id);
     if (error != null) return error;
+    if (capabilities != null) {
+      final capabilitiesError = validateWorkflowCapabilities(capabilities);
+      if (capabilitiesError != null) return capabilitiesError;
+    }
 
     final workflows = data.workflows
         .map(
@@ -83,9 +100,11 @@ class WorkflowsViewModel extends ViewModel<WorkflowsState> {
               ? workflow.copyWith(
                   name: name,
                   whenToApply: whenToApply.trim(),
-                  steps: steps,
                   skillNames: skillNames,
                   buildsRoadmap: buildsRoadmap,
+                  kind: kind,
+                  policy: policy,
+                  capabilities: capabilities,
                 )
               : workflow,
         )
@@ -93,14 +112,6 @@ class WorkflowsViewModel extends ViewModel<WorkflowsState> {
     updateState(data.copyWith(workflows: workflows));
     unawaited(_repository.save(workflows));
     return null;
-  }
-
-  void deleteWorkflow(String id) {
-    final workflows = data.workflows
-        .where((workflow) => workflow.id != id)
-        .toList();
-    updateState(data.copyWith(workflows: workflows));
-    unawaited(_repository.save(workflows));
   }
 
   String? _validateName(String name, {String? excludingId}) {

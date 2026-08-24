@@ -12,6 +12,18 @@ sealed class LlmProvider {
   factory LlmProvider.fromLegacyAlias(String alias) => switch (alias) {
     'codex' => const Codex(CodexCli()),
     'claude' => const Claude(ClaudeCli()),
+    'openrouter' => const OpenAiCompatible(
+      OpenAiCompatibleApi(
+        baseUrl: 'https://openrouter.ai/api/v1',
+        secretRef: 'OPENROUTER_API_KEY',
+      ),
+    ),
+    'deepseek' => const OpenAiCompatible(
+      OpenAiCompatibleApi(
+        baseUrl: 'https://api.deepseek.com',
+        secretRef: 'DEEPSEEK_API_KEY',
+      ),
+    ),
     _ => throw ArgumentError.value(
       alias,
       'alias',
@@ -28,4 +40,9 @@ final class Codex extends LlmProvider {
 final class Claude extends LlmProvider {
   final ClaudeTarget target;
   const Claude(this.target);
+}
+
+final class OpenAiCompatible extends LlmProvider {
+  final OpenAiCompatibleApi target;
+  const OpenAiCompatible(this.target);
 }

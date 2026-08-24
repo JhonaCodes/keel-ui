@@ -146,9 +146,9 @@ class _MapNodeInspectorScreenState extends State<MapNodeInspectorScreen> {
                       icon: Icons.assignment_outlined,
                       label: 'el encargo',
                       child: _Body(
-                        text: _node.stepInstruction,
+                        text: _node.nodeInstruction,
                         empty:
-                            'Este nodo no viene de un paso del workflow: habla '
+                            'Este nodo no pertenece a un caso de resolución: habla '
                             'cuando lo consultan.',
                       ),
                     ),
@@ -232,9 +232,9 @@ class _Header extends StatelessWidget {
       MapNodeKind.subagent =>
         'subagente · abierto por ${owner?.name ?? 'un miembro'}',
       _ =>
-        node.stepIndex == null
+        node.workNodeId == null
             ? (owner?.role ?? 'miembro del proyecto')
-            : 'paso ${node.stepIndex! + 1} · ${node.stepTitle}',
+            : 'nodo ${node.nodeTitle}',
     };
 
     return Padding(

@@ -230,8 +230,8 @@ class _Foot extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (node.stepIndex case final step?)
-                  _Chip(label: 'paso ${step + 1}')
+                if (node.workNodeId != null)
+                  _Chip(label: node.nodeTitle)
                 else if (node.kind == MapNodeKind.subagent)
                   _Chip(label: 'subagente'),
                 if (node.elapsed > Duration.zero) ...[

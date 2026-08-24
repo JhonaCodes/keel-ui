@@ -13,9 +13,14 @@ class TaskRunSpec {
   final String? sessionId;
   final String? additionalSystemPrompt;
 
-  /// Provider alias ('claude' | 'codex') — decides which CLI the isolate
-  /// spawns and which JSONL dialect it parses.
+  /// Provider alias — decides whether the isolate starts a local CLI or an
+  /// OpenAI-compatible API runner and which event dialect it normalizes.
   final String provider;
+
+  /// API credential resolved by the main engine before crossing the isolate
+  /// boundary. It is transient turn data: never persisted, logged, or sent
+  /// to the model as prompt content.
+  final String? providerApiKey;
 
   /// Full `--mcp-config` JSON for the turn (e.g. the member's assigned
   /// executable tools), already encoded — a String is isolate-message-safe
@@ -49,6 +54,7 @@ class TaskRunSpec {
     this.hooksConfig,
     this.hookFiles = const {},
     this.provider = 'claude',
+    this.providerApiKey,
   });
 
   Map<String, dynamic> toMessage() => {
@@ -65,6 +71,7 @@ class TaskRunSpec {
     'hooksConfig': hooksConfig,
     'hookFiles': hookFiles,
     'provider': provider,
+    'providerApiKey': providerApiKey,
   };
 
   factory TaskRunSpec.fromMessage(Map<String, dynamic> message) {
@@ -84,6 +91,7 @@ class TaskRunSpec {
       hookFiles:
           (message['hookFiles'] as Map?)?.cast<String, String>() ?? const {},
       provider: message['provider'] as String? ?? 'claude',
+      providerApiKey: message['providerApiKey'] as String?,
     );
   }
 }

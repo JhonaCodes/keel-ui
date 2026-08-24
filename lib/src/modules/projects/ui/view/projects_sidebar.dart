@@ -247,7 +247,7 @@ class _SessionsSection extends StatelessWidget {
               // El `3/7` es de la SESIÓN: dos sesiones del mismo proyecto
               // pueden correr flujos de largos distintos, y contar las de
               // una sobre la escala de la otra sería mentir con precisión.
-              totalSteps: ProjectsService.instance.notifier.stepCountOf(
+              totalSteps: ProjectsService.instance.notifier.nodeCountOf(
                 session,
               ),
               selected: onSessions && active == session.id,
@@ -597,9 +597,7 @@ class _SessionRowState extends State<_SessionRow> {
         color: scheme.error,
       ),
       SessionStatus.running => Text(
-        totalSteps == 0
-            ? '···'
-            : '${(session.currentStepIndex + 1).clamp(1, totalSteps)}/$totalSteps',
+        session.resolutionCase?.status.name ?? '···',
         style: TextStyle(
           fontFamily: 'monospace',
           fontSize: 10,

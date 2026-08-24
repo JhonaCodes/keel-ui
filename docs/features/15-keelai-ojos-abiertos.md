@@ -1,89 +1,111 @@
-# F15 — Keel AI con los ojos abiertos
+# F15 — Keel AI con catálogo completo
 
-## El problema
+## Objetivo
 
-Keel AI tenía 19 tools y **una sola de lectura** (`list_secret_names`). Podía
-crear, actualizar por creación y borrar, pero no podía **ver** nada: ni qué
-skills existían, ni el contenido de una, ni cómo estaba configurado un
-agente, ni el estado del sistema.
+Keel AI administra la misma arquitectura que ejecuta la app. No razona desde
+archivos JSON, backups ni registros históricos: sus tools de lectura toman los
+modelos tipados y el estado vivo de los ViewModels.
 
-El síntoma diario era este: *"creá un agente experto en flutter usando los
-skills que tenemos registrados"* → *"no tengo una tool para listar los
-skills, ¿me pasás los nombres?"*.
+El dominio es generalista. Un proyecto puede contener cualquier tecnología o
+incluso trabajo no relacionado con programación. El stack detectado sirve para
+seleccionar skills, reglas y conocimiento; nunca es un default global ni obliga
+a crear una topología fija de agentes.
 
-Y había un agravante silencioso: `create_or_update_agent` no validaba los
-nombres que recibía, así que un nombre inventado quedaba como asignación
-colgada — el agente creía tener esa skill y en el turno no le llegaba nada.
+## Ciclo de trabajo
 
-## Las tres capas que faltaban
+1. `list_catalog` lista skills, reglas, hooks, tools, agentes, workflows,
+   proyectos, MCPs y bases de conocimiento mediante resúmenes breves.
+2. `list_workflows` devuelve todos los contratos de workflow completos en una
+   sola llamada. El filtro opcional `names` limita la respuesta a nombres
+   exactos e informa cuáles no existen.
+3. `list_projects` devuelve la configuración completa de todos los proyectos,
+   incluidos los workflows disponibles y activo, asignaciones y sesiones. Al
+   compararla con `list_workflows` aparecen referencias anteriores o inválidas.
+4. `get_item` devuelve el contrato completo de un objeto individual afectado.
+5. `describe_system` muestra operación e integridad: secretos, MCPs bloqueados,
+   sesiones activas y referencias inválidas.
+6. Keel AI calcula el impacto mínimo, reutiliza lo existente y muta en orden de
+   dependencias.
+7. Lee nuevamente cada objeto y vuelve a comprobar la integridad. Una respuesta
+   “creado” no basta si el conjunto quedó incompleto.
 
-**Ojos** — leer lo que existe:
+Las tools de lectura no agregan burbujas al hilo. Las mutaciones sí dejan una
+nota visible en el momento en que ocurren.
 
-| Tool | Devuelve |
-|---|---|
-| `list_catalog(kind?)` | Nombre + para qué sirve de skills, reglas, tools, agentes, workflows, proyectos y MCPs. Sin `kind`, todo |
-| `get_item(kind, name)` | El contenido **completo**: el texto de una skill, el código de una tool, la config de un agente o un proyecto |
-| `describe_system()` | Estado: repos configurados, secrets sin valor, MCPs que no van a levantar, agentes respondiendo, sesiones corriendo |
+Antes de cada tool, el servidor espera a que terminen de cargar los catálogos
+tipados. El primer turno de la aplicación no puede recibir una lista parcial ni
+escribir sobre un snapshot vacío mientras la persistencia se inicializa.
 
-**Manos** — corregir sin destruir:
+## Lectura completa
 
-| Tool | Para qué |
-|---|---|
-| `update_skill` / `update_rule` | Reemplazar contenido sin borrar y recrear |
-| `update_tool` | Cambiar descripción, código, runtime, timeout o secrets. Lo que se omite queda como estaba |
-| `update_workflow` | Cambiar cuándo aplica y/o los pasos |
-| `unassign_from_agent` | **Sacar** skills/reglas/tools/MCPs. `create_or_update_agent` solo SUMA |
+`get_item` expone todo lo que afecta la ejecución:
 
-**Proyectos** — el límite que el propio prompt declaraba:
+- agente: ID, rol, prompt, proveedor, modelo, esfuerzo, skills, reglas, hooks,
+  tools, MCPs, conocimiento y permiso de constructor;
+- workflow: intención, tipo, responsable, skills por turno y de preflight,
+  reglas, conocimiento, gates, límites, `buildsRoadmap` y todas las capacidades
+  con instrucción, dependencias, activación e independencia;
+- proyecto: miembros con motor efectivo, workflows, workflow activo, reglas,
+  hooks, conocimiento, sesiones, overrides de motor y asignaciones por nodo;
+- hook: evento, matcher, cuerpo, timeout, reglas garantizadas, alcance y estado.
 
-| Tool | Para qué |
-|---|---|
-| `update_station` | Propósito, directorio, miembros, workflows disponibles, reglas y cuál queda ACTIVO |
-| `manage_station_documents` | Sumar o sacar documentos de negocio — antes solo se podía desde el formulario |
-| `open_project_session` | Abrir una sesión y mandarle el pedido al canal. Mismo camino que usa la Jobs API: `createTask` + `sendToChannel`, fire-and-forget |
+El inspector marca IDs colgantes, requisitos inexistentes, nodos que ya no
+pertenecen al workflow y asignaciones a perfiles ausentes.
 
-Total: 19 → **30 tools**.
+`list_catalog(kind: "workflows")` sigue siendo el índice rápido de nombres.
+Para analizar el conjunto completo se usa `list_workflows`; para editar uno en
+particular, `get_item`. Keel AI también dispone de `create_workflow` y
+`update_workflow`, de modo que lectura, creación y modificación son contratos
+explícitos y verificables.
 
-## Detalles que hacen que funcione
+Para responder qué proyectos todavía usan una configuración anterior, Keel AI
+lee `list_projects` y `list_workflows` en la misma transacción. No necesita
+recorrer manualmente cada nombre ni inspeccionar JSON persistido.
 
-**La allowlist manda.** `kKeelAiMcpToolNames` es lo que viaja como
-`extraAllowedTools` al CLI: una tool definida pero ausente de esa lista
-existe y no se puede llamar. Las 30 definiciones y las 30 entradas de la
-allowlist tienen que coincidir.
+## Construcción adaptativa
 
-**Las tools de lectura no dejan rastro en el hilo.**
-`dispatchKeelAiTool` agrega una nota de sistema por cada llamada, para que
-el usuario vea la mutación en el momento. Un listado no muta nada: su
-respuesta ya viaja al modelo por el resultado, y ponerla además como
-burbuja solo ensucia. El conjunto `_readOnlyTools` marca cuáles se saltean.
+Un workflow declara capacidades, no una cadena posicional. Cada capacidad tiene
+ID estable, título, instrucción, rol, dependencias, activación `required` u
+`optional` y un indicador `independent`.
 
-**Nada de asignaciones colgadas.** `executeAgentAction` filtra
-skills/reglas/tools/MCPs contra el catálogo real: asigna las que existen,
-descarta las que no y **las nombra en la respuesta**, para que el modelo se
-entere de que inventó un nombre. Lo mismo para las reglas de un proyecto,
-que también pasaban sin verificar.
+- `required` entra al grafo inicial; `optional` se activa solo por evidencia.
+- El responsable integra el caso y existe un único escritor.
+- `independent` exige un perfil diferente a quienes produjeron sus
+  dependencias. Como las sesiones CLI se guardan por perfil, la auditoría
+  obtiene también un contexto separado.
+- Una skill de auditoría es una instrucción, no evidencia independiente.
+- Compilador, linter, test, contrato o revisión crean un hallazgo sobre el nodo
+  afectado; repetir la misma huella sin cambios no es progreso.
 
-**Los updates reemplazan, no fusionan.** Por eso el prompt ordena leer con
-`get_item` antes de actualizar: sin eso se pisa el contenido anterior. Y
-renombrar rompe asignaciones (van por nombre), así que las tools lo dicen
-en su propia descripción.
+Los defaults de auditoría son opcionales e independientes. Keel AI no agrega un
+roster fijo de planificador, diagnosticador, implementador y varios auditores:
+cada perfil y nodo debe justificar tokens, contexto y handoff.
 
-**Nada de lo que existe en el VM se reimplementó.** `updateSkill`,
-`updateRule`, `updateTool`, `updateWorkflow`, `updateStation`,
-`addDocument`/`removeDocument`, `setActiveWorkflow`, `createTask` y
-`sendToChannel` ya estaban en los ViewModels: lo único que faltaba era
-exponerlos.
+## Mutaciones disponibles
 
-## El prompt
+- `create_or_update_agent` admite Claude, Codex, OpenRouter y DeepSeek, modelo,
+  esfuerzo, skills, reglas, hooks, tools, MCPs y conocimiento. Cambiar proveedor
+  sin modelo normaliza al default del proveedor nuevo.
+- `create_workflow` y `update_workflow` escriben el contrato adaptativo completo.
+- `create_project` y `update_project` administran miembros, workflows, reglas,
+  hooks, conocimiento y modo mantenido/solo lectura.
+- `update_project(member_engines)` guarda proveedor/modelo/esfuerzo por miembro
+  y proyecto; `node_assignments` guarda el agente concreto de cada capacidad.
+- `unassign_from_agent` puede retirar cualquiera de las dependencias aditivas.
 
-De nada sirve una tool que el modelo no sabe que tiene. `kKeelAiSystemPrompt`
-ahora abre con **"mirá antes de actuar"** y tres reglas:
+Las referencias se validan contra el catálogo real. Los nombres desconocidos se
+rechazan o se informan explícitamente; nunca quedan silenciosamente como si
+estuvieran inyectados.
 
-1. Antes de **asignar**, listar. Nunca inventar un nombre.
-2. Antes de **actualizar**, leer con `get_item`.
-3. Antes de decir **"no puedo"**, fijarse si hay tool. Casi siempre la hay.
+## Fallback declarativo
 
-Y el mapa del sistema cambió su cierre: donde decía *"no hay forma de sumar
-documentos a un proyecto desde una conversación"* ahora dice que todo se
-puede leer, crear, actualizar y corregir hablando — sin depender de que
-alguien abra un formulario.
+Los bloques fenced existen únicamente si el MCP de acciones no aparece. Su
+representación de capacidad es:
+
+```text
+id|título|rol|required|dependencia-a+dependencia-b|shared|instrucción
+id|título|rol|optional|implementation|independent|auditar evidencia
+```
+
+La forma anterior de seis campos se rechaza: el dominio persistido y las
+entradas de Keel AI no contienen APIs lineales, shims ni código deprecated.

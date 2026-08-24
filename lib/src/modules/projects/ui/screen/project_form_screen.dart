@@ -255,8 +255,8 @@ class _ProjectFormScreenState extends State<ProjectFormScreen> {
                 const Padding(
                   padding: EdgeInsets.only(top: 6, left: 4),
                   child: Text(
-                    'El rol de cada agente es lo que los pasos del workflow '
-                    'buscan — y lo que sus compañeros consultan.',
+                    'El rol de cada agente permite al preflight asignar '
+                    'responsables y consultas.',
                     style: TextStyle(fontSize: 11),
                   ),
                 ),
@@ -268,8 +268,8 @@ class _ProjectFormScreenState extends State<ProjectFormScreen> {
                 const Padding(
                   padding: EdgeInsets.only(top: 6, left: 4),
                   child: Text(
-                    'Definen quién entra y en qué orden. Sin workflows, la '
-                    'proyecto no sabe repartir.',
+                    'Definen intención, contexto, gates y delegación. Sin '
+                    'workflows, el proyecto no puede crear casos.',
                     style: TextStyle(fontSize: 11),
                   ),
                 ),

@@ -5,6 +5,8 @@ import 'package:keel_ui/src/modules/secrets/model/secret.dart';
 import 'package:keel_ui/src/modules/secrets/viewmodel/secrets_viewmodel.dart';
 import 'package:keel_ui/src/modules/secrets/ui/screen/secret_form_screen.dart';
 import 'package:keel_ui/src/modules/secrets/ui/widget/secret_tile.dart';
+import 'package:keel_ui/src/modules/secrets/ui/widget/provider_credential_card.dart';
+import 'package:keel_ui/src/modules/agents/model/agent_provider.dart';
 
 class SecretsScreen extends StatelessWidget {
   const SecretsScreen({super.key});
@@ -25,26 +27,39 @@ class SecretsScreen extends StatelessWidget {
       body: ReactiveViewModelBuilder<SecretsViewModel, SecretsState>(
         viewmodel: SecretsService.instance.notifier,
         build: (state, viewmodel, keep) {
-          if (state.secrets.isEmpty) {
-            return const Center(
-              child: Padding(
-                padding: EdgeInsets.all(24),
+          final providerSecretNames = {
+            AgentProvider.openRouter.secretName,
+            AgentProvider.deepSeek.secretName,
+          };
+          final remaining = state.secrets
+              .where((entry) => !providerSecretNames.contains(entry.name))
+              .toList();
+          return ListView(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
                 child: Text(
-                  'Todavía no registraste ningún secret.\n\n'
-                  'Los valores nunca pasan por un modelo: se inyectan como '
-                  'variables de entorno solo a procesos deterministas (tools '
-                  'y MCPs externos).',
-                  textAlign: TextAlign.center,
+                  'PROVEEDORES LLM',
+                  style: Theme.of(context).textTheme.labelSmall,
                 ),
               ),
-            );
-          }
-          return ListView.separated(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            itemCount: state.secrets.length,
-            separatorBuilder: (context, index) => const Divider(height: 1),
-            itemBuilder: (context, index) =>
-                SecretTile(secret: state.secrets[index]),
+              const ProviderCredentialCard(provider: AgentProvider.openRouter),
+              const ProviderCredentialCard(provider: AgentProvider.deepSeek),
+              if (remaining.isNotEmpty) ...[
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 20, 16, 4),
+                  child: Text(
+                    'OTROS SECRETS',
+                    style: Theme.of(context).textTheme.labelSmall,
+                  ),
+                ),
+                for (final secret in remaining) ...[
+                  SecretTile(secret: secret),
+                  const Divider(height: 1),
+                ],
+              ],
+            ],
           );
         },
       ),

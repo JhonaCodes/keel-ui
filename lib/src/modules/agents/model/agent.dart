@@ -68,6 +68,7 @@ class Agent {
 
   Agent copyWith({
     String? model,
+    AgentProvider? provider,
     String? sessionId,
     List<ChatMessage>? messages,
     bool? isStreaming,
@@ -91,7 +92,7 @@ class Agent {
       id: id,
       name: name,
       model: model ?? this.model,
-      provider: provider,
+      provider: provider ?? this.provider,
       createdAt: createdAt,
       sessionId: sessionId ?? this.sessionId,
       messages: messages ?? this.messages,

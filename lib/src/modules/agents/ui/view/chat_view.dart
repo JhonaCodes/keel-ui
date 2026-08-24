@@ -7,6 +7,8 @@ import 'package:multiselect_field/multiselect_field.dart';
 
 import 'package:keel_ui/src/modules/agents/model/agent.dart';
 import 'package:keel_ui/src/modules/agents/model/agent_model_option.dart';
+import 'package:keel_ui/src/modules/agents/model/agent_provider.dart';
+import 'package:keel_ui/src/integrations/llm/openai_compatible/remote_model_catalog.dart';
 import 'package:keel_ui/src/modules/agents/service/chat_actions.dart';
 import 'package:keel_ui/src/modules/agents/service/chat_attachment_store.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/chat_attachment_strip.dart';
@@ -19,7 +21,6 @@ import 'package:keel_ui/src/modules/agents/ui/widget/context_usage_ring.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/effort_level_selector.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/fade_in_entrance.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/permission_request_banner.dart';
-import 'package:keel_ui/src/modules/agents/ui/widget/provider_badge.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/reasoning_panel.dart';
 import 'package:keel_ui/src/shared/shared.dart';
 
@@ -70,14 +71,51 @@ class _ChatViewState extends State<ChatView> {
   /// next message. Stored paths, not the originals — see
   /// [ChatAttachmentStore].
   final List<String> _attachments = [];
+  final ScrollController _messageScroll = ScrollController();
+  final RemoteModelCatalog _modelCatalog = RemoteModelCatalog();
+  late Future<List<AgentModelOption>> _modelOptions = _modelCatalog.load(
+    widget.agent.provider,
+  );
 
   /// A drag is hovering the chat, so the drop hint is showing.
   bool _isDragging = false;
+  bool _atLatest = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _messageScroll.addListener(_watchMessagePosition);
+  }
+
+  @override
+  void didUpdateWidget(covariant ChatView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.agent.provider != widget.agent.provider) {
+      _modelOptions = _modelCatalog.load(widget.agent.provider);
+    }
+  }
 
   @override
   void dispose() {
+    _messageScroll
+      ..removeListener(_watchMessagePosition)
+      ..dispose();
     if (_ownsController) _controller.dispose();
     super.dispose();
+  }
+
+  void _watchMessagePosition() {
+    if (!_messageScroll.hasClients) return;
+    final atLatest = _messageScroll.offset <= 24;
+    if (atLatest != _atLatest) setState(() => _atLatest = atLatest);
+  }
+
+  void _goToLatest() {
+    _messageScroll.animateTo(
+      0,
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOut,
+    );
   }
 
   /// Sends, or QUEUES when the agent is mid-turn — the ViewModel decides.
@@ -160,6 +198,13 @@ class _ChatViewState extends State<ChatView> {
     widget.actions.setAgentModel(widget.agent.id, model);
   }
 
+  void _onProviderChanged(List<Choice<AgentProvider>> selected) {
+    if (selected.isEmpty) return;
+    final provider = selected.first.metadata;
+    if (provider == null) return;
+    widget.actions.setAgentProvider(widget.agent.id, provider);
+  }
+
   Future<void> _toggleFullFileSystemAccess() async {
     final agent = widget.agent;
 
@@ -226,29 +271,57 @@ class _ChatViewState extends State<ChatView> {
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
                     const SizedBox(width: 6),
-                    ProviderBadge(provider: agent.provider),
-                    const SizedBox(width: 8),
-                    // Each provider runs its own CLI with its own model
-                    // names: a codex agent must never be offered `sonnet`.
-                    MultiSelectField<String>.chip(
-                      key: ValueKey(agent.provider),
-                      label: 'Modelo',
+                    MultiSelectField<AgentProvider>.chip(
+                      key: ValueKey('provider-${agent.provider.alias}'),
+                      label: 'Proveedor',
                       singleSelection: true,
                       chipSize: ChipSize.small,
                       data: () => [
-                        for (final option in modelOptionsFor(agent.provider))
-                          Choice(option.alias, option.label),
+                        for (final provider in AgentProvider.values)
+                          Choice(
+                            provider.alias,
+                            provider.label,
+                            metadata: provider,
+                          ),
                       ],
                       defaultData: [
                         Choice(
-                          initialModelFor(agent.provider, agent.model),
-                          modelLabelFor(
-                            agent.provider,
-                            initialModelFor(agent.provider, agent.model),
-                          ),
+                          agent.provider.alias,
+                          agent.provider.label,
+                          metadata: agent.provider,
                         ),
                       ],
-                      onChanged: _onModelChanged,
+                      onChanged: _onProviderChanged,
+                    ),
+                    const SizedBox(width: 8),
+                    // Each provider runs its own CLI with its own model
+                    // names: a codex agent must never be offered `sonnet`.
+                    FutureBuilder<List<AgentModelOption>>(
+                      future: _modelOptions,
+                      builder: (context, snapshot) {
+                        final options =
+                            snapshot.data ?? modelOptionsFor(agent.provider);
+                        return MultiSelectField<String>.chip(
+                          key: ValueKey('model-${agent.provider.alias}'),
+                          label: 'Modelo',
+                          singleSelection: true,
+                          chipSize: ChipSize.small,
+                          data: () => [
+                            for (final option in options)
+                              Choice(option.alias, option.label),
+                          ],
+                          defaultData: [
+                            Choice(
+                              initialModelFor(agent.provider, agent.model),
+                              modelLabelFor(
+                                agent.provider,
+                                initialModelFor(agent.provider, agent.model),
+                              ),
+                            ),
+                          ],
+                          onChanged: _onModelChanged,
+                        );
+                      },
                     ),
                     const SizedBox(width: 4),
                     EffortLevelSelector(
@@ -303,28 +376,44 @@ class _ChatViewState extends State<ChatView> {
                           const Center(
                             child: Text('Escríbele algo a tu agente'),
                           )
-                    : SelectionArea(
-                        child: ListView.builder(
-                          reverse: true,
-                          padding: const EdgeInsets.all(16),
-                          itemCount: agent.messages.length,
-                          itemBuilder: (context, index) {
-                            final msgIndex = agent.messages.length - 1 - index;
-                            final message = agent.messages[msgIndex];
-                            return FadeInEntrance(
-                              key: ValueKey(
-                                message.timestamp.microsecondsSinceEpoch,
+                    : Stack(
+                        children: [
+                          SelectionArea(
+                            child: ListView.builder(
+                              controller: _messageScroll,
+                              reverse: true,
+                              padding: const EdgeInsets.all(16),
+                              itemCount: agent.messages.length,
+                              itemBuilder: (context, index) {
+                                final msgIndex =
+                                    agent.messages.length - 1 - index;
+                                final message = agent.messages[msgIndex];
+                                return FadeInEntrance(
+                                  key: ValueKey(
+                                    message.timestamp.microsecondsSinceEpoch,
+                                  ),
+                                  child: ChatMessageBubble(
+                                    message: message,
+                                    agentId: agent.id,
+                                    agentColor: agent.iconColor,
+                                    actions: widget.actions,
+                                    fontScaleOverride: widget.fontScaleOverride,
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                          if (!_atLatest)
+                            Positioned(
+                              right: 20,
+                              bottom: 16,
+                              child: FloatingActionButton.small(
+                                tooltip: 'Ir al mensaje más reciente',
+                                onPressed: _goToLatest,
+                                child: const Icon(Icons.arrow_downward),
                               ),
-                              child: ChatMessageBubble(
-                                message: message,
-                                agentId: agent.id,
-                                agentColor: agent.iconColor,
-                                actions: widget.actions,
-                                fontScaleOverride: widget.fontScaleOverride,
-                              ),
-                            );
-                          },
-                        ),
+                            ),
+                        ],
                       ),
               ),
               if (agent.liveReasoning != null &&

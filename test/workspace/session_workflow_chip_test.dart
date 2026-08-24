@@ -9,6 +9,7 @@ import 'package:keel_ui/src/modules/projects/model/session.dart';
 import 'package:keel_ui/src/modules/projects/ui/view/session_chat_view.dart';
 import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
 import 'package:keel_ui/src/modules/workflows/model/workflow.dart';
+import 'package:keel_ui/src/modules/workflows/service/workflow_deletion_service.dart';
 import 'package:keel_ui/src/modules/workflows/viewmodel/workflows_viewmodel.dart';
 
 final _epoch = DateTime(2026, 8, 23);
@@ -22,19 +23,13 @@ void main() {
     final workflows = WorkflowsService.instance.notifier;
     await workflows.ready;
     for (final workflow in [...workflows.data.workflows]) {
-      workflows.deleteWorkflow(workflow.id);
+      workflowDeletionService.deleteWorkflow(workflow.id);
     }
     workflows.createWorkflow(
       name: 'tickets',
       whenToApply: 'Para resolver un ticket.',
-      steps: const [
-        WorkflowStep(
-          id: '1',
-          title: 'Implementar',
-          role: 'dev',
-          instruction: '',
-        ),
-      ],
+      kind: WorkflowKind.bug,
+      policy: const WorkflowPolicy(resolutionRole: 'dev'),
     );
     tickets = workflows.data.workflows.single.id;
   });

@@ -1,23 +1,29 @@
+import 'dart:async';
+
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
+import 'package:desktop_drop/desktop_drop.dart';
 
 import 'package:keel_ui/src/core/services/external_link_service.dart';
 import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
 import 'package:keel_ui/src/modules/agent_profiles/viewmodel/agent_profiles_viewmodel.dart';
 import 'package:keel_ui/src/modules/agents/model/chat_message.dart';
+import 'package:keel_ui/src/modules/agents/service/chat_attachment_store.dart';
+import 'package:keel_ui/src/modules/agents/ui/widget/chat_attachment_strip.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/chat_composer_field.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/fade_in_entrance.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/permission_request_banner.dart';
 import 'package:keel_ui/src/modules/projects/model/member_color.dart';
 import 'package:keel_ui/src/modules/projects/model/project.dart';
 import 'package:keel_ui/src/modules/projects/model/session.dart';
-import 'package:keel_ui/src/modules/projects/model/session_plan_item.dart';
+import 'package:keel_ui/src/modules/projects/model/session_queued_message.dart';
 import 'package:keel_ui/src/modules/projects/model/thread_entry.dart';
 import 'package:keel_ui/src/modules/projects/ui/view/session_map_view.dart';
 import 'package:keel_ui/src/modules/projects/ui/widget/session_agent_picker.dart';
 import 'package:keel_ui/src/modules/projects/ui/widget/session_live_turn_strip.dart';
 import 'package:keel_ui/src/modules/projects/ui/widget/session_message_bubble.dart';
+import 'package:keel_ui/src/modules/projects/ui/widget/session_queued_messages_panel.dart';
 import 'package:keel_ui/src/modules/projects/ui/widget/workflow_progress_panel.dart';
 import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
 import 'package:keel_ui/src/modules/workflows/model/workflow.dart';
@@ -155,13 +161,10 @@ class _ProjectChannel extends StatelessWidget {
                         grant: grant,
                       ),
                 ),
-              // Lo que sigue del plan, pegado arriba del campo de escribir.
-              //
-              // Vivía en el sidebar, debajo de la lista de puntos, y ahí nadie
-              // lo encontraba: es una ACCIÓN, y las acciones se buscan donde
-              // uno está escribiendo, no en la columna de contexto.
+              // A finding remains visible at the point where the user can
+              // provide a decision or missing context to the case owner.
               if (tab == SessionTab.chat && session != null && !running)
-                _NextPlanItemBar(project: project, session: session),
+                _FindingBar(session: session),
               SizedBox(
                 height: 2,
                 child: running
@@ -278,11 +281,8 @@ class _ThreadBubble extends StatelessWidget {
   Widget build(BuildContext context) {
     final author = _profileById(message.authorProfileId);
     final askedBy = _profileById(message.consultOfProfileId);
-    final stepIndex = message.stepIndex;
-    final steps = workflow?.steps ?? const [];
-    final stepTitle = (stepIndex != null && stepIndex < steps.length)
-        ? 'paso ${stepIndex + 1} · ${steps[stepIndex].title}'
-        : null;
+    final nodeId = message.workNodeId;
+    final nodeTitle = nodeId == null ? null : 'nodo de resolución: $nodeId';
     final memberIds = [for (final member in members) member.id];
 
     return FadeInEntrance(
@@ -290,7 +290,7 @@ class _ThreadBubble extends StatelessWidget {
         message: message,
         projectId: projectId,
         author: author,
-        stepTitle: stepTitle,
+        nodeTitle: nodeTitle,
         askedBy: askedBy,
         memberIndex: author == null
             ? 0
@@ -351,6 +351,8 @@ class _Composer extends StatefulWidget {
 
 class _ComposerState extends State<_Composer> {
   final _controller = TextEditingController();
+  final List<String> _attachments = [];
+  bool _isDragging = false;
 
   @override
   void dispose() {
@@ -360,10 +362,111 @@ class _ComposerState extends State<_Composer> {
 
   void _send() {
     final text = _controller.text;
-    if (text.trim().isEmpty) return;
-    if (widget.session?.isRunning ?? false) return;
-    ProjectsService.instance.notifier.sendToChannel(widget.project.id, text);
+    if (text.trim().isEmpty && _attachments.isEmpty) return;
+    final session = widget.session;
+    if (session == null) return;
+    final images = [..._attachments];
+    if (session.isRunning) {
+      unawaited(
+        ProjectsService.instance.notifier.queueSessionMessage(
+          widget.project.id,
+          session.id,
+          text,
+          imagePaths: images,
+        ),
+      );
+    } else {
+      unawaited(
+        ProjectsService.instance.notifier.sendToChannel(
+          widget.project.id,
+          text,
+          imagePaths: images,
+        ),
+      );
+    }
     _controller.clear();
+    setState(_attachments.clear);
+  }
+
+  Future<void> _editQueuedMessage(SessionQueuedMessage message) async {
+    final edited = await showDialog<String>(
+      context: context,
+      builder: (_) => _QueuedMessageEditorDialog(message: message),
+    );
+    final session = widget.session;
+    if (edited == null || session == null) return;
+    await ProjectsService.instance.notifier.editQueuedSessionMessage(
+      widget.project.id,
+      session.id,
+      message.id,
+      edited,
+    );
+  }
+
+  Future<void> _deleteQueuedMessage(SessionQueuedMessage message) async {
+    final session = widget.session;
+    if (session == null) return;
+    await ProjectsService.instance.notifier.removeQueuedSessionMessage(
+      widget.project.id,
+      session.id,
+      message.id,
+    );
+    for (final imagePath in message.imagePaths) {
+      await ChatAttachmentStore.discard(imagePath);
+    }
+  }
+
+  Future<void> _sendQueuedNow(SessionQueuedMessage message) async {
+    final session = widget.session;
+    if (session == null) return;
+    await ProjectsService.instance.notifier.sendQueuedSessionMessageNow(
+      widget.project.id,
+      session.id,
+      message.id,
+    );
+  }
+
+  Future<void> _sendQueuedAfterTurn(SessionQueuedMessage message) async {
+    final session = widget.session;
+    if (session == null) return;
+    await ProjectsService.instance.notifier.sendQueuedSessionMessageAfterTurn(
+      widget.project.id,
+      session.id,
+      message.id,
+    );
+  }
+
+  Future<void> _holdQueuedMessage(SessionQueuedMessage message) async {
+    final session = widget.session;
+    if (session == null) return;
+    await ProjectsService.instance.notifier.holdQueuedSessionMessage(
+      widget.project.id,
+      session.id,
+      message.id,
+    );
+  }
+
+  Future<void> _pickImages() async {
+    final files = await openFiles(
+      acceptedTypeGroups: [
+        XTypeGroup(
+          label: 'Imágenes',
+          extensions: ChatAttachmentStore.supportedExtensions.toList(),
+        ),
+      ],
+    );
+    await _attach([for (final file in files) file.path]);
+  }
+
+  Future<void> _attach(List<String> paths) async {
+    final stored = await ChatAttachmentStore.adoptImages(paths);
+    if (!mounted || stored.isEmpty) return;
+    setState(() => _attachments.addAll(stored));
+  }
+
+  void _removeAttachment(String path) {
+    setState(() => _attachments.remove(path));
+    ChatAttachmentStore.discard(path);
   }
 
   @override
@@ -374,64 +477,159 @@ class _ComposerState extends State<_Composer> {
     final started =
         session?.messages.any((m) => m.role == ChatRole.assistant) ?? false;
 
-    return Padding(
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Container(
-                  decoration: ShapeDecoration(
-                    shape: 16.smoothBorder(
-                      side: BorderSide(
-                        color: Theme.of(context).colorScheme.outline,
+    return DropTarget(
+      onDragEntered: (_) => setState(() => _isDragging = true),
+      onDragExited: (_) => setState(() => _isDragging = false),
+      onDragDone: (details) async {
+        setState(() => _isDragging = false);
+        await _attach([for (final file in details.files) file.path]);
+      },
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SessionQueuedMessagesPanel(
+              messages: session?.queuedMessages ?? const [],
+              isRunning: running,
+              onEdit: (message) => unawaited(_editQueuedMessage(message)),
+              onDelete: (message) => unawaited(_deleteQueuedMessage(message)),
+              onSendNow: (message) => unawaited(_sendQueuedNow(message)),
+              onSendAfterTurn: (message) =>
+                  unawaited(_sendQueuedAfterTurn(message)),
+              onHold: (message) => unawaited(_holdQueuedMessage(message)),
+            ),
+            ChatAttachmentStrip(
+              paths: _attachments,
+              onRemove: _removeAttachment,
+            ),
+            Row(
+              children: [
+                IconButton(
+                  tooltip: 'Adjuntar imagen',
+                  icon: Icon(
+                    _isDragging
+                        ? Icons.add_photo_alternate
+                        : Icons.image_outlined,
+                  ),
+                  onPressed: _pickImages,
+                ),
+                Expanded(
+                  child: Container(
+                    decoration: ShapeDecoration(
+                      shape: 16.smoothBorder(
+                        side: BorderSide(
+                          color: Theme.of(context).colorScheme.outline,
+                        ),
                       ),
                     ),
-                  ),
-                  child: ChatComposerField(
-                    controller: _controller,
-                    onSend: _send,
-                    enabled: session != null && !running,
-                    hintText: switch (session) {
-                      null => 'Creá una sesión para empezar',
-                      _ when !started =>
-                        'Qué necesitás en esta sesión de #${project.name}',
-                      _ => 'Mensaje a #${project.name}',
-                    },
+                    child: ChatComposerField(
+                      controller: _controller,
+                      onSend: _send,
+                      enabled: session != null,
+                      hintText: switch (session) {
+                        null => 'Creá una sesión para empezar',
+                        _ when !started =>
+                          'Qué necesitás en esta sesión de #${project.name}',
+                        _ => 'Mensaje a #${project.name}',
+                      },
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              IconButton.filled(
-                tooltip: running ? 'Detener' : 'Enviar',
-                onPressed: switch ((running, session)) {
-                  (true, final open?) =>
-                    () => ProjectsService.instance.notifier.stopSession(
-                      project.id,
-                      open.id,
-                    ),
-                  (false, final _?) => _send,
-                  _ => null,
-                },
-                icon: Icon(running ? Icons.stop_circle : Icons.send),
-              ),
-            ],
-          ),
-          Padding(
-            padding: const EdgeInsets.only(top: 6, left: 4),
-            child: Text(switch (session) {
-              null => 'Las sesiones se crean con el botón "Nueva sesión".',
-              _ when !started =>
-                'Arranca el workflow del proyecto en esta sesión.',
-              _ =>
-                'El workflow reparte los pasos. Escribí cuando quieras '
-                    'corregir el rumbo — entra en el paso que esté corriendo.',
-            }, style: Theme.of(context).textTheme.bodySmall),
-          ),
-        ],
+                const SizedBox(width: 8),
+                if (running && session != null) ...[
+                  IconButton.outlined(
+                    tooltip: 'Detener',
+                    onPressed: () => ProjectsService.instance.notifier
+                        .stopSession(project.id, session.id),
+                    icon: const Icon(Icons.stop_circle_outlined),
+                  ),
+                  const SizedBox(width: 8),
+                ],
+                IconButton.filled(
+                  tooltip: running ? 'Guardar en espera' : 'Enviar',
+                  onPressed: session == null ? null : _send,
+                  icon: Icon(running ? Icons.schedule_send : Icons.send),
+                ),
+              ],
+            ),
+            Padding(
+              padding: const EdgeInsets.only(top: 6, left: 4),
+              child: Text(switch (session) {
+                null => 'Las sesiones se crean con el botón "Nueva sesión".',
+                _ when !started =>
+                  'Ejecuta el preflight del workflow en esta sesión.',
+                _ when running =>
+                  'Podés guardar mensajes en espera, programarlos para el '
+                      'final del turno o interrumpir y enviarlos ahora.',
+                _ =>
+                  'El workflow coordina el grafo. Escribí cuando quieras '
+                      'corregir el rumbo — se registra en el nodo activo.',
+              }, style: Theme.of(context).textTheme.bodySmall),
+            ),
+          ],
+        ),
       ),
+    );
+  }
+}
+
+class _QueuedMessageEditorDialog extends StatefulWidget {
+  const _QueuedMessageEditorDialog({required this.message});
+
+  final SessionQueuedMessage message;
+
+  @override
+  State<_QueuedMessageEditorDialog> createState() =>
+      _QueuedMessageEditorDialogState();
+}
+
+class _QueuedMessageEditorDialogState
+    extends State<_QueuedMessageEditorDialog> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.message.text);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _save() {
+    final text = _controller.text.trim();
+    if (text.isEmpty && widget.message.imagePaths.isEmpty) return;
+    Navigator.of(context).pop(text);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Editar mensaje en espera'),
+      content: SizedBox(
+        width: 480,
+        child: TextField(
+          controller: _controller,
+          autofocus: true,
+          minLines: 3,
+          maxLines: 8,
+          decoration: const InputDecoration(
+            hintText: 'Mensaje que se enviará en el próximo turno',
+          ),
+          onSubmitted: (_) => _save(),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(onPressed: _save, child: const Text('Guardar')),
+      ],
     );
   }
 }
@@ -810,102 +1008,51 @@ class _MissingFolderBanner extends StatelessWidget {
   }
 }
 
-/// El próximo punto del plan, arriba del campo de escribir.
-///
-/// Cada punto pendiente es otra vuelta entera del workflow desde el paso 1, y
-/// arrancarla era o escribir "continuar" —adivinar el conjuro— o encontrar un
-/// botón chiquito perdido al fondo del sidebar. Acá está donde se mira: la
-/// última línea antes de ponerse a escribir.
-class _NextPlanItemBar extends StatelessWidget {
-  const _NextPlanItemBar({required this.project, required this.session});
+class _FindingBar extends StatelessWidget {
+  const _FindingBar({required this.session});
 
-  final Project project;
   final Session session;
 
   @override
   Widget build(BuildContext context) {
-    final next = session.plan.current;
-    if (next == null) return const SizedBox.shrink();
+    final findings = session.resolutionCase?.findings
+        .where((finding) => finding.status.name != 'resolved')
+        .toList();
+    if (findings == null || findings.isEmpty) return const SizedBox.shrink();
+    final finding = findings.first;
 
     final scheme = Theme.of(context).colorScheme;
 
     return Material(
       color: scheme.surfaceContainerLow,
-      child: InkWell(
-        onTap: () => ProjectsService.instance.notifier.continueWithNextPlanItem(
-          project.id,
-          session.id,
+      child: Container(
+        decoration: BoxDecoration(
+          border: Border(top: BorderSide(color: scheme.outlineVariant)),
         ),
-        child: Container(
-          decoration: BoxDecoration(
-            border: Border(top: BorderSide(color: scheme.outlineVariant)),
-          ),
-          padding: const EdgeInsets.fromLTRB(16, 8, 10, 8),
-          child: Row(
-            children: [
-              Icon(Icons.play_circle_outline, size: 15, color: scheme.primary),
-              const SizedBox(width: 8),
-              Text(
-                'SIGUE',
-                style: TextStyle(
-                  fontFamily: 'monospace',
-                  fontSize: 10,
-                  letterSpacing: 1.1,
-                  color: scheme.outline,
-                ),
+        padding: const EdgeInsets.fromLTRB(16, 8, 10, 8),
+        child: Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, size: 16, color: scheme.error),
+            const SizedBox(width: 8),
+            Text(
+              finding.status.name == 'blocked' ? 'BLOQUEADO' : 'HALLAZGO',
+              style: TextStyle(
+                fontFamily: 'monospace',
+                fontSize: 10,
+                letterSpacing: 1.1,
+                color: scheme.outline,
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  next.text,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 12.5),
-                ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                finding.evidence.summary,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 12.5),
               ),
-              if (next.ownerRole != null) ...[
-                const SizedBox(width: 10),
-                Text(
-                  next.ownerRole!,
-                  style: TextStyle(
-                    fontFamily: 'monospace',
-                    fontSize: 10,
-                    color: scheme.outline,
-                  ),
-                ),
-              ],
-              const SizedBox(width: 6),
-              // Decir que NO tiene que costar lo mismo que decir que sí.
-              // Sin esto, un punto que ya no aplica dejaba la sesión sin
-              // poder cerrar nunca: la única salida era hacerlo igual o
-              // mentir marcándolo cumplido.
-              TextButton(
-                onPressed: () => ProjectsService.instance.notifier
-                    .discardPlanItem(project.id, session.id, next.id),
-                style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 10),
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  foregroundColor: scheme.onSurfaceVariant,
-                ),
-                child: const Text('No va', style: TextStyle(fontSize: 12)),
-              ),
-              const SizedBox(width: 6),
-              FilledButton.tonal(
-                onPressed: () => ProjectsService.instance.notifier
-                    .continueWithNextPlanItem(project.id, session.id),
-                style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 6,
-                  ),
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                child: const Text('Seguir', style: TextStyle(fontSize: 12)),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

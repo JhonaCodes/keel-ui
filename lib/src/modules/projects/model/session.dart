@@ -5,6 +5,8 @@ import 'package:keel_ui/src/modules/agents/model/permission_request.dart';
 import 'package:keel_ui/src/modules/projects/model/session_plan_item.dart';
 import 'package:keel_ui/src/modules/projects/model/session_live_turn.dart';
 import 'package:keel_ui/src/modules/projects/model/session_subagent.dart';
+import 'package:keel_ui/src/modules/projects/model/resolution_case.dart';
+import 'package:keel_ui/src/modules/projects/model/session_queued_message.dart';
 
 enum SessionStatus { running, finished, failed }
 
@@ -52,8 +54,11 @@ class Session {
   /// qué se pidió en realidad.
   final String request;
 
-  final int currentStepIndex;
   final bool isRunning;
+
+  /// The adaptive case that owns work, findings, and validation. It replaces
+  /// the positional workflow cursor; work advances by satisfied dependencies.
+  final ResolutionCase? resolutionCase;
 
   /// Con qué workflow corre ESTA sesión.
   ///
@@ -93,6 +98,11 @@ class Session {
   /// subagente devolvió es historia del hilo, igual que un mensaje.
   final List<SessionSubagent> subagents;
 
+  /// Mensajes escritos mientras otro turno todavía tenía el canal. Se guardan
+  /// con la sesión para que cambiar de pantalla o reiniciar la app no los haga
+  /// desaparecer.
+  final List<SessionQueuedMessage> queuedMessages;
+
   const Session({
     required this.id,
     required this.title,
@@ -104,8 +114,8 @@ class Session {
     this.plan = const [],
     this.request = '',
     this.workflowId = '',
-    this.currentStepIndex = 0,
     this.isRunning = false,
+    this.resolutionCase,
     this.costUsd = 0,
     this.costByProfileId = const {},
     this.contextUsedTokens,
@@ -113,6 +123,7 @@ class Session {
     this.pendingPermission,
     this.liveTurn,
     this.subagents = const [],
+    this.queuedMessages = const [],
   });
 
   /// How full the context is, 0..1, or null while nothing has reported yet.
@@ -132,8 +143,9 @@ class Session {
     List<SessionPlanItem>? plan,
     String? request,
     String? workflowId,
-    int? currentStepIndex,
     bool? isRunning,
+    ResolutionCase? resolutionCase,
+    bool clearResolutionCase = false,
     double? costUsd,
     Map<String, double>? costByProfileId,
     int? contextUsedTokens,
@@ -143,6 +155,7 @@ class Session {
     SessionLiveTurn? liveTurn,
     bool clearLiveTurn = false,
     List<SessionSubagent>? subagents,
+    List<SessionQueuedMessage>? queuedMessages,
   }) {
     return Session(
       id: id,
@@ -156,8 +169,10 @@ class Session {
       plan: plan ?? this.plan,
       request: request ?? this.request,
       workflowId: workflowId ?? this.workflowId,
-      currentStepIndex: currentStepIndex ?? this.currentStepIndex,
       isRunning: isRunning ?? this.isRunning,
+      resolutionCase: clearResolutionCase
+          ? null
+          : (resolutionCase ?? this.resolutionCase),
       costUsd: costUsd ?? this.costUsd,
       costByProfileId: costByProfileId ?? this.costByProfileId,
       contextUsedTokens: contextUsedTokens ?? this.contextUsedTokens,
@@ -167,6 +182,7 @@ class Session {
           : (pendingPermission ?? this.pendingPermission),
       liveTurn: clearLiveTurn ? null : (liveTurn ?? this.liveTurn),
       subagents: subagents ?? this.subagents,
+      queuedMessages: queuedMessages ?? this.queuedMessages,
     );
   }
 
@@ -181,13 +197,14 @@ class Session {
     'plan': plan.map((item) => item.toJson()).toList(),
     'request': request,
     'workflowId': workflowId,
-    'currentStepIndex': currentStepIndex,
     'isRunning': isRunning,
+    'resolutionCase': resolutionCase?.toJson(),
     'costUsd': costUsd,
     'costByProfileId': costByProfileId,
     'contextUsedTokens': contextUsedTokens,
     'contextWindowTokens': contextWindowTokens,
     'subagents': [for (final subagent in subagents) subagent.toJson()],
+    'queuedMessages': [for (final message in queuedMessages) message.toJson()],
   };
 
   factory Session.fromJson(Map<String, dynamic> json) {
@@ -218,8 +235,12 @@ class Session {
           ((json['isFormatSession'] as bool? ?? false)
               ? kSessionFormatMigrationMark
               : ''),
-      currentStepIndex: json['currentStepIndex'] as int? ?? 0,
       isRunning: json['isRunning'] as bool? ?? false,
+      resolutionCase: json['resolutionCase'] is Map
+          ? ResolutionCase.fromJson(
+              (json['resolutionCase'] as Map).cast<String, dynamic>(),
+            )
+          : null,
       costUsd: (json['costUsd'] as num?)?.toDouble() ?? 0,
       costByProfileId:
           (json['costByProfileId'] as Map?)?.map(
@@ -231,6 +252,10 @@ class Session {
       subagents: [
         for (final entry in json['subagents'] as List? ?? const [])
           SessionSubagent.fromJson(entry as Map<String, dynamic>),
+      ],
+      queuedMessages: [
+        for (final entry in json['queuedMessages'] as List? ?? const [])
+          SessionQueuedMessage.fromJson(entry as Map<String, dynamic>),
       ],
     );
   }
@@ -250,7 +275,6 @@ class Session {
           listEquals(plan, other.plan) &&
           request == other.request &&
           workflowId == other.workflowId &&
-          currentStepIndex == other.currentStepIndex &&
           isRunning == other.isRunning &&
           costUsd == other.costUsd &&
           mapEquals(costByProfileId, other.costByProfileId) &&
@@ -258,7 +282,8 @@ class Session {
           contextWindowTokens == other.contextWindowTokens &&
           pendingPermission == other.pendingPermission &&
           liveTurn == other.liveTurn &&
-          listEquals(subagents, other.subagents);
+          listEquals(subagents, other.subagents) &&
+          listEquals(queuedMessages, other.queuedMessages);
 
   @override
   int get hashCode => Object.hash(
@@ -274,7 +299,6 @@ class Session {
     Object.hashAll(plan),
     request,
     workflowId,
-    currentStepIndex,
     isRunning,
     costUsd,
     Object.hashAll(
@@ -285,11 +309,13 @@ class Session {
     pendingPermission,
     liveTurn,
     Object.hashAll(subagents),
+    Object.hashAll(queuedMessages),
   );
 
   @override
   String toString() =>
       'Session(id: $id, title: $title, status: ${status.name}, '
-      'messages: ${messages.length}, step: $currentStepIndex, '
+      'messages: ${messages.length}, '
+      'queued: ${queuedMessages.length}, '
       'running: $isRunning)';
 }

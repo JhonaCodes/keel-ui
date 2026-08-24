@@ -11,6 +11,7 @@ class AppUpdateState {
   const AppUpdateState({
     this.source = const KeelSource(),
     this.version = const KeelVersion(),
+    this.release = const InstalledReleaseStatus(),
     this.checking = false,
     this.updating = false,
     this.report,
@@ -18,6 +19,7 @@ class AppUpdateState {
 
   final KeelSource source;
   final KeelVersion version;
+  final InstalledReleaseStatus release;
   final bool checking;
   final bool updating;
 
@@ -26,13 +28,15 @@ class AppUpdateState {
   /// justo eso.
   final KeelUpdateReport? report;
 
-  /// Si hay algo que hacer: commits nuevos, o un binario más viejo que el
-  /// código. Es lo que enciende el punto del rail.
+  /// Si el checkout de desarrollo necesita atención. Es exclusivamente lo
+  /// que enciende el punto de Máquina; una release descargable tiene su aviso
+  /// propio debajo de Ajustes.
   bool get pending => version.outdated || version.stale;
 
   AppUpdateState copyWith({
     KeelSource? source,
     KeelVersion? version,
+    InstalledReleaseStatus? release,
     bool? checking,
     bool? updating,
     KeelUpdateReport? report,
@@ -40,6 +44,7 @@ class AppUpdateState {
   }) => AppUpdateState(
     source: source ?? this.source,
     version: version ?? this.version,
+    release: release ?? this.release,
     checking: checking ?? this.checking,
     updating: updating ?? this.updating,
     report: clearReport ? null : (report ?? this.report),
@@ -53,6 +58,7 @@ class AppUpdateState {
           updating == other.updating &&
           identical(source, other.source) &&
           identical(version, other.version) &&
+          identical(release, other.release) &&
           identical(report, other.report);
 
   @override
@@ -60,6 +66,8 @@ class AppUpdateState {
     source.root,
     version.head,
     version.behind,
+    release.current,
+    release.latest?.release,
     checking,
     updating,
     report,
@@ -68,7 +76,11 @@ class AppUpdateState {
 
 /// Qué código estás corriendo y cómo pasarte al nuevo.
 class AppUpdateViewModel extends ViewModel<AppUpdateState> {
-  AppUpdateViewModel() : super(const AppUpdateState());
+  AppUpdateViewModel({Future<InstalledReleaseStatus> Function()? releaseReader})
+    : _releaseReader = releaseReader ?? readInstalledRelease,
+      super(const AppUpdateState());
+
+  final Future<InstalledReleaseStatus> Function() _releaseReader;
 
   @override
   void init() {}
@@ -97,7 +109,7 @@ class AppUpdateViewModel extends ViewModel<AppUpdateState> {
   Future<void> check({bool force = false}) async {
     if (data.checking) return;
 
-    final last = data.version.checkedAt;
+    final last = data.release.checkedAt ?? data.version.checkedAt;
     if (!force &&
         last != null &&
         DateTime.now().difference(last) < _kCheckTtl) {
@@ -109,13 +121,34 @@ class AppUpdateViewModel extends ViewModel<AppUpdateState> {
     // vieja para siempre.
     final source = readKeelSource();
     updateState(data.copyWith(source: source, checking: true));
+    final releaseFuture = _releaseReader();
+    var version = data.version;
     try {
-      final version = await readKeelVersion(source);
-      updateState(data.copyWith(version: version, checking: false));
+      version = await readKeelVersion(source);
     } catch (error) {
       Log.e('No pude revisar si hay una versión nueva de Keel', error: error);
-      updateState(data.copyWith(checking: false));
     }
+    InstalledReleaseStatus release;
+    try {
+      release = await releaseFuture;
+    } on Object catch (error) {
+      Log.e('No pude revisar el canal de releases de Keel', error: error);
+      release = InstalledReleaseStatus(
+        current: data.release.current,
+        checkedAt: DateTime.now(),
+        error: 'No pude revisar la última versión: $error',
+      );
+    }
+    updateState(
+      data.copyWith(version: version, release: release, checking: false),
+    );
+  }
+
+  /// Abre exclusivamente la descarga publicada en el manifiesto oficial.
+  Future<void> downloadLatest() async {
+    final latest = data.release.latest;
+    if (!data.release.updateAvailable || latest == null) return;
+    await openExternalUrl(latest.downloadUrl.toString());
   }
 
   /// Trae los commits nuevos. No reconstruye: para eso está [relaunch].

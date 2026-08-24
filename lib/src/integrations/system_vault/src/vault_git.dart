@@ -60,7 +60,17 @@ Future<String> commitVault(
   final add = await _git(['add', '-A'], cwd: dir);
   if (!add.ok) throw _VaultException('git add falló: ${add.output}');
 
-  final commit = await _git(['commit', '-m', message], cwd: dir);
+  // Este commit lo inicia Keel sin una terminal interactiva. No debe heredar
+  // `commit.gpgSign=true`: al abrir la app desde Finder el PATH puede no
+  // contener `gpg` y tampoco hay una sesión segura para pedir el pinentry.
+  // El override es solo para este comando; la configuración del usuario y
+  // los commits que haga por su cuenta siguen intactos.
+  final commit = await _git([
+    'commit',
+    '--no-gpg-sign',
+    '-m',
+    message,
+  ], cwd: dir);
   final nothingToCommit = commit.output.contains('nothing to commit');
   if (!commit.ok && !nothingToCommit) {
     throw _VaultException('git commit falló: ${commit.output}');

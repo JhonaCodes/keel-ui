@@ -15,6 +15,7 @@ import 'package:keel_ui/src/integrations/usage_ledger/usage_ledger.dart';
 import 'package:keel_ui/src/integrations/user_tools_mcp/user_tools_mcp_server.dart';
 import 'package:keel_ui/src/modules/agents/model/agent.dart';
 import 'package:keel_ui/src/modules/agents/model/agent_icon_colors.dart';
+import 'package:keel_ui/src/modules/agents/model/agent_model_option.dart';
 import 'package:keel_ui/src/modules/agents/model/agent_provider.dart';
 import 'package:keel_ui/src/modules/agents/model/agent_tool_activity.dart';
 import 'package:keel_ui/src/modules/agents/model/chat_message.dart';
@@ -107,6 +108,7 @@ class AgentsViewModel extends ViewModel<AgentsState> {
     required String model,
     required bool fullFileSystemAccess,
     required String effort,
+    AgentProvider provider = AgentProvider.claude,
     String? profileId,
   }) {
     final agent = _buildAgent(
@@ -114,6 +116,7 @@ class AgentsViewModel extends ViewModel<AgentsState> {
       model: model,
       fullFileSystemAccess: fullFileSystemAccess,
       effort: effort,
+      provider: provider,
       profileId: profileId,
     );
     final agents = [...data.agents, agent];
@@ -188,6 +191,7 @@ class AgentsViewModel extends ViewModel<AgentsState> {
       model: profile.model,
       fullFileSystemAccess: false,
       effort: profile.effort,
+      provider: profile.provider,
       profileId: profile.id,
     );
   }
@@ -204,6 +208,18 @@ class AgentsViewModel extends ViewModel<AgentsState> {
     if (index == -1 || data.agents[index].model == model) return;
 
     _updateAgent(agentId, (agent) => agent.copyWith(model: model));
+    unawaited(_persist());
+  }
+
+  void setAgentProvider(String agentId, AgentProvider provider) {
+    final index = data.agents.indexWhere((agent) => agent.id == agentId);
+    if (index == -1 || data.agents[index].provider == provider) return;
+
+    _updateAgent(
+      agentId,
+      (agent) =>
+          agent.copyWith(provider: provider, model: defaultModelFor(provider)),
+    );
     unawaited(_persist());
   }
 
@@ -428,6 +444,9 @@ class AgentsViewModel extends ViewModel<AgentsState> {
     for (final note in turnHooks.notes) {
       appendSystemNote(agentId, note);
     }
+    final providerApiKey = await SecretsService.instance.notifier.resolveValue(
+      target.provider.secretName,
+    );
 
     // UN solo camino para correr un turno, y corre en otro isolate.
     //
@@ -445,6 +464,7 @@ class AgentsViewModel extends ViewModel<AgentsState> {
         fullFileSystemAccess: target.fullFileSystemAccess,
         effort: target.effort,
         provider: target.provider.alias,
+        providerApiKey: providerApiKey,
         sessionId: target.sessionId,
         additionalSystemPrompt: _resolveProfileSystemPrompt(target.profileId),
         extraAllowedTools: [
@@ -466,6 +486,7 @@ class AgentsViewModel extends ViewModel<AgentsState> {
     _runningTurns[agentId] = run;
 
     var wasStopped = false;
+    final streamTimestamp = DateTime.now();
     await for (final event in run.events) {
       if (_stoppedAgentIds.remove(agentId)) {
         wasStopped = true;
@@ -488,12 +509,12 @@ class AgentsViewModel extends ViewModel<AgentsState> {
         case TaskAssistantText(text: final chunk):
           _setCurrentActivity(agentId, null);
           assistantTextBuffer.writeln(chunk);
-          _appendMessage(
+          _appendStreamingAssistantMessage(
             agentId,
             ChatMessage(
               role: ChatRole.assistant,
               text: chunk,
-              timestamp: DateTime.now(),
+              timestamp: streamTimestamp,
               reasoning: _consumeLiveReasoning(agentId),
               fileEdits: await fileEdits.collect(),
             ),
@@ -584,12 +605,12 @@ class AgentsViewModel extends ViewModel<AgentsState> {
               ),
             );
           }
-          if (isError) {
+          if (turn.needsProviderFailureFallback) {
             _appendMessage(
               agentId,
               ChatMessage(
                 role: ChatRole.error,
-                text: 'claude reportó un error en este turno.',
+                text: target.provider.turnFailureMessage(),
                 timestamp: DateTime.now(),
               ),
             );
@@ -600,6 +621,16 @@ class AgentsViewModel extends ViewModel<AgentsState> {
               durationMs: durationMs,
             );
           }
+
+        case TaskNotice(message: final message):
+          _appendMessage(
+            agentId,
+            ChatMessage(
+              role: ChatRole.system,
+              text: message,
+              timestamp: DateTime.now(),
+            ),
+          );
 
         case TaskFailure(message: final message):
           _appendMessage(
@@ -949,6 +980,37 @@ class AgentsViewModel extends ViewModel<AgentsState> {
       agentId,
       (agent) => agent.copyWith(messages: [...agent.messages, message]),
     );
+  }
+
+  /// A streamed answer is one message whose contents grow, never one bubble
+  /// per token chunk. Besides preserving the transcript this keeps a reader
+  /// anchored on the code they are inspecting instead of rebuilding the list.
+  void _appendStreamingAssistantMessage(String agentId, ChatMessage chunk) {
+    _updateAgent(agentId, (agent) {
+      final messages = [...agent.messages];
+      final index = messages.lastIndexWhere(
+        (message) =>
+            message.role == ChatRole.assistant &&
+            message.timestamp == chunk.timestamp,
+      );
+      if (index == -1) {
+        messages.add(chunk);
+      } else {
+        final previous = messages[index];
+        messages[index] = ChatMessage(
+          role: ChatRole.assistant,
+          text: previous.text + chunk.text,
+          timestamp: previous.timestamp,
+          reasoning: chunk.reasoning ?? previous.reasoning,
+          fileEdits: chunk.fileEdits,
+          imagePaths: previous.imagePaths,
+          authorProfileId: previous.authorProfileId,
+          workNodeId: previous.workNodeId,
+          consultOfProfileId: previous.consultOfProfileId,
+        );
+      }
+      return agent.copyWith(messages: messages);
+    });
   }
 
   void _setStreaming(String agentId, bool isStreaming) {

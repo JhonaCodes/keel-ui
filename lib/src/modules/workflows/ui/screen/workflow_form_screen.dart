@@ -4,22 +4,9 @@ import 'package:reactive_notifier/reactive_notifier.dart';
 import 'package:keel_ui/src/core/ui/form_panel.dart';
 import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
 import 'package:keel_ui/src/modules/agent_profiles/viewmodel/agent_profiles_viewmodel.dart';
-import 'package:keel_ui/src/modules/agents/model/agent_icon_colors.dart';
 import 'package:keel_ui/src/modules/skills/ui/widget/skill_multi_select.dart';
 import 'package:keel_ui/src/modules/workflows/model/workflow.dart';
 import 'package:keel_ui/src/modules/workflows/viewmodel/workflows_viewmodel.dart';
-import 'package:keel_ui/src/shared/shared.dart';
-
-/// A stable, distinct accent per step position — there's no registered
-/// entity a step's free-text role can be colored from at authoring time, so
-/// this reuses the same palette agent icons draw from, keyed by the step's
-/// index in the list.
-Color _stepColor(int index) {
-  if (index < kAgentIconColorPalette.length) {
-    return kAgentIconColorPalette[index];
-  }
-  return nextAgentIconColor(kAgentIconColorPalette.take(index).toList());
-}
 
 Future<void> openWorkflowFormScreen(BuildContext context, {Workflow? initial}) {
   return showFormPanel<void>(
@@ -38,98 +25,91 @@ class WorkflowFormScreen extends StatefulWidget {
 }
 
 class _WorkflowFormScreenState extends State<WorkflowFormScreen> {
-  late final _nameController = TextEditingController(
-    text: widget.initial?.name,
+  late final _name = TextEditingController(text: widget.initial?.name);
+  late final _when = TextEditingController(text: widget.initial?.whenToApply);
+  late final _rules = TextEditingController(
+    text: widget.initial?.policy.requiredRuleNames.join(', ') ?? '',
   );
-  late final _whenToApplyController = TextEditingController(
-    text: widget.initial?.whenToApply,
+  late final _knowledge = TextEditingController(
+    text: widget.initial?.policy.requiredKnowledgeBaseNames.join(', ') ?? '',
   );
-  late List<WorkflowStep> _steps = [...?widget.initial?.steps];
-  late List<String> _skillNames = [...?widget.initial?.skillNames];
-  String? _nameError;
-  String? _formError;
+  late WorkflowKind _kind = widget.initial?.kind ?? WorkflowKind.bug;
+  late String _ownerRole = widget.initial?.policy.resolutionRole ?? '';
+  late int _maxReplans = widget.initial?.policy.maxReplans ?? 2;
+  late int _maxSubagents = widget.initial?.policy.maxSubagents ?? 2;
+  late List<String> _skills = [...?widget.initial?.policy.requiredSkillNames];
+  late List<WorkflowCapability> _capabilities = [
+    ...(widget.initial?.capabilities.isNotEmpty == true
+        ? widget.initial!.capabilities
+        : defaultWorkflowCapabilities(_kind, _ownerRole)),
+  ];
+  String? _error;
 
   @override
   void dispose() {
-    _nameController.dispose();
-    _whenToApplyController.dispose();
+    _name.dispose();
+    _when.dispose();
+    _rules.dispose();
+    _knowledge.dispose();
     super.dispose();
   }
 
-  void _onNameChanged(String value) {
-    setState(() {
-      _nameError = validateWorkflowName(value.trim());
-      _formError = null;
-    });
-  }
-
-  void _addStep() {
-    setState(() {
-      _steps = [
-        ..._steps,
-        WorkflowStep(
-          id: generateUuidV4(),
-          title: '',
-          role: '',
-          instruction: '',
-        ),
-      ];
-    });
-  }
-
-  void _removeStep(String id) {
-    setState(() {
-      _steps = _steps.where((step) => step.id != id).toList();
-    });
-  }
-
-  void _updateStep(WorkflowStep updated) {
-    setState(() {
-      _steps = _steps
-          .map((step) => step.id == updated.id ? updated : step)
-          .toList();
-    });
-  }
-
-  void _reorderSteps(int oldIndex, int newIndex) {
-    setState(() {
-      final steps = [..._steps];
-      final step = steps.removeAt(oldIndex);
-      steps.insert(newIndex, step);
-      _steps = steps;
-    });
-  }
+  List<String> _names(TextEditingController controller) => controller.text
+      .split(',')
+      .map((name) => name.trim())
+      .where((name) => name.isNotEmpty)
+      .toSet()
+      .toList();
 
   void _submit() {
-    final name = _nameController.text.trim();
+    final name = _name.text.trim();
     final nameError = validateWorkflowName(name);
     if (nameError != null) {
-      setState(() => _nameError = nameError);
+      setState(() => _error = nameError);
       return;
     }
-
-    final viewmodel = WorkflowsService.instance.notifier;
+    final capabilitiesError = validateWorkflowCapabilities(_capabilities);
+    if (capabilitiesError != null) {
+      setState(() => _error = capabilitiesError);
+      return;
+    }
+    final policy = WorkflowPolicy(
+      resolutionRole: _ownerRole,
+      requiredSkillNames: _skills,
+      requiredRuleNames: _names(_rules),
+      requiredKnowledgeBaseNames: _names(_knowledge),
+      qualityGates: _kind == WorkflowKind.migration
+          ? WorkflowQualityGate.values
+          : const [
+              WorkflowQualityGate.analysis,
+              WorkflowQualityGate.focusedTests,
+              WorkflowQualityGate.regression,
+            ],
+      maxReplans: _maxReplans,
+      maxSubagents: _maxSubagents,
+    );
+    final workflows = WorkflowsService.instance.notifier;
     final initial = widget.initial;
     final error = initial == null
-        ? viewmodel.createWorkflow(
+        ? workflows.createWorkflow(
             name: name,
-            whenToApply: _whenToApplyController.text,
-            steps: _steps,
-            skillNames: _skillNames,
+            whenToApply: _when.text,
+            skillNames: _skills,
+            kind: _kind,
+            policy: policy,
+            capabilities: _capabilities,
           )
-        // `buildsRoadmap` no viaja: no está en el formulario y pasarlo en
-        // null es lo que hace que editarle el nombre al workflow de formato
-        // no le saque lo que lo hace ser el de formato.
-        : viewmodel.updateWorkflow(
+        : workflows.updateWorkflow(
             initial.id,
             name: name,
-            whenToApply: _whenToApplyController.text,
-            steps: _steps,
-            skillNames: _skillNames,
+            whenToApply: _when.text,
+            skillNames: _skills,
+            kind: _kind,
+            policy: policy,
+            capabilities: _capabilities,
           );
-
     if (error != null) {
-      setState(() => _formError = error);
+      setState(() => _error = error);
       return;
     }
     Navigator.of(context).pop();
@@ -137,293 +117,358 @@ class _WorkflowFormScreenState extends State<WorkflowFormScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isEditing = widget.initial != null;
-
+    final editing = widget.initial != null;
     return Scaffold(
       appBar: AppBar(
-        title: Text(isEditing ? 'Editar workflow' : 'Registrar workflow'),
+        title: Text(editing ? 'Editar workflow' : 'Crear workflow'),
         actions: [
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            padding: const EdgeInsets.all(8),
             child: FilledButton(
               onPressed: _submit,
-              child: Text(isEditing ? 'Guardar' : 'Registrar'),
+              child: Text(editing ? 'Guardar' : 'Crear'),
             ),
           ),
         ],
       ),
-      body: Padding(
+      body: ListView(
         padding: const EdgeInsets.all(24),
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 820),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                TextField(
-                  controller: _nameController,
-                  autofocus: true,
-                  onChanged: _onNameChanged,
-                  decoration: InputDecoration(
-                    labelText: 'Nombre',
-                    errorText: _nameError,
-                    border: const OutlineInputBorder(
-                      borderRadius: BorderRadius.all(Radius.circular(16)),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: _whenToApplyController,
-                  decoration: const InputDecoration(
-                    labelText: 'Cuándo se aplica',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.all(Radius.circular(16)),
-                    ),
-                  ),
-                ),
-                const Padding(
-                  padding: EdgeInsets.only(top: 6, left: 4),
-                  child: Text(
-                    'Así el proyecto sabe cuál de sus workflows corresponde '
-                    'a lo que pediste.',
-                    style: TextStyle(fontSize: 11),
-                  ),
-                ),
-                const _SectionDivider('Skills'),
-                SkillMultiSelect(
-                  selectedNames: _skillNames,
-                  onChanged: (names) => setState(() => _skillNames = names),
-                ),
-                const Padding(
-                  padding: EdgeInsets.only(top: 6, left: 4),
-                  child: Text(
-                    'Van a TODOS los turnos de este workflow, además de las '
-                    'del agente. Las del agente son quién es; estas son qué '
-                    'está haciendo.',
-                    style: TextStyle(fontSize: 11),
-                  ),
-                ),
-                const _SectionDivider('Pasos'),
-                Expanded(
-                  child: _steps.isEmpty
-                      ? const Center(
-                          child: Text('Todavía no agregaste ningún paso.'),
-                        )
-                      : ReorderableListView(
-                          onReorderItem: _reorderSteps,
-                          children: [
-                            for (var index = 0; index < _steps.length; index++)
-                              _WorkflowStepEditor(
-                                key: ValueKey(_steps[index].id),
-                                step: _steps[index],
-                                index: index,
-                                onChanged: _updateStep,
-                                onRemove: () => _removeStep(_steps[index].id),
-                              ),
-                          ],
-                        ),
-                ),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: ActionChip(
-                    avatar: const Icon(Icons.add, size: 16),
-                    label: const Text('Agregar paso'),
-                    onPressed: _addStep,
-                  ),
-                ),
-                if (_formError != null) ...[
-                  const SizedBox(height: 12),
-                  Text(
-                    _formError!,
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.error,
-                    ),
-                  ),
-                ],
-              ],
+        children: [
+          TextField(
+            controller: _name,
+            decoration: const InputDecoration(labelText: 'Nombre'),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _when,
+            minLines: 2,
+            maxLines: 4,
+            decoration: const InputDecoration(
+              labelText: 'Intención y cuándo se aplica',
+              helperText:
+                  'El motor decide los nodos mínimos; no configurás una cadena de agentes.',
             ),
           ),
-        ),
+          const SizedBox(height: 20),
+          DropdownButtonFormField<WorkflowKind>(
+            initialValue: _kind,
+            decoration: const InputDecoration(labelText: 'Tipo de caso'),
+            items: [
+              for (final kind in WorkflowKind.values)
+                DropdownMenuItem(value: kind, child: Text(_kindLabel(kind))),
+            ],
+            onChanged: (value) => setState(() {
+              _kind = value!;
+              if (widget.initial == null) {
+                _capabilities = defaultWorkflowCapabilities(_kind, _ownerRole);
+              }
+            }),
+          ),
+          const SizedBox(height: 20),
+          _ResolutionRoleField(
+            value: _ownerRole,
+            onChanged: (value) => setState(() {
+              final previous = _ownerRole.isEmpty ? '*' : _ownerRole;
+              _ownerRole = value;
+              final next = value.isEmpty ? '*' : value;
+              _capabilities = [
+                for (final capability in _capabilities)
+                  capability.role == previous
+                      ? capability.copyWith(role: next)
+                      : capability,
+              ];
+            }),
+          ),
+          const SizedBox(height: 20),
+          _CapabilitiesEditor(
+            capabilities: _capabilities,
+            onChanged: (value) => setState(() => _capabilities = value),
+          ),
+          const SizedBox(height: 20),
+          const Text('Contexto obligatorio'),
+          const SizedBox(height: 8),
+          SkillMultiSelect(
+            selectedNames: _skills,
+            onChanged: (value) => setState(() => _skills = value),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _rules,
+            decoration: const InputDecoration(
+              labelText: 'Reglas requeridas',
+              helperText: 'Nombres separados por coma.',
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _knowledge,
+            decoration: const InputDecoration(
+              labelText: 'Bases de conocimiento requeridas',
+              helperText: 'Nombres separados por coma.',
+            ),
+          ),
+          const SizedBox(height: 20),
+          Text('Límite de reformulaciones: $_maxReplans'),
+          Slider(
+            value: _maxReplans.toDouble(),
+            min: 0,
+            max: 2,
+            divisions: 2,
+            label: '$_maxReplans',
+            onChanged: (value) => setState(() => _maxReplans = value.round()),
+          ),
+          Text('Subagentes de lectura/verificación: $_maxSubagents'),
+          Slider(
+            value: _maxSubagents.toDouble(),
+            min: 0,
+            max: 2,
+            divisions: 2,
+            label: '$_maxSubagents',
+            onChanged: (value) => setState(() => _maxSubagents = value.round()),
+          ),
+          if (_error != null) ...[
+            const SizedBox(height: 12),
+            Text(
+              _error!,
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
+          ],
+        ],
       ),
     );
   }
 }
 
-class _SectionDivider extends StatelessWidget {
-  const _SectionDivider(this.label);
+class _CapabilitiesEditor extends StatelessWidget {
+  const _CapabilitiesEditor({
+    required this.capabilities,
+    required this.onChanged,
+  });
 
-  final String label;
+  final List<WorkflowCapability> capabilities;
+  final ValueChanged<List<WorkflowCapability>> onChanged;
+
+  void _replace(WorkflowCapability capability) {
+    onChanged([
+      for (final entry in capabilities)
+        entry.id == capability.id ? capability : entry,
+    ]);
+  }
+
+  void _add() {
+    var suffix = capabilities.length + 1;
+    var id = 'capability-$suffix';
+    while (capabilities.any((entry) => entry.id == id)) {
+      suffix++;
+      id = 'capability-$suffix';
+    }
+    onChanged([
+      ...capabilities,
+      WorkflowCapability(
+        id: id,
+        title: 'Nueva capacidad',
+        instruction: '',
+        role: '*',
+        activation: WorkflowCapabilityActivation.optional,
+      ),
+    ]);
+  }
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      child: Row(
-        children: [
-          Expanded(child: Divider(color: scheme.outlineVariant)),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Text(
-              label.toUpperCase(),
-              style: TextStyle(
-                fontFamily: 'monospace',
-                fontSize: 11,
-                letterSpacing: 2,
-                fontWeight: FontWeight.w600,
-                color: scheme.primary,
-              ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            const Expanded(child: Text('Capacidades adaptativas')),
+            TextButton.icon(
+              onPressed: _add,
+              icon: const Icon(Icons.add, size: 16),
+              label: const Text('Agregar'),
             ),
+          ],
+        ),
+        Text(
+          'Se muestran como pasos en el panel, pero solo las requeridas '
+          'entran al grafo inicial. Las opcionales se activan por evidencia.',
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+        const SizedBox(height: 8),
+        for (final capability in capabilities)
+          _CapabilityEditorTile(
+            key: ValueKey(capability.id),
+            capability: capability,
+            availableIds: [for (final entry in capabilities) entry.id],
+            onChanged: _replace,
+            onDelete: capabilities.length == 1
+                ? null
+                : () => onChanged(
+                    capabilities
+                        .where((entry) => entry.id != capability.id)
+                        .map(
+                          (entry) => entry.copyWith(
+                            dependencyIds: entry.dependencyIds
+                                .where((id) => id != capability.id)
+                                .toList(),
+                          ),
+                        )
+                        .toList(),
+                  ),
           ),
-          Expanded(child: Divider(color: scheme.outlineVariant)),
-        ],
-      ),
+      ],
     );
   }
 }
 
-class _WorkflowStepEditor extends StatefulWidget {
-  const _WorkflowStepEditor({
-    required Key key,
-    required this.step,
-    required this.index,
+class _CapabilityEditorTile extends StatefulWidget {
+  const _CapabilityEditorTile({
+    super.key,
+    required this.capability,
+    required this.availableIds,
     required this.onChanged,
-    required this.onRemove,
-  }) : super(key: key);
+    required this.onDelete,
+  });
 
-  final WorkflowStep step;
-  final int index;
-  final ValueChanged<WorkflowStep> onChanged;
-  final VoidCallback onRemove;
+  final WorkflowCapability capability;
+  final List<String> availableIds;
+  final ValueChanged<WorkflowCapability> onChanged;
+  final VoidCallback? onDelete;
 
   @override
-  State<_WorkflowStepEditor> createState() => _WorkflowStepEditorState();
+  State<_CapabilityEditorTile> createState() => _CapabilityEditorTileState();
 }
 
-class _WorkflowStepEditorState extends State<_WorkflowStepEditor> {
-  late final _titleController = TextEditingController(text: widget.step.title);
-  late String _role = widget.step.role;
-  late final _instructionController = TextEditingController(
-    text: widget.step.instruction,
+class _CapabilityEditorTileState extends State<_CapabilityEditorTile> {
+  late final TextEditingController _title = TextEditingController(
+    text: widget.capability.title,
+  );
+  late final TextEditingController _instruction = TextEditingController(
+    text: widget.capability.instruction,
+  );
+  late final TextEditingController _role = TextEditingController(
+    text: widget.capability.role,
+  );
+  late final TextEditingController _dependencies = TextEditingController(
+    text: widget.capability.dependencyIds.join(', '),
   );
 
   @override
   void dispose() {
-    _titleController.dispose();
-    _instructionController.dispose();
+    _title.dispose();
+    _instruction.dispose();
+    _role.dispose();
+    _dependencies.dispose();
     super.dispose();
   }
 
-  void _notify() {
+  void _emit({
+    WorkflowCapabilityActivation? activation,
+    bool? requiresIndependentOwner,
+  }) {
+    final dependencies = _dependencies.text
+        .split(',')
+        .map((value) => value.trim())
+        .where(
+          (value) =>
+              value.isNotEmpty &&
+              value != widget.capability.id &&
+              widget.availableIds.contains(value),
+        )
+        .toSet()
+        .toList();
     widget.onChanged(
-      widget.step.copyWith(
-        title: _titleController.text,
-        role: _role,
-        instruction: _instructionController.text,
+      widget.capability.copyWith(
+        title: _title.text.trim(),
+        instruction: _instruction.text.trim(),
+        role: _role.text.trim().isEmpty ? '*' : _role.text.trim(),
+        dependencyIds: dependencies,
+        activation: activation,
+        requiresIndependentOwner: requiresIndependentOwner,
       ),
     );
   }
 
-  void _onRoleChanged(String role) {
-    setState(() => _role = role);
-    _notify();
-  }
-
   @override
   Widget build(BuildContext context) {
-    final color = _stepColor(widget.index);
-
     return Card(
-      margin: const EdgeInsets.symmetric(vertical: 6),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                const Icon(Icons.drag_handle),
-                const SizedBox(width: 8),
-                Container(
-                  width: 22,
-                  height: 22,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.22),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    '${widget.index + 1}',
-                    style: TextStyle(
-                      fontFamily: 'monospace',
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      color: color,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: TextField(
-                    controller: _titleController,
-                    onChanged: (_) => _notify(),
-                    decoration: const InputDecoration(
-                      labelText: 'Título del paso',
-                    ),
-                  ),
-                ),
-                IconButton(
-                  tooltip: 'Eliminar paso',
-                  icon: const Icon(Icons.delete_outline),
-                  onPressed: widget.onRemove,
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: _RoleDropdown(
-                value: _role,
-                color: color,
-                onChanged: _onRoleChanged,
-              ),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _instructionController,
-              onChanged: (_) => _notify(),
-              minLines: 2,
-              maxLines: 6,
-              decoration: const InputDecoration(
-                labelText: 'Instrucción',
-                alignLabelWithHint: true,
-              ),
-            ),
-          ],
+      child: ExpansionTile(
+        title: Text(_title.text),
+        subtitle: Text(
+          '${widget.capability.id} · ${widget.capability.activation.name}',
         ),
+        trailing: widget.onDelete == null
+            ? null
+            : IconButton(
+                tooltip: 'Eliminar capacidad',
+                onPressed: widget.onDelete,
+                icon: const Icon(Icons.delete_outline, size: 18),
+              ),
+        childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+        children: [
+          TextField(
+            controller: _title,
+            onChanged: (_) {
+              setState(() {});
+              _emit();
+            },
+            decoration: const InputDecoration(labelText: 'Título visible'),
+          ),
+          TextField(
+            controller: _instruction,
+            onChanged: (_) => _emit(),
+            minLines: 2,
+            maxLines: 4,
+            decoration: const InputDecoration(labelText: 'Instrucción'),
+          ),
+          TextField(
+            controller: _role,
+            onChanged: (_) => _emit(),
+            decoration: const InputDecoration(labelText: 'Rol por defecto'),
+          ),
+          TextField(
+            controller: _dependencies,
+            onChanged: (_) => _emit(),
+            decoration: const InputDecoration(
+              labelText: 'Dependencias por ID',
+              helperText: 'Separadas por coma; no definen un orden global.',
+            ),
+          ),
+          const SizedBox(height: 8),
+          DropdownButtonFormField<WorkflowCapabilityActivation>(
+            initialValue: widget.capability.activation,
+            decoration: const InputDecoration(labelText: 'Activación'),
+            items: const [
+              DropdownMenuItem(
+                value: WorkflowCapabilityActivation.required,
+                child: Text('Requerida'),
+              ),
+              DropdownMenuItem(
+                value: WorkflowCapabilityActivation.optional,
+                child: Text('Opcional'),
+              ),
+            ],
+            onChanged: (value) => _emit(activation: value),
+          ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Requiere agente independiente'),
+            subtitle: const Text(
+              'El dueño debe ser distinto de quienes produjeron sus dependencias.',
+            ),
+            value: widget.capability.requiresIndependentOwner,
+            onChanged: (value) => _emit(requiresIndependentOwner: value),
+          ),
+        ],
       ),
     );
   }
 }
 
-/// A step's role must match an actual registered agent's role at runtime —
-/// see `WorkflowStep.role`'s doc comment — so this is a closed pick from the
-/// roles currently registered on `AgentProfile`s, not free text: a typo here
-/// ("Analizer" vs "Analista") is exactly what used to silently produce
-/// "sin agente para X" when the field ran on independently-typed strings.
-/// Closed while editing means opening the dropdown and choosing one (the
-/// current value shows checked); collapsed it reads as plain text, same as
-/// any other Material dropdown field.
-class _RoleDropdown extends StatelessWidget {
-  const _RoleDropdown({
-    required this.value,
-    required this.color,
-    required this.onChanged,
-  });
+class _ResolutionRoleField extends StatelessWidget {
+  const _ResolutionRoleField({required this.value, required this.onChanged});
 
   final String value;
-  final Color color;
   final ValueChanged<String> onChanged;
 
   @override
@@ -431,94 +476,33 @@ class _RoleDropdown extends StatelessWidget {
     return ReactiveViewModelBuilder<AgentProfilesViewModel, AgentProfilesState>(
       viewmodel: AgentProfilesService.instance.notifier,
       build: (state, viewmodel, keep) {
-        final registeredRoles = <String>{
+        final roles = <String>{
           for (final profile in state.profiles)
-            if (profile.role.trim().isNotEmpty) profile.role,
-        };
-        // Keeps a stale/legacy value selectable (never silently dropped by
-        // opening the editor) without letting new selections drift away
-        // from an actual registered agent's role.
-        final options = {
-          ...registeredRoles,
-          if (value.trim().isNotEmpty) value,
+            if (profile.role.trim().isNotEmpty) profile.role.trim(),
+          if (value.isNotEmpty) value,
         }.toList()..sort();
-
-        if (options.isEmpty) {
-          return const Padding(
-            padding: EdgeInsets.symmetric(vertical: 6),
-            child: Text(
-              'Registra un agente con un rol para poder asignarlo a un paso.',
-              style: TextStyle(fontSize: 11),
-            ),
-          );
-        }
-
-        return Container(
-          constraints: const BoxConstraints(maxWidth: 280),
-          padding: const EdgeInsets.symmetric(horizontal: 10),
-          decoration: BoxDecoration(
-            border: Border.all(
-              color: Theme.of(context).colorScheme.outlineVariant,
-            ),
-            borderRadius: BorderRadius.circular(999),
+        return DropdownButtonFormField<String>(
+          initialValue: value.isEmpty ? null : value,
+          decoration: const InputDecoration(
+            labelText: 'Responsable de resolución',
+            helperText:
+                'Un responsable integra evidencia y es el único escritor.',
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 11,
-                height: 11,
-                decoration: BoxDecoration(
-                  color: color,
-                  borderRadius: BorderRadius.circular(3),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Flexible(
-                child: DropdownButtonFormField<String>(
-                  initialValue: value.trim().isEmpty ? null : value,
-                  isDense: true,
-                  // Sin esto el botón se dimensiona por su ítem más ancho y
-                  // se sale de la píldora: un rol escrito en prosa ("del
-                  // objetivo difuso a tareas atómicas") pide bastante más de
-                  // los 280 puntos que mide.
-                  isExpanded: true,
-                  hint: const Text(
-                    'Rol',
-                    style: TextStyle(fontFamily: 'monospace', fontSize: 12),
-                  ),
-                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-                  decoration: const InputDecoration(
-                    isDense: true,
-                    isCollapsed: true,
-                    border: InputBorder.none,
-                  ),
-                  items: [
-                    for (final role in options)
-                      DropdownMenuItem(value: role, child: Text(role)),
-                  ],
-                  // El desplegable puede mostrar el rol entero; el campo
-                  // cerrado vive en una píldora angosta y lo corta.
-                  selectedItemBuilder: (context) => [
-                    for (final role in options)
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          role,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                  ],
-                  onChanged: (role) {
-                    if (role != null) onChanged(role);
-                  },
-                ),
-              ),
-            ],
-          ),
+          items: [
+            const DropdownMenuItem(value: '', child: Text('Cualquier miembro')),
+            for (final role in roles)
+              DropdownMenuItem(value: role, child: Text(role)),
+          ],
+          onChanged: (role) => onChanged(role ?? ''),
         );
       },
     );
   }
 }
+
+String _kindLabel(WorkflowKind kind) => switch (kind) {
+  WorkflowKind.general => 'General',
+  WorkflowKind.bug => 'Bug',
+  WorkflowKind.migration => 'Migración',
+  WorkflowKind.roadmap => 'Formato de tareas',
+};

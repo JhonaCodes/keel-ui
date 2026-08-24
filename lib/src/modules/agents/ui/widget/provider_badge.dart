@@ -14,6 +14,8 @@ class ProviderBadge extends StatelessWidget {
     final background = switch (provider) {
       AgentProvider.claude => const Color(0xFFCC785C),
       AgentProvider.codex => const Color(0xFF10A37F),
+      AgentProvider.openRouter => const Color(0xFF6E56CF),
+      AgentProvider.deepSeek => const Color(0xFF3D82F6),
     };
 
     return Tooltip(

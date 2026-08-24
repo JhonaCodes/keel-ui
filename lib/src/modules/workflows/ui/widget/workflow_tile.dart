@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:keel_ui/src/integrations/catalog_bundle/catalog_bundle.dart';
 import 'package:keel_ui/src/modules/workflows/model/workflow.dart';
-import 'package:keel_ui/src/modules/workflows/viewmodel/workflows_viewmodel.dart';
+import 'package:keel_ui/src/modules/workflows/service/workflow_deletion_service.dart';
 import 'package:keel_ui/src/modules/workflows/ui/screen/workflow_form_screen.dart';
 
 class WorkflowTile extends StatelessWidget {
@@ -16,8 +16,10 @@ class WorkflowTile extends StatelessWidget {
       builder: (context) => AlertDialog(
         title: const Text('Eliminar workflow'),
         content: Text(
-          'Se eliminará el workflow "${workflow.name}". Los proyectos que lo '
-          'tenían asignado dejarán de aplicarlo.',
+          'Se eliminará el workflow "${workflow.name}" y se limpiarán sus '
+          'asignaciones, default, overrides y referencias de sesión en todos '
+          'los proyectos. El historial y los casos ya materializados se '
+          'conservan.',
         ),
         actions: [
           TextButton(
@@ -33,17 +35,12 @@ class WorkflowTile extends StatelessWidget {
     );
 
     if (confirmed ?? false) {
-      WorkflowsService.instance.notifier.deleteWorkflow(workflow.id);
+      workflowDeletionService.deleteWorkflow(workflow.id);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final roles = {
-      for (final step in workflow.steps)
-        if (step.role.isNotEmpty) step.role,
-    }.toList();
-
     return ListTile(
       title: Text(workflow.name),
       isThreeLine: true,
@@ -52,20 +49,21 @@ class WorkflowTile extends StatelessWidget {
         children: [
           if (workflow.whenToApply.isNotEmpty) Text(workflow.whenToApply),
           Text(
-            '${workflow.steps.length} paso(s)',
+            '${_kindLabel(workflow.kind)} · responsable '
+            '${workflow.policy.resolutionRole.isEmpty ? 'cualquier miembro' : workflow.policy.resolutionRole}',
             style: Theme.of(context).textTheme.bodySmall,
           ),
-          if (roles.isNotEmpty)
+          if (workflow.policy.requiredSkillNames.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 4),
               child: Wrap(
                 spacing: 4,
                 runSpacing: 4,
                 children: [
-                  for (final role in roles)
+                  for (final skill in workflow.policy.requiredSkillNames)
                     Chip(
                       label: Text(
-                        role,
+                        skill,
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
                       visualDensity: VisualDensity.compact,
@@ -103,3 +101,10 @@ class WorkflowTile extends StatelessWidget {
     );
   }
 }
+
+String _kindLabel(WorkflowKind kind) => switch (kind) {
+  WorkflowKind.general => 'General',
+  WorkflowKind.bug => 'Bug',
+  WorkflowKind.migration => 'Migración',
+  WorkflowKind.roadmap => 'Formato',
+};

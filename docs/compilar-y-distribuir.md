@@ -44,6 +44,51 @@ De ahí salen las dos consecuencias:
 
 Nativo en la Mac. Universal: un solo binario con las dos arquitecturas.
 
+La vía normal es el script de release, desde la raíz del repo:
+
+```sh
+scripts/build_macos_release.sh
+```
+
+Antes de tocar nada se puede inspeccionar qué versión produciría:
+
+```sh
+scripts/build_macos_release.sh --dry-run
+```
+
+El script hace el flujo completo: incrementa versión y build, compila, firma,
+verifica la firma y las dos arquitecturas, crea y verifica el DMG, reemplaza
+`Keel-latest-macos-universal.dmg` y publica en la carpeta `compiled`:
+
+- `Keel-MAJOR.MINOR.PATCH-macos-universal.dmg`;
+- `Keel-latest-macos-universal.dmg`;
+- `latest.json`, con versión, build, URL, fecha y SHA-256.
+
+La carpeta se puede cambiar con `--output-dir` o `KEEL_COMPILED_DIR`. La URL
+base del manifiesto se cambia con `KEEL_DOWNLOAD_BASE_URL`; por defecto es
+`https://jhonacode.com/keel`.
+
+### Regla de versión
+
+`pubspec.yaml` es la fuente única. Cada release automática incrementa el
+último número y el build:
+
+```text
+1.4.18+41  →  1.4.19+42
+1.4.19+41  →  1.5.0+42
+```
+
+El patch usa `0..19`; al tocar 20 vuelve a cero e incrementa minor. El major
+jamás se incrementa en el script: se modifica manualmente en `pubspec.yaml`.
+Si falla la compilación, firma, empaquetado o manifiesto, el script restaura la
+versión anterior y no reemplaza los artefactos publicados.
+El manifiesto `latest.json` debe publicarse junto al DMG en el canal oficial;
+sin ese archivo la app conserva visible su versión, pero no inventa que hay
+una actualización.
+
+El comando que sigue queda como referencia para diagnosticar el build sin el
+empaquetado automatizado:
+
 ```sh
 flutter build macos --release --dart-define-from-file=keel_secrets.json
 ```

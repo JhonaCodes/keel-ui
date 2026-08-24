@@ -34,9 +34,9 @@ class ChatMessage {
   /// single assistant needs no attribution.
   final String? authorProfileId;
 
-  /// Index of the workflow step this message belongs to, so the bubble can
-  /// show *why* this author is talking. Null outside a workflow run.
-  final int? stepIndex;
+  /// Resolution node this message belongs to. Node ids survive graph
+  /// reformulation; a positional workflow index does not.
+  final String? workNodeId;
 
   /// Set when this message answers another member's `@handle` consultation,
   /// naming the profile that asked. Renders as a nested aside in the thread.
@@ -52,7 +52,7 @@ class ChatMessage {
     this.fileEdits = const [],
     this.imagePaths = const [],
     this.authorProfileId,
-    this.stepIndex,
+    this.workNodeId,
     this.consultOfProfileId,
   });
 
@@ -66,7 +66,7 @@ class ChatMessage {
     'fileEdits': fileEdits.map((edit) => edit.toJson()).toList(),
     'imagePaths': imagePaths,
     'authorProfileId': authorProfileId,
-    'stepIndex': stepIndex,
+    'workNodeId': workNodeId,
     'consultOfProfileId': consultOfProfileId,
   };
 
@@ -85,7 +85,7 @@ class ChatMessage {
           const [],
       imagePaths: (json['imagePaths'] as List?)?.cast<String>() ?? const [],
       authorProfileId: json['authorProfileId'] as String?,
-      stepIndex: json['stepIndex'] as int?,
+      workNodeId: json['workNodeId'] as String?,
       consultOfProfileId: json['consultOfProfileId'] as String?,
     );
   }
@@ -104,7 +104,7 @@ class ChatMessage {
           listEquals(fileEdits, other.fileEdits) &&
           listEquals(imagePaths, other.imagePaths) &&
           authorProfileId == other.authorProfileId &&
-          stepIndex == other.stepIndex &&
+          workNodeId == other.workNodeId &&
           consultOfProfileId == other.consultOfProfileId;
 
   @override
@@ -118,7 +118,7 @@ class ChatMessage {
     Object.hashAll(fileEdits),
     Object.hashAll(imagePaths),
     authorProfileId,
-    stepIndex,
+    workNodeId,
     consultOfProfileId,
   );
 
@@ -127,5 +127,5 @@ class ChatMessage {
       'ChatMessage(role: $role, text: $text, timestamp: $timestamp, costUsd: $costUsd, '
       'durationMs: $durationMs, reasoning: $reasoning, fileEdits: ${fileEdits.length}, '
       'images: ${imagePaths.length}, '
-      'author: $authorProfileId, step: $stepIndex, consultOf: $consultOfProfileId)';
+      'author: $authorProfileId, node: $workNodeId, consultOf: $consultOfProfileId)';
 }

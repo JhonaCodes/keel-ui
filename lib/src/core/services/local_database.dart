@@ -48,7 +48,7 @@ class LocalDatabase {
   LocalDatabase._();
 
   static Future<void> ensureInitialized() async {
-    if (_initialized) return;
+    if (_initialized || _unavailable) return;
     await LocalDB.init();
     _initialized = true;
   }

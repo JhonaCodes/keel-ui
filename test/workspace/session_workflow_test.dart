@@ -7,6 +7,7 @@ import 'package:keel_ui/src/modules/projects/model/session.dart';
 import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
 import 'package:keel_ui/src/modules/agents/model/chat_message.dart';
 import 'package:keel_ui/src/modules/workflows/model/workflow.dart';
+import 'package:keel_ui/src/modules/workflows/service/workflow_deletion_service.dart';
 import 'package:keel_ui/src/modules/workflows/viewmodel/workflows_viewmodel.dart';
 
 ProjectsViewModel get _projects => ProjectsService.instance.notifier;
@@ -39,6 +40,7 @@ Session _session({
 );
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   LocalDatabase.markUnavailable();
 
   String tickets = '';
@@ -49,38 +51,19 @@ void main() {
     await _workflows.ready;
     for (final workflow in [..._workflows.data.workflows]) {
       if (workflow.name == kRoadmapFormatWorkflowName) continue;
-      _workflows.deleteWorkflow(workflow.id);
+      workflowDeletionService.deleteWorkflow(workflow.id);
     }
     _workflows.createWorkflow(
       name: 'tickets',
       whenToApply: 'Para resolver un ticket.',
-      steps: const [
-        WorkflowStep(
-          id: '1',
-          title: 'Implementar',
-          role: 'dev',
-          instruction: '',
-        ),
-        WorkflowStep(
-          id: '2',
-          title: 'Auditar',
-          role: 'auditor',
-          instruction: '',
-        ),
-        WorkflowStep(id: '3', title: 'Entregar', role: 'dev', instruction: ''),
-      ],
+      kind: WorkflowKind.bug,
+      policy: const WorkflowPolicy(resolutionRole: 'dev'),
     );
     _workflows.createWorkflow(
       name: 'revisiones',
       whenToApply: 'Para mirar código de otro sin tocarlo.',
-      steps: const [
-        WorkflowStep(
-          id: '1',
-          title: 'Revisar',
-          role: 'auditor',
-          instruction: '',
-        ),
-      ],
+      kind: WorkflowKind.general,
+      policy: const WorkflowPolicy(resolutionRole: 'auditor'),
     );
     tickets = _workflows.data.workflows
         .firstWhere((workflow) => workflow.name == 'tickets')
@@ -133,11 +116,35 @@ void main() {
       expect(_projects.defaultWorkflowOf(project)?.name, 'tickets');
     });
 
-    test('el 3/7 cuenta los pasos de SU workflow', () {
-      expect(_projects.stepCountOf(_session(workflowId: tickets)), 3);
-      expect(_projects.stepCountOf(_session(workflowId: revisiones)), 1);
-      expect(_projects.stepCountOf(_session()), 0);
+    test('la sesión no expone una cadena fija de pasos', () {
+      expect(_projects.nodeCountOf(_session(workflowId: tickets)), 0);
+      expect(_projects.nodeCountOf(_session(workflowId: revisiones)), 0);
+      expect(_projects.nodeCountOf(_session()), 0);
     });
+  });
+
+  test('el canal persiste las imágenes adjuntas aunque el preflight bloquee', () async {
+    _projects.createProject(
+      name: 'con-imagen',
+      purpose: '',
+      workingDirectory: '/tmp',
+      profileIds: const [],
+      workflowIds: [tickets],
+      ruleNames: const [],
+      knowledgeBaseNames: const [],
+    );
+    final projectId = _projects.data.projects.single.id;
+    _projects.createSession(projectId);
+
+    await _projects.sendToChannel(
+      projectId,
+      '',
+      imagePaths: const ['/tmp/captura.png'],
+    );
+
+    final message = _projects.data.projects.single.activeSession!.messages
+        .firstWhere((entry) => entry.role == ChatRole.user);
+    expect(message.imagePaths, ['/tmp/captura.png']);
   });
 
   group('cambiar el workflow de una sesión', () {

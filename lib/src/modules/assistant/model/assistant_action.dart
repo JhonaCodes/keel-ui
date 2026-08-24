@@ -14,7 +14,9 @@ class CreateProjectAction extends AssistantAction {
   final List<String> agentHandles;
   final List<String> workflowNames;
   final List<String> ruleNames;
+  final List<String> hookNames;
   final List<String> knowledgeBaseNames;
+  final bool maintained;
 
   const CreateProjectAction({
     required this.name,
@@ -23,7 +25,9 @@ class CreateProjectAction extends AssistantAction {
     required this.agentHandles,
     required this.workflowNames,
     required this.ruleNames,
+    this.hookNames = const [],
     this.knowledgeBaseNames = const [],
+    this.maintained = true,
   });
 }
 
@@ -44,9 +48,12 @@ class CreateAgentAction extends AssistantAction {
   final List<String> toolNames;
   final List<String> mcpServerNames;
   final List<String> knowledgeBaseNames;
+  final List<String> hookNames;
 
-  /// Provider alias ('claude'/'codex'); null on update = keep existing.
+  /// Provider alias; null on update keeps the existing provider.
   final String? providerAlias;
+  final String? model;
+  final String? effort;
 
   /// Grants the profile the `keelai-actions` MCP (a "builder" agent that
   /// can create things in the system). Nullable so an update that doesn't
@@ -62,8 +69,11 @@ class CreateAgentAction extends AssistantAction {
     required this.ruleNames,
     this.toolNames = const [],
     this.knowledgeBaseNames = const [],
+    this.hookNames = const [],
     this.mcpServerNames = const [],
     this.providerAlias,
+    this.model,
+    this.effort,
     this.systemBuilder,
   });
 }
@@ -71,16 +81,30 @@ class CreateAgentAction extends AssistantAction {
 class CreateWorkflowAction extends AssistantAction {
   final String name;
   final String whenToApply;
-  final List<WorkflowStep> steps;
-
-  /// Skills que el workflow le suma a todos sus turnos, por nombre.
+  final WorkflowKind kind;
+  final String resolutionRole;
   final List<String> skillNames;
+  final List<String> requiredRuleNames;
+  final List<String> requiredKnowledgeBaseNames;
+  final List<WorkflowQualityGate> qualityGates;
+  final int? maxReplans;
+  final int? maxSubagents;
+  final List<WorkflowCapability> capabilities;
+  final bool? buildsRoadmap;
 
   const CreateWorkflowAction({
     required this.name,
     required this.whenToApply,
-    required this.steps,
+    required this.kind,
+    required this.resolutionRole,
     this.skillNames = const [],
+    this.requiredRuleNames = const [],
+    this.requiredKnowledgeBaseNames = const [],
+    this.qualityGates = const [],
+    this.maxReplans,
+    this.maxSubagents,
+    this.capabilities = const [],
+    this.buildsRoadmap,
   });
 }
 

@@ -1,4 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import 'package:keel_ui/src/integrations/app_update/app_update.dart';
 
@@ -26,6 +29,78 @@ KeelVersion _version({
 );
 
 void main() {
+  group('releases instalables', () {
+    const sha =
+        'd490c46d93c5c04bdf304a735b128ff02d307c5b963ea1f9ca2ba9196969a694';
+
+    test('una versión semántica posterior enciende la descarga', () async {
+      final status = await readInstalledRelease(
+        packageInfo: PackageInfo(
+          appName: 'Keel',
+          packageName: 'com.jhonacode.keelUi',
+          version: '1.4.19',
+          buildNumber: '41',
+        ),
+        client: MockClient(
+          (_) async => http.Response(
+            '{'
+            '"version":"1.5.0",'
+            '"build":42,'
+            '"downloadUrl":"https://jhonacode.com/keel/Keel-1.5.0-macos-universal.dmg",'
+            '"sha256":"$sha",'
+            '"publishedAt":"2026-08-25T10:00:00Z"'
+            '}',
+            200,
+          ),
+        ),
+      );
+
+      expect(status.current?.pubspecValue, '1.4.19+41');
+      expect(status.latest?.release.pubspecValue, '1.5.0+42');
+      expect(status.updateAvailable, isTrue);
+    });
+
+    test('un fallo del canal conserva visible la versión instalada', () async {
+      final status = await readInstalledRelease(
+        packageInfo: PackageInfo(
+          appName: 'Keel',
+          packageName: 'com.jhonacode.keelUi',
+          version: '2.3.4',
+          buildNumber: '57',
+        ),
+        client: MockClient((_) async => http.Response('no disponible', 503)),
+      );
+
+      expect(status.displayVersion, '2.3.4');
+      expect(status.updateAvailable, isFalse);
+      expect(status.error, contains('HTTP 503'));
+    });
+
+    test('una descarga nueva no enciende también el aviso de Máquina', () {
+      final state = AppUpdateState(
+        release: InstalledReleaseStatus(
+          current: const ReleaseVersion(major: 1, minor: 0, patch: 0, build: 1),
+          latest: KeelReleaseManifest(
+            release: const ReleaseVersion(
+              major: 1,
+              minor: 0,
+              patch: 1,
+              build: 2,
+            ),
+            downloadUrl: Uri.parse(
+              'https://jhonacode.com/keel/Keel-1.0.1-macos-universal.dmg',
+            ),
+            sha256: sha,
+            publishedAt: DateTime.utc(2026, 8, 25),
+          ),
+        ),
+      );
+
+      expect(state.release.updateAvailable, isTrue);
+      expect(state.pending, isFalse);
+    });
+  });
+
   group('leer el log', () {
     test('un commit por línea, con su fecha', () {
       final commits = parseCommitLog(_log);

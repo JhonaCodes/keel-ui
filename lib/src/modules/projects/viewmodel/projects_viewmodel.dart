@@ -44,7 +44,14 @@ import 'package:keel_ui/src/modules/projects/model/session.dart';
 import 'package:keel_ui/src/modules/projects/model/session_live_turn.dart';
 import 'package:keel_ui/src/modules/projects/model/session_subagent.dart';
 import 'package:keel_ui/src/modules/projects/model/session_plan_item.dart';
+import 'package:keel_ui/src/modules/projects/model/session_queued_message.dart';
+import 'package:keel_ui/src/modules/projects/model/resolution_case.dart';
+import 'package:keel_ui/src/modules/projects/model/resolution_evidence.dart';
+import 'package:keel_ui/src/modules/projects/model/resolution_preflight.dart';
+import 'package:keel_ui/src/modules/projects/model/migration_coverage.dart';
+import 'package:keel_ui/src/modules/projects/model/work_node.dart';
 import 'package:keel_ui/src/modules/projects/repository/projects_repository.dart';
+import 'package:keel_ui/src/modules/projects/service/resolution_engine.dart';
 import 'package:keel_ui/src/modules/tools/model/tool.dart';
 import 'package:keel_ui/src/modules/tools/viewmodel/tools_viewmodel.dart';
 import 'package:keel_ui/src/modules/workflows/model/workflow.dart';
@@ -65,11 +72,7 @@ const _agentDeclarationKeys = {'handle', 'rol', 'proposito', 'instrucciones'};
 /// las tools del plan no existen para él — mismo patrón que ```agente.
 const _planBlockKeys = {'puntos'};
 
-/// Cómo abre el mensaje de cierre cuando la sesión queda con puntos
-/// pendientes. Es también la compuerta de las palabras débiles de
-/// [ProjectsViewModel._looksLikeContinue]: "dale" cuenta como continuar solo
-/// si lo último del hilo empieza así — es decir, si se acaba de invitar.
-const _cycleInvitePrefix = 'La sesión NO queda terminada';
+const _coverageBlockKeys = {'area', 'estado', 'motivo'};
 
 /// Cómo terminó un turno de CLI: si produjo una respuesta usable y cuál fue.
 ///
@@ -78,6 +81,19 @@ const _cycleInvitePrefix = 'La sesión NO queda terminada';
 /// mensaje de la sesión, fuera de quien fuera, y un paso fallido dejaba al
 /// ciclo marchar igual por los pasos restantes.
 typedef TurnOutcome = ({bool ok, String answer});
+
+class _AdaptivePreflightResult {
+  const _AdaptivePreflightResult({
+    required this.owner,
+    required this.preflight,
+    this.nodeOwners = const {},
+  });
+
+  final AgentProfile? owner;
+  final Map<String, AgentProfile> nodeOwners;
+  final ResolutionPreflight preflight;
+  String? get error => preflight.ready ? null : preflight.errorSummary;
+}
 
 /// Un canal es una conversación, no una cinta de producción. Sin esta
 /// distinción cada mensaje entra como orden de trabajo: el usuario pregunta
@@ -163,25 +179,20 @@ const _kBadgeTtl = Duration(seconds: 15);
 
 const kDefaultSessionTitle = 'Sesión nueva';
 
-const _noBackgroundWorkPrompt =
-    'REGLA DEL CANAL, POR ENCIMA DE CUALQUIER OTRA COSA: no lanzás trabajo '
-    'en segundo plano. Nada de subagentes propios, nada de delegar a procesos '
-    'que el usuario no ve. Todo lo que pase tiene que pasar en este hilo, a '
-    'la vista.\n'
-    'Si te falta un especialista que el proyecto no tiene, NO lo inventes ni '
-    'lo simules: declaralo con un bloque exactamente así, y el sistema lo '
-    'registra como agente real, con vos como creador.\n'
-    '```agente\n'
-    'handle: auditor\n'
-    'rol: auditor de seguridad\n'
-    'proposito: revisa cambios buscando fugas de credenciales\n'
-    'instrucciones: (el system prompt con el que va a trabajar)\n'
-    '```\n'
-    'El handle va en minúsculas, sin espacios, máximo 16 caracteres. Después '
-    'del bloque seguí escribiendo normalmente: en tu próximo turno ese agente '
-    'ya es un compañero al que podés mencionar con su @handle. Declaralo solo '
-    'cuando de verdad haga falta — cada agente nuevo es permanente y queda a '
-    'la vista del usuario.';
+String _subagentPolicyPrompt({
+  required AgentProvider provider,
+  required int maxSubagents,
+}) {
+  if (provider != AgentProvider.claude || maxSubagents == 0) {
+    return 'Este proveedor no tiene delegación interna habilitada en este '
+        'workflow. Resolvé el nodo en este hilo.';
+  }
+  return 'SUBAGENTES CONTROLADOS: podés abrir hasta $maxSubagents tareas '
+      'internas, únicamente para investigación, inventario de impacto o '
+      'verificación independiente. Sus resultados quedan visibles en el mapa. '
+      'No les delegues implementación ni escritura: vos sos el único escritor '
+      'y debés sintetizar su evidencia antes de cerrar el nodo.';
+}
 
 class ProjectsViewModel extends ViewModel<ProjectsState> {
   ProjectsViewModel() : super(const ProjectsState());
@@ -193,6 +204,12 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
   /// still run strictly in sequence, so the agents of a single session never
   /// write files on top of each other.
   final Map<String, TaskRun> _runningSessions = {};
+
+  /// The outer session futures, including the gaps between CLI turns. A
+  /// missing [TaskRun] does not mean the workflow has handed control back,
+  /// so "send now" uses this set before deciding whether it is safe to start
+  /// the queued follow-up.
+  final Set<String> _activeSessionRuns = {};
 
   /// Lo último que se leyó del roadmap de cada proyecto, para el sidebar.
   final Map<String, ({DateTime at, int percent, bool ok})> _radarBadges = {};
@@ -240,11 +257,37 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
   Future<void> _loadPersistedProjects() async {
     try {
       final projects = await _repository.load();
-      updateState(data.copyWith(projects: _revived(projects)));
+      await WorkflowsService.instance.notifier.ready;
+      final revived = _revived(projects);
+      final existingWorkflowIds = WorkflowsService
+          .instance
+          .notifier
+          .data
+          .workflows
+          .map((workflow) => workflow.id)
+          .toSet();
+      final hadBrokenReferences = revived.any(
+        (project) => project.referencedWorkflowIds.any(
+          (workflowId) => !existingWorkflowIds.contains(workflowId),
+        ),
+      );
+      final repaired = repairWorkflowReferences(revived, existingWorkflowIds);
+      updateState(data.copyWith(projects: repaired));
+      if (hadBrokenReferences) await _repository.save(repaired);
     } catch (error) {
       Log.e('Failed to load persisted projects', error: error);
     }
   }
+
+  /// Pure half of the startup repair, exposed so the persistence migration is
+  /// regression-testable without opening the native database.
+  static List<Project> repairWorkflowReferences(
+    List<Project> projects,
+    Set<String> existingWorkflowIds,
+  ) => [
+    for (final project in projects)
+      project.retainingWorkflows(existingWorkflowIds),
+  ];
 
   /// No CLI process survives closing the app, so a session that comes back from
   /// disk saying it is running is lying — it was interrupted mid-turn. Left
@@ -499,6 +542,144 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
 
   void clearMemberTuning(String projectId, String profileId) =>
       setMemberTuning(projectId, profileId);
+
+  /// Overrides the concrete agent for one adaptive capability in one project.
+  /// A running or completed node keeps its persisted owner for traceability.
+  bool setWorkflowNodeAssignment(
+    String projectId,
+    String workflowId,
+    String nodeId,
+    String? profileId,
+  ) {
+    final project = _projectById(projectId);
+    if (project == null) return false;
+    final activeSession = project.activeSession;
+    final activeNode = activeSession?.workflowId == workflowId
+        ? activeSession?.resolutionCase?.nodes
+              .where((node) => node.id == nodeId)
+              .firstOrNull
+        : null;
+    if (activeNode != null &&
+        (activeNode.status == WorkNodeStatus.running ||
+            activeNode.status == WorkNodeStatus.done)) {
+      return false;
+    }
+    _updateProject(projectId, (current) {
+      final assignments = {
+        for (final entry in current.workflowNodeAssignments.entries)
+          entry.key: Map<String, String>.from(entry.value),
+      };
+      final nodes = assignments.putIfAbsent(workflowId, () => {});
+      if (profileId == null || profileId.isEmpty) {
+        nodes.remove(nodeId);
+      } else {
+        nodes[nodeId] = profileId;
+      }
+      if (nodes.isEmpty) assignments.remove(workflowId);
+      final sessions = [
+        for (final session in current.sessions)
+          if (session.id != current.activeSessionId ||
+              session.workflowId != workflowId ||
+              session.resolutionCase == null)
+            session
+          else
+            session.copyWith(
+              resolutionCase: session.resolutionCase!.copyWith(
+                nodes: [
+                  for (final node in session.resolutionCase!.nodes)
+                    if (node.id == nodeId &&
+                        node.status != WorkNodeStatus.running &&
+                        node.status != WorkNodeStatus.done)
+                      node.copyWith(ownerProfileId: profileId ?? '')
+                    else
+                      node,
+                ],
+              ),
+            ),
+      ];
+      return current.copyWith(
+        workflowNodeAssignments: assignments,
+        sessions: sessions,
+      );
+    });
+    unawaited(_persist());
+    return true;
+  }
+
+  /// Instantiates an optional workflow capability only when it is needed.
+  /// The owner is resolved with the same project override/default-role rules
+  /// as preflight, so activating it never creates an anonymous session.
+  Future<String?> activateWorkflowCapability(
+    String projectId,
+    String sessionId,
+    String capabilityId,
+  ) async {
+    final project = _projectById(projectId);
+    final session = project == null ? null : _sessionById(project, sessionId);
+    final workflow = session == null ? null : workflowOf(session);
+    final resolution = session?.resolutionCase;
+    if (project == null ||
+        session == null ||
+        workflow == null ||
+        resolution == null) {
+      return 'No hay un caso adaptativo activo.';
+    }
+    if (resolution.status == ResolutionCaseStatus.completed) {
+      return 'El caso ya está cerrado.';
+    }
+    final capability = workflow.capabilities
+        .where((entry) => entry.id == capabilityId)
+        .firstOrNull;
+    if (capability == null ||
+        capability.activation != WorkflowCapabilityActivation.optional) {
+      return 'La capacidad no es opcional o no existe.';
+    }
+    if (resolution.nodes.any((node) => node.id == capabilityId)) return null;
+
+    final members = membersOf(project, session: session);
+    final overrideId = project.assignedProfileId(workflow.id, capability.id);
+    final owner = overrideId == null
+        ? memberForRole(members, capability.role) ??
+              (capability.role == '*'
+                  ? memberForRole(members, resolution.ownerRole)
+                  : null)
+        : members.where((member) => member.id == overrideId).firstOrNull;
+    if (owner == null) {
+      return 'No hay agente para el rol ${capability.role}.';
+    }
+    if (capability.requiresIndependentOwner) {
+      final dependencyOwnerIds = resolution.nodes
+          .where((node) => capability.dependencyIds.contains(node.id))
+          .map((node) => node.ownerProfileId)
+          .where((id) => id.isNotEmpty)
+          .toSet();
+      if (dependencyOwnerIds.contains(owner.id)) {
+        return 'La capacidad ${capability.title} requiere un agente '
+            'independiente de quien produjo sus dependencias.';
+      }
+    }
+    await SecretsService.instance.notifier.ready;
+    final secretName = project.tuned(owner).provider.secretName;
+    if (secretName != null &&
+        (SecretsService.instance.notifier.pendingOf([secretName]).isNotEmpty ||
+            SecretsService.instance.notifier.missingOf([
+              secretName,
+            ]).isNotEmpty)) {
+      return 'Falta configurar $secretName.';
+    }
+
+    _storeResolution(
+      projectId,
+      sessionId,
+      ResolutionEngine.activateCapability(
+        resolution,
+        capability: capability,
+        ownerProfileId: owner.id,
+      ),
+    );
+    await _persist();
+    return null;
+  }
 
   // ── plan de trabajo de una sesión ────────────────────────────────────
 
@@ -839,9 +1020,8 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
       id: generateUuidV4(),
       title: kRoadmapFormatSessionTitle,
       createdAt: DateTime.now(),
-      // Su propio workflow: un paso, cualquier miembro, el skill del formato
-      // adentro. Antes corría el del proyecto —implementador, auditor,
-      // verificador, entrega— y terminaba abriendo un PR por unos markdown.
+      // Su workflow específico usa el caso mínimo de formato y su skill.
+      // Así no abre trabajo de implementación o entrega para unos markdown.
       workflowId: roadmapFormatWorkflowId(),
     );
     _updateProject(
@@ -941,7 +1121,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
       claims: TaskClaimsService.instance.notifier.activeClaimsFor(
         project.workingDirectory,
       ),
-      totalSteps: stepCountFor(project),
+      totalSteps: nodeCountFor(project),
       now: now,
       hasRoadmap: check.ok,
     );
@@ -1037,6 +1217,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
   /// sessions. The project keeps its members, workflows, rules and documents.
   void closeSession(String projectId, String sessionId) {
     _runningSessions.remove(sessionId)?.cancel();
+    _activeSessionRuns.remove(sessionId);
     _stoppedSessionIds.add(sessionId);
 
     _updateProject(projectId, (project) {
@@ -1077,31 +1258,23 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     _finishSession(projectId, sessionId, SessionStatus.failed);
   }
 
-  /// Runs the project's active workflow inside [sessionId], from its first step
-  /// to its last. Every member starts from a brand new CLI session, so a session
-  /// never inherits context from another one.
-  ///
-  /// Several sessions can be in flight in the same project: each owns its own
-  /// runner and its own sessions, so running one never interrupts another.
+  /// Runs an adaptive workflow. Nodes are selected by dependencies and fresh
+  /// evidence, never by a positional list of agents.
   Future<void> _runWorkflow(
     String projectId,
     String sessionId,
     String request,
   ) async {
     final project = _projectById(projectId);
-    if (project == null) return;
-
-    final session = _sessionById(project, sessionId);
+    final session = project == null ? null : _sessionById(project, sessionId);
     final workflow = session == null ? null : workflowOf(session);
-    if (workflow == null) {
+    if (project == null || session == null || workflow == null) {
       _appendMessage(
         projectId,
         sessionId,
         ChatMessage(
           role: ChatRole.error,
-          text:
-              'Esta sesión no tiene un workflow con el cual correr. Elegí uno '
-              'arriba del hilo para que sepa cómo repartir el trabajo.',
+          text: 'Esta sesión no tiene un workflow adaptativo seleccionado.',
           timestamp: DateTime.now(),
         ),
       );
@@ -1109,363 +1282,216 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
       return;
     }
 
-    if (workflow.steps.isEmpty) {
-      _appendMessage(
+    await Future.wait([
+      AgentProfilesService.instance.notifier.ready,
+      SkillsService.instance.notifier.ready,
+      RulesService.instance.notifier.ready,
+      KnowledgeService.instance.notifier.ready,
+      SecretsService.instance.notifier.ready,
+    ]);
+    final preflight = _adaptivePreflight(project, session, workflow);
+    if (preflight.error != null || preflight.owner == null) {
+      final blocked =
+          ResolutionEngine.start(
+            id: session.resolutionCase?.id ?? generateUuidV4(),
+            kind: workflow.kind,
+            ownerRole:
+                preflight.owner?.role ?? workflow.policy.resolutionRole.trim(),
+            capabilities: workflow.capabilities,
+            ownerProfileIds: {
+              for (final entry in preflight.nodeOwners.entries)
+                entry.key: entry.value.id,
+            },
+          ).copyWith(
+            status: ResolutionCaseStatus.blocked,
+            preflight: preflight.preflight,
+          );
+      _updateSession(
         projectId,
         sessionId,
-        ChatMessage(
-          role: ChatRole.error,
-          text: 'El workflow "${workflow.name}" no tiene pasos definidos.',
-          timestamp: DateTime.now(),
+        (open) => open.copyWith(
+          request: open.request.isEmpty ? request : open.request,
+          resolutionCase: blocked,
         ),
       );
-      await _persist();
-      return;
-    }
-
-    final trimmed = request;
-    _stoppedSessionIds.remove(sessionId);
-    // El primer pedido queda guardado en la sesión: los ciclos 2..N corren
-    // con el punto del plan como request y sin esto el pedido original
-    // desaparecía para cualquier miembro sin sesión previa.
-    _updateSession(
-      projectId,
-      sessionId,
-      (session) => session.copyWith(
-        isRunning: true,
-        request: session.request.isEmpty ? trimmed : session.request,
-      ),
-    );
-    await _persist();
-
-    final messagesAtStart =
-        _sessionById(
-          _projectById(projectId) ?? project,
-          sessionId,
-        )?.messages.length ??
-        0;
-
-    // El cierre corre adentro del mismo try que los pasos: una excepción ahí
-    // también tiene que soltar el canal, no dejar `isRunning` colgado.
-    try {
-      final steps = await _runSteps(projectId, sessionId, workflow, trimmed);
-      _runningSessions.remove(sessionId);
-      final stopped = _stoppedSessionIds.remove(sessionId);
-      if (!stopped && !steps.ended) {
-        await _closeAgainstPlan(
-          projectId,
-          sessionId,
-          workflow,
-          messagesAtStart: messagesAtStart,
-          lastHandle: steps.lastHandle,
-          lastAnswer: steps.lastAnswer,
-        );
-      }
-    } catch (error, stackTrace) {
-      return _abandonRun(projectId, sessionId, error, stackTrace);
-    }
-    await _persist();
-  }
-
-  /// Si la sesión sumó al menos un mensaje de trabajo desde [since]. Es lo
-  /// que separa "terminó sin plan pero trabajó" de "terminó sin nada".
-  bool _producedAssistantOutput(
-    String projectId,
-    String sessionId, {
-    required int since,
-  }) {
-    final project = _projectById(projectId);
-    final messages = project == null
-        ? null
-        : _sessionById(project, sessionId)?.messages;
-    if (messages == null) return false;
-    return messages
-        .skip(since)
-        .any((m) => m.role == ChatRole.assistant && m.text.trim().isNotEmpty);
-  }
-
-  /// El cierre de la sesión se decide contra el PLAN, no contra los pasos.
-  ///
-  /// Son dos cosas distintas y la diferencia es justo la que se perdía: el
-  /// workflow puede recorrer sus siete pasos enteros y dejar la mitad de lo
-  /// acordado sin hacer. "El flujo terminó" no es "la sesión está hecha".
-  ///
-  /// Con puntos pendientes, quien planificó vuelve UNA vez a verificarlos
-  /// contra el código —no contra lo que se dijo en el hilo— y a cerrar lo que
-  /// esté hecho. Si después de eso todavía falta algo, la sesión no se da por
-  /// terminada.
-  Future<void> _closeAgainstPlan(
-    String projectId,
-    String sessionId,
-    Workflow workflow, {
-    required int messagesAtStart,
-    String? lastHandle,
-    String? lastAnswer,
-  }) async {
-    final plan = planOf(projectId, sessionId);
-    final pendientes = plan.pending.toList();
-    if (pendientes.isEmpty) {
-      // Plan vacío no es plan cumplido. Una sesión sin plan cierra como
-      // siempre SI produjo algo; si el ciclo terminó sin plan y sin un solo
-      // mensaje de trabajo, sellarla "terminada" era un éxito falso.
-      if (plan.isEmpty &&
-          !_producedAssistantOutput(
-            projectId,
-            sessionId,
-            since: messagesAtStart,
-          )) {
-        _appendMessage(
-          projectId,
-          sessionId,
-          ChatMessage(
-            role: ChatRole.error,
-            text:
-                'El ciclo terminó sin plan y sin producir nada — la sesión no '
-                'se da por terminada.',
-            timestamp: DateTime.now(),
-          ),
-        );
-        _finishSession(projectId, sessionId, SessionStatus.failed);
-        return;
-      }
-      _finishSession(projectId, sessionId, SessionStatus.finished);
-      return;
-    }
-
-    final project = _projectById(projectId);
-    if (project == null) return;
-    final verificador = _planCloser(project, sessionId, workflow);
-    // Sin nadie que pueda verificar, la sesión igual no miente: queda como no
-    // terminada, con el plan a la vista mostrando qué falta.
-    if (verificador == null) {
       _appendMessage(
         projectId,
         sessionId,
         ChatMessage(
           role: ChatRole.error,
-          text:
-              'Los pasos terminaron con ${pendientes.length} de ${plan.length} '
-              'puntos del plan sin cumplir, y este proyecto no tiene a quién '
-              'darle la verificación.',
+          text: 'Preflight bloqueado: ${preflight.error}',
           timestamp: DateTime.now(),
         ),
       );
       _finishSession(projectId, sessionId, SessionStatus.failed);
+      await _persist();
       return;
     }
 
+    final existingResolution = session.resolutionCase;
+    var resolution =
+        (existingResolution == null || !existingResolution.preflight.ready
+            ? null
+            : existingResolution) ??
+        ResolutionEngine.start(
+          id: generateUuidV4(),
+          kind: workflow.kind,
+          ownerRole: preflight.owner!.role,
+          capabilities: workflow.capabilities,
+          ownerProfileIds: {
+            for (final entry in preflight.nodeOwners.entries)
+              entry.key: entry.value.id,
+          },
+        ).copyWith(preflight: preflight.preflight);
+    _updateSession(
+      projectId,
+      sessionId,
+      (open) => open.copyWith(
+        isRunning: true,
+        request: open.request.isEmpty ? request : open.request,
+        resolutionCase: resolution,
+      ),
+    );
+    _activeSessionRuns.add(sessionId);
+    _stoppedSessionIds.remove(sessionId);
     _appendMessage(
       projectId,
       sessionId,
       ChatMessage(
         role: ChatRole.system,
-        text:
-            'Los ${workflow.steps.length} pasos terminaron, pero quedan '
-            '${pendientes.length} de ${plan.length} puntos del plan sin '
-            'cumplir. Verifica @${verificador.name} antes de cerrar.',
+        text: _preflightSummary(workflow, preflight.owner!),
         timestamp: DateTime.now(),
       ),
     );
 
-    await _runTurn(
-      projectId: projectId,
-      sessionId: sessionId,
-      member: verificador,
-      stepIndex: workflow.steps.length - 1,
-      instruction: _planCheckPrompt(
-        pendientes,
-        hasPlanTools:
-            project.tuned(verificador).provider != AgentProvider.codex,
-        lastHandle: lastHandle,
-        lastAnswer: lastAnswer,
-      ),
-      consultOfProfileId: null,
-      turnId: generateUuidV4(),
-      depth: 0,
-      // Cerrar no es reabrir el trabajo: si el verificador arrastra a los
-      // demás, la sesión vuelve a correr entera por la puerta de atrás.
-      allowConsults: false,
-    );
+    try {
+      while (!_stoppedSessionIds.contains(sessionId)) {
+        final node = _nextReadyNode(resolution);
+        if (node == null) {
+          if (ResolutionEngine.canComplete(resolution)) {
+            _storeResolution(
+              projectId,
+              sessionId,
+              resolution.copyWith(status: ResolutionCaseStatus.completed),
+            );
+            _finishSession(projectId, sessionId, SessionStatus.finished);
+          } else {
+            _appendMessage(
+              projectId,
+              sessionId,
+              ChatMessage(
+                role: ChatRole.error,
+                text:
+                    'El caso no cierra: quedan gates, evidencia o cobertura '
+                    'de migración sin registrar.',
+                timestamp: DateTime.now(),
+              ),
+            );
+            _finishSession(projectId, sessionId, SessionStatus.failed);
+          }
+          break;
+        }
 
-    final quedan = planOf(projectId, sessionId).pending;
-    if (quedan.isEmpty) {
-      _finishSession(projectId, sessionId, SessionStatus.finished);
-      return;
-    }
+        resolution = _replaceNode(resolution, node.id, WorkNodeStatus.running);
+        _storeResolution(projectId, sessionId, resolution);
+        final nodeOwner =
+            preflight.nodeOwners[node.id] ??
+            membersOf(
+              project,
+              session: session,
+            ).where((member) => member.id == node.ownerProfileId).firstOrNull ??
+            preflight.owner!;
+        final outcome = await _runTurn(
+          projectId: projectId,
+          sessionId: sessionId,
+          member: nodeOwner,
+          workNodeId: node.id,
+          instruction: _adaptiveNodePrompt(
+            request: _sessionById(project, sessionId)?.request ?? request,
+            workflow: workflow,
+            resolution: resolution,
+            node: node,
+          ),
+          consultOfProfileId: null,
+          turnId: generateUuidV4(),
+          depth: 0,
+        );
+        // A turn may have registered migration coverage while it ran. Reload
+        // the graph so a stale local snapshot cannot overwrite that evidence.
+        resolution =
+            _sessionById(
+              _projectById(projectId) ?? project,
+              sessionId,
+            )?.resolutionCase ??
+            resolution;
+        if (outcome.ok) {
+          resolution = ResolutionEngine.resolveAssignedFindings(
+            _replaceNode(resolution, node.id, WorkNodeStatus.done),
+            affectedNodeId: node.id,
+          );
+          _storeResolution(projectId, sessionId, resolution);
+          continue;
+        }
 
-    _appendMessage(
-      projectId,
-      sessionId,
-      ChatMessage(
-        role: ChatRole.error,
-        text:
-            '$_cycleInvitePrefix. Falta:\n'
-            '${quedan.map((item) => '· ${item.text}${item.ownerRole == null ? '' : '  → ${item.ownerRole}'}').join('\n')}\n'
-            'Escribí "continuar" —o tocá el botón del plan— para arrancar el '
-            'ciclo del próximo punto desde el paso 1.',
-        timestamp: DateTime.now(),
-      ),
-    );
-    _finishSession(projectId, sessionId, SessionStatus.failed);
-  }
-
-  /// Quién verifica el plan al cerrar: el dueño del PRIMER paso, que es quien
-  /// lo escribió. Si ese puesto está vacante, el del último, que es el que
-  /// venía de mirar el resultado.
-  ///
-  /// Entre los candidatos se prefiere uno que NO corra con codex: el
-  /// verificador claude tiene las tools del plan de verdad. Un codex
-  /// verifica con los bloques ```cumplido, pero solo si no hay alternativa.
-  AgentProfile? _planCloser(
-    Project project,
-    String sessionId,
-    Workflow workflow,
-  ) {
-    final session = _sessionById(project, sessionId);
-    final candidatos = [
-      for (final step in [workflow.steps.first, workflow.steps.last])
-        _memberForRole(project, step.role, session: session),
-    ].whereType<AgentProfile>().toList();
-    for (final member in candidatos) {
-      if (project.tuned(member).provider != AgentProvider.codex) return member;
-    }
-    return candidatos.firstOrNull;
-  }
-
-  /// Walks the workflow's steps in order, one turn each. `ended` es true
-  /// cuando ya cerró la sesión él mismo — un rol vacante o un paso fallido
-  /// terminan la corrida y el caller no debe sellar "finished" encima.
-  /// `lastHandle`/`lastAnswer` son el remate del último paso, para que el
-  /// cierre contra el plan reciba lo que quedó dicho — una decisión
-  /// pendiente nombrada al final llega sola a la verificación, sin esperar
-  /// que el usuario la reenvíe.
-  Future<({bool ended, String? lastHandle, String? lastAnswer})> _runSteps(
-    String projectId,
-    String sessionId,
-    Workflow workflow,
-    String trimmed,
-  ) async {
-    // El handoff entre pasos: lo que dejó dicho el anterior viaja al
-    // siguiente. El hilo nunca llega al CLI, así que sin esto el paso N no
-    // veía NADA del N-1 — solo el plan y el árbol de archivos.
-    String? previousHandle;
-    String? previousAnswer;
-
-    for (var index = 0; index < workflow.steps.length; index++) {
-      if (_stoppedSessionIds.contains(sessionId)) break;
-
-      final step = workflow.steps[index];
-      final current = _projectById(projectId);
-      if (current == null) break;
-
-      final member = _memberForRole(
-        current,
-        step.role,
-        session: _sessionById(current, sessionId),
-      );
-      if (member == null) {
+        final registration = ResolutionEngine.reportFinding(
+          resolution,
+          evidence: ResolutionEvidence(
+            id: generateUuidV4(),
+            source: ResolutionEvidenceSource.compiler,
+            summary: outcome.answer.trim().isEmpty
+                ? 'El nodo no produjo una respuesta verificable.'
+                : outcome.answer.trim(),
+            fingerprint: '${node.id}:${normalizeForMatch(outcome.answer)}',
+            createdAt: DateTime.now(),
+          ),
+          affectedNodeId: node.id,
+          maxReplans: workflow.policy.maxReplans,
+        );
+        resolution = registration.resolution;
+        if (!registration.accepted) {
+          resolution = resolution.copyWith(
+            status: ResolutionCaseStatus.blocked,
+          );
+        } else if (resolution.status != ResolutionCaseStatus.blocked) {
+          resolution = _replaceNode(
+            resolution.copyWith(status: ResolutionCaseStatus.active),
+            node.id,
+            WorkNodeStatus.pending,
+          );
+        }
+        _storeResolution(projectId, sessionId, resolution);
         _appendMessage(
           projectId,
           sessionId,
           ChatMessage(
             role: ChatRole.error,
-            // `*` no es un rol que falte: es «cualquiera», y que no lo
-            // resuelva nadie significa que el proyecto no tiene un solo
-            // miembro. Decir «ningún agente tiene el rol *» sería mandar a
-            // buscar un puesto que no existe.
-            text: step.role.trim() == kAnyRole
-                ? 'Este proyecto no tiene ningún agente, y el paso '
-                      '"${step.title}" lo puede hacer cualquiera. Sumale al '
-                      'menos uno para que haya quién lo tome.'
-                : 'Ningún agente de este proyecto tiene el rol '
-                      '"${step.role}", que pide el paso "${step.title}". El '
-                      'flujo se detiene acá.',
+            text: resolution.status == ResolutionCaseStatus.blocked
+                ? 'Caso bloqueado: la evidencia no permite otra reformulación.'
+                : 'Hallazgo asignado a @${preflight.owner!.name}; se reformula '
+                      'solo el nodo ${node.kind.name}.',
             timestamp: DateTime.now(),
-            stepIndex: index,
           ),
         );
-        _finishSession(projectId, sessionId, SessionStatus.failed);
-        await _persist();
-        return (ended: true, lastHandle: null, lastAnswer: null);
+        if (resolution.status == ResolutionCaseStatus.blocked) {
+          _finishSession(projectId, sessionId, SessionStatus.failed);
+          break;
+        }
       }
-
-      _updateSession(
-        projectId,
-        sessionId,
-        (session) => session.copyWith(currentStepIndex: index),
-      );
-
-      final outcome = await _runTurn(
-        projectId: projectId,
-        sessionId: sessionId,
-        member: member,
-        stepIndex: index,
-        instruction: _stepPrompt(
-          step,
-          index,
-          workflow,
-          trimmed,
-          previousHandle: previousHandle,
-          previousAnswer: previousAnswer,
-        ),
-        consultOfProfileId: null,
-        turnId: generateUuidV4(),
-        depth: 0,
-      );
-      if (_stoppedSessionIds.contains(sessionId)) break;
-
-      // Un paso que falló corta el ciclo. Seguir marchando era N pasos
-      // fallando en cadena sobre un turno muerto, más una verificación que
-      // también fallaba — puro costo sin trabajo.
-      if (!outcome.ok) {
-        _appendMessage(
-          projectId,
-          sessionId,
-          ChatMessage(
-            role: ChatRole.error,
-            text:
-                'El paso ${index + 1} ("${step.title}") no produjo resultado; '
-                'el ciclo se corta acá en vez de arrastrar el error por los '
-                'pasos que quedan. Corregí la causa y mandá un mensaje para '
-                'retomar.',
-            timestamp: DateTime.now(),
-            stepIndex: index,
-          ),
-        );
-        _finishSession(projectId, sessionId, SessionStatus.failed);
-        await _persist();
-        return (ended: true, lastHandle: null, lastAnswer: null);
-      }
-
-      previousHandle = member.name;
-      previousAnswer = outcome.answer;
+    } catch (error, stackTrace) {
+      await _abandonRun(projectId, sessionId, error, stackTrace);
+    } finally {
+      await _settleSessionRunAndDispatch(projectId, sessionId);
     }
-    return (
-      ended: false,
-      lastHandle: previousHandle,
-      lastAnswer: previousAnswer,
-    );
   }
 
-  /// A step that blows up must still end the run. Without this the loop
-  /// escapes with `isRunning` left on and the channel is locked for good.
   Future<void> _abandonRun(
     String projectId,
     String sessionId,
     Object error,
     StackTrace stackTrace,
   ) async {
-    // Con el nombre del proyecto y de la sesión adentro del mensaje: esto
-    // no va solo a la consola, va al diario de fallas, y ahí "Workflow run
-    // failed" a las tres de la mañana no dice cuál de los seis proyectos
-    // fue. El stack viaja por la misma razón — es lo que deja saber de qué
-    // archivo salió.
-    final project = _projectById(projectId);
-    final session = project == null ? null : _sessionById(project, sessionId);
     Log.e(
-      'El flujo se cortó'
-      '${project == null ? '' : ' en "${project.name}"'}'
-      '${session == null ? '' : ' · ${session.title}'}',
+      'La resolución adaptativa se cortó',
       error: error,
       stackTrace: stackTrace,
     );
@@ -1476,7 +1502,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
       sessionId,
       ChatMessage(
         role: ChatRole.error,
-        text: 'El flujo se cortó por un error inesperado: $error',
+        text: 'El caso se detuvo por un error inesperado: $error',
         timestamp: DateTime.now(),
       ),
     );
@@ -1484,11 +1510,228 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     await _persist();
   }
 
+  _AdaptivePreflightResult _adaptivePreflight(
+    Project project,
+    Session session,
+    Workflow workflow,
+  ) {
+    final skills = SkillsService.instance.notifier.data.skills;
+    final requiredSkills = {
+      ...workflow.skillNames,
+      ...workflow.policy.requiredSkillNames,
+    };
+    final missingSkills = requiredSkills
+        .where(
+          (name) => !skills.any(
+            (skill) => skill.name == name && skill.content.isNotEmpty,
+          ),
+        )
+        .toList();
+    final rules = RulesService.instance.notifier.data.rules;
+    final missingRules = workflow.policy.requiredRuleNames
+        .where(
+          (name) => !rules.any(
+            (rule) => rule.name == name && rule.content.isNotEmpty,
+          ),
+        )
+        .toList();
+    final bases = KnowledgeService.instance.notifier.data.bases;
+    final missingKnowledge = workflow.policy.requiredKnowledgeBaseNames
+        .where((name) => !bases.any((base) => base.name == name))
+        .toList();
+    final members = membersOf(project, session: session);
+    final role = workflow.policy.resolutionRole.trim();
+    final owner = role.isEmpty
+        ? members.firstOrNull
+        : _memberForRole(project, role, session: session);
+    final nodeOwners = <String, AgentProfile>{};
+    final missingAgents = <String>[];
+    final missingSecrets = <String>[];
+    final capabilities = workflow.capabilities.isEmpty
+        ? defaultWorkflowCapabilities(
+            workflow.kind,
+            workflow.policy.resolutionRole,
+          )
+        : workflow.capabilities;
+    for (final capability in capabilities.where(
+      (entry) => entry.activation == WorkflowCapabilityActivation.required,
+    )) {
+      final overrideId = project.assignedProfileId(workflow.id, capability.id);
+      final assigned = overrideId == null
+          ? memberForRole(members, capability.role)
+          : members.where((member) => member.id == overrideId).firstOrNull;
+      final nodeOwner = assigned ?? (capability.role == '*' ? owner : null);
+      if (nodeOwner == null) {
+        missingAgents.add('${capability.title}: ${capability.role}');
+        continue;
+      }
+      nodeOwners[capability.id] = nodeOwner;
+      final engine = project.tuned(nodeOwner);
+      final secretName = engine.provider.secretName;
+      if (secretName != null &&
+          (SecretsService.instance.notifier.pendingOf([
+                secretName,
+              ]).isNotEmpty ||
+              SecretsService.instance.notifier.missingOf([
+                secretName,
+              ]).isNotEmpty)) {
+        missingSecrets.add(secretName);
+      }
+    }
+    for (final capability in capabilities.where(
+      (entry) =>
+          entry.activation == WorkflowCapabilityActivation.required &&
+          entry.requiresIndependentOwner,
+    )) {
+      final nodeOwner = nodeOwners[capability.id];
+      if (nodeOwner == null) continue;
+      final dependencyOwnerIds = capability.dependencyIds
+          .map((id) => nodeOwners[id]?.id)
+          .whereType<String>()
+          .toSet();
+      if (dependencyOwnerIds.contains(nodeOwner.id)) {
+        missingAgents.add(
+          '${capability.title}: requiere un agente independiente de sus dependencias',
+        );
+      }
+    }
+    if (owner == null) {
+      missingAgents.insert(
+        0,
+        'responsable: ${role.isEmpty ? 'sin asignar' : role}',
+      );
+    }
+    final preflight = ResolutionPreflight(
+      performed: true,
+      injectedSkills: requiredSkills
+          .where((name) => !missingSkills.contains(name))
+          .toList(),
+      injectedRules: {
+        ...project.ruleNames,
+        ...workflow.policy.requiredRuleNames,
+      }.where((name) => !missingRules.contains(name)).toList(),
+      injectedKnowledge: {
+        ...project.knowledgeBaseNames,
+        ...workflow.policy.requiredKnowledgeBaseNames,
+      }.where((name) => !missingKnowledge.contains(name)).toList(),
+      missingSkills: missingSkills,
+      missingRules: missingRules,
+      missingKnowledge: missingKnowledge,
+      missingAgents: missingAgents,
+      missingSecrets: missingSecrets.toSet().toList(),
+    );
+    return _AdaptivePreflightResult(
+      owner: owner,
+      nodeOwners: nodeOwners,
+      preflight: preflight,
+    );
+  }
+
+  String _preflightSummary(Workflow workflow, AgentProfile owner) {
+    final skillNames = {
+      ...workflow.skillNames,
+      ...workflow.policy.requiredSkillNames,
+    }.join(', ');
+    final ruleNames = workflow.policy.requiredRuleNames.join(', ');
+    final knowledgeNames = workflow.policy.requiredKnowledgeBaseNames.join(
+      ', ',
+    );
+    return 'Preflight listo · workflow ${workflow.name} · responsable '
+        '@${owner.name} · skills ${skillNames.isEmpty ? 'ninguna' : skillNames} '
+        '· reglas ${ruleNames.isEmpty ? 'ninguna' : ruleNames} '
+        '· conocimiento ${knowledgeNames.isEmpty ? 'ninguno' : knowledgeNames} '
+        '· gates '
+        '${workflow.policy.qualityGates.map((gate) => gate.name).join(', ')}.';
+  }
+
+  WorkNode? _nextReadyNode(ResolutionCase resolution) {
+    for (final node in resolution.nodes) {
+      if (node.status != WorkNodeStatus.pending) continue;
+      final ready = node.dependencyIds.every(
+        (id) => resolution.nodes.any(
+          (candidate) =>
+              candidate.id == id && candidate.status == WorkNodeStatus.done,
+        ),
+      );
+      if (ready) return node;
+    }
+    return null;
+  }
+
+  ResolutionCase _replaceNode(
+    ResolutionCase resolution,
+    String nodeId,
+    WorkNodeStatus status,
+  ) => resolution.copyWith(
+    nodes: [
+      for (final node in resolution.nodes)
+        node.id == nodeId ? node.copyWith(status: status) : node,
+    ],
+  );
+
+  void _storeResolution(
+    String projectId,
+    String sessionId,
+    ResolutionCase resolution,
+  ) {
+    _updateSession(
+      projectId,
+      sessionId,
+      (session) => session.copyWith(resolutionCase: resolution),
+    );
+  }
+
+  String _adaptiveNodePrompt({
+    required String request,
+    required Workflow workflow,
+    required ResolutionCase resolution,
+    required WorkNode node,
+  }) {
+    final findings = resolution.findings
+        .map(
+          (finding) =>
+              '- ${finding.evidence.source.name}: '
+              '${finding.evidence.summary}',
+        )
+        .join('\n');
+    return 'Pedido original:\n$request\n\n'
+        'Sos el agente asignado al nodo "${node.title.isEmpty ? node.id : node.title}" '
+        'del workflow "${workflow.name}". Contrato del nodo: '
+        '${node.instruction.isEmpty ? 'producir evidencia verificable para esta capacidad' : node.instruction}. '
+        'El responsable de integración conserva el rol ${resolution.ownerRole}. '
+        'No recorras un flujo fijo ni delegues '
+        'la escritura. Trabajá solo lo que desbloquea este nodo y conservá la '
+        'evidencia verificable. Hallazgos abiertos:\n'
+        '${findings.isEmpty ? '- ninguno' : findings}\n\n'
+        'Antes de cerrar, ejecutá el gate que corresponda y dejá qué cambió, '
+        'qué evidencia lo valida y qué dependencia queda lista. Si este es '
+        'una migración, registrá cada área que verificaste con bloques '
+        '```cobertura (area: model|serialization|persistence|dataMigration|'
+        'callers|compatibility|tests|ui; estado: satisfied|notApplicable; '
+        'motivo: evidencia o justificación).';
+  }
+
   /// What the composer calls. Everything it does happens **inside the session
   /// that is already open** — it never creates one. The first message of a
   /// session kicks off the workflow; every message after that is a follow-up to
   /// the agent that is holding the work.
-  Future<void> sendToChannel(String projectId, String text) async {
+  Future<void> sendToChannel(
+    String projectId,
+    String text, {
+    List<String> imagePaths = const [],
+  }) async {
+    final project = _projectById(projectId);
+    final session = project?.activeSession;
+    if (project == null || session == null) return;
+    await _sendToSession(projectId, session.id, text, imagePaths: imagePaths);
+  }
+
+  Future<void> _sendToSession(
+    String projectId,
+    String sessionId,
+    String text, {
+    List<String> imagePaths = const [],
+  }) async {
     final trimmedForInsights = text.trim();
     if (trimmedForInsights.isNotEmpty) {
       // Zero-token recurrence detector — never in the send critical path.
@@ -1497,12 +1740,16 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
       );
     }
     final trimmed = text.trim();
-    if (trimmed.isEmpty) return;
+    if (trimmed.isEmpty && imagePaths.isEmpty) return;
+    final prompt = [
+      if (trimmed.isNotEmpty) trimmed,
+      if (imagePaths.isNotEmpty) _describeChannelAttachments(imagePaths),
+    ].join('\n\n');
 
     final project = _projectById(projectId);
     if (project == null) return;
 
-    final session = project.activeSession;
+    final session = _sessionById(project, sessionId);
     if (session == null) return;
     if (session.isRunning) return;
 
@@ -1516,7 +1763,11 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
         projectId,
         session.id,
         (open) => open.title == kDefaultSessionTitle
-            ? open.copyWith(title: _titleFor(trimmed))
+            ? open.copyWith(
+                title: _titleFor(
+                  trimmed.isEmpty ? 'Imágenes adjuntas' : trimmed,
+                ),
+              )
             : open,
       );
       _appendMessage(
@@ -1526,32 +1777,22 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
           role: ChatRole.user,
           text: trimmed,
           timestamp: DateTime.now(),
+          imagePaths: imagePaths,
         ),
       );
-      return _runWorkflow(projectId, session.id, trimmed);
+      return _runWorkflow(projectId, session.id, prompt);
     }
 
-    // "Continuá" con puntos pendientes no es un mensaje para el que habló
-    // último: es arrancar el ciclo del siguiente punto, desde el paso 1. Sin
-    // esto el flujo termina y no hay forma de volver a planificar — que es
-    // exactamente donde se trababa.
-    final invited =
-        session.messages.lastOrNull?.text.startsWith(_cycleInvitePrefix) ??
-        false;
-    if (_looksLikeContinue(trimmed, invitedToContinue: invited) &&
-        _nextPendingItem(session) != null) {
-      _appendMessage(
-        projectId,
-        session.id,
-        ChatMessage(
-          role: ChatRole.user,
-          text: trimmed,
-          timestamp: DateTime.now(),
-        ),
-      );
-      return continueWithNextPlanItem(projectId, session.id);
-    }
-
+    _appendMessage(
+      projectId,
+      session.id,
+      ChatMessage(
+        role: ChatRole.user,
+        text: trimmed,
+        timestamp: DateTime.now(),
+        imagePaths: imagePaths,
+      ),
+    );
     final member = _followUpOwner(project, session);
     if (member == null) {
       _appendMessage(
@@ -1568,140 +1809,181 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
       await _persist();
       return;
     }
-
-    _appendMessage(
-      projectId,
-      session.id,
-      ChatMessage(
-        role: ChatRole.user,
-        text: trimmed,
-        timestamp: DateTime.now(),
-      ),
-    );
     await _runMemberTurn(
       projectId: projectId,
       sessionId: session.id,
       member: member,
-      stepIndex: session.currentStepIndex,
-      instruction: trimmed,
+      workNodeId: _activeWorkNodeId(session),
+      instruction: prompt,
     );
   }
 
-  /// El próximo punto del plan sin cumplir, o null si no queda ninguno.
-  SessionPlanItem? _nextPendingItem(Session session) => session.plan.current;
-
-  /// Un "seguí" pelado: una orden de continuar y nada más.
-  ///
-  /// Se exige que sea corto a propósito. "Continuá pero primero mirá el
-  /// endpoint X" no es esto: ahí el usuario está diciendo algo, y va como
-  /// mensaje al que tiene la palabra, no como arranque de un ciclo nuevo.
-  ///
-  /// Y hay dos niveles. "Continuar" —la palabra que enseñan el botón y el
-  /// mensaje de cierre— vale siempre, igual que un "seguí" que nombra el
-  /// plan explícito. Pero un "dale" o un "sigue" pelados solo cuentan cuando
-  /// [invitedToContinue]: si lo último del hilo no es la invitación del
-  /// cierre, "dale" es una respuesta a quien tiene la palabra (una pregunta
-  /// del agente, por ejemplo), no la orden de arrancar un ciclo entero.
-  static bool _looksLikeContinue(
-    String text, {
-    required bool invitedToContinue,
-  }) {
-    if (text.length > 40) return false;
-    final normalized = normalizeForMatch(
-      text,
-    ).replaceAll(RegExp(r'[^a-z ]'), '').trim();
-
-    final strong = RegExp(
-      r'^(continua|continuar|continue|continuemos)'
-      r'( con)?( el)?( siguiente)?( punto)?( del plan)?$'
-      r'|^(dale|segui|seguir|sigue|next)'
-      r'( con)?( el)?( siguiente)? punto( del plan)?$'
-      r'|^siguiente punto( del plan)?$',
-    );
-    if (strong.hasMatch(normalized)) return true;
-
-    if (!invitedToContinue) return false;
-    return RegExp(
-      r'^(dale|segui|seguir|sigue|siguiente|next|ok|si)$',
-    ).hasMatch(normalized);
-  }
-
-  /// Arranca OTRO ciclo del workflow, desde el paso 1, para el próximo punto
-  /// pendiente del plan.
-  ///
-  /// Es la pieza que faltaba. El workflow era una sola pasada: con un plan de
-  /// siete puntos, el paso 1 planificaba el primero, la implementación hacía
-  /// ese, y al llegar al final no había forma de volver a planificar los seis
-  /// que quedaban. El implementador pedía charters que solo el paso 1 podía
-  /// dar, y el paso 1 ya había pasado — nadie estaba equivocado y la sesión no
-  /// avanzaba. Cada punto del plan es ahora una vuelta completa del flujo.
-  Future<void> continueWithNextPlanItem(
+  /// Guarda un mensaje bajo control del usuario mientras la sesión trabaja.
+  /// No intenta escribir dentro del stdin de un CLI one-shot.
+  Future<String?> queueSessionMessage(
     String projectId,
     String sessionId,
-  ) async {
-    final project = _projectById(projectId);
-    if (project == null) return;
-
-    final session = _sessionById(project, sessionId);
-    if (session == null || session.isRunning) return;
-
-    final item = _nextPendingItem(session);
-    if (item == null) {
-      _appendMessage(
-        projectId,
-        sessionId,
-        ChatMessage(
-          role: ChatRole.system,
-          text: 'El plan no tiene puntos pendientes.',
-          timestamp: DateTime.now(),
-        ),
-      );
-      await _persist();
-      return;
-    }
-
-    final restantes = session.plan.pending.length;
-    _appendMessage(
+    String text, {
+    List<String> imagePaths = const [],
+  }) async {
+    final trimmed = text.trim();
+    if (trimmed.isEmpty && imagePaths.isEmpty) return null;
+    final id = generateUuidV4();
+    _updateSession(
       projectId,
       sessionId,
-      ChatMessage(
-        role: ChatRole.system,
-        text:
-            'CICLO NUEVO del workflow, desde el paso 1, para el punto '
-            '"${item.text}"'
-            '${item.ownerRole == null ? '' : ' (le toca a ${item.ownerRole})'}. '
-            'Quedan $restantes puntos.',
-        timestamp: DateTime.now(),
+      (session) => session.copyWith(
+        queuedMessages: [
+          ...session.queuedMessages,
+          SessionQueuedMessage(
+            id: id,
+            text: trimmed,
+            imagePaths: [...imagePaths],
+            createdAt: DateTime.now(),
+          ),
+        ],
       ),
     );
+    await _persist();
+    return id;
+  }
 
-    await _runWorkflow(
+  Future<void> editQueuedSessionMessage(
+    String projectId,
+    String sessionId,
+    String messageId,
+    String text,
+  ) async {
+    final trimmed = text.trim();
+    _replaceQueuedSessionMessage(
       projectId,
       sessionId,
-      _planItemRequest(item, restantes, originalRequest: session.request),
+      messageId,
+      (message) => trimmed.isEmpty && message.imagePaths.isEmpty
+          ? message
+          : message.copyWith(text: trimmed),
+    );
+    await _persist();
+  }
+
+  Future<void> removeQueuedSessionMessage(
+    String projectId,
+    String sessionId,
+    String messageId,
+  ) async {
+    _updateSession(
+      projectId,
+      sessionId,
+      (session) => session.copyWith(
+        queuedMessages: [
+          for (final message in session.queuedMessages)
+            if (message.id != messageId) message,
+        ],
+      ),
+    );
+    await _persist();
+  }
+
+  Future<void> holdQueuedSessionMessage(
+    String projectId,
+    String sessionId,
+    String messageId,
+  ) async {
+    _setQueuedDelivery(
+      projectId,
+      sessionId,
+      messageId,
+      SessionQueuedDelivery.standby,
+    );
+    await _persist();
+  }
+
+  Future<void> sendQueuedSessionMessageAfterTurn(
+    String projectId,
+    String sessionId,
+    String messageId,
+  ) async {
+    _setQueuedDelivery(
+      projectId,
+      sessionId,
+      messageId,
+      SessionQueuedDelivery.afterCurrentTurn,
+    );
+    await _persist();
+    final project = _projectById(projectId);
+    final session = project == null ? null : _sessionById(project, sessionId);
+    if (!(session?.isRunning ?? false)) {
+      await _dispatchNextQueuedMessage(projectId, sessionId);
+    }
+  }
+
+  /// Interrumpe el turno en curso, pero espera a que su Future realmente
+  /// termine antes de abrir el siguiente. Así dos agentes nunca escriben el
+  /// workspace al mismo tiempo por una carrera entre Stop y Send.
+  Future<void> sendQueuedSessionMessageNow(
+    String projectId,
+    String sessionId,
+    String messageId,
+  ) async {
+    _setQueuedDelivery(
+      projectId,
+      sessionId,
+      messageId,
+      SessionQueuedDelivery.interrupting,
+    );
+    await _persist();
+
+    final project = _projectById(projectId);
+    final session = project == null ? null : _sessionById(project, sessionId);
+    if (session?.isRunning ?? false) {
+      final activeRunWillDispatch = _activeSessionRuns.contains(sessionId);
+      stopSession(projectId, sessionId);
+      if (activeRunWillDispatch) return;
+    }
+    await _dispatchNextQueuedMessage(projectId, sessionId);
+  }
+
+  void _setQueuedDelivery(
+    String projectId,
+    String sessionId,
+    String messageId,
+    SessionQueuedDelivery delivery,
+  ) {
+    _replaceQueuedSessionMessage(
+      projectId,
+      sessionId,
+      messageId,
+      (message) => message.copyWith(delivery: delivery),
     );
   }
 
-  /// Lo que arranca el ciclo de un punto: el pedido original para no perder
-  /// el contexto, y el punto como único trabajo de este ciclo.
-  String _planItemRequest(
-    SessionPlanItem item,
-    int restantes, {
-    required String originalRequest,
-  }) {
-    final original = originalRequest.trim();
-    final encabezado = original.isEmpty
-        ? ''
-        : 'El pedido original de la sesión:\n'
-              '${original.length <= 1500 ? original : '${original.substring(0, 1500)}…'}\n\n';
-    return '${encabezado}En este ciclo trabajá SOLO este punto pendiente '
-        'del plan:\n\n'
-        '${item.text}\n\n'
-        '${item.ownerRole == null ? '' : 'El plan se lo asignó al puesto "${item.ownerRole}".\n'}'
-        'Es UN punto de los $restantes que quedan: hacé ese y nada más. Lo que '
-        'ya se hizo en los ciclos anteriores está en el hilo y en el árbol de '
-        'trabajo — seguí sobre eso, sin volver a empezar: si esta sesión ya '
-        'tiene rama y PR, seguí en los mismos, no abras otros.';
+  void _replaceQueuedSessionMessage(
+    String projectId,
+    String sessionId,
+    String messageId,
+    SessionQueuedMessage Function(SessionQueuedMessage message) replace,
+  ) {
+    _updateSession(
+      projectId,
+      sessionId,
+      (session) => session.copyWith(
+        queuedMessages: [
+          for (final message in session.queuedMessages)
+            if (message.id == messageId) replace(message) else message,
+        ],
+      ),
+    );
+  }
+
+  String _describeChannelAttachments(List<String> imagePaths) {
+    final buffer = StringBuffer(
+      'El usuario adjuntó imágenes a este mensaje. Leelas con una herramienta '
+      'de lectura antes de responder:',
+    );
+    for (final path in imagePaths) {
+      buffer.write('\n- $path');
+    }
+    return buffer.toString();
   }
 
   /// A member hit a tool it is not allowed to use. The CLI runs headless, so
@@ -1712,7 +1994,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     required String projectId,
     required String sessionId,
     required AgentProfile member,
-    required int stepIndex,
+    required String? workNodeId,
     required PermissionRequest request,
   }) {
     final project = _projectById(projectId);
@@ -1739,7 +2021,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
               'trabajo del proyecto. Cambiá el directorio del proyecto si '
               'necesita llegar ahí.',
           timestamp: DateTime.now(),
-          stepIndex: stepIndex,
+          workNodeId: workNodeId,
         ),
       );
       return;
@@ -1797,7 +2079,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
       projectId: projectId,
       sessionId: sessionId,
       member: member,
-      stepIndex: session.currentStepIndex,
+      workNodeId: _activeWorkNodeId(session),
       instruction:
           'Ya tenés permiso para usar ${request.toolName}. Retomá lo que '
           'estabas haciendo desde donde te quedaste.',
@@ -1841,7 +2123,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
       projectId: projectId,
       sessionId: session.id,
       member: member,
-      stepIndex: session.currentStepIndex,
+      workNodeId: _activeWorkNodeId(session),
       instruction: prompt,
     );
   }
@@ -1876,7 +2158,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
       projectId: projectId,
       sessionId: session.id,
       member: member,
-      stepIndex: session.currentStepIndex,
+      workNodeId: _activeWorkNodeId(session),
       instruction:
           'El usuario acaba de editar a mano el archivo $filePath. Leelo de '
           'nuevo antes de seguir y tené en cuenta ese cambio.',
@@ -1889,9 +2171,10 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     required String projectId,
     required String sessionId,
     required AgentProfile member,
-    required int stepIndex,
+    required String? workNodeId,
     required String instruction,
   }) async {
+    _activeSessionRuns.add(sessionId);
     _stoppedSessionIds.remove(sessionId);
     _updateSession(
       projectId,
@@ -1908,37 +2191,82 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
         projectId: projectId,
         sessionId: sessionId,
         member: member,
-        stepIndex: stepIndex,
+        workNodeId: workNodeId,
         instruction: instruction,
         consultOfProfileId: null,
         turnId: generateUuidV4(),
         depth: 0,
       );
     } finally {
-      _runningSessions.remove(sessionId);
-      _stoppedSessionIds.remove(sessionId);
-      _purgeConsultLedgerIfIdle();
-      _updateSession(
-        projectId,
-        sessionId,
-        (session) => session.copyWith(isRunning: false, clearLiveTurn: true),
-      );
-      await _persist();
+      await _settleSessionRunAndDispatch(projectId, sessionId);
     }
   }
 
-  /// Who takes a follow-up message inside an already-started session. Prefers the
-  /// agent that owns the current step; once the workflow has run out of steps
-  /// it falls back to whoever spoke last, and finally to any member — a
-  /// question inside a session must always land on somebody, never bounce.
+  Future<void> _settleSessionRunAndDispatch(
+    String projectId,
+    String sessionId,
+  ) async {
+    _runningSessions.remove(sessionId);
+    _stoppedSessionIds.remove(sessionId);
+    _activeSessionRuns.remove(sessionId);
+    _purgeConsultLedgerIfIdle();
+    _updateSession(
+      projectId,
+      sessionId,
+      (session) => session.copyWith(isRunning: false, clearLiveTurn: true),
+    );
+    await _persist();
+    await _dispatchNextQueuedMessage(projectId, sessionId);
+  }
+
+  Future<void> _dispatchNextQueuedMessage(
+    String projectId,
+    String sessionId,
+  ) async {
+    if (_activeSessionRuns.contains(sessionId)) return;
+    final project = _projectById(projectId);
+    final session = project == null ? null : _sessionById(project, sessionId);
+    if (session == null || session.isRunning) return;
+
+    SessionQueuedMessage? next;
+    for (final message in session.queuedMessages) {
+      if (message.delivery == SessionQueuedDelivery.interrupting) {
+        next = message;
+        break;
+      }
+    }
+    next ??= session.queuedMessages
+        .where(
+          (message) =>
+              message.delivery == SessionQueuedDelivery.afterCurrentTurn,
+        )
+        .firstOrNull;
+    if (next == null) return;
+
+    _updateSession(
+      projectId,
+      sessionId,
+      (open) => open.copyWith(
+        queuedMessages: [
+          for (final message in open.queuedMessages)
+            if (message.id != next!.id) message,
+        ],
+      ),
+    );
+    await _persist();
+    await _sendToSession(
+      projectId,
+      sessionId,
+      next.text,
+      imagePaths: next.imagePaths,
+    );
+  }
+
+  /// Follow-ups return to the resolution owner, then to the last author.
   AgentProfile? _followUpOwner(Project project, Session session) {
-    final workflow = workflowOf(session);
-    if (workflow != null && session.currentStepIndex < workflow.steps.length) {
-      final owner = _memberForRole(
-        project,
-        workflow.steps[session.currentStepIndex].role,
-        session: session,
-      );
+    final ownerRole = session.resolutionCase?.ownerRole.trim();
+    if (ownerRole != null && ownerRole.isNotEmpty) {
+      final owner = _memberForRole(project, ownerRole, session: session);
       if (owner != null) return owner;
     }
 
@@ -1976,7 +2304,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     required String projectId,
     required String sessionId,
     required AgentProfile member,
-    required int stepIndex,
+    required String? workNodeId,
     required String instruction,
     required String? consultOfProfileId,
     required String turnId,
@@ -2146,6 +2474,9 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
         ),
       );
     }
+    final providerApiKey = await SecretsService.instance.notifier.resolveValue(
+      engine.provider.secretName,
+    );
 
     final run = await TaskRunner.run(
       TaskRunSpec(
@@ -2193,6 +2524,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
         hooksConfig: turnHooks.codexConfig,
         hookFiles: turnHooks.files,
         provider: engine.provider.alias,
+        providerApiKey: providerApiKey,
       ),
     );
     _runningSessions[sessionId] = run;
@@ -2212,6 +2544,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     // pueda decir de parte de quién corre cada proceso, y se suelta al
     // terminar: una lista que no se limpia es una lista que miente.
     var livePid = 0;
+    final streamTimestamp = DateTime.now();
 
     await for (final event in run.events) {
       if (_stoppedSessionIds.contains(sessionId)) break;
@@ -2237,17 +2570,17 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
 
         case TaskAssistantText(text: final chunk):
           answer.write(chunk);
-          _appendMessage(
+          _appendStreamingAssistantMessage(
             projectId,
             sessionId,
             ChatMessage(
               role: ChatRole.assistant,
               text: chunk,
-              timestamp: DateTime.now(),
+              timestamp: streamTimestamp,
               reasoning: reasoning.isEmpty ? null : reasoning.toString(),
               fileEdits: await collector.collect(),
               authorProfileId: member.id,
-              stepIndex: stepIndex,
+              workNodeId: workNodeId,
               consultOfProfileId: consultOfProfileId,
             ),
           );
@@ -2289,7 +2622,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
                 SessionSubagent(
                   id: id,
                   parentProfileId: member.id,
-                  parentStepIndex: stepIndex,
+                  parentWorkNodeId: workNodeId,
                   agentType: agentType,
                   ask: ask,
                   prompt: prompt,
@@ -2410,9 +2743,11 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
               sessionId,
               ChatMessage(
                 role: ChatRole.error,
-                text: 'claude reportó un error en el turno de ${member.name}.',
+                text: engine.provider.turnFailureMessage(
+                  memberName: member.name,
+                ),
                 timestamp: DateTime.now(),
-                stepIndex: stepIndex,
+                workNodeId: workNodeId,
               ),
             );
           } else {
@@ -2432,7 +2767,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
             projectId: projectId,
             sessionId: sessionId,
             member: member,
-            stepIndex: stepIndex,
+            workNodeId: workNodeId,
             request: PermissionRequest(toolName: toolName, message: message),
           );
 
@@ -2449,6 +2784,18 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
             ),
           );
 
+        case TaskNotice(message: final message):
+          _appendMessage(
+            projectId,
+            sessionId,
+            ChatMessage(
+              role: ChatRole.system,
+              text: message,
+              timestamp: DateTime.now(),
+              workNodeId: workNodeId,
+            ),
+          );
+
         case TaskFailure(message: final message):
           turnFailed = true;
           failureMessage = message;
@@ -2459,7 +2806,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
               role: ChatRole.error,
               text: message,
               timestamp: DateTime.now(),
-              stepIndex: stepIndex,
+              workNodeId: workNodeId,
             ),
           );
       }
@@ -2490,7 +2837,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
         projectId: projectId,
         sessionId: sessionId,
         member: member,
-        stepIndex: stepIndex,
+        workNodeId: workNodeId,
         instruction: instruction,
         consultOfProfileId: consultOfProfileId,
         turnId: turnId,
@@ -2515,7 +2862,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
       sessionId: sessionId,
       author: member,
       text: answer.toString(),
-      stepIndex: stepIndex,
+      workNodeId: workNodeId,
     );
 
     // El espejo de las tools del plan para codex: sin esto, un plan cuyo
@@ -2529,6 +2876,11 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
         text: answer.toString(),
       );
     }
+    _applyDeclaredCoverageBlocks(
+      projectId: projectId,
+      sessionId: sessionId,
+      text: answer.toString(),
+    );
 
     final outcome = (
       ok: !turnFailed && answer.toString().trim().isNotEmpty,
@@ -2540,7 +2892,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
         projectId: projectId,
         sessionId: sessionId,
         asker: member,
-        stepIndex: stepIndex,
+        workNodeId: workNodeId,
         text: answer.toString(),
         turnId: turnId,
         depth: depth,
@@ -2605,7 +2957,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     required String sessionId,
     required AgentProfile author,
     required String text,
-    required int stepIndex,
+    required String? workNodeId,
   }) async {
     for (final fields in parseFencedBlocks(
       text,
@@ -2630,7 +2982,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
                 '${author.name} quiso declarar "$handle" pero ese nombre '
                 'está reservado.',
             timestamp: DateTime.now(),
-            stepIndex: stepIndex,
+            workNodeId: workNodeId,
           ),
         );
         continue;
@@ -2669,7 +3021,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
                   '${author.name} quiso crear el agente "$handle" pero no se '
                   'pudo registrar: $error',
               timestamp: DateTime.now(),
-              stepIndex: stepIndex,
+              workNodeId: workNodeId,
             ),
           );
           continue;
@@ -2700,11 +3052,60 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
                     'registrado, a esta sesión.',
           timestamp: DateTime.now(),
           authorProfileId: author.id,
-          stepIndex: stepIndex,
+          workNodeId: workNodeId,
         ),
       );
     }
     await _persist();
+  }
+
+  /// Persists a migration coverage declaration emitted by a resolution owner.
+  /// `notApplicable` is intentionally rejected without a rationale so a
+  /// migration cannot close by silently skipping a layer.
+  void _applyDeclaredCoverageBlocks({
+    required String projectId,
+    required String sessionId,
+    required String text,
+  }) {
+    final project = _projectById(projectId);
+    final session = project == null ? null : _sessionById(project, sessionId);
+    final resolution = session?.resolutionCase;
+    if (resolution == null || resolution.coverage.isEmpty) return;
+
+    var updated = resolution;
+    for (final fields in parseFencedBlocks(
+      text,
+      tag: 'cobertura',
+      keys: _coverageBlockKeys,
+    )) {
+      final area = _coverageAreaFromName(fields['area']);
+      final status = _coverageStatusFromName(fields['estado']);
+      if (area == null || status == null) continue;
+      updated = ResolutionEngine.setCoverage(
+        updated,
+        area: area,
+        status: status,
+        rationale: fields['motivo'] ?? '',
+      );
+    }
+    if (updated != resolution) _storeResolution(projectId, sessionId, updated);
+  }
+
+  MigrationCoverageArea? _coverageAreaFromName(String? name) {
+    for (final area in MigrationCoverageArea.values) {
+      if (area.name.toLowerCase() == name?.trim().toLowerCase()) return area;
+    }
+    return null;
+  }
+
+  MigrationCoverageStatus? _coverageStatusFromName(String? name) {
+    return switch (name?.trim().toLowerCase()) {
+      'satisfied' || 'satisfecho' => MigrationCoverageStatus.satisfied,
+      'notapplicable' ||
+      'not_applicable' ||
+      'no_aplica' => MigrationCoverageStatus.notApplicable,
+      _ => null,
+    };
   }
 
   /// Aplica los bloques ```plan y ```cumplido que [author] —un miembro
@@ -2769,7 +3170,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     required String projectId,
     required String sessionId,
     required AgentProfile asker,
-    required int stepIndex,
+    required String? workNodeId,
     required String text,
     required String turnId,
     required int depth,
@@ -2779,7 +3180,6 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
 
     final open = _sessionById(project, sessionId);
     final members = membersOf(project, session: open);
-    final workflow = open == null ? null : workflowOf(open);
     final asked = <String>{};
 
     // Sobre el texto SIN código: un @handle dentro de un diff o de un
@@ -2843,33 +3243,12 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
       final pair = '$turnId:${asker.id}>${target.id}';
       if (!_consultedPairs.add(pair)) continue;
 
-      // Los pasos del consultado, con la MISMA resolución rol/handle que usa
-      // el flujo para asignarlos — el consultado ve exactamente los que le
-      // van a tocar de verdad.
-      final targetSteps = <int>[
-        if (workflow != null)
-          for (var i = 0; i < workflow.steps.length; i++)
-            if (_memberForRole(
-                  project,
-                  workflow.steps[i].role,
-                  session: _sessionById(project, sessionId),
-                )?.id ==
-                target.id)
-              i,
-      ];
-
       final consulta = await _runTurn(
         projectId: projectId,
         sessionId: sessionId,
         member: target,
-        stepIndex: stepIndex,
-        instruction: _consultPrompt(
-          asker,
-          _consultExcerpt(text, handle),
-          stepIndex: stepIndex,
-          workflow: workflow,
-          targetSteps: targetSteps,
-        ),
+        workNodeId: workNodeId,
+        instruction: _consultPrompt(asker, _consultExcerpt(text, handle)),
         consultOfProfileId: asker.id,
         turnId: turnId,
         depth: depth + 1,
@@ -2903,7 +3282,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
         projectId: projectId,
         sessionId: sessionId,
         member: asker,
-        stepIndex: stepIndex,
+        workNodeId: workNodeId,
         instruction: _consultAnswerPrompt(target, consulta.answer),
         consultOfProfileId: null,
         turnId: turnId,
@@ -2915,139 +3294,12 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
 
   // ── prompts ─────────────────────────────────────────────────────────
 
-  String _stepPrompt(
-    WorkflowStep step,
-    int index,
-    Workflow workflow,
-    String request, {
-    String? previousHandle,
-    String? previousAnswer,
-  }) {
-    final handoff =
-        (previousHandle == null || (previousAnswer ?? '').trim().isEmpty)
-        ? ''
-        : 'Lo que dejó dicho @$previousHandle al cerrar el paso $index:\n'
-              '${_handoffExcerpt(previousAnswer!)}\n\n';
-    return 'Lo que pidió el usuario en este canal:\n$request\n\n'
-        '${handoff}Estás ejecutando el paso ${index + 1} de '
-        '${workflow.steps.length} '
-        'del flujo "${workflow.name}": ${step.title}.\n'
-        '${step.instruction}\n\n'
-        'Hacé únicamente lo que corresponde a este paso; los demás pasos los '
-        'ejecutan tus compañeros. Cerrá tu turno diciendo en dos líneas qué '
-        'dejás listo y qué encontraste — eso es lo que recibe el paso '
-        'siguiente.';
-  }
-
-  /// El texto del paso anterior, recortado para el handoff: el remate —donde
-  /// vive el resumen de cierre— pesa más que el arranque.
-  static String _handoffExcerpt(String text) {
-    final trimmed = text.trim();
-    if (trimmed.length <= 2000) return trimmed;
-    return '${trimmed.substring(0, 500)}\n…\n'
-        '${trimmed.substring(trimmed.length - 1500)}';
-  }
-
-  /// Lo que recibe quien cierra la sesión con puntos del plan sin cumplir.
-  /// Lleva el remate del último paso: una decisión pendiente nombrada al
-  /// final del ciclo tiene que llegarle al verificador sola, no vía usuario.
-  String _planCheckPrompt(
-    List<SessionPlanItem> pendientes, {
-    required bool hasPlanTools,
-    String? lastHandle,
-    String? lastAnswer,
-  }) {
-    final remate = (lastHandle == null || (lastAnswer ?? '').trim().isEmpty)
-        ? ''
-        : 'Lo último que dejó dicho @$lastHandle al cerrar el último paso — '
-              'si nombra una decisión que te corresponde, tomala acá y '
-              'reflejala en el plan:\n${_handoffExcerpt(lastAnswer!)}\n\n';
-    final marcar = hasPlanTools
-        ? 'marcalo con `complete_plan_items` copiando su texto'
-        : 'marcalo dejando un bloque ```cumplido con `puntos:` y su texto, '
-              'un punto por línea';
-    final sacar = hasPlanTools
-        ? 'sacalo reescribiendo el plan entero con `set_session_plan`'
-        : 'sacalo reescribiendo el plan entero con un bloque ```plan';
-    return '${remate}Los pasos del workflow terminaron, pero el plan de esta '
-        'sesión tiene estos puntos SIN CUMPLIR:\n'
-        '${pendientes.map((item) => '- ${item.text}').join('\n')}\n\n'
-        'Verificá cada uno CONTRA EL CÓDIGO, no contra lo que se dijo en el '
-        'hilo: abrí los archivos y corré lo que haga falta para comprobarlo. '
-        'Después, con lo que encontraste:\n'
-        '- El que esté hecho, $marcar.\n'
-        '- El que ya no corresponda —quedó fuera de alcance, o lo reemplazó '
-        'otra decisión— $sacar, y decí en una línea por qué.\n'
-        '- El que falte de verdad, dejalo sin marcar y decí a qué puesto le '
-        'toca hacerlo. NO lo implementes vos: tu trabajo acá es verificar.\n'
-        'Mientras queden puntos sin cumplir, la sesión no se da por terminada.';
-  }
-
-  /// Lo que recibe el consultado. Lleva la MECÁNICA de pasos —en qué paso va
-  /// el ciclo y cuáles son los suyos— porque sin eso "no te adelantes" y
-  /// "resolvelo acá" eran la misma regla imposible: el consultado no tenía
-  /// forma de saber si su paso ya pasó.
-  String _consultPrompt(
-    AgentProfile asker,
-    String excerpt, {
-    required int stepIndex,
-    required Workflow? workflow,
-    required List<int> targetSteps,
-  }) {
-    final buffer = StringBuffer();
-    final paso = workflow == null
-        ? null
-        : stepIndex.clamp(0, workflow.steps.length - 1);
-    final donde = workflow == null || paso == null
-        ? ''
-        : ', durante el paso ${paso + 1} de ${workflow.steps.length} '
-              '("${workflow.steps[paso].title}") del flujo '
-              '"${workflow.name}"';
-    buffer.writeln(
-      '@${asker.name} (${asker.role}) te consultó en el canal$donde:',
-    );
-    buffer.writeln();
-    buffer.writeln(excerpt);
-    buffer.writeln();
-    buffer.writeln(
-      'Respondé la consulta desde tu especialidad. Si para responder tenés '
-      'que corregir algo en tu área, podés hacerlo. Esto corre como consulta '
-      'dentro del paso de @${asker.name}, y en este turno no tenés las tools '
-      'del plan: lo que resuelvas, decilo en tu respuesta y lo marca quien '
-      'ejecuta el paso.',
-    );
-    if (workflow == null || paso == null) return buffer.toString().trim();
-
-    if (targetSteps.isEmpty) {
-      buffer.writeln(
-        'Vos no tenés pasos propios en este flujo: respondé la consulta y '
-        'nada más.',
-      );
-      return buffer.toString().trim();
-    }
-
-    final tuyos = targetSteps
-        .map((i) => '${i + 1} ("${workflow.steps[i].title}")')
-        .join(', ');
-    buffer.writeln(
-      'Tus pasos en este flujo: $tuyos. El ciclo va por el ${paso + 1}. Con '
-      'eso, la regla es mecánica:',
-    );
-    buffer.writeln(
-      '- Si todos tus pasos vienen DESPUÉS del actual, no te adelantes: '
-      'respondé solo lo que te preguntaron — tu trabajo llega cuando el '
-      'workflow te dé la palabra.',
-    );
-    buffer.writeln(
-      '- Si alguno de tus pasos YA PASÓ en este ciclo y lo que falta es de '
-      'ese paso, resolvelo ACÁ: ese paso no va a volver.',
-    );
-    buffer.writeln(
-      '- Si te piden una decisión de tu área, tomala ahora: para eso te '
-      'consultaron.',
-    );
-    return buffer.toString().trim();
-  }
+  String _consultPrompt(AgentProfile asker, String excerpt) =>
+      '@${asker.name} (${asker.role}) te pide una consulta acotada:\n\n'
+      '$excerpt\n\n'
+      'Respondé solo desde tu especialidad con evidencia concreta. Esta '
+      'consulta no habilita escribir ni abrir trabajo paralelo: el '
+      'responsable del caso sintetiza tu respuesta y decide el siguiente nodo.';
 
   /// Los párrafos de [text] que mencionan a @[handle], más el inmediatamente
   /// anterior de cada uno. La regla de "mínimo contexto" no la puede cumplir
@@ -3210,7 +3462,13 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
       buffer.writeln(member.systemPrompt);
     }
 
-    for (final name in member.skills) {
+    final workflowForTurn = session == null ? null : workflowOf(session);
+    final skillNames = {
+      ...member.skills,
+      ...?workflowForTurn?.skillNames,
+      ...?workflowForTurn?.policy.requiredSkillNames,
+    };
+    for (final name in skillNames) {
       final skill = skills.where((s) => s.name == name).firstOrNull;
       if (skill == null || skill.content.isEmpty) {
         Log.w('Skill "$name" referenced by ${member.name} not found or empty');
@@ -3223,7 +3481,12 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     }
 
     final rules = RulesService.instance.notifier.data.rules;
-    final ruleNames = {...member.rules, ...project.ruleNames};
+    final requiredPolicy = session == null ? null : workflowOf(session)?.policy;
+    final ruleNames = {
+      ...member.rules,
+      ...project.ruleNames,
+      ...?requiredPolicy?.requiredRuleNames,
+    };
     for (final name in ruleNames) {
       final rule = rules.where((r) => r.name == name).firstOrNull;
       if (rule == null || rule.content.isEmpty) {
@@ -3240,6 +3503,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
       <String>{
         ...project.knowledgeBaseNames,
         ...member.knowledgeBaseNames,
+        ...?requiredPolicy?.requiredKnowledgeBaseNames,
       }.toList(),
     );
     if (saber.isNotEmpty) {
@@ -3365,7 +3629,13 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     }
 
     buffer.writeln();
-    buffer.writeln(_noBackgroundWorkPrompt);
+    final subagentPolicy = session == null ? null : workflowOf(session)?.policy;
+    buffer.writeln(
+      _subagentPolicyPrompt(
+        provider: project.tuned(member).provider,
+        maxSubagents: subagentPolicy?.maxSubagents ?? 0,
+      ),
+    );
 
     final combined = buffer.toString().trim();
     return combined;
@@ -3485,15 +3755,26 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     unawaited(_persist());
   }
 
-  /// Cuántos pasos tiene el workflow por defecto del proyecto. Es lo que
-  /// mira el radar, que estima sobre el proyecto entero y no sobre una
-  /// sesión.
-  int stepCountFor(Project project) =>
-      defaultWorkflowOf(project)?.steps.length ?? 0;
+  /// Associates a message with the persisted graph node that owns this turn.
+  /// Node identity survives a localized reformulation; an array position does
+  /// not and therefore must never be persisted as workflow state.
+  String? _activeWorkNodeId(Session session) => session.resolutionCase?.nodes
+      .where((node) => node.status == WorkNodeStatus.running)
+      .firstOrNull
+      ?.id;
 
-  /// Cuántos pasos tiene el workflow de ESTA sesión. Es el `3/7` del
-  /// sidebar, que es de la sesión y no del proyecto.
-  int stepCountOf(Session session) => workflowOf(session)?.steps.length ?? 0;
+  int nodeCountFor(Project project) {
+    final workflow = defaultWorkflowOf(project);
+    if (workflow == null) return 0;
+    return ResolutionEngine.start(
+      id: 'preview',
+      kind: workflow.kind,
+      ownerRole: workflow.policy.resolutionRole,
+      capabilities: workflow.capabilities,
+    ).nodes.length;
+  }
+
+  int nodeCountOf(Session session) => session.resolutionCase?.nodes.length ?? 0;
 
   AgentProfile? _memberForRole(
     Project project,
@@ -3592,6 +3873,38 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     );
   }
 
+  void _appendStreamingAssistantMessage(
+    String projectId,
+    String sessionId,
+    ChatMessage chunk,
+  ) {
+    _updateSession(projectId, sessionId, (session) {
+      final messages = [...session.messages];
+      final index = messages.lastIndexWhere(
+        (message) =>
+            message.role == ChatRole.assistant &&
+            message.timestamp == chunk.timestamp,
+      );
+      if (index == -1) {
+        messages.add(chunk);
+      } else {
+        final previous = messages[index];
+        messages[index] = ChatMessage(
+          role: ChatRole.assistant,
+          text: previous.text + chunk.text,
+          timestamp: previous.timestamp,
+          reasoning: chunk.reasoning ?? previous.reasoning,
+          fileEdits: chunk.fileEdits,
+          imagePaths: previous.imagePaths,
+          authorProfileId: previous.authorProfileId,
+          workNodeId: previous.workNodeId,
+          consultOfProfileId: previous.consultOfProfileId,
+        );
+      }
+      return session.copyWith(messages: messages);
+    });
+  }
+
   void _annotateLastMessage(
     String projectId,
     String sessionId, {
@@ -3612,7 +3925,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
           reasoning: message.reasoning,
           fileEdits: message.fileEdits,
           authorProfileId: message.authorProfileId,
-          stepIndex: message.stepIndex,
+          workNodeId: message.workNodeId,
           consultOfProfileId: message.consultOfProfileId,
         );
         break;
@@ -3756,6 +4069,27 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
         .toList();
     updateState(data.copyWith(projects: projects));
     unawaited(_persist());
+    return affected;
+  }
+
+  /// Removes a deleted workflow from all persisted project configuration.
+  /// Sessions keep their messages and materialized resolution graph, but no
+  /// longer retain an ID that cannot resolve against the workflow catalog.
+  int detachWorkflow(String workflowId) {
+    final affected = data.projects
+        .where((project) => project.referencesWorkflow(workflowId))
+        .length;
+    if (affected == 0) return 0;
+
+    final projects = [
+      for (final project in data.projects)
+        if (project.referencesWorkflow(workflowId))
+          project.withoutWorkflow(workflowId)
+        else
+          project,
+    ];
+    updateState(data.copyWith(projects: projects));
+    unawaited(_repository.save(projects));
     return affected;
   }
 

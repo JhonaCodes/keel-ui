@@ -97,4 +97,34 @@ void main() {
       await subscription.cancel();
     });
   });
+
+  test(
+    'resume avisa cuando el CLI no puede reenviar sandbox o perfil',
+    () async {
+      final fakeBin = createFakeCliBin('codex', '#!/bin/sh\nexit 0\n');
+      addTearDown(() {
+        if (fakeBin.existsSync()) fakeBin.deleteSync(recursive: true);
+      });
+      const resumeSpec = LlmTurnSpec(
+        prompt: 'seguí',
+        workingDirectory: '.',
+        model: 'gpt-5-codex',
+        fullFileSystemAccess: true,
+        effort: 'medium',
+        sessionId: 'session-1',
+      );
+
+      final events = await const CodexCliRunner()
+          .run(
+            resumeSpec,
+            userPath: fakeCliUserPath(fakeBin),
+            cancel: const Stream<void>.empty(),
+          )
+          .toList();
+
+      expect(events, hasLength(1));
+      expect(events.single['type'], 'notice');
+      expect(events.single['message'], contains('resume'));
+    },
+  );
 }

@@ -7,6 +7,7 @@ import 'package:keel_ui/src/core/services/app_window_service.dart';
 import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
 import 'package:keel_ui/src/modules/agent_profiles/viewmodel/agent_profiles_viewmodel.dart';
 import 'package:keel_ui/src/modules/agents/model/agent.dart';
+import 'package:keel_ui/src/modules/agents/model/agent_provider.dart';
 import 'package:keel_ui/src/modules/agents/model/chat_message.dart';
 import 'package:keel_ui/src/modules/agents/model/file_edit.dart';
 import 'package:keel_ui/src/modules/agents/viewmodel/agents_viewmodel.dart';
@@ -127,6 +128,13 @@ class AssistantWindowBridge {
 
       case 'setModel':
         _agents.setAgentModel(agentId!, payload['model'] as String);
+        return null;
+
+      case 'setProvider':
+        _agents.setAgentProvider(
+          agentId!,
+          AgentProvider.fromAlias(payload['provider'] as String),
+        );
         return null;
 
       case 'setEffort':
@@ -287,6 +295,7 @@ class AssistantWindowBridge {
         id: snapshot.id,
         name: snapshot.name,
         model: snapshot.model,
+        provider: snapshot.provider,
         effort: snapshot.effort,
         fullFileSystemAccess: snapshot.fullFileSystemAccess,
         isStreaming: snapshot.isStreaming,

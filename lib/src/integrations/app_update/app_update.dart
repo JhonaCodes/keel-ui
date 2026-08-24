@@ -26,13 +26,20 @@ import 'dart:ui' show AppExitType;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
 import 'package:logger_rs/logger_rs.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
 
+import 'package:keel_ui/src/core/services/external_link_service.dart';
+import 'package:keel_ui/src/integrations/app_update/release_version.dart';
 import 'package:keel_ui/src/modules/app_status/viewmodel/app_status_viewmodel.dart';
 import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
 
+export 'release_version.dart';
+
 part 'src/keel_source.dart';
+part 'src/release_channel.dart';
 part 'src/update_probe.dart';
 part 'src/update_plan.dart';
 part 'src/update_run.dart';

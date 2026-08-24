@@ -1,4 +1,3 @@
-import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
 import 'package:keel_ui/src/modules/skills/viewmodel/skills_viewmodel.dart';
 import 'package:keel_ui/src/modules/workflows/model/workflow.dart';
 import 'package:keel_ui/src/modules/workflows/viewmodel/workflows_viewmodel.dart';
@@ -192,31 +191,6 @@ Future<void> seedRoadmapFormatSkill() async {
   }
 }
 
-/// El workflow que arma la carpeta de tareas.
-///
-/// Un solo paso, y con `*` de puesto. Cualquier otra cosa lo rompería en la
-/// mitad de los proyectos: esto no es trabajo de un `implementador` ni de un
-/// `auditor` —es escribir unos markdown con un formato que el skill explica—
-/// y exigir un rol que el proyecto no tenga sería negarle a un proyecto
-/// nuevo justo lo que más necesita.
-///
-/// Que sea UN paso también es la mitad del arreglo. Antes esta sesión corría
-/// el workflow del proyecto entero: formatear `TASKS/` pasaba por
-/// implementador, auditor, verificador y entrega, y terminaba abriendo un PR
-/// en draft por unos archivos de texto.
-List<WorkflowStep> _formatSteps() => const [
-  WorkflowStep(
-    id: 'formato',
-    title: 'Formato',
-    role: kAnyRole,
-    instruction:
-        'Dejá la carpeta de tareas del proyecto con el formato que describe '
-        'el skill $kRoadmapFormatSkillName, sin inventar tareas: lo que no '
-        'sepas, preguntalo. Cuando termines, cerrá diciendo qué quedó '
-        'escrito y qué falta decidir.',
-  ),
-];
-
 /// Deja el workflow de formato registrado y al día.
 ///
 /// Se re-sincroniza en cada arranque como el skill: el chequeo del cierre y
@@ -238,9 +212,9 @@ Future<void> seedRoadmapFormatWorkflow() async {
     workflows.createWorkflow(
       name: kRoadmapFormatWorkflowName,
       whenToApply: whenToApply,
-      steps: _formatSteps(),
       skillNames: const [kRoadmapFormatSkillName],
       buildsRoadmap: true,
+      kind: WorkflowKind.roadmap,
     );
     return;
   }
@@ -249,9 +223,9 @@ Future<void> seedRoadmapFormatWorkflow() async {
     existing.id,
     name: kRoadmapFormatWorkflowName,
     whenToApply: whenToApply,
-    steps: _formatSteps(),
     skillNames: const [kRoadmapFormatSkillName],
     buildsRoadmap: true,
+    kind: WorkflowKind.roadmap,
   );
 }
 

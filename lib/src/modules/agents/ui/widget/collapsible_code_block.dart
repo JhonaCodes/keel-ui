@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:gpt_markdown/custom_widgets/code_field.dart';
+import 'package:gpt_markdown/gpt_markdown.dart';
 
+import 'package:keel_ui/src/core/services/external_link_service.dart';
 import 'package:keel_ui/src/core/ui/form_panel.dart';
+import 'package:keel_ui/src/modules/agents/model/code_block_presentation.dart';
+import 'package:keel_ui/src/modules/agents/ui/widget/syntax_highlighted_code_view.dart';
 import 'package:keel_ui/src/shared/shared.dart';
 
 /// Un bloque ```código``` de un mensaje: una tarjeta compacta de máximo dos
@@ -37,12 +40,13 @@ class _CollapsibleCodeBlockState extends State<CollapsibleCodeBlock> {
 
   int get _lineCount => widget.code.split('\n').length;
 
-  String get _language => widget.name.trim().isEmpty ? 'texto' : widget.name;
+  CodeBlockPresentation get _presentation =>
+      CodeBlockPresentation.from(fenceName: widget.name, source: widget.code);
 
   Future<void> _ver() => showFormPanel<void>(
     context,
     width: 720,
-    child: _CodeBlockPanel(name: widget.name, code: widget.code),
+    child: _CodeBlockPanel(presentation: _presentation),
   );
 
   @override
@@ -50,6 +54,7 @@ class _CollapsibleCodeBlockState extends State<CollapsibleCodeBlock> {
     if (_closed) return const SizedBox.shrink();
 
     final scheme = Theme.of(context).colorScheme;
+    final presentation = _presentation;
 
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 4),
@@ -64,11 +69,17 @@ class _CollapsibleCodeBlockState extends State<CollapsibleCodeBlock> {
         children: [
           Row(
             children: [
-              Icon(Icons.code, size: 14, color: scheme.primary),
+              Icon(
+                presentation.rendersMarkdown
+                    ? Icons.article_outlined
+                    : Icons.code,
+                size: 14,
+                color: scheme.primary,
+              ),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
-                  '$_language · $_lineCount líneas',
+                  '${presentation.title} · $_lineCount líneas',
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(fontSize: 12, color: scheme.outline),
                 ),
@@ -106,20 +117,54 @@ class _CollapsibleCodeBlockState extends State<CollapsibleCodeBlock> {
 
 /// El código completo, dentro del panel lateral que abre "Ver".
 class _CodeBlockPanel extends StatelessWidget {
-  const _CodeBlockPanel({required this.name, required this.code});
+  const _CodeBlockPanel({required this.presentation});
 
-  final String name;
-  final String code;
+  final CodeBlockPresentation presentation;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(name.trim().isEmpty ? 'Código' : name)),
+      appBar: AppBar(title: Text(presentation.title)),
       body: Padding(
         padding: const EdgeInsets.all(12),
         child: SingleChildScrollView(
-          child: CodeField(name: name, codes: code),
+          child: presentation.rendersMarkdown
+              ? _MarkdownBlockDocument(markdown: presentation.source)
+              : SyntaxHighlightedCodeView(
+                  language: presentation.language,
+                  source: presentation.source,
+                ),
         ),
+      ),
+    );
+  }
+}
+
+class _MarkdownBlockDocument extends StatelessWidget {
+  const _MarkdownBlockDocument({required this.markdown});
+
+  final String markdown;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return SelectionArea(
+      child: GptMarkdown(
+        linkifyBareUrls(markdown),
+        style: TextStyle(color: scheme.onSurface, fontSize: 14),
+        onLinkTap: (url, _) => openExternalUrl(url),
+        codeBuilder: (context, name, code, closed) {
+          final nested = CodeBlockPresentation.from(
+            fenceName: name,
+            source: code,
+          );
+          return nested.rendersMarkdown
+              ? _MarkdownBlockDocument(markdown: nested.source)
+              : SyntaxHighlightedCodeView(
+                  language: nested.language,
+                  source: nested.source,
+                );
+        },
       ),
     );
   }

@@ -42,7 +42,7 @@ completo; esto es el detalle.
 | [F29](features/29-tableros.md) | Tableros de prueba |
 | [F32](features/32-una-sola-navegacion.md) | Una sola navegación |
 | [F34](features/34-worktrees.md) | Trabajar en otro worktree, y volver |
-| [F37](features/37-un-workflow-por-sesion.md) | Un workflow por sesión |
+| [F37](features/37-un-workflow-por-sesion.md) | Workflows adaptativos por sesión |
 
 ## La conversación
 

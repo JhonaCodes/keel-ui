@@ -41,7 +41,7 @@ class RoleField extends StatelessWidget {
               const Padding(
                 padding: EdgeInsets.only(top: 6, left: 4),
                 child: Text(
-                  'Los pasos de un workflow buscan a su agente por este texto.',
+                  'El preflight del workflow busca responsables por este rol.',
                   style: TextStyle(fontSize: 11),
                 ),
               )
@@ -69,22 +69,20 @@ class RoleField extends StatelessWidget {
     );
   }
 
-  /// Every distinct role named by a step, with the workflows that ask for it —
+  /// Every resolution-owner role, with the workflows that require it —
   /// so the user can see *why* a role matters before assigning it.
   static List<_WantedRole> _rolesWantedBy(List<Workflow> workflows) {
     final byRole = <String, _WantedRole>{};
     for (final workflow in workflows) {
-      for (final step in workflow.steps) {
-        final role = step.role.trim();
-        if (role.isEmpty) continue;
-        final key = role.toLowerCase();
-        final existing = byRole[key];
-        if (existing == null) {
-          byRole[key] = _WantedRole(role, {workflow.name});
-          continue;
-        }
-        existing.workflows.add(workflow.name);
+      final role = workflow.policy.resolutionRole.trim();
+      if (role.isEmpty) continue;
+      final key = role.toLowerCase();
+      final existing = byRole[key];
+      if (existing == null) {
+        byRole[key] = _WantedRole(role, {workflow.name});
+        continue;
       }
+      existing.workflows.add(workflow.name);
     }
     return byRole.values.toList();
   }

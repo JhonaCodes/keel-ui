@@ -3,7 +3,7 @@ part of '../roadmap_mcp.dart';
 const kRoadmapMcpServerKey = 'keel-roadmap';
 const kRoadmapMcpToolPrefix = 'mcp__${kRoadmapMcpServerKey}__';
 
-/// Lo que ve un miembro que está EJECUTANDO un paso del workflow.
+/// Lo que ve un miembro que ejecuta un nodo de resolución.
 const kRoadmapMcpToolNames = [
   '${kRoadmapMcpToolPrefix}list_roadmap_tasks',
   '${kRoadmapMcpToolPrefix}check_roadmap_format',

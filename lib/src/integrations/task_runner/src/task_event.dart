@@ -43,6 +43,7 @@ sealed class TaskEvent {
       ),
       'turnCompleted' => TaskTurnCompleted(
         isError: message['isError'] as bool,
+        hasReportedFailure: message['hasReportedFailure'] as bool? ?? false,
         costUsd: (message['costUsd'] as num).toDouble(),
         durationMs: message['durationMs'] as int,
         model: message['model'] as String? ?? '',
@@ -55,6 +56,7 @@ sealed class TaskEvent {
         usedTokens: message['usedTokens'] as int,
         contextWindowTokens: message['contextWindowTokens'] as int,
       ),
+      'notice' => TaskNotice(message['message'] as String),
       'failure' => TaskFailure(message['message'] as String),
       _ => TaskFailure(
         'Evento desconocido del task runner: ${message['type']}',
@@ -100,6 +102,7 @@ class TaskPermissionDenied extends TaskEvent {
 
 class TaskTurnCompleted extends TaskEvent {
   final bool isError;
+  final bool hasReportedFailure;
   final double costUsd;
   final int durationMs;
 
@@ -113,6 +116,7 @@ class TaskTurnCompleted extends TaskEvent {
 
   const TaskTurnCompleted({
     required this.isError,
+    this.hasReportedFailure = false,
     required this.costUsd,
     required this.durationMs,
     this.model = '',
@@ -121,6 +125,11 @@ class TaskTurnCompleted extends TaskEvent {
     this.cacheReadTokens = 0,
     this.cacheCreationTokens = 0,
   });
+
+  /// A provider fallback is useful only when the runner could not provide a
+  /// concrete cause. Otherwise it duplicates the error and falsely attributes
+  /// Keel's own validation or safety stop to the remote provider.
+  bool get needsProviderFailureFallback => isError && !hasReportedFailure;
 }
 
 class TaskContextUsage extends TaskEvent {
@@ -135,6 +144,12 @@ class TaskContextUsage extends TaskEvent {
 class TaskFailure extends TaskEvent {
   final String message;
   const TaskFailure(this.message);
+}
+
+/// A visible compatibility or environment notice that does not fail a turn.
+class TaskNotice extends TaskEvent {
+  final String message;
+  const TaskNotice(this.message);
 }
 
 /// Un `Task` que abrió un subagente. Ver [ClaudeSubagentStarted]: es el mismo

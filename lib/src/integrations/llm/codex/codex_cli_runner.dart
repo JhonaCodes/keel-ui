@@ -53,6 +53,15 @@ class CodexCliRunner implements LlmRunner {
         fullFileSystemAccess: spec.fullFileSystemAccess,
         codexProfileName: workspace.codexProfileName,
       );
+      if (spec.sessionId != null &&
+          (spec.fullFileSystemAccess || workspace.codexProfileName != null)) {
+        yield {
+          'type': 'notice',
+          'message':
+              'Codex reanudó la sesión sin reenviar sandbox ni perfil: el '
+              'subcomando `exec resume` actual no admite esos flags.',
+        };
+      }
 
       Process process;
       try {

@@ -46,11 +46,15 @@ repo a mano antes de abrir la app, no se clona nada: se adopta tal cual.
 cerrar la app. El respaldo automático llega hasta el **commit local** y no
 más — subir al remoto es siempre una decisión tuya.
 
-Dos detalles que hacen que eso no moleste:
+Tres detalles que hacen que eso no moleste:
 
 - El tick pregunta `git status` antes de commitear. Sin cambios no se llama
   a `git commit`, así que la firma GPG no se dispara: quince minutos
   tranquilos no cuestan un pinentry.
+- Los commits creados por Keel pasan `--no-gpg-sign`. La app puede iniciarse
+  desde Finder con un `PATH` sin `gpg` y no tiene una terminal interactiva
+  segura para pedir el pinentry. El override afecta solo ese comando: no
+  modifica `commit.gpgSign` ni la firma de los commits que hace el usuario.
 - El respaldo automático **no crea repos**. Si el vault todavía es una
   carpeta suelta, deja el zip escrito y no toca git; convertirlo en repo lo
   decidís vos con "Respaldar y subir".
@@ -62,10 +66,9 @@ queda cancelado y nadie lo vuelve a disparar, y la app se vuelve imposible
 de cerrar. Está probado, no supuesto: la primera versión hacía exactamente
 eso.
 
-La salida se frena hasta 20 segundos. Si el commit se cuelga pidiendo una
-passphrase a alguien que ya se fue, la app cierra igual: el zip —que es lo
-que importa— ya está escrito, y el commit lo levanta el arranque
-siguiente.
+La salida se frena hasta 20 segundos. Si el filesystem o Git se demoran por
+una causa externa, la app cierra igual: el zip —que es lo que importa— ya
+está escrito, y el commit lo levanta el arranque siguiente.
 
 ## Que esté guardado y que esté a salvo no son lo mismo
 
@@ -184,5 +187,5 @@ divergiendo en silencio es exactamente lo que esta separación evita.
    **Respaldar y subir**, los dos desaparecen.
 8. Cerrar la app con un cambio sin respaldar → reabrir → el zip lo incluye.
 
-Nota: el commit lo hace `git` con la configuración del usuario. Si tenés
-firma GPG activada, el primer respaldo puede abrir el pinentry.
+Nota: el commit usa la identidad Git configurada por el usuario, pero Keel
+desactiva la firma GPG solo para sus respaldos automáticos.

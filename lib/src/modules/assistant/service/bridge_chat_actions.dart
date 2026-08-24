@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:keel_ui/src/core/services/agent_bridge_channel.dart';
+import 'package:keel_ui/src/modules/agents/model/agent_provider.dart';
 import 'package:keel_ui/src/modules/agents/model/file_edit.dart';
 import 'package:keel_ui/src/modules/agents/service/chat_actions.dart';
 
@@ -52,6 +53,10 @@ class BridgeChatActions extends ChatActions {
   @override
   void setAgentModel(String agentId, String model) =>
       _invoke('setModel', {'agentId': agentId, 'model': model});
+
+  @override
+  void setAgentProvider(String agentId, AgentProvider provider) =>
+      _invoke('setProvider', {'agentId': agentId, 'provider': provider.alias});
 
   @override
   void setAgentEffort(String agentId, String effort) =>

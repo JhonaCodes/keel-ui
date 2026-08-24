@@ -723,7 +723,7 @@ que realmente querés mirar.</p>
 <span class="eyebrow">02 · el lienzo en reposo</span>
 <h2>Antes de que corra nada, ya hay algo que mirar</h2>
 <p>El mapa se abre con el elenco puesto: <strong>vos a la izquierda</strong>, los miembros
-del proyecto en columnas según el paso del workflow que les toca, y el resultado a la
+del proyecto por profundidad de dependencias del caso, y el resultado a la
 derecha. Todos en gris, sin tocar. Esa estructura no se mueve cuando la sesión arranca —
 solo se encienden los nodos.</p>
 <p>El panel del workflow de 272&nbsp;px <strong>se retira en la pestaña Mapa</strong>: repite
@@ -963,8 +963,8 @@ vuelta dejan de ser la misma línea.</p>
     <tr>
       <td class="sw"><svg width="90" height="20" viewBox="0 0 90 20"><line class="e e-fwd" x1="4" y1="10" x2="80" y2="10"/></svg></td>
       <td><b>Avance</b></td>
-      <td>El paso del workflow cambia de dueño.</td>
-      <td><code>stepIndex</code> del mensaje</td>
+      <td>Una dependencia del nodo queda satisfecha.</td>
+      <td><code>workNodeId</code> del mensaje</td>
     </tr>
     <tr>
       <td class="sw"><svg width="90" height="20" viewBox="0 0 90 20"><line id="s-fly" class="e e-fwd flow" x1="4" y1="10" x2="80" y2="10"/><circle class="pk" r="3"><animateMotion dur="1.1s" repeatCount="indefinite" path="M4,10 L80,10"/></circle></svg></td>
@@ -1337,7 +1337,7 @@ corriendo.</p>
     <h3 style="margin-top:0">Lo mismo, para cualquier nodo</h3>
     <p>La ventana tiene siempre las mismas cinco secciones, y cada una se pliega:</p>
     <ul class="notes">
-      <li><b>Le pidió</b> — el encargo textual. Para un miembro es la instrucción del paso del workflow; para un subagente, el <code>prompt</code> del <code>Task</code>.</li>
+      <li><b>Le pidió</b> — el encargo textual. Para un miembro es la instrucción del nodo de resolución; para un subagente, el <code>prompt</code> del <code>Task</code>.</li>
       <li><b>Cómo razona</b> — el pensamiento, en vivo mientras corre y guardado cuando termina. <strong>Acá vuelve el razonamiento</strong>, en el lugar donde no estorba.</li>
       <li><b>Qué hizo</b> — la lista de herramientas con icono, objeto y tiempo. Lo que hoy pasa de largo en una sola línea de la tira.</li>
       <li><b>Números</b> — tiempo, herramientas, tokens. Un guion cuando el dato no existe, nunca un cero.</li>
@@ -1488,7 +1488,7 @@ razonamiento <strong>no se sacó del chat</strong> —sigue ahí, plegado detrá
   <thead><tr><th>Lo que se dibuja</th><th>De dónde sale</th><th>Qué falta</th></tr></thead>
   <tbody>
     <tr><td><b>Elenco y columnas</b></td><td><code>members</code> + <code>workflow.steps</code></td><td class="yes">nada</td></tr>
-    <tr><td><b>Avance del paso</b></td><td><code>stepIndex</code> · <code>authorProfileId</code></td><td class="yes">nada</td></tr>
+    <tr><td><b>Avance del nodo</b></td><td><code>workNodeId</code> · <code>authorProfileId</code></td><td class="yes">nada</td></tr>
     <tr><td><b>Réplica y respuesta</b></td><td><code>consultOfProfileId</code></td><td class="yes">nada, ya distingue las dos puntas</td></tr>
     <tr><td><b>Lo creó</b></td><td><code>createdByProfileId</code></td><td class="yes">nada</td></tr>
     <tr><td><b>Pensando / trabajando / escribiendo</b></td><td><code>SessionLiveTurn.phase</code></td><td class="no">hoy hay <b>un solo turno vivo</b> por sesión; con subagentes hay varios a la vez</td></tr>

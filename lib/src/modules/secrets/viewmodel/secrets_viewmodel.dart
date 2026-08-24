@@ -43,6 +43,14 @@ class SecretsViewModel extends ViewModel<SecretsState> {
     };
   }
 
+  /// Reads one configured value after the persisted catalog is ready.
+  /// Callers receive only the requested value, never the vault collection.
+  Future<String?> resolveValue(String? name) async {
+    if (name == null) return null;
+    await ready;
+    return valuesFor([name])[name];
+  }
+
   /// Names of the secrets in [names] that exist but still have no value.
   List<String> pendingOf(List<String> names) => [
     for (final secret in data.secrets)

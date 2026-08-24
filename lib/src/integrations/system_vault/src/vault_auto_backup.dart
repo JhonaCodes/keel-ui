@@ -11,16 +11,16 @@ class VaultAutoBackup {
   VaultAutoBackup._();
 
   /// Cada cuánto se respalda mientras la app está abierta. Como el zip es
-  /// determinista, un rato sin cambios no escribe commit ni dispara la firma
-  /// GPG: el tick sale gratis.
+  /// determinista, un rato sin cambios no escribe un commit inútil: el tick
+  /// sale gratis.
   static const _interval = Duration(minutes: 15);
 
   /// Cuánto se espera al respaldo de cierre antes de cerrar igual.
   ///
-  /// La salida está frenada mientras esto corre. Un `git commit` que pide
-  /// passphrase puede quedarse esperando a alguien que ya se fue, y una app
-  /// que no cierra es peor que un respaldo perdido — el zip, que es lo que
-  /// importa, ya se escribió antes de que git entre en juego.
+  /// La salida está frenada mientras esto corre. El filesystem o Git pueden
+  /// demorarse por causas externas, y una app que no cierra es peor que un
+  /// commit pendiente — el zip, que es lo que importa, ya se escribió antes
+  /// de que git entre en juego.
   static const _closeBudget = Duration(seconds: 20);
 
   static Timer? _timer;

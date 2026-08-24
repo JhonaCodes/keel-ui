@@ -169,10 +169,85 @@ class AgentRail extends StatelessWidget {
               tooltip: 'Configuración',
               onPressed: () => openSettingsPanel(context),
             ),
+            const _InstalledVersionRailButton(),
             const SizedBox(height: 10),
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Versión del bundle abierto y punto de descarga cuando hay una posterior.
+///
+/// Vive debajo de Ajustes porque describe esta copia de la app, no la máquina
+/// ni el proyecto seleccionado.
+class _InstalledVersionRailButton extends StatelessWidget {
+  const _InstalledVersionRailButton();
+
+  @override
+  Widget build(BuildContext context) {
+    return ReactiveViewModelBuilder<AppUpdateViewModel, AppUpdateState>(
+      viewmodel: AppUpdateService.instance.notifier,
+      build: (state, viewmodel, keep) {
+        final release = state.release;
+        final available = release.updateAvailable;
+        final scheme = Theme.of(context).colorScheme;
+        final current = release.current;
+        final latest = release.latest;
+        final tooltip = available && latest != null
+            ? 'Nueva versión ${latest.release.buildName} disponible. '
+                  'Clic para descargar.'
+            : release.error ??
+                  (current == null
+                      ? 'Leyendo la versión instalada'
+                      : 'Keel ${current.pubspecValue}. Clic para revisar.');
+
+        return Tooltip(
+          message: tooltip,
+          waitDuration: const Duration(milliseconds: 500),
+          child: InkWell(
+            onTap: state.checking
+                ? null
+                : available
+                ? viewmodel.downloadLatest
+                : () => viewmodel.check(force: true),
+            borderRadius: BorderRadius.circular(6),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 3),
+              child: SizedBox(
+                width: _railWidth - 12,
+                child: Row(
+                  children: [
+                    if (available) ...[
+                      Icon(
+                        Icons.download_outlined,
+                        size: 9,
+                        color: scheme.primary,
+                      ),
+                      const SizedBox(width: 2),
+                    ],
+                    Expanded(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          'v${release.displayVersion}',
+                          key: const Key('keel-app-version'),
+                          maxLines: 1,
+                          style: _railLabelStyle.copyWith(
+                            fontFamily: 'monospace',
+                            color: available ? scheme.primary : scheme.outline,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

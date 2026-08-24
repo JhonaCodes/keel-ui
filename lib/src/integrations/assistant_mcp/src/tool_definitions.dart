@@ -310,7 +310,7 @@ final List<Tool> keelAiTools = [
     name: 'list_catalog',
     description:
         'Lista lo que YA existe en el sistema: skills, reglas, tools, '
-        'agentes, workflows, proyectos y MCPs registrados, con su nombre y '
+        'agentes, workflows, proyectos, hooks y MCPs registrados, con su nombre y '
         'para qué sirve cada uno. USALA ANTES de asignarle cualquier cosa a '
         'un agente o a un proyecto: los nombres se referencian tal cual, y '
         'un nombre inventado se descarta. Sin `kind` devuelve todo el '
@@ -320,7 +320,49 @@ final List<Tool> keelAiTools = [
         'kind': Schema.string(
           description:
               'Qué listar: skills, rules, tools, agents, workflows, '
-              'projects, mcp_servers, knowledge_bases, o all (default).',
+              'projects, hooks, mcp_servers, knowledge_bases, o all (default).',
+        ),
+      },
+    ),
+  ),
+  Tool(
+    name: 'list_workflows',
+    description:
+        'Devuelve en una sola llamada el contrato adaptativo COMPLETO de '
+        'todos los workflows registrados: intención, responsable, contexto, '
+        'gates, límites y capacidades con sus dependencias. Usala para '
+        'inventariar, comparar o rediseñar workflows sin perder elementos '
+        'por depender de resúmenes. Si `names` se omite devuelve todos; si '
+        'se envía, devuelve únicamente esos nombres exactos e informa cuáles '
+        'no existen.',
+    inputSchema: ObjectSchema(
+      properties: {
+        'names': Schema.list(
+          description:
+              'Nombres exactos opcionales. Omitido o vacío = todos los '
+              'workflows registrados.',
+          items: Schema.string(),
+        ),
+      },
+    ),
+  ),
+  Tool(
+    name: 'list_projects',
+    description:
+        'Devuelve en una sola llamada la configuración COMPLETA de todos los '
+        'proyectos: miembros y motores efectivos, workflows disponibles y '
+        'activo, asignaciones por nodo, contexto y sesiones con su workflow. '
+        'Combinada con `list_workflows` permite detectar proyectos o sesiones '
+        'que todavía referencian workflows inexistentes o anteriores. Si '
+        '`names` se omite devuelve todos; si se envía, devuelve únicamente '
+        'esos nombres exactos e informa cuáles no existen.',
+    inputSchema: ObjectSchema(
+      properties: {
+        'names': Schema.list(
+          description:
+              'Nombres exactos opcionales. Omitido o vacío = todos los '
+              'proyectos registrados.',
+          items: Schema.string(),
         ),
       },
     ),
@@ -329,8 +371,10 @@ final List<Tool> keelAiTools = [
     name: 'get_item',
     description:
         'Devuelve el CONTENIDO COMPLETO de una cosa registrada: el texto '
-        'entero de una skill o regla, el código de una tool, los pasos de '
-        'un workflow, la configuración de un agente o de un proyecto. '
+        'entero de una skill o regla, el código de una tool, el contrato '
+        'adaptativo de un workflow, o la configuración efectiva de un '
+        'agente, proyecto o hook. Incluye IDs, dependencias, contexto, '
+        'límites, asignaciones y overrides usados por el motor. '
         'Usala ANTES de actualizar cualquier cosa: los update reemplazan el '
         'contenido, así que sin leerlo primero pisás lo que había.',
     inputSchema: ObjectSchema(
@@ -338,7 +382,7 @@ final List<Tool> keelAiTools = [
         'kind': Schema.string(
           description:
               'Tipo: skill, rule, tool, agent, workflow, project, '
-              'mcp_server o knowledge_base.',
+              'hook, mcp_server o knowledge_base.',
         ),
         'name': Schema.string(
           description: 'Nombre exacto (para un agente, su handle sin @).',
@@ -405,31 +449,75 @@ final List<Tool> keelAiTools = [
   Tool(
     name: 'update_workflow',
     description:
-        'Actualiza un workflow existente: cuándo aplica y/o sus pasos. Si '
-        'mandás steps, reemplazan a TODOS los actuales.',
+        'Actualiza un workflow adaptativo completo. Leelo primero con '
+        'get_item; los campos de contexto que envíes reemplazan los '
+        'actuales.',
     inputSchema: ObjectSchema(
       properties: {
         'name': Schema.string(description: 'Nombre del workflow.'),
         'when_to_apply': Schema.string(
           description: 'Cuándo se usa este workflow.',
         ),
-        'steps': Schema.list(
-          items: Schema.object(
-            properties: {
-              'title': Schema.string(),
-              'role': Schema.string(),
-              'instruction': Schema.string(),
-            },
-          ),
-          description: 'Pasos nuevos, en orden. Reemplazan a los actuales.',
+        'kind': Schema.string(
+          description: '"general", "bug", "migration" o "roadmap".',
+        ),
+        'resolution_role': Schema.string(
+          description:
+              'Rol dueño del caso; vacío permite asignación automática.',
         ),
         'skills': Schema.list(
           items: Schema.string(),
           description:
-              'Skills que este workflow le suma a TODOS sus turnos, por '
-              'nombre. Reemplazan a las actuales. Son distintas de las del '
-              'agente: las del agente son quién es, estas son qué está '
-              'haciendo.',
+              'Skills requeridas por el preflight. Reemplazan a las actuales.',
+        ),
+        'rule_names': Schema.list(
+          items: Schema.string(),
+          description: 'Reglas obligatorias del preflight.',
+        ),
+        'knowledge_base_names': Schema.list(
+          items: Schema.string(),
+          description: 'Bases de conocimiento obligatorias del preflight.',
+        ),
+        'quality_gates': Schema.list(
+          items: Schema.string(),
+          description:
+              'Gates: analysis, focusedTests, compatibility, regression.',
+        ),
+        'max_replans': Schema.int(
+          description: 'Máximo de reformulaciones, de 0 a 2.',
+        ),
+        'max_subagents': Schema.int(
+          description: 'Máximo de subagentes permitidos, de 0 a 2.',
+        ),
+        'builds_roadmap': Schema.bool(
+          description:
+              'Si construye y valida el formato TASKS. Omitir conserva el valor actual.',
+        ),
+        'capabilities': Schema.list(
+          items: ObjectSchema(
+            properties: {
+              'id': Schema.string(description: 'ID estable del nodo.'),
+              'title': Schema.string(
+                description: 'Título visible en el panel.',
+              ),
+              'instruction': Schema.string(
+                description: 'Contrato del trabajo.',
+              ),
+              'role': Schema.string(description: 'Rol por defecto.'),
+              'dependencies': Schema.list(items: Schema.string()),
+              'activation': Schema.string(
+                description: '"required" u "optional".',
+              ),
+              'independent': Schema.bool(
+                description:
+                    'True cuando debe ejecutarla un agente distinto de '
+                    'quienes produjeron sus dependencias.',
+              ),
+            },
+            required: ['id', 'title', 'instruction', 'role', 'activation'],
+          ),
+          description:
+              'Capacidades completas. Reemplazan las actuales sin imponer orden lineal.',
         ),
         'new_name': Schema.string(description: 'Renombrar (opcional).'),
       },
@@ -439,7 +527,7 @@ final List<Tool> keelAiTools = [
   Tool(
     name: 'unassign_from_agent',
     description:
-        'SACA skills, reglas, tools o MCPs de un agente. '
+        'SACA skills, reglas, hooks, tools, MCPs o conocimiento de un agente. '
         'create_or_update_agent solo SUMA, así que esta es la única forma '
         'de quitar algo mal asignado sin borrar el agente entero.',
     inputSchema: ObjectSchema(
@@ -447,8 +535,10 @@ final List<Tool> keelAiTools = [
         'handle': Schema.string(description: 'Handle del agente, sin @.'),
         'skill_names': Schema.list(items: Schema.string()),
         'rule_names': Schema.list(items: Schema.string()),
+        'hook_names': Schema.list(items: Schema.string()),
         'tool_names': Schema.list(items: Schema.string()),
         'mcp_server_names': Schema.list(items: Schema.string()),
+        'knowledge_base_names': Schema.list(items: Schema.string()),
       },
       required: ['handle'],
     ),
@@ -480,6 +570,10 @@ final List<Tool> keelAiTools = [
           items: Schema.string(),
           description: 'Reglas del proyecto. Reemplazan a las actuales.',
         ),
+        'hook_names': Schema.list(
+          items: Schema.string(),
+          description: 'Hooks del proyecto. Reemplazan a los actuales.',
+        ),
         'knowledge_base_names': Schema.list(
           items: Schema.string(),
           description:
@@ -497,6 +591,41 @@ final List<Tool> keelAiTools = [
           description:
               'Nombre del workflow que queda ACTIVO (tiene que estar entre '
               'los disponibles).',
+        ),
+        'member_engines': Schema.list(
+          items: ObjectSchema(
+            properties: {
+              'handle': Schema.string(),
+              'provider': Schema.string(
+                description: 'claude, codex, openrouter o deepseek.',
+              ),
+              'model': Schema.string(
+                description: 'ID exacto; vacío hereda del perfil.',
+              ),
+              'effort': Schema.string(
+                description: 'Esfuerzo; vacío hereda del perfil.',
+              ),
+              'clear': Schema.bool(
+                description: 'True elimina el override completo.',
+              ),
+            },
+            required: ['handle'],
+          ),
+          description: 'Overrides de motor por miembro para este proyecto.',
+        ),
+        'node_assignments': Schema.list(
+          items: ObjectSchema(
+            properties: {
+              'workflow': Schema.string(),
+              'node_id': Schema.string(),
+              'handle': Schema.string(
+                description: 'Vacío elimina el override.',
+              ),
+            },
+            required: ['workflow', 'node_id'],
+          ),
+          description:
+              'Overrides concretos workflow/capacidad/agente del proyecto.',
         ),
         'new_name': Schema.string(description: 'Renombrar (opcional).'),
       },
@@ -524,8 +653,9 @@ final List<Tool> keelAiTools = [
     description:
         'Estado actual del sistema: qué está configurado (repos de catálogo '
         'y conocimiento), qué secrets faltan cargar, qué MCPs no van a '
-        'levantar por falta de clave, qué agentes tienen conversación '
-        'abierta y qué proyectos tienen sesiones corriendo. Usalo cuando el '
+        'levantar por falta de clave, referencias inválidas del catálogo, '
+        'qué agentes tienen conversación abierta y qué proyectos tienen '
+        'sesiones corriendo. Usalo cuando el '
         'usuario pregunte "cómo está esto" o antes de diagnosticar algo que '
         'no funciona.',
     inputSchema: ObjectSchema(properties: {}),
@@ -541,7 +671,8 @@ final List<Tool> keelAiTools = [
     name: 'create_or_update_agent',
     description:
         'Crea un agente si el handle no existe. Si ya existe, actualiza de '
-        'forma ADITIVA: skills, reglas y tools se fusionan con lo que el '
+        'forma ADITIVA: skills, reglas, hooks, tools, MCPs y conocimiento '
+        'se fusionan con lo que el '
         'agente ya tenía (nunca se reemplazan), y role/instructions solo se '
         'pisan si vienen en la llamada. El handle "keelai" está reservado y '
         'se rechaza.',
@@ -571,6 +702,10 @@ final List<Tool> keelAiTools = [
           items: Schema.string(),
           description: 'MCPs externos (registrados) a asignarle.',
         ),
+        'hook_names': Schema.list(
+          items: Schema.string(),
+          description: 'Hooks registrados que protegen sus turnos.',
+        ),
         'knowledge_base_names': Schema.list(
           items: Schema.string(),
           description:
@@ -581,8 +716,17 @@ final List<Tool> keelAiTools = [
         ),
         'provider': Schema.string(
           description:
-              'CLI que corre al agente: "claude" (default) o "codex". '
-              'Codex no recibe tools/MCPs/esfuerzo.',
+              'Proveedor: "claude", "codex", "openrouter" o "deepseek". '
+              'Omitir conserva el actual en una actualización.',
+        ),
+        'model': Schema.string(
+          description:
+              'ID exacto del modelo del proveedor. Al cambiar proveedor y '
+              'omitirlo, se normaliza al default del proveedor nuevo.',
+        ),
+        'effort': Schema.string(
+          description:
+              'Esfuerzo de razonamiento cuando el proveedor lo admita.',
         ),
         'system_builder': Schema.bool(
           description:
@@ -599,12 +743,9 @@ final List<Tool> keelAiTools = [
   Tool(
     name: 'create_workflow',
     description:
-        'Crea un workflow (nombre, cuándo se aplica, pasos ordenados). '
-        'Idempotente por nombre. Cada paso nombra el ROL o el HANDLE de un '
-        'agente ya registrado: listá los agentes ANTES de escribir los '
-        'pasos. Un proyecto puede tener varios y cada SESIÓN elige con cuál '
-        'corre, así que conviene uno por clase de trabajo en vez de uno '
-        'gigante que sirva para todo.',
+        'Crea un workflow adaptativo completo. El motor construye un grafo '
+        'mínimo de nodos según el tipo, en vez de ejecutar una cadena de '
+        'pasos.',
     inputSchema: ObjectSchema(
       properties: {
         'name': Schema.string(description: 'Nombre único del workflow.'),
@@ -616,36 +757,66 @@ final List<Tool> keelAiTools = [
         ),
         'skills': Schema.list(
           items: Schema.string(),
-          description:
-              'Skills que este workflow le suma a TODOS sus turnos, por '
-              'nombre. Son distintas de las del agente: las del agente son '
-              'quién es, estas son qué está haciendo.',
+          description: 'Skills obligatorias del preflight, por nombre.',
         ),
-        'steps': Schema.list(
-          description: 'Pasos del workflow, en el orden en que se ejecutan.',
-          items: Schema.object(
+        'kind': Schema.string(
+          description: '"general", "bug", "migration" o "roadmap".',
+        ),
+        'resolution_role': Schema.string(
+          description: 'Rol responsable; vacío permite asignación automática.',
+        ),
+        'rule_names': Schema.list(
+          items: Schema.string(),
+          description: 'Reglas obligatorias del preflight, por nombre.',
+        ),
+        'knowledge_base_names': Schema.list(
+          items: Schema.string(),
+          description:
+              'Bases de conocimiento obligatorias del preflight, por nombre.',
+        ),
+        'quality_gates': Schema.list(
+          items: Schema.string(),
+          description:
+              'Gates: analysis, focusedTests, compatibility, regression.',
+        ),
+        'max_replans': Schema.int(
+          description: 'Máximo de reformulaciones, de 0 a 2.',
+        ),
+        'max_subagents': Schema.int(
+          description: 'Máximo de subagentes permitidos, de 0 a 2.',
+        ),
+        'builds_roadmap': Schema.bool(
+          description:
+              'True solo para un workflow que construye y valida TASKS.',
+        ),
+        'capabilities': Schema.list(
+          items: ObjectSchema(
             properties: {
-              'title': Schema.string(description: 'Título corto del paso.'),
-              'role': Schema.string(
-                description:
-                    'A quién le toca el paso. Se busca entre los miembros de '
-                    'el proyecto: primero por su ROL, y si nadie lo tiene, '
-                    'por su HANDLE. Tiene que coincidir EXACTO con uno de '
-                    'los dos de un agente ya registrado — corré '
-                    'list_catalog(kind: "agents") y copiá el valor, no lo '
-                    'redactes. Un rol que no le corresponde a nadie deja el '
-                    'paso sin dueño y el proyecto lo muestra como "sin '
-                    'agente para X".',
+              'id': Schema.string(description: 'ID estable del nodo.'),
+              'title': Schema.string(
+                description: 'Título visible en el panel.',
               ),
               'instruction': Schema.string(
-                description: 'Instrucción del paso.',
+                description: 'Contrato del trabajo.',
+              ),
+              'role': Schema.string(description: 'Rol por defecto.'),
+              'dependencies': Schema.list(items: Schema.string()),
+              'activation': Schema.string(
+                description: '"required" u "optional".',
+              ),
+              'independent': Schema.bool(
+                description:
+                    'True cuando debe ejecutarla un agente distinto de '
+                    'quienes produjeron sus dependencias.',
               ),
             },
-            required: ['title', 'role', 'instruction'],
+            required: ['id', 'title', 'instruction', 'role', 'activation'],
           ),
+          description:
+              'Capacidades adaptativas; solo required entra al grafo inicial.',
         ),
       },
-      required: ['name', 'steps'],
+      required: ['name'],
     ),
   ),
   Tool(
@@ -675,11 +846,19 @@ final List<Tool> keelAiTools = [
           items: Schema.string(),
           description: 'Nombres de las reglas a aplicar.',
         ),
+        'hook_names': Schema.list(
+          items: Schema.string(),
+          description: 'Hooks registrados a aplicar en el proyecto.',
+        ),
         'knowledge_base_names': Schema.list(
           items: Schema.string(),
           description:
               'Bases de saber del proyecto. Sus miembros reciben el mapa de '
               'cada una y las consultan solos; ningún otro proyecto las ve.',
+        ),
+        'maintained': Schema.bool(
+          description:
+              'False si es externo y debe quedar en modo de solo lectura.',
         ),
       },
       required: ['name', 'purpose', 'working_directory'],
@@ -789,7 +968,10 @@ final List<Tool> keelAiTools = [
   ),
   Tool(
     name: 'delete_workflow',
-    description: 'Elimina un workflow por nombre.',
+    description:
+        'Elimina un workflow por nombre y limpia automáticamente sus '
+        'asignaciones, default, overrides y referencias de sesión en todos '
+        'los proyectos.',
     inputSchema: ObjectSchema(
       properties: {
         'name': Schema.string(description: 'Nombre del workflow a eliminar.'),

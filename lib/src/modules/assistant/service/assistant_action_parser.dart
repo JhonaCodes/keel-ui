@@ -9,7 +9,9 @@ const _projectKeys = {
   'agentes',
   'workflows',
   'reglas',
+  'hooks',
   'saber',
+  'mantenido',
 };
 const _agentKeys = {
   'handle',
@@ -20,8 +22,27 @@ const _agentKeys = {
   'reglas',
   'tools',
   'mcps',
+  'hooks',
+  'conocimiento',
+  'proveedor',
+  'modelo',
+  'esfuerzo',
+  'constructor',
 };
-const _workflowKeys = {'nombre', 'cuando', 'pasos'};
+const _workflowKeys = {
+  'nombre',
+  'cuando',
+  'tipo',
+  'responsable',
+  'skills',
+  'reglas',
+  'conocimiento',
+  'gates',
+  'max_reformulaciones',
+  'max_subagentes',
+  'construye_roadmap',
+  'capacidades',
+};
 const _skillKeys = {'nombre', 'contenido', 'global'};
 const _ruleKeys = {'nombre', 'contenido'};
 
@@ -79,6 +100,14 @@ List<AssistantAction> parseAssistantActions(String text) {
         // blank lines and indentation, which would corrupt script code.
         toolNames: _splitList(fields['tools']),
         mcpServerNames: _splitList(fields['mcps']),
+        hookNames: _splitList(fields['hooks']),
+        knowledgeBaseNames: _splitList(fields['conocimiento']),
+        providerAlias: fields['proveedor'],
+        model: fields['modelo'],
+        effort: fields['esfuerzo'],
+        systemBuilder: fields.containsKey('constructor')
+            ? _parseBool(fields['constructor'])
+            : null,
       ),
     );
   }
@@ -94,7 +123,18 @@ List<AssistantAction> parseAssistantActions(String text) {
       CreateWorkflowAction(
         name: name,
         whenToApply: fields['cuando'] ?? '',
-        steps: _parseSteps(fields['pasos'] ?? ''),
+        kind: _workflowKind(fields['tipo']),
+        resolutionRole: fields['responsable'] ?? '',
+        skillNames: _splitList(fields['skills']),
+        requiredRuleNames: _splitList(fields['reglas']),
+        requiredKnowledgeBaseNames: _splitList(fields['conocimiento']),
+        qualityGates: _workflowQualityGates(fields['gates']),
+        maxReplans: _boundedInt(fields['max_reformulaciones']),
+        maxSubagents: _boundedInt(fields['max_subagentes']),
+        capabilities: _workflowCapabilities(fields['capacidades']),
+        buildsRoadmap: fields.containsKey('construye_roadmap')
+            ? _parseBool(fields['construye_roadmap'])
+            : null,
       ),
     );
   }
@@ -119,7 +159,11 @@ List<AssistantAction> parseAssistantActions(String text) {
           agentHandles: _splitList(fields['agentes']),
           workflowNames: _splitList(fields['workflows']),
           ruleNames: _splitList(fields['reglas']),
+          hookNames: _splitList(fields['hooks']),
           knowledgeBaseNames: _splitList(fields['saber']),
+          maintained: fields.containsKey('mantenido')
+              ? _parseBool(fields['mantenido'])
+              : true,
         ),
       );
     }
@@ -142,27 +186,51 @@ List<String> _splitList(String? raw) {
       .toList();
 }
 
-/// Each `pasos:` line is `título | rol | instrucción` — the one place a
-/// generic block field gets structure, kept local to the action it belongs
-/// to instead of teaching the shared parser about repeated keys.
-List<WorkflowStep> _parseSteps(String raw) {
-  final steps = <WorkflowStep>[];
-  for (final line in raw.split('\n')) {
-    final parts = line.split('|');
-    if (parts.length < 3) continue;
-    final title = parts[0].trim();
-    if (title.isEmpty) continue;
-    steps.add(
-      WorkflowStep(
-        id: generateUuidV4(),
-        title: title,
-        role: parts[1].trim(),
-        // Rejoin any extra `|` untrimmed, then trim once — trimming each
-        // part first and rejoining with a bare `|` would eat the spacing
-        // around a literal `|` inside the instruction text.
-        instruction: parts.sublist(2).join('|').trim(),
+WorkflowKind _workflowKind(String? raw) => WorkflowKind.values.firstWhere(
+  (kind) => kind.name == raw?.trim().toLowerCase(),
+  orElse: () => WorkflowKind.general,
+);
+
+List<WorkflowQualityGate> _workflowQualityGates(String? raw) => [
+  for (final name in _splitList(raw))
+    for (final gate in WorkflowQualityGate.values)
+      if (gate.name == name) gate,
+];
+
+/// Compact fenced-block representation:
+/// id|title|role|required/optional|dep-a+dep-b|shared/independent|instruction
+List<WorkflowCapability> _workflowCapabilities(String? raw) {
+  if (raw == null || raw.trim().isEmpty) return const [];
+  final capabilities = <WorkflowCapability>[];
+  for (final encoded in raw.split(';;')) {
+    final fields = encoded.split('|').map((value) => value.trim()).toList();
+    if (fields.length < 7 ||
+        fields[0].isEmpty ||
+        (fields[5] != 'shared' && fields[5] != 'independent')) {
+      continue;
+    }
+    capabilities.add(
+      WorkflowCapability(
+        id: fields[0],
+        title: fields[1],
+        role: fields[2].isEmpty ? '*' : fields[2],
+        activation: fields[3] == 'optional'
+            ? WorkflowCapabilityActivation.optional
+            : WorkflowCapabilityActivation.required,
+        dependencyIds: fields[4]
+            .split('+')
+            .map((value) => value.trim())
+            .where((value) => value.isNotEmpty)
+            .toList(),
+        requiresIndependentOwner: fields[5] == 'independent',
+        instruction: fields.sublist(6).join('|'),
       ),
     );
   }
-  return steps;
+  return capabilities;
+}
+
+int? _boundedInt(String? raw) {
+  final value = int.tryParse(raw?.trim() ?? '');
+  return value?.clamp(0, 2).toInt();
 }

@@ -1,0 +1,261 @@
+import 'package:flutter_test/flutter_test.dart';
+
+import 'package:keel_ui/src/modules/workflows/model/workflow.dart';
+import 'package:keel_ui/src/modules/workflows/repository/workflows_repository.dart';
+
+void main() {
+  group('Workflow adaptativo', () {
+    test('descarta la cadena ordenada al leer un registro anterior', () {
+      final workflow = Workflow.fromJson({
+        'id': 'legacy',
+        'name': 'cadena anterior',
+        'whenToApply': 'tickets',
+        'createdAt': DateTime(2026).toIso8601String(),
+        'steps': [
+          {
+            'id': '1',
+            'title': 'analizar',
+            'role': 'analista',
+            'instruction': 'posición fija',
+          },
+        ],
+      });
+
+      expect(workflow.toJson(), isNot(contains('steps')));
+    });
+
+    test('conserva sus capacidades adaptativas y dependencias', () {
+      final workflow = Workflow.fromJson({
+        'id': 'migration',
+        'name': 'migración',
+        'whenToApply': 'migraciones',
+        'createdAt': DateTime(2026).toIso8601String(),
+        'capabilities': [
+          {
+            'id': 'diagnosis',
+            'title': 'Mapa de dependencias',
+            'instruction': 'Inventariar impacto.',
+            'role': 'diagnosticador',
+            'dependencyIds': <String>[],
+            'activation': 'required',
+          },
+          {
+            'id': 'device-e2e',
+            'title': 'Verificación end-to-end',
+            'instruction': 'Validar en dispositivo.',
+            'role': 'mcp-e2e-tester',
+            'dependencyIds': ['implementation'],
+            'activation': 'optional',
+            'requiresIndependentOwner': true,
+          },
+        ],
+      });
+
+      expect(workflow.toJson()['capabilities'], [
+        {
+          'id': 'diagnosis',
+          'title': 'Mapa de dependencias',
+          'instruction': 'Inventariar impacto.',
+          'role': 'diagnosticador',
+          'dependencyIds': <String>[],
+          'activation': 'required',
+          'requiresIndependentOwner': false,
+        },
+        {
+          'id': 'device-e2e',
+          'title': 'Verificación end-to-end',
+          'instruction': 'Validar en dispositivo.',
+          'role': 'mcp-e2e-tester',
+          'dependencyIds': ['implementation'],
+          'activation': 'optional',
+          'requiresIndependentOwner': true,
+        },
+      ]);
+    });
+
+    test('migra filas registradas conservando agentes sin ejecutar ocho', () {
+      final workflow = migrateWorkflowRecord({
+        'id': 'migration-riverpod',
+        'name': 'migracion-riverpod-rn',
+        'whenToApply': 'Migraciones complejas.',
+        'createdAt': DateTime(2026).toIso8601String(),
+        'steps': [
+          {
+            'id': 'map',
+            'title': 'Mapa de dependencias',
+            'role': 'diagnosticador',
+            'instruction': 'Inventariar.',
+          },
+          {
+            'id': 'design',
+            'title': 'Diseño de entrada',
+            'role': 'planificador',
+            'instruction': 'Diseñar.',
+          },
+          {
+            'id': 'implementation',
+            'title': 'Implementar capa por capa',
+            'role': 'flutter-expert',
+            'instruction': 'Implementar.',
+          },
+          {
+            'id': 'audit',
+            'title': 'Auditar código',
+            'role': 'auditor-codigo',
+            'instruction': 'Auditar.',
+          },
+          {
+            'id': 'verification',
+            'title': 'Verificación de cierre',
+            'role': 'verificador',
+            'instruction': 'Verificar.',
+          },
+        ],
+      });
+
+      expect(workflow.name, 'migracion-riverpod-rn');
+      expect(workflow.kind, WorkflowKind.migration);
+      expect(workflow.capabilities, hasLength(5));
+      expect(
+        workflow.capabilities.map((entry) => entry.role),
+        containsAll([
+          'diagnosticador',
+          'planificador',
+          'flutter-expert',
+          'auditor-codigo',
+          'verificador',
+        ]),
+      );
+      expect(
+        workflow.capabilities
+            .where(
+              (entry) =>
+                  entry.activation == WorkflowCapabilityActivation.required,
+            )
+            .map((entry) => entry.id),
+        ['map', 'implementation', 'verification'],
+      );
+      expect(
+        workflow.capabilities
+            .firstWhere((entry) => entry.id == 'audit')
+            .activation,
+        WorkflowCapabilityActivation.optional,
+      );
+      expect(
+        workflow.capabilities
+            .firstWhere((entry) => entry.id == 'audit')
+            .requiresIndependentOwner,
+        isTrue,
+      );
+      expect(workflow.toJson(), isNot(contains('steps')));
+    });
+
+    test(
+      'reescribe capacidades adaptativas previas con independencia explícita',
+      () {
+        final workflow = migrateWorkflowRecord({
+          'id': 'adaptive-v1',
+          'name': 'adaptive-v1',
+          'whenToApply': 'Cambios generales.',
+          'kind': 'general',
+          'policy': const <String, Object?>{},
+          'createdAt': DateTime(2026).toIso8601String(),
+          'capabilities': const [
+            {
+              'id': 'implementation',
+              'title': 'Implementar',
+              'instruction': 'Cambiar.',
+              'role': 'implementer',
+              'dependencyIds': <String>[],
+              'activation': 'required',
+            },
+            {
+              'id': 'audit',
+              'title': 'Auditar evidencia',
+              'instruction': 'Revisar.',
+              'role': 'auditor',
+              'dependencyIds': ['implementation'],
+              'activation': 'optional',
+            },
+          ],
+        });
+
+        expect(workflow.capabilities, hasLength(2));
+        expect(workflow.capabilities.first.requiresIndependentOwner, isFalse);
+        expect(workflow.capabilities.last.requiresIndependentOwner, isTrue);
+        expect(
+          workflow.toJson()['capabilities'],
+          everyElement(contains('requiresIndependentOwner')),
+        );
+      },
+    );
+
+    test('las auditorías default exigen un dueño independiente', () {
+      final capabilities = defaultWorkflowCapabilities(
+        WorkflowKind.bug,
+        'implementador',
+      );
+
+      expect(
+        capabilities
+            .where(
+              (entry) => entry.id == 'code-audit' || entry.id == 'test-audit',
+            )
+            .every((entry) => entry.requiresIndependentOwner),
+        isTrue,
+      );
+      expect(
+        capabilities
+            .firstWhere((entry) => entry.id == 'implementation')
+            .requiresIndependentOwner,
+        isFalse,
+      );
+    });
+  });
+
+  test('rechaza dependencias inexistentes y ciclos de capacidades', () {
+    expect(
+      validateWorkflowCapabilities(const [
+        WorkflowCapability(
+          id: 'audit',
+          title: 'Audit',
+          instruction: 'Audit with clean context.',
+          role: 'auditor',
+          requiresIndependentOwner: true,
+        ),
+      ]),
+      contains('dependencia'),
+    );
+    expect(
+      validateWorkflowCapabilities(const [
+        WorkflowCapability(
+          id: 'a',
+          title: 'A',
+          instruction: 'A',
+          role: 'resolver',
+          dependencyIds: ['missing'],
+        ),
+      ]),
+      contains('inexistente'),
+    );
+    expect(
+      validateWorkflowCapabilities(const [
+        WorkflowCapability(
+          id: 'a',
+          title: 'A',
+          instruction: 'A',
+          role: 'resolver',
+          dependencyIds: ['b'],
+        ),
+        WorkflowCapability(
+          id: 'b',
+          title: 'B',
+          instruction: 'B',
+          role: 'resolver',
+          dependencyIds: ['a'],
+        ),
+      ]),
+      contains('ciclo'),
+    );
+  });
+}

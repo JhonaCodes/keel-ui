@@ -16,9 +16,9 @@ String? validateSecretName(String value) {
 }
 
 /// A named credential/environment value. The VALUE never reaches an LLM:
-/// it is injected as an environment variable ONLY into deterministic
-/// processes (tool scripts, external MCP servers), never into an agent's
-/// CLI environment or any prompt, and the UI always renders it masked.
+/// it is injected only into a deterministic process or the authenticated
+/// HTTP request of its declared provider/MCP, never into a prompt or model
+/// message, and the UI always renders it masked.
 ///
 /// A secret can exist WITHOUT a value ([isPending]): Keel AI may request
 /// that a key exist (`request_secret`), but only the user can fill the

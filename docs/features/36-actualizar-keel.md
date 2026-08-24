@@ -1,13 +1,23 @@
-# F36 — Saber qué Keel estás corriendo, y pasarte al nuevo
+# F36 — Saber qué Keel estás corriendo y descargar el nuevo
 
 ## Qué problema resuelve
 
-Keel se corre desde su propio código: `flutter run -d macos` sobre el repo.
-Así que «actualizar» no es bajarse un `.dmg` — es traer los commits nuevos y
-volver a construir. Eso se hacía en una terminal, o sea que se hacía **cuando
-te acordabas**.
+Keel puede estar instalado desde un `.dmg` o ejecutarse desde su propio código
+con `flutter run -d macos`. Son dos casos distintos y la UI no los mezcla:
 
-Son tres preguntas, y la tercera es la que muerde:
+- debajo de **Ajustes** siempre aparece la versión del bundle abierto;
+- si `https://jhonacode.com/keel/latest.json` publica una posterior, esa misma
+  versión se enciende con el icono de descarga y abre exclusivamente la URL
+  declarada por el canal oficial;
+- **Máquina** conserva el diagnóstico del checkout para quien desarrolla:
+  commits remotos y código local todavía no reconstruido.
+
+Si el manifiesto no responde, la versión instalada sigue visible y no aparece
+un falso aviso. La consulta se hace al arrancar, sin bloquear la app, y respeta
+el mismo TTL de seis horas que la revisión del repositorio.
+
+Para una copia ejecutada desde el repo siguen siendo tres preguntas, y la
+tercera es la que muerde:
 
 | Pregunta | De dónde sale la respuesta |
 |---|---|
@@ -36,7 +46,17 @@ lo primero, y cualquier repo del mundo tiene lo segundo. Si copiaste el
 `.app` a `/Aplicaciones` sin el código al lado, no se encuentra, y eso es
 exactamente lo que la pantalla dice — en vez de inventar una ruta.
 
-## La sección
+## La versión debajo de Ajustes
+
+El riel muestra `vMAJOR.MINOR.PATCH` debajo del botón Ajustes. El tooltip
+incluye el build. Cuando hay una release posterior, el texto toma el color
+primario, aparece el icono de descarga y el clic abre el DMG publicado. Cuando
+está al día, el clic fuerza una revisión manual.
+
+La versión instalada se lee del bundle con `package_info_plus`; no está
+duplicada como un string de UI. La comparación incluye semver y build.
+
+## La sección de desarrollo en Máquina
 
 Va arriba de todo en **Máquina**, con las otras tres preguntas de esa
 pantalla: qué CLIs hay instalados, cuánto se gastó, cómo está el fierro.
@@ -102,16 +122,19 @@ mucho. Un proyecto que se mueve todos los días no publica commits cada media
 hora, y cada revisión es un `git fetch` de verdad. El botón **Revisar**
 ignora ese plazo, que es para lo que existe.
 
-Cuando hay algo —commits nuevos, o un binario más viejo que el código— se
-prende un punto en el registro **Máquina** del rail. El aviso vive ahí porque
-la respuesta también.
+Cuando hay commits nuevos o un binario más viejo que el código se prende un
+punto en **Máquina**. Cuando hay un DMG nuevo, se enciende la versión debajo de
+**Ajustes**. Cada aviso vive donde también está su acción correcta.
 
 ## Dónde vive
 
 | Qué | Dónde |
 |---|---|
 | Encontrar el repo | `integrations/app_update/src/keel_source.dart` |
+| Versión y manifiesto instalable | `integrations/app_update/src/release_channel.dart` |
+| Semver y validación del manifiesto | `integrations/app_update/release_version.dart` |
 | Leer el estado y los commits | `integrations/app_update/src/update_probe.dart` |
 | Qué lo impide | `integrations/app_update/src/update_plan.dart` |
 | El pull y el relanzamiento | `integrations/app_update/src/update_run.dart` |
 | La sección de la pantalla | `integrations/app_update/src/ui/keel_version_section.dart` |
+| Compilar, firmar y producir el manifiesto | `scripts/build_macos_release.sh` |

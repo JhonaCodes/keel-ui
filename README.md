@@ -26,8 +26,8 @@ sale mal releés el scrollback.
 
 Con cuatro agentes en cuatro terminales, eso no escala. Keel es el intento de
 que sí: los agentes son **registros**, no ventanas; el proyecto es **un
-contexto compartido**, no una explicación repetida; y el orden en que hablan
-es **un workflow**, no tu memoria.
+contexto compartido**, no una explicación repetida; y la resolución es un
+**grafo adaptativo con evidencia**, no una cadena que hay que recordar.
 
 ## Cómo se corre
 
@@ -52,7 +52,7 @@ Cinco piezas, y ninguna es opcional para entender el resto.
 flowchart TD
     P["Perfil de agente<br><i>quién es</i>"]
     S["Skills y reglas<br><i>qué sabe</i>"]
-    W["Workflow<br><i>en qué orden se habla</i>"]
+    W["Workflow<br><i>política y capacidades</i>"]
     PR["Proyecto<br><i>un repo, sus miembros</i>"]
     SE["Sesión<br><i>una unidad de trabajo</i>"]
     T["Turno<br><i>una corrida del CLI</i>"]
@@ -61,7 +61,7 @@ flowchart TD
     P -->|es miembro de| PR
     W -->|activo en| PR
     PR -->|adentro se abren| SE
-    SE -->|ejecuta| T
+    SE -->|crea un caso de resolución| T
 ```
 
 - **Perfil de agente** — una identidad reusable: un handle
@@ -73,11 +73,10 @@ flowchart TD
   propias y sus bases de saber. La granularidad es el repo.
 - **Sesión** — una unidad de trabajo adentro de un proyecto, con su propio
   hilo. Dos sesiones del mismo proyecto **no se ven** entre sí.
-- **Workflow** — pasos ordenados, cada uno con el ROL que le toca. Por eso el
-  mismo workflow sirve en un proyecto Flutter y en uno de Rust: el paso dice
-  "revisor", no "@dart-expert". **Es de la sesión, no del proyecto**: armar la
-  carpeta de tareas, resolver un ticket y evaluar un requerimiento son
-  trabajos distintos y cada uno quiere otra fila de agentes
+- **Workflow** — una política reusable: intención, tipo de caso, responsable,
+  contexto obligatorio, gates de calidad y límites de reformulación. **Es de
+  la sesión, no del proyecto**. El motor deriva un grafo mínimo; no ejecuta
+  una fila de agentes ni reinicia todo por un pendiente
   ([F37](docs/features/37-un-workflow-por-sesion.md)).
 
 ## Cómo se arma un turno
@@ -166,8 +165,8 @@ flowchart LR
 ```
 
 Una sesión se mira de dos formas. **Chat** es el hilo: quién dijo qué, en
-orden. **Mapa** es el mismo trabajo como recorrido —una columna por paso, los
-subagentes colgando abajo, las consultas volviendo por arriba— y ahí se ve lo
+orden. **Mapa** es el mismo trabajo como grafo —nodos, dependencias,
+hallazgos y evidencia; los subagentes permitidos cuelgan del responsable— y ahí se ve lo
 que el hilo no puede mostrar: en qué anda cada uno *ahora* y qué está
 razonando mientras lo hace ([F31](docs/features/31-mapa-de-razonamiento.md)).
 
@@ -216,16 +215,18 @@ bajaste. El botón trae los commits; reconstruir abre la Terminal, porque el
 
 1. Registrás dos agentes: `@flutter-expert` (rol `implementador`) y
    `@code-auditor` (rol `auditor`).
-2. Creás un workflow de dos pasos: *implementar* → *auditar*, por rol.
+2. Creás un workflow de bug: responsable, skills/gates y límite de
+   reformulaciones.
 3. Creás el proyecto `mi-app`, apuntás su directorio de trabajo al repo y
    sumás los dos agentes y el workflow.
 4. Abrís una sesión —arranca con el workflow por defecto, y podés cambiárselo
    mientras no haya escrito nadie— y escribís qué querés.
 5. El primero que habla escribe el **plan**: puntos verificables, cada uno
    con el puesto que lo hace.
-6. Cada paso corre en su turno. Lo que edita queda con su diff en el hilo.
-7. El cierre se decide **contra el plan**, no contra los pasos: si quedan
-   puntos sin cumplir, va una vuelta de verificación contra el código.
+6. El caso crea sus nodos listos: triage, implementación y verificación. Un
+   hallazgo pausa solo el nodo afectado y vuelve al responsable.
+7. El cierre exige evidencia, gates satisfechos y, para migraciones, una
+   matriz de impacto completa.
 8. La entrega estándar de un proyecto con git es un **PR en draft**.
 
 ## Cuando un proyecto necesita algo de otro

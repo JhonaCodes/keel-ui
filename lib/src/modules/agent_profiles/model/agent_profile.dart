@@ -235,6 +235,7 @@ class AgentProfile {
     Object.hashAll(rules),
     Object.hashAll(tools),
     Object.hashAll(mcpServers),
+    Object.hashAll(hooks),
     Object.hashAll(knowledgeBaseNames),
     canManageSystem,
     provider,

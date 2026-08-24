@@ -23,7 +23,7 @@ String? validateProjectName(String value) {
 /// El contexto de un PROYECTO: su directorio de trabajo, los agentes que
 /// viven ahí, los workflows que deciden quién actúa y cuándo, y las reglas y
 /// bases de saber que todos comparten. Las sesiones entran y salen; la
-/// proyecto se configura una vez y queda.
+/// el proyecto se configura una vez y queda.
 ///
 /// Su granularidad es el producto o repo (`nuimarkets`, `connect`), no la
 /// etapa del trabajo: la secuencia de etapas la aporta el workflow activo.
@@ -61,6 +61,7 @@ class Project {
   final bool maintained;
 
   final Map<String, MemberTuning> memberTuning;
+  final Map<String, Map<String, String>> workflowNodeAssignments;
   final String? activeWorkflowId;
   final List<Session> sessions;
   final String? activeSessionId;
@@ -79,6 +80,7 @@ class Project {
     this.knowledgeBaseNames = const [],
     this.maintained = true,
     this.memberTuning = const {},
+    this.workflowNodeAssignments = const {},
     this.activeWorkflowId,
     this.sessions = const [],
     this.activeSessionId,
@@ -88,6 +90,69 @@ class Project {
   /// motor que se le fijó acá si es que se le fijó alguno.
   AgentProfile tuned(AgentProfile member) =>
       memberTuning[member.id]?.applyTo(member) ?? member;
+
+  String? assignedProfileId(String workflowId, String nodeId) =>
+      workflowNodeAssignments[workflowId]?[nodeId];
+
+  /// Whether any persisted project configuration or session still names the
+  /// workflow. A catalog deletion uses this to report and clean every
+  /// affected project instead of leaving references that can never resolve.
+  bool referencesWorkflow(String workflowId) =>
+      workflowIds.contains(workflowId) ||
+      activeWorkflowId == workflowId ||
+      workflowNodeAssignments.containsKey(workflowId) ||
+      sessions.any((session) => session.workflowId == workflowId);
+
+  /// Every workflow ID stored anywhere inside the project aggregate.
+  Set<String> get referencedWorkflowIds => {
+    ...workflowIds,
+    ...workflowNodeAssignments.keys,
+    ?activeWorkflowId,
+    for (final session in sessions)
+      if (session.workflowId.isNotEmpty) session.workflowId,
+  };
+
+  /// Removes one workflow from every place where this project can reference
+  /// it. Historical session content and its materialized resolution graph are
+  /// preserved; only the catalog reference that no longer resolves is cleared.
+  Project withoutWorkflow(String workflowId) {
+    final remainingWorkflowIds = workflowIds
+        .where((id) => id != workflowId)
+        .toList();
+    final nextActiveWorkflowId = activeWorkflowId == workflowId
+        ? (remainingWorkflowIds.isEmpty ? null : remainingWorkflowIds.first)
+        : activeWorkflowId;
+    final assignments = {
+      for (final entry in workflowNodeAssignments.entries)
+        if (entry.key != workflowId)
+          entry.key: Map<String, String>.from(entry.value),
+    };
+
+    return copyWith(
+      workflowIds: remainingWorkflowIds,
+      workflowNodeAssignments: assignments,
+      activeWorkflowId: nextActiveWorkflowId,
+      clearActiveWorkflow: nextActiveWorkflowId == null,
+      sessions: [
+        for (final session in sessions)
+          if (session.workflowId == workflowId)
+            session.copyWith(workflowId: '')
+          else
+            session,
+      ],
+    );
+  }
+
+  /// Repairs references left by workflows deleted by an older app version.
+  Project retainingWorkflows(Set<String> existingWorkflowIds) {
+    var repaired = this;
+    for (final workflowId in referencedWorkflowIds) {
+      if (!existingWorkflowIds.contains(workflowId)) {
+        repaired = repaired.withoutWorkflow(workflowId);
+      }
+    }
+    return repaired;
+  }
 
   Session? get activeSession {
     final id = activeSessionId;
@@ -109,6 +174,7 @@ class Project {
     List<String>? knowledgeBaseNames,
     bool? maintained,
     Map<String, MemberTuning>? memberTuning,
+    Map<String, Map<String, String>>? workflowNodeAssignments,
     String? activeWorkflowId,
     bool clearActiveWorkflow = false,
     List<Session>? sessions,
@@ -127,6 +193,8 @@ class Project {
       knowledgeBaseNames: knowledgeBaseNames ?? this.knowledgeBaseNames,
       maintained: maintained ?? this.maintained,
       memberTuning: memberTuning ?? this.memberTuning,
+      workflowNodeAssignments:
+          workflowNodeAssignments ?? this.workflowNodeAssignments,
       activeWorkflowId: clearActiveWorkflow
           ? null
           : (activeWorkflowId ?? this.activeWorkflowId),
@@ -152,6 +220,7 @@ class Project {
     'memberTuning': {
       for (final entry in memberTuning.entries) entry.key: entry.value.toJson(),
     },
+    'workflowNodeAssignments': workflowNodeAssignments,
     'activeWorkflowId': activeWorkflowId,
     'sessions': sessions.map((session) => session.toJson()).toList(),
     'activeSessionId': activeSessionId,
@@ -172,6 +241,9 @@ class Project {
           (json['knowledgeBaseNames'] as List?)?.cast<String>() ?? const [],
       maintained: json['maintained'] as bool? ?? true,
       memberTuning: _memberTuningFromJson(json['memberTuning']),
+      workflowNodeAssignments: _workflowNodeAssignmentsFromJson(
+        json['workflowNodeAssignments'],
+      ),
       activeWorkflowId: json['activeWorkflowId'] as String?,
       sessions: (json['sessions'] as List? ?? const [])
           .map((entry) => Session.fromJson(entry as Map<String, dynamic>))
@@ -193,9 +265,14 @@ class Project {
           listEquals(profileIds, other.profileIds) &&
           listEquals(workflowIds, other.workflowIds) &&
           listEquals(ruleNames, other.ruleNames) &&
+          listEquals(hookNames, other.hookNames) &&
           listEquals(knowledgeBaseNames, other.knowledgeBaseNames) &&
           maintained == other.maintained &&
           mapEquals(memberTuning, other.memberTuning) &&
+          _nestedMapEquals(
+            workflowNodeAssignments,
+            other.workflowNodeAssignments,
+          ) &&
           activeWorkflowId == other.activeWorkflowId &&
           listEquals(sessions, other.sessions) &&
           activeSessionId == other.activeSessionId &&
@@ -210,11 +287,22 @@ class Project {
     Object.hashAll(profileIds),
     Object.hashAll(workflowIds),
     Object.hashAll(ruleNames),
+    Object.hashAll(hookNames),
     Object.hashAll(knowledgeBaseNames),
     maintained,
     Object.hashAll([
       for (final entry in memberTuning.entries)
         Object.hash(entry.key, entry.value),
+    ]),
+    Object.hashAll([
+      for (final workflow in workflowNodeAssignments.entries)
+        Object.hash(
+          workflow.key,
+          Object.hashAll([
+            for (final assignment in workflow.value.entries)
+              Object.hash(assignment.key, assignment.value),
+          ]),
+        ),
     ]),
     activeWorkflowId,
     Object.hashAll(sessions),
@@ -242,6 +330,32 @@ Map<String, MemberTuning> _memberTuningFromJson(Object? value) {
     );
   }
   return tuning;
+}
+
+Map<String, Map<String, String>> _workflowNodeAssignmentsFromJson(
+  Object? value,
+) {
+  if (value is! Map) return const {};
+  return {
+    for (final workflow in value.entries)
+      if (workflow.key is String && workflow.value is Map)
+        workflow.key as String: {
+          for (final assignment in (workflow.value as Map).entries)
+            if (assignment.key is String && assignment.value is String)
+              assignment.key as String: assignment.value as String,
+        },
+  };
+}
+
+bool _nestedMapEquals(
+  Map<String, Map<String, String>> left,
+  Map<String, Map<String, String>> right,
+) {
+  if (left.length != right.length) return false;
+  for (final entry in left.entries) {
+    if (!mapEquals(entry.value, right[entry.key])) return false;
+  }
+  return true;
 }
 
 class ProjectsState {

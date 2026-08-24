@@ -38,6 +38,11 @@ const kClaudeModelOptions = <AgentModelOption>[
 /// every slug enabled — "whatever codex would use" never goes stale.
 const kCodexDefaultModelAlias = '';
 
+/// API providers keep a concrete default so a new agent is immediately
+/// runnable. Their remote catalog can replace this selection at any time.
+const kDefaultOpenRouterModelAlias = 'openrouter/auto';
+const kDefaultDeepSeekModelAlias = 'deepseek-v4-pro';
+
 /// Taken from codex's own catalog (`~/.codex/models_cache.json`), keeping
 /// only the entries it marks `visibility: list` — the same ones its picker
 /// offers. `gpt-reserve` and `codex-auto-review` are marked `hide` there and
@@ -52,6 +57,15 @@ const kCodexModelOptions = <AgentModelOption>[
   AgentModelOption(alias: 'gpt-5.4-mini', label: 'GPT-5.4-Mini'),
 ];
 
+const kOpenRouterModelOptions = <AgentModelOption>[
+  AgentModelOption(alias: kDefaultOpenRouterModelAlias, label: 'Auto'),
+];
+
+const kDeepSeekModelOptions = <AgentModelOption>[
+  AgentModelOption(alias: 'deepseek-v4-pro', label: 'DeepSeek V4 Pro'),
+  AgentModelOption(alias: 'deepseek-v4-flash', label: 'DeepSeek V4 Flash'),
+];
+
 /// The models that belong to [provider] — the two CLIs share nothing here,
 /// so offering Claude aliases to a codex agent (as this app did until the
 /// catalogs were split) offers a choice its CLI cannot honour.
@@ -59,6 +73,8 @@ List<AgentModelOption> modelOptionsFor(AgentProvider provider) {
   return switch (provider) {
     AgentProvider.claude => kClaudeModelOptions,
     AgentProvider.codex => kCodexModelOptions,
+    AgentProvider.openRouter => kOpenRouterModelOptions,
+    AgentProvider.deepSeek => kDeepSeekModelOptions,
   };
 }
 
@@ -66,6 +82,8 @@ String defaultModelFor(AgentProvider provider) {
   return switch (provider) {
     AgentProvider.claude => kDefaultClaudeModelAlias,
     AgentProvider.codex => kCodexDefaultModelAlias,
+    AgentProvider.openRouter => kDefaultOpenRouterModelAlias,
+    AgentProvider.deepSeek => kDefaultDeepSeekModelAlias,
   };
 }
 

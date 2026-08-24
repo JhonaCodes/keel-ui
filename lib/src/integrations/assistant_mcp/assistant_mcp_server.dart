@@ -11,11 +11,13 @@ import 'package:stream_channel/stream_channel.dart';
 
 import 'package:keel_ui/src/integrations/mcp_catalog/mcp_catalog.dart';
 import 'package:keel_ui/src/integrations/catalog_shape/catalog_shape.dart';
+import 'package:keel_ui/src/integrations/assistant_mcp/keel_catalog_inspector.dart';
 import 'package:keel_ui/src/modules/hooks/model/hook.dart';
 import 'package:keel_ui/src/modules/hooks/model/hook_event.dart';
 import 'package:keel_ui/src/modules/hooks/viewmodel/hooks_viewmodel.dart';
 import 'package:keel_ui/src/integrations/system_vault/system_vault.dart';
 import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
+import 'package:keel_ui/src/modules/agents/model/agent_provider.dart';
 import 'package:keel_ui/src/modules/knowledge/model/knowledge_base.dart';
 import 'package:keel_ui/src/modules/knowledge/viewmodel/knowledge_viewmodel.dart';
 import 'package:keel_ui/src/modules/agent_profiles/viewmodel/agent_profiles_viewmodel.dart';
@@ -35,8 +37,8 @@ import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
 import 'package:keel_ui/src/modules/requirements/viewmodel/requirements_viewmodel.dart';
 import 'package:keel_ui/src/modules/tools/viewmodel/tools_viewmodel.dart';
 import 'package:keel_ui/src/modules/workflows/model/workflow.dart';
+import 'package:keel_ui/src/modules/workflows/service/workflow_deletion_service.dart';
 import 'package:keel_ui/src/modules/workflows/viewmodel/workflows_viewmodel.dart';
-import 'package:keel_ui/src/shared/shared.dart';
 
 part 'src/tool_definitions.dart';
 part 'src/tool_handlers.dart';
@@ -51,6 +53,8 @@ const kKeelAiMcpToolNames = [
   'mcp__keelai-actions__create_tool',
   'mcp__keelai-actions__request_secret',
   'mcp__keelai-actions__list_catalog',
+  'mcp__keelai-actions__list_workflows',
+  'mcp__keelai-actions__list_projects',
   'mcp__keelai-actions__get_item',
   'mcp__keelai-actions__describe_system',
   'mcp__keelai-actions__list_secret_names',

@@ -11,11 +11,7 @@ class _IsolateBootstrap {
   /// desde el Finder, donde `claude` no está.
   final String userPath;
 
-  const _IsolateBootstrap(
-    this.mainSendPort,
-    this.specMessage,
-    this.userPath,
-  );
+  const _IsolateBootstrap(this.mainSendPort, this.specMessage, this.userPath);
 }
 
 /// Runs entirely inside the worker isolate. The [LlmRunner] owns the CLI
@@ -75,17 +71,18 @@ Future<void> _runInIsolate({
     hookFiles: spec.hookFiles,
   );
 
-  final events = dispatchLlmProvider(provider).run(
-    turnSpec,
-    userPath: userPath,
-    cancel: cancel,
-    onPidKnown: (pid) {
-      // El pid cruza el isolate como dato: un Process no se puede mandar, y
-      // del otro lado solo hace falta el número para poder mirarlo con `ps`
-      // y decir de parte de quién corre.
-      mainSendPort.send({'type': 'processStarted', 'pid': pid});
-    },
-  );
+  final events =
+      dispatchLlmProvider(provider, providerApiKey: spec.providerApiKey).run(
+        turnSpec,
+        userPath: userPath,
+        cancel: cancel,
+        onPidKnown: (pid) {
+          // El pid cruza el isolate como dato: un Process no se puede mandar, y
+          // del otro lado solo hace falta el número para poder mirarlo con `ps`
+          // y decir de parte de quién corre.
+          mainSendPort.send({'type': 'processStarted', 'pid': pid});
+        },
+      );
 
   await for (final event in events) {
     mainSendPort.send(event);

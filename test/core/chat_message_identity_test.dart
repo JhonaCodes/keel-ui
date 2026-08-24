@@ -17,7 +17,7 @@ ChatMessage _base() => ChatMessage(
   ],
   imagePaths: const ['/img/uno.png'],
   authorProfileId: 'flutter-expert',
-  stepIndex: 2,
+  workNodeId: 'implementation',
   consultOfProfileId: null,
 );
 
@@ -81,11 +81,11 @@ void main() {
         timestamp: _epoch,
         authorProfileId: 'rn-expert',
       ),
-      'stepIndex': ChatMessage(
+      'workNodeId': ChatMessage(
         role: ChatRole.assistant,
         text: 'Listo.',
         timestamp: _epoch,
-        stepIndex: 7,
+        workNodeId: 'verification',
       ),
       'consultOfProfileId': ChatMessage(
         role: ChatRole.assistant,

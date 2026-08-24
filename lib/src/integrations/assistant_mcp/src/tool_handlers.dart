@@ -8,6 +8,12 @@ Future<CallToolResult> dispatchKeelAiTool(
   String agentId,
   CallToolRequest request,
 ) async {
+  // Keel AI reads and mutates the live typed catalogs. A first tool call can
+  // arrive while startup is still loading them; reading at that point would
+  // expose a partial inventory and writing could overwrite persisted state
+  // from an empty in-memory snapshot.
+  await awaitCatalogsReady();
+
   // The sync tools are genuinely async (git over the network) — handled
   // before the synchronous switch.
   if (request.name == 'sync_knowledge') {
@@ -58,6 +64,8 @@ Future<CallToolResult> dispatchKeelAiTool(
 /// Tools that only read. No mutation, no trace line in the thread.
 const _readOnlyTools = {
   'list_catalog',
+  'list_workflows',
+  'list_projects',
   'list_mcp_catalog',
   'list_secret_names',
   'get_item',
@@ -224,6 +232,22 @@ const _readOnlyTools = {
       final kind = (arguments['kind'] as String?)?.trim() ?? 'all';
       return (true, _describeCatalog(kind));
 
+    case 'list_workflows':
+      return (
+        true,
+        _catalogInspector().describeWorkflows(
+          names: _stringList(arguments['names']),
+        ),
+      );
+
+    case 'list_projects':
+      return (
+        true,
+        _catalogInspector().describeProjects(
+          names: _stringList(arguments['names']),
+        ),
+      );
+
     case 'get_item':
       return _getItem(
         (arguments['kind'] as String).trim().toLowerCase(),
@@ -304,12 +328,19 @@ const _readOnlyTools = {
       if (workflow == null) {
         return (false, 'No existe el workflow "${arguments['name']}".');
       }
-      final steps = arguments['steps'] == null
-          ? workflow.steps
-          : _parseToolSteps(arguments['steps']);
-      if (steps.isEmpty) {
-        return (false, 'Un workflow sin pasos no sirve: mandá al menos uno.');
-      }
+      final requestedKind = arguments['kind'] as String?;
+      final kind = requestedKind == null
+          ? workflow.kind
+          : WorkflowKind.values.firstWhere(
+              (entry) => entry.name == requestedKind,
+              orElse: () => workflow.kind,
+            );
+      final resolutionRole =
+          arguments['resolution_role'] as String? ??
+          workflow.policy.resolutionRole;
+      final qualityGates = arguments['quality_gates'] == null
+          ? workflow.policy.qualityGates
+          : _workflowQualityGates(arguments['quality_gates']);
       final error = workflows.updateWorkflow(
         workflow.id,
         name: (arguments['new_name'] as String?)?.trim().isNotEmpty ?? false
@@ -317,16 +348,31 @@ const _readOnlyTools = {
             : workflow.name,
         whenToApply:
             arguments['when_to_apply'] as String? ?? workflow.whenToApply,
-        steps: steps,
+        kind: kind,
+        policy: workflow.policy.copyWith(
+          resolutionRole: resolutionRole,
+          requiredSkillNames: arguments['skills'] == null
+              ? null
+              : _stringList(arguments['skills']),
+          requiredRuleNames: arguments['rule_names'] == null
+              ? null
+              : _stringList(arguments['rule_names']),
+          requiredKnowledgeBaseNames: arguments['knowledge_base_names'] == null
+              ? null
+              : _stringList(arguments['knowledge_base_names']),
+          qualityGates: qualityGates,
+          maxReplans: _boundedWorkflowLimit(arguments['max_replans']),
+          maxSubagents: _boundedWorkflowLimit(arguments['max_subagents']),
+        ),
         skillNames: arguments['skills'] == null
             ? null
             : _stringList(arguments['skills']),
+        buildsRoadmap: arguments['builds_roadmap'] as bool?,
+        capabilities: _workflowCapabilities(arguments['capabilities']),
       );
       return (
         error == null,
-        error ??
-            'Actualicé el workflow "${workflow.name}" '
-                '(${steps.length} pasos).',
+        error ?? 'Actualicé el workflow "${workflow.name}" (${kind.name}).',
       );
 
     case 'unassign_from_agent':
@@ -334,8 +380,10 @@ const _readOnlyTools = {
         handle: (arguments['handle'] as String).trim(),
         skills: _stringList(arguments['skill_names']),
         rules: _stringList(arguments['rule_names']),
+        hooks: _stringList(arguments['hook_names']),
         tools: _stringList(arguments['tool_names']),
         mcpServers: _stringList(arguments['mcp_server_names']),
+        knowledgeBases: _stringList(arguments['knowledge_base_names']),
       );
 
     case 'update_project':
@@ -368,20 +416,38 @@ const _readOnlyTools = {
           ruleNames: _stringList(arguments['rule_names']),
           toolNames: _stringList(arguments['tool_names']),
           mcpServerNames: _stringList(arguments['mcp_server_names']),
+          hookNames: _stringList(arguments['hook_names']),
           knowledgeBaseNames: _stringList(arguments['knowledge_base_names']),
           providerAlias: arguments['provider'] as String?,
+          model: arguments['model'] as String?,
+          effort: arguments['effort'] as String?,
           systemBuilder: arguments['system_builder'] as bool?,
         ),
       );
       return (result.ok, result.message);
 
     case 'create_workflow':
+      final rawKind = arguments['kind'] as String?;
       final result = executeWorkflowAction(
         CreateWorkflowAction(
           name: arguments['name'] as String,
           whenToApply: arguments['when_to_apply'] as String? ?? '',
-          steps: _parseToolSteps(arguments['steps']),
+          kind: WorkflowKind.values.firstWhere(
+            (kind) => kind.name == rawKind,
+            orElse: () => WorkflowKind.general,
+          ),
+          resolutionRole: arguments['resolution_role'] as String? ?? '',
           skillNames: _stringList(arguments['skills']),
+          requiredRuleNames: _stringList(arguments['rule_names']),
+          requiredKnowledgeBaseNames: _stringList(
+            arguments['knowledge_base_names'],
+          ),
+          qualityGates: _workflowQualityGates(arguments['quality_gates']),
+          maxReplans: _boundedWorkflowLimit(arguments['max_replans']),
+          maxSubagents: _boundedWorkflowLimit(arguments['max_subagents']),
+          capabilities:
+              _workflowCapabilities(arguments['capabilities']) ?? const [],
+          buildsRoadmap: arguments['builds_roadmap'] as bool?,
         ),
       );
       return (result.ok, result.message);
@@ -395,7 +461,9 @@ const _readOnlyTools = {
           agentHandles: _stringList(arguments['agent_handles']),
           workflowNames: _stringList(arguments['workflow_names']),
           ruleNames: _stringList(arguments['rule_names']),
+          hookNames: _stringList(arguments['hook_names']),
           knowledgeBaseNames: _stringList(arguments['knowledge_base_names']),
+          maintained: arguments['maintained'] as bool? ?? true,
         ),
       );
       return (result.ok, result.message);
@@ -452,7 +520,7 @@ const _readOnlyTools = {
         items: WorkflowsService.instance.notifier.data.workflows,
         idOf: (workflow) => workflow.id,
         nameOf: (workflow) => workflow.name,
-        delete: WorkflowsService.instance.notifier.deleteWorkflow,
+        delete: workflowDeletionService.deleteWorkflow,
         label: 'workflow',
       );
 
@@ -527,6 +595,13 @@ String _describeCatalog(String kind) {
       '- ${rule.name} — ${_firstLine(rule.content)}',
   ]);
 
+  section('hooks', 'Hooks', [
+    for (final hook in HooksService.instance.notifier.data.hooks)
+      '- ${hook.name} (${hook.event.alias}; '
+          '${hook.enabled ? 'activo' : 'apagado'}) — '
+          '${_firstLine(hook.description)}',
+  ]);
+
   section('tools', 'Tools', [
     for (final tool in ToolsService.instance.notifier.data.tools)
       '- ${tool.name} (${tool.runtime.alias}) — '
@@ -543,7 +618,8 @@ String _describeCatalog(String kind) {
 
   section('workflows', 'Workflows', [
     for (final workflow in WorkflowsService.instance.notifier.data.workflows)
-      '- ${workflow.name} (${workflow.steps.length} pasos) — '
+      '- ${workflow.name} (${workflow.kind.name}; dueño: '
+          '${workflow.policy.resolutionRole.isEmpty ? 'auto' : workflow.policy.resolutionRole}) — '
           '${_firstLine(workflow.whenToApply)}',
   ]);
 
@@ -575,7 +651,8 @@ String _describeCatalog(String kind) {
 
   if (sections.isEmpty) {
     return 'No conozco el tipo "$kind". Válidos: skills, rules, tools, '
-        'agents, workflows, projects, mcp_servers, knowledge_bases, all.';
+        'agents, workflows, projects, hooks, mcp_servers, '
+        'knowledge_bases, all.';
   }
   return sections.join('\n\n');
 }
@@ -689,70 +766,41 @@ String _describeCatalog(String kind) {
           .where((entry) => entry.name == handle)
           .firstOrNull;
       if (profile == null) return (false, 'No existe el agente "@$handle".');
-      return (
-        true,
-        'Agente @${profile.name}\n'
-            'Rol: ${profile.role}\n'
-            'Proveedor: ${profile.provider.alias} | modelo: ${profile.model} '
-            '| esfuerzo: ${profile.effort}\n'
-            'Constructor del sistema: ${profile.canManageSystem ? 'sí' : 'no'}\n'
-            'Skills: ${_orNone(profile.skills)}\n'
-            'Reglas: ${_orNone(profile.rules)}\n'
-            'Tools: ${_orNone(profile.tools)}\n'
-            'MCPs: ${_orNone(profile.mcpServers)}\n\n'
-            'System prompt:\n${profile.systemPrompt}',
-      );
+      return (true, _catalogInspector().describeAgent(profile));
 
     case 'workflow':
       final workflow = WorkflowsService.instance.notifier.data.workflows
           .where((entry) => entry.name == name)
           .firstOrNull;
       if (workflow == null) return (false, 'No existe el workflow "$name".');
-      final steps = [
-        for (final (index, step) in workflow.steps.indexed)
-          '${index + 1}. ${step.title} [${step.role}]\n   ${step.instruction}',
-      ];
-      return (
-        true,
-        'Workflow "${workflow.name}"\n'
-            'Cuándo aplica: ${workflow.whenToApply}\n\n'
-            '${steps.isEmpty ? '(sin pasos)' : steps.join('\n')}',
-      );
+      return (true, _catalogInspector().describeWorkflow(workflow));
 
     case 'project':
       final project = ProjectsService.instance.notifier.data.projects
           .where((entry) => entry.name == name)
           .firstOrNull;
       if (project == null) return (false, 'No existe el proyecto "$name".');
-      final profiles = AgentProfilesService.instance.notifier.data.profiles;
-      final workflows = WorkflowsService.instance.notifier.data.workflows;
-      final members = [
-        for (final id in project.profileIds)
-          '@${profiles.where((p) => p.id == id).firstOrNull?.name ?? id}',
-      ];
-      final available = [
-        for (final id in project.workflowIds)
-          workflows.where((w) => w.id == id).firstOrNull?.name ?? id,
-      ];
-      final active = project.activeWorkflowId == null
-          ? 'ninguno'
-          : workflows
-                    .where((w) => w.id == project.activeWorkflowId)
-                    .firstOrNull
-                    ?.name ??
-                project.activeWorkflowId!;
+      return (true, _catalogInspector().describeProject(project));
+
+    case 'hook':
+      final hook = HooksService.instance.notifier.hookByName(name);
+      if (hook == null) return (false, 'No existe el hook "$name".');
+      final body = switch (hook.body) {
+        HookCommand(:final command) => 'comando: $command',
+        HookToolRef(:final toolName) => 'tool: $toolName',
+      };
       return (
         true,
-        'Proyecto "${project.name}"\n'
-            'Propósito: ${project.purpose}\n'
-            'Directorio: ${project.workingDirectory}\n'
-            'Miembros: ${_orNone(members)}\n'
-            'Workflows disponibles: ${_orNone(available)}\n'
-            'Workflow activo: $active\n'
-            'Reglas: ${_orNone(project.ruleNames)}\n'
-            'Saber: ${_orNone(project.knowledgeBaseNames)}\n'
-            'Sesiones: ${project.sessions.length}\n'
-            'Lo mantiene el usuario: ${project.maintained ? 'sí' : 'NO — solo lectura'}',
+        'Hook "${hook.name}"\n'
+            'ID: ${hook.id}\n'
+            'Descripción: ${hook.description}\n'
+            'Evento: ${hook.event.alias}\n'
+            'Matcher: ${_orMissing(hook.matcher)}\n'
+            'Cuerpo: $body\n'
+            'Timeout: ${hook.timeoutSeconds}s\n'
+            'Reglas que garantiza: ${_orNone(hook.enforces)}\n'
+            'Global: ${hook.isGlobal ? 'sí' : 'no'}\n'
+            'Activo: ${hook.enabled ? 'sí' : 'no'}',
       );
 
     case 'knowledge_base':
@@ -789,10 +837,28 @@ String _describeCatalog(String kind) {
       return (
         false,
         'No conozco el tipo "$kind". Válidos: skill, rule, tool, agent, '
-            'workflow, project, mcp_server.',
+            'workflow, project, hook, mcp_server o knowledge_base.',
       );
   }
 }
+
+KeelCatalogInspector _catalogInspector() => KeelCatalogInspector(
+  profiles: AgentProfilesService.instance.notifier.data.profiles,
+  workflows: WorkflowsService.instance.notifier.data.workflows,
+  projects: ProjectsService.instance.notifier.data.projects,
+  skillNames: {
+    for (final skill in SkillsService.instance.notifier.data.skills) skill.name,
+  },
+  ruleNames: {
+    for (final rule in RulesService.instance.notifier.data.rules) rule.name,
+  },
+  knowledgeBaseNames: {
+    for (final base in KnowledgeService.instance.notifier.data.bases) base.name,
+  },
+  hookNames: {
+    for (final hook in HooksService.instance.notifier.data.hooks) hook.name,
+  },
+);
 
 String _orNone(List<String> values) =>
     values.isEmpty ? 'ninguno' : values.join(', ');
@@ -918,8 +984,10 @@ Future<String> _runVaultTool(
   required String handle,
   required List<String> skills,
   required List<String> rules,
+  required List<String> hooks,
   required List<String> tools,
   required List<String> mcpServers,
+  required List<String> knowledgeBases,
 }) {
   final cleanHandle = handle.startsWith('@') ? handle.substring(1) : handle;
   if (cleanHandle == kKeelAiHandle) {
@@ -932,7 +1000,12 @@ Future<String> _runVaultTool(
       .firstOrNull;
   if (profile == null) return (false, 'No existe el agente "@$cleanHandle".');
 
-  if (skills.isEmpty && rules.isEmpty && tools.isEmpty && mcpServers.isEmpty) {
+  if (skills.isEmpty &&
+      rules.isEmpty &&
+      hooks.isEmpty &&
+      tools.isEmpty &&
+      mcpServers.isEmpty &&
+      knowledgeBases.isEmpty) {
     return (false, 'No me dijiste qué sacarle a "@$cleanHandle".');
   }
 
@@ -943,8 +1016,10 @@ Future<String> _runVaultTool(
     systemPrompt: profile.systemPrompt,
     skills: _without(profile.skills, skills),
     rules: _without(profile.rules, rules),
+    hooks: _without(profile.hooks, hooks),
     tools: _without(profile.tools, tools),
     mcpServers: _without(profile.mcpServers, mcpServers),
+    knowledgeBaseNames: _without(profile.knowledgeBaseNames, knowledgeBases),
     model: profile.model,
     effort: profile.effort,
   );
@@ -953,8 +1028,11 @@ Future<String> _runVaultTool(
   final removed = [
     if (skills.isNotEmpty) 'skills: ${skills.join(', ')}',
     if (rules.isNotEmpty) 'reglas: ${rules.join(', ')}',
+    if (hooks.isNotEmpty) 'hooks: ${hooks.join(', ')}',
     if (tools.isNotEmpty) 'tools: ${tools.join(', ')}',
     if (mcpServers.isNotEmpty) 'MCPs: ${mcpServers.join(', ')}',
+    if (knowledgeBases.isNotEmpty)
+      'bases de saber: ${knowledgeBases.join(', ')}',
   ];
   return (true, 'Le saqué a @$cleanHandle — ${removed.join(' | ')}.');
 }
@@ -1031,6 +1109,18 @@ List<String> _without(List<String> current, List<String> removed) {
     }
   }
 
+  var hookNames = project.hookNames;
+  if (arguments['hook_names'] != null) {
+    final hooks = _keepKnownNames(
+      _stringList(arguments['hook_names']),
+      known: HooksService.instance.notifier.data.hooks.map((hook) => hook.name),
+    );
+    hookNames = hooks.$1;
+    if (hooks.$2.isNotEmpty) {
+      warnings.add('no encontré el hook ${hooks.$2.join(', ')}');
+    }
+  }
+
   final error = projects.updateProject(
     project.id,
     name: (arguments['new_name'] as String?)?.trim().isNotEmpty ?? false
@@ -1042,10 +1132,7 @@ List<String> _without(List<String> current, List<String> removed) {
     profileIds: profileIds,
     workflowIds: workflowIds,
     ruleNames: ruleNames,
-    // Reenviados a propósito: `updateProject` reemplaza la lista entera, así
-    // que omitirlos acá borraba los guardarraíles del proyecto en cada
-    // update que no los mencionara — y la marca de mantenedor haría lo mismo.
-    hookNames: project.hookNames,
+    hookNames: hookNames,
     knowledgeBaseNames: knowledgeBaseNames,
     maintained: arguments['maintained'] as bool? ?? project.maintained,
   );
@@ -1062,6 +1149,79 @@ List<String> _without(List<String> current, List<String> removed) {
       );
     } else {
       projects.setActiveWorkflow(project.id, active.id);
+    }
+  }
+
+  for (final raw in (arguments['member_engines'] as List?) ?? const []) {
+    if (raw is! Map) continue;
+    final data = raw.cast<String, Object?>();
+    final handle = (data['handle'] as String? ?? '').trim();
+    final profile = profiles
+        .where((entry) => entry.name == handle && profileIds.contains(entry.id))
+        .firstOrNull;
+    if (profile == null) {
+      warnings.add('no pude ajustar el motor de @$handle (no es miembro)');
+      continue;
+    }
+    if (data['clear'] as bool? ?? false) {
+      projects.clearMemberTuning(project.id, profile.id);
+      continue;
+    }
+    final providerAlias = (data['provider'] as String? ?? '').trim();
+    final provider = providerAlias.isEmpty
+        ? null
+        : AgentProvider.tryFromAlias(providerAlias);
+    if (providerAlias.isNotEmpty && provider == null) {
+      warnings.add('proveedor inválido $providerAlias para @$handle');
+      continue;
+    }
+    final model = (data['model'] as String? ?? '').trim();
+    final effort = (data['effort'] as String? ?? '').trim();
+    projects.setMemberTuning(
+      project.id,
+      profile.id,
+      provider: provider,
+      model: model.isEmpty ? null : model,
+      effort: effort.isEmpty ? null : effort,
+    );
+  }
+
+  for (final raw in (arguments['node_assignments'] as List?) ?? const []) {
+    if (raw is! Map) continue;
+    final data = raw.cast<String, Object?>();
+    final workflowName = (data['workflow'] as String? ?? '').trim();
+    final nodeId = (data['node_id'] as String? ?? '').trim();
+    final handle = (data['handle'] as String? ?? '').trim();
+    final workflow = workflows
+        .where(
+          (entry) =>
+              entry.name == workflowName && workflowIds.contains(entry.id),
+        )
+        .firstOrNull;
+    if (workflow == null ||
+        !workflow.capabilities.any((entry) => entry.id == nodeId)) {
+      warnings.add('asignación inválida $workflowName/$nodeId');
+      continue;
+    }
+    final profile = handle.isEmpty
+        ? null
+        : profiles
+              .where(
+                (entry) =>
+                    entry.name == handle && profileIds.contains(entry.id),
+              )
+              .firstOrNull;
+    if (handle.isNotEmpty && profile == null) {
+      warnings.add('no pude asignar @$handle a $workflowName/$nodeId');
+      continue;
+    }
+    if (!projects.setWorkflowNodeAssignment(
+      project.id,
+      workflow.id,
+      nodeId,
+      profile?.id,
+    )) {
+      warnings.add('$workflowName/$nodeId ya está corriendo o cerrado');
     }
   }
 
@@ -1134,6 +1294,7 @@ String _describeSystem() {
 
   final hooks = HooksService.instance.notifier.data.hooks;
   final vault = SystemVaultService.instance.notifier.data;
+  final integrityIssues = _catalogInspector().integrityIssues;
 
   return [
     'Respaldo:',
@@ -1156,6 +1317,12 @@ String _describeSystem() {
     'Pendientes:',
     '- Secrets sin valor: ${_orNone(pendingSecrets)}',
     '- MCPs que no van a levantar bien: ${_orNone(blockedServers)}',
+    '',
+    'Integridad del catálogo:',
+    if (integrityIssues.isEmpty)
+      '- Sin referencias inválidas detectadas.'
+    else
+      for (final issue in integrityIssues) '- $issue',
     '',
     'Ahora mismo:',
     '- Agentes respondiendo: ${_orNone(busyAgents)}',
@@ -1189,17 +1356,45 @@ String _firstLine(String text) {
 List<String> _stringList(Object? value) =>
     (value as List?)?.cast<String>() ?? const [];
 
-List<WorkflowStep> _parseToolSteps(Object? value) {
-  final rawSteps = (value as List?)?.cast<Map<String, Object?>>() ?? const [];
-  return [
-    for (final step in rawSteps)
-      WorkflowStep(
-        id: generateUuidV4(),
-        title: step['title'] as String? ?? '',
-        role: step['role'] as String? ?? '',
-        instruction: step['instruction'] as String? ?? '',
+List<WorkflowQualityGate> _workflowQualityGates(Object? value) => [
+  for (final name in _stringList(value))
+    for (final gate in WorkflowQualityGate.values)
+      if (gate.name == name) gate,
+];
+
+int? _boundedWorkflowLimit(Object? value) {
+  final number = value as num?;
+  return number?.toInt().clamp(0, 2).toInt();
+}
+
+List<WorkflowCapability>? _workflowCapabilities(Object? value) {
+  if (value == null) return null;
+  final capabilities = <WorkflowCapability>[];
+  for (final raw in (value as List?) ?? const []) {
+    if (raw is! Map) continue;
+    final data = raw.cast<String, dynamic>();
+    final id = (data['id'] as String? ?? '').trim();
+    final title = (data['title'] as String? ?? '').trim();
+    final instruction = (data['instruction'] as String? ?? '').trim();
+    final role = (data['role'] as String? ?? '').trim();
+    if (id.isEmpty || title.isEmpty || instruction.isEmpty || role.isEmpty) {
+      continue;
+    }
+    capabilities.add(
+      WorkflowCapability(
+        id: id,
+        title: title,
+        instruction: instruction,
+        role: role,
+        dependencyIds: _stringList(data['dependencies']),
+        activation: data['activation'] == 'optional'
+            ? WorkflowCapabilityActivation.optional
+            : WorkflowCapabilityActivation.required,
+        requiresIndependentOwner: data['independent'] as bool? ?? false,
       ),
-  ];
+    );
+  }
+  return capabilities;
 }
 
 /// El catálogo en texto, que es como lo lee un modelo.

@@ -75,14 +75,8 @@ Map<String, List<Map<String, dynamic>>> catalogAsJson() {
       'whenToApply': workflow.whenToApply,
       'skillNames': workflow.skillNames,
       'buildsRoadmap': workflow.buildsRoadmap,
-      'steps': [
-        for (final step in workflow.steps)
-          {
-            'title': step.title,
-            'role': step.role,
-            'instruction': step.instruction,
-          },
-      ],
+      'kind': workflow.kind.name,
+      'policy': workflow.policy.toJson(),
     });
   }
 
@@ -423,19 +417,15 @@ Future<String> mergeCatalogJson(
   for (final json
       in byCategory['workflows'] ?? const <Map<String, dynamic>>[]) {
     final name = json['name'] as String;
-    final steps = [
-      for (final step
-          in (json['steps'] as List?)?.cast<Map<String, dynamic>>() ??
-              const <Map<String, dynamic>>[])
-        WorkflowStep(
-          id: generateUuidV4(),
-          title: step['title'] as String? ?? '',
-          role: step['role'] as String? ?? '',
-          instruction: step['instruction'] as String? ?? '',
-        ),
-    ];
     final skillNames =
         (json['skillNames'] as List?)?.cast<String>() ?? const <String>[];
+    final kind = WorkflowKind.values.firstWhere(
+      (kind) => kind.name == json['kind'],
+      orElse: () => WorkflowKind.general,
+    );
+    final policy = WorkflowPolicy.fromJson(
+      (json['policy'] as Map?)?.cast<String, dynamic>() ?? const {},
+    );
     final existing = workflows.data.workflows
         .where((workflow) => workflow.name == name)
         .firstOrNull;
@@ -443,7 +433,8 @@ Future<String> mergeCatalogJson(
         ? workflows.createWorkflow(
             name: name,
             whenToApply: json['whenToApply'] as String? ?? '',
-            steps: steps,
+            kind: kind,
+            policy: policy,
             skillNames: skillNames,
             buildsRoadmap: json['buildsRoadmap'] as bool? ?? false,
           )
@@ -451,7 +442,8 @@ Future<String> mergeCatalogJson(
             existing.id,
             name: name,
             whenToApply: json['whenToApply'] as String? ?? '',
-            steps: steps,
+            kind: kind,
+            policy: policy,
             skillNames: skillNames,
             buildsRoadmap: json['buildsRoadmap'] as bool? ?? false,
           );

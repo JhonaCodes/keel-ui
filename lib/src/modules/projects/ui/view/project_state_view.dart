@@ -96,7 +96,7 @@ class _ProjectStateViewState extends State<ProjectStateView> {
                     widget.project.workingDirectory.trim(),
               )
               .toList(),
-          totalSteps: ProjectsService.instance.notifier.stepCountFor(
+          totalSteps: ProjectsService.instance.notifier.nodeCountFor(
             widget.project,
           ),
           now: now,
@@ -684,9 +684,9 @@ class _Sesiones extends StatelessWidget {
               },
             ),
             _Mono(
-              session.totalSteps == 0
+              session.totalNodes == 0
                   ? '—'
-                  : '${(session.stepIndex + 1).clamp(1, session.totalSteps)}/${session.totalSteps}',
+                  : '${(session.nodeIndex + 1).clamp(1, session.totalNodes)}/${session.totalNodes}',
             ),
             _Mono(
               session.planTotal == 0

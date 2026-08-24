@@ -31,7 +31,8 @@ const _capabilities = [
   _AssistantCapability(
     icon: Icons.account_tree_outlined,
     title: 'Workflows',
-    example: 'Armá un workflow de dos pasos: implementar y revisar.',
+    example:
+        'Armá un workflow para bugs con implementación y gate de revisión.',
   ),
   _AssistantCapability(
     icon: Icons.extension_outlined,

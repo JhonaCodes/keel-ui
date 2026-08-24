@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:keel_ui/src/core/ui/form_panel.dart';
+import 'package:keel_ui/src/integrations/llm/openai_compatible/remote_model_catalog.dart';
 import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
 import 'package:keel_ui/src/modules/agents/model/agent_model_option.dart';
 import 'package:keel_ui/src/modules/agents/model/agent_provider.dart';
@@ -8,6 +9,7 @@ import 'package:keel_ui/src/modules/agents/model/effort_level.dart';
 import 'package:keel_ui/src/modules/projects/model/member_tuning.dart';
 import 'package:keel_ui/src/modules/projects/model/project.dart';
 import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
+import 'package:keel_ui/src/modules/secrets/ui/widget/provider_credential_card.dart';
 
 /// Abre el panel para elegir con qué motor corre [member] en [project].
 Future<void> openMemberEnginePanel(
@@ -34,18 +36,26 @@ class MemberEnginePanel extends StatefulWidget {
     super.key,
     required this.project,
     required this.member,
+    this.catalog,
   });
 
   final Project project;
   final AgentProfile member;
+  final RemoteModelCatalog? catalog;
 
   @override
   State<MemberEnginePanel> createState() => _MemberEnginePanelState();
 }
 
 class _MemberEnginePanelState extends State<MemberEnginePanel> {
+  late final RemoteModelCatalog _catalog =
+      widget.catalog ?? RemoteModelCatalog();
   late MemberTuning _tuning =
       widget.project.memberTuning[widget.member.id] ?? const MemberTuning();
+  late final TextEditingController _manualModel = TextEditingController(
+    text: _tuning.model ?? '',
+  );
+  late Future<List<AgentModelOption>> _models = _catalog.load(_provider);
 
   /// El proveedor que va a correr con lo elegido hasta ahora — de él dependen
   /// los modelos que se ofrecen y si el esfuerzo aplica.
@@ -53,6 +63,40 @@ class _MemberEnginePanelState extends State<MemberEnginePanel> {
 
   /// Cómo queda el turno con lo elegido: la única línea que importa leer.
   AgentProfile get _preview => _tuning.applyTo(widget.member);
+
+  @override
+  void dispose() {
+    _manualModel.dispose();
+    super.dispose();
+  }
+
+  void _changeProvider(AgentProvider? value) {
+    setState(() {
+      _tuning = MemberTuning(provider: value, effort: _tuning.effort);
+      _manualModel.clear();
+      _models = _catalog.load(_provider);
+    });
+  }
+
+  void _refreshModels() {
+    _catalog.clear(_provider);
+    setState(() => _models = _catalog.load(_provider));
+  }
+
+  void _setModel(String? value) {
+    _manualModel.text = value ?? '';
+    _storeModel(value);
+  }
+
+  void _storeModel(String? value) {
+    setState(() {
+      _tuning = MemberTuning(
+        provider: _tuning.provider,
+        model: value,
+        effort: _tuning.effort,
+      );
+    });
+  }
 
   void _save() {
     ProjectsService.instance.notifier.setMemberTuning(
@@ -112,45 +156,35 @@ class _MemberEnginePanelState extends State<MemberEnginePanel> {
             // Las dos CLIs no comparten un solo nombre de modelo, así que al
             // cambiar de proveedor el modelo elegido deja de existir: se
             // suelta y vuelve a resolverse por defecto.
-            onChanged: (value) => setState(() {
-              _tuning = MemberTuning(provider: value, effort: _tuning.effort);
-            }),
+            onChanged: _changeProvider,
           ),
           const SizedBox(height: 16),
-          DropdownButtonFormField<String?>(
-            key: ValueKey(_provider),
-            initialValue: _tuning.model,
-            decoration: InputDecoration(
-              labelText: 'Modelo (${_provider.label})',
-              border: const OutlineInputBorder(
+          _RemoteModelField(
+            provider: _provider,
+            member: member,
+            selected: _tuning.model,
+            models: _models,
+            onChanged: _setModel,
+            onRefresh: _refreshModels,
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _manualModel,
+            onChanged: (value) =>
+                _storeModel(value.trim().isEmpty ? null : value.trim()),
+            decoration: const InputDecoration(
+              labelText: 'ID exacto del modelo',
+              helperText:
+                  'Úsalo si tu cuenta ve un modelo que todavía no aparece en el catálogo.',
+              border: OutlineInputBorder(
                 borderRadius: BorderRadius.all(Radius.circular(16)),
               ),
             ),
-            items: [
-              DropdownMenuItem(
-                value: null,
-                child: Text(
-                  _provider == member.provider
-                      ? 'El del agente '
-                            '(${modelLabelFor(member.provider, member.model)})'
-                      : 'El de siempre de ${_provider.label} '
-                            '(${modelLabelFor(_provider, defaultModelFor(_provider))})',
-                ),
-              ),
-              for (final option in modelOptionsFor(_provider))
-                DropdownMenuItem(
-                  value: option.alias,
-                  child: Text(option.label),
-                ),
-            ],
-            onChanged: (value) => setState(() {
-              _tuning = MemberTuning(
-                provider: _tuning.provider,
-                model: value,
-                effort: _tuning.effort,
-              );
-            }),
           ),
+          if (_provider.requiresApiKey) ...[
+            const SizedBox(height: 10),
+            ProviderCredentialCard(provider: _provider, compact: true),
+          ],
           const SizedBox(height: 16),
           DropdownButtonFormField<String?>(
             initialValue: isCodex ? null : _tuning.effort,
@@ -233,6 +267,80 @@ class _MemberEnginePanelState extends State<MemberEnginePanel> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _RemoteModelField extends StatelessWidget {
+  const _RemoteModelField({
+    required this.provider,
+    required this.member,
+    required this.selected,
+    required this.models,
+    required this.onChanged,
+    required this.onRefresh,
+  });
+
+  final AgentProvider provider;
+  final AgentProfile member;
+  final String? selected;
+  final Future<List<AgentModelOption>> models;
+  final ValueChanged<String?> onChanged;
+  final VoidCallback onRefresh;
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<AgentModelOption>>(
+      future: models,
+      builder: (context, snapshot) {
+        final options = <String, AgentModelOption>{
+          for (final option in modelOptionsFor(provider)) option.alias: option,
+          for (final option in snapshot.data ?? const <AgentModelOption>[])
+            option.alias: option,
+          // ignore: use_null_aware_elements
+          if (selected != null)
+            selected!: AgentModelOption(alias: selected!, label: selected!),
+        }.values.toList();
+        return DropdownButtonFormField<String?>(
+          key: ValueKey((provider, selected, snapshot.connectionState)),
+          initialValue: selected,
+          isExpanded: true,
+          decoration: InputDecoration(
+            labelText: 'Modelo (${provider.label})',
+            suffixIcon: IconButton(
+              tooltip: 'Refrescar catálogo',
+              onPressed: onRefresh,
+              icon: snapshot.connectionState == ConnectionState.waiting
+                  ? const SizedBox.square(
+                      dimension: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.refresh, size: 18),
+            ),
+            border: const OutlineInputBorder(
+              borderRadius: BorderRadius.all(Radius.circular(16)),
+            ),
+          ),
+          items: [
+            DropdownMenuItem(
+              value: null,
+              child: Text(
+                provider == member.provider
+                    ? 'El del agente '
+                          '(${modelLabelFor(member.provider, member.model)})'
+                    : 'Default de ${provider.label} '
+                          '(${modelLabelFor(provider, defaultModelFor(provider))})',
+              ),
+            ),
+            for (final option in options)
+              DropdownMenuItem(
+                value: option.alias,
+                child: Text(option.label, overflow: TextOverflow.ellipsis),
+              ),
+          ],
+          onChanged: onChanged,
+        );
+      },
     );
   }
 }

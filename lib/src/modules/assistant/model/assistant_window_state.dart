@@ -3,6 +3,7 @@ import 'package:flutter/painting.dart';
 
 import 'package:keel_ui/src/modules/agents/model/agent.dart';
 import 'package:keel_ui/src/modules/agents/model/agent_icon_colors.dart';
+import 'package:keel_ui/src/modules/agents/model/agent_provider.dart';
 import 'package:keel_ui/src/modules/agents/model/agent_tool_activity.dart';
 import 'package:keel_ui/src/modules/agents/model/chat_message.dart';
 import 'package:keel_ui/src/modules/agents/model/permission_request.dart';
@@ -22,6 +23,7 @@ class AssistantAgentSnapshot {
   final String id;
   final String name;
   final String model;
+  final AgentProvider provider;
   final String effort;
   final bool fullFileSystemAccess;
   final bool isStreaming;
@@ -42,6 +44,7 @@ class AssistantAgentSnapshot {
     required this.id,
     required this.name,
     required this.model,
+    required this.provider,
     required this.effort,
     required this.fullFileSystemAccess,
     required this.isStreaming,
@@ -60,6 +63,7 @@ class AssistantAgentSnapshot {
       id: agent.id,
       name: agent.name,
       model: agent.model,
+      provider: agent.provider,
       effort: agent.effort,
       fullFileSystemAccess: agent.fullFileSystemAccess,
       isStreaming: agent.isStreaming,
@@ -85,6 +89,7 @@ class AssistantAgentSnapshot {
       id: id,
       name: name,
       model: model,
+      provider: provider,
       createdAt: DateTime.fromMicrosecondsSinceEpoch(0),
       iconColor: iconColor,
       effort: effort,
@@ -109,7 +114,7 @@ class AssistantAgentSnapshot {
       durationMs: message.durationMs,
       reasoning: message.reasoning,
       authorProfileId: message.authorProfileId,
-      stepIndex: message.stepIndex,
+      workNodeId: message.workNodeId,
       consultOfProfileId: message.consultOfProfileId,
     );
   }
@@ -118,6 +123,7 @@ class AssistantAgentSnapshot {
     'id': id,
     'name': name,
     'model': model,
+    'provider': provider.alias,
     'effort': effort,
     'fullFileSystemAccess': fullFileSystemAccess,
     'isStreaming': isStreaming,
@@ -136,6 +142,9 @@ class AssistantAgentSnapshot {
       id: json['id'] as String,
       name: json['name'] as String,
       model: json['model'] as String,
+      provider: json['provider'] == null
+          ? AgentProvider.claude
+          : AgentProvider.fromAlias(json['provider'] as String),
       effort: json['effort'] as String,
       fullFileSystemAccess: json['fullFileSystemAccess'] as bool,
       isStreaming: json['isStreaming'] as bool,
@@ -177,6 +186,7 @@ class AssistantAgentSnapshot {
           id == other.id &&
           name == other.name &&
           model == other.model &&
+          provider == other.provider &&
           effort == other.effort &&
           fullFileSystemAccess == other.fullFileSystemAccess &&
           isStreaming == other.isStreaming &&
@@ -194,6 +204,7 @@ class AssistantAgentSnapshot {
     id,
     name,
     model,
+    provider,
     effort,
     fullFileSystemAccess,
     isStreaming,

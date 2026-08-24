@@ -25,7 +25,7 @@ class SessionMessageBubble extends StatelessWidget {
     required this.message,
     required this.projectId,
     required this.author,
-    required this.stepTitle,
+    required this.nodeTitle,
     required this.askedBy,
     required this.memberIndex,
     required this.askedByIndex,
@@ -34,7 +34,7 @@ class SessionMessageBubble extends StatelessWidget {
   final ChatMessage message;
   final String projectId;
   final AgentProfile? author;
-  final String? stepTitle;
+  final String? nodeTitle;
   final AgentProfile? askedBy;
   final int memberIndex;
   final int askedByIndex;
@@ -241,7 +241,7 @@ class _AuthorLine extends StatelessWidget {
               color: accent,
             ),
           ),
-          if (bubble.stepTitle != null && !isConsultReply)
+          if (bubble.nodeTitle != null && !isConsultReply)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
               decoration: ShapeDecoration(
@@ -249,7 +249,7 @@ class _AuthorLine extends StatelessWidget {
                 shape: 4.smoothBorder(),
               ),
               child: Text(
-                bubble.stepTitle!,
+                bubble.nodeTitle!,
                 style: TextStyle(
                   fontFamily: 'monospace',
                   fontSize: 10,

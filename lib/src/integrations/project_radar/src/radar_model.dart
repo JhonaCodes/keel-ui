@@ -53,8 +53,8 @@ class RadarSession {
     required this.id,
     required this.title,
     required this.status,
-    required this.stepIndex,
-    required this.totalSteps,
+    required this.nodeIndex,
+    required this.totalNodes,
     required this.planDone,
     required this.planTotal,
     required this.contextRatio,
@@ -65,8 +65,8 @@ class RadarSession {
   final String id;
   final String title;
   final SessionStatus status;
-  final int stepIndex;
-  final int totalSteps;
+  final int nodeIndex;
+  final int totalNodes;
   final int planDone;
   final int planTotal;
 

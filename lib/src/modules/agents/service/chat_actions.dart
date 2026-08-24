@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:keel_ui/src/modules/agents/model/agent_provider.dart';
 import 'package:keel_ui/src/modules/agents/model/file_edit.dart';
 import 'package:keel_ui/src/modules/agents/viewmodel/agents_viewmodel.dart';
 
@@ -32,6 +33,7 @@ abstract class ChatActions {
   void deleteAgent(String agentId);
   void deleteMessage(String agentId, DateTime timestamp);
   void setAgentModel(String agentId, String model);
+  void setAgentProvider(String agentId, AgentProvider provider);
   void setAgentEffort(String agentId, String effort);
   void requestCompact(String agentId);
   void respondToPermissionRequest(String agentId, {required bool grant});
@@ -83,6 +85,10 @@ class LocalChatActions extends ChatActions {
   @override
   void setAgentModel(String agentId, String model) =>
       _agents.setAgentModel(agentId, model);
+
+  @override
+  void setAgentProvider(String agentId, AgentProvider provider) =>
+      _agents.setAgentProvider(agentId, provider);
 
   @override
   void setAgentEffort(String agentId, String effort) =>

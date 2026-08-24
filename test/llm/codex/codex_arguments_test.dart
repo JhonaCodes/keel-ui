@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:keel_ui/src/integrations/llm/codex/codex_arguments.dart';
@@ -73,7 +75,7 @@ void main() {
       ]);
     });
 
-    test('resume de sesión agrega resume <id> después de exec', () {
+    test('resume de sesión solo usa flags admitidos por su subcomando', () {
       final args = buildCodexArguments(
         prompt: 'Seguí',
         sessionId: 'thread-abc',
@@ -82,7 +84,14 @@ void main() {
         codexProfileName: null,
       );
 
-      expect(args.sublist(0, 3), ['exec', 'resume', 'thread-abc']);
+      expect(args, [
+        'exec',
+        'resume',
+        'thread-abc',
+        '--json',
+        '--skip-git-repo-check',
+        'Seguí',
+      ]);
     });
 
     test('un alias de Claude no llega a -m: cae al config de codex', () {
@@ -148,5 +157,30 @@ void main() {
 
       expect(args.last, 'Este es el prompt');
     });
+  });
+
+  test('el argv de resume coincide con la ayuda del binario instalado', () async {
+    final lookup = await Process.run('/bin/sh', ['-c', 'command -v codex']);
+    if (lookup.exitCode != 0) return;
+    final help = await Process.run('codex', ['exec', 'resume', '--help']);
+    expect(help.exitCode, 0);
+    final output = '${help.stdout}\n${help.stderr}';
+    expect(output, contains('--model'));
+    expect(output, contains('--json'));
+    expect(output, contains('--skip-git-repo-check'));
+    expect(output, isNot(contains('--sandbox')));
+    expect(output, isNot(contains('--profile')));
+    expect(output, isNot(contains('--color')));
+
+    final argv = buildCodexArguments(
+      prompt: 'seguí',
+      sessionId: 'thread-real-help',
+      model: 'gpt-5.5',
+      fullFileSystemAccess: true,
+      codexProfileName: 'keel',
+    );
+    expect(argv, isNot(contains('-s')));
+    expect(argv, isNot(contains('-p')));
+    expect(argv, isNot(contains('--color')));
   });
 }

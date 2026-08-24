@@ -1,5 +1,128 @@
 import 'package:flutter/foundation.dart';
 
+import 'package:keel_ui/src/modules/workflows/model/workflow_capability.dart';
+
+export 'package:keel_ui/src/modules/workflows/model/workflow_capability.dart';
+
+enum WorkflowKind { general, bug, migration, roadmap }
+
+enum WorkflowQualityGate { analysis, focusedTests, compatibility, regression }
+
+/// Declarative policy for an adaptive workflow. It describes the evidence and
+/// capabilities a case needs, never an ordered chain of agents.
+class WorkflowPolicy {
+  final String resolutionRole;
+  final List<String> requiredSkillNames;
+  final List<String> requiredRuleNames;
+  final List<String> requiredKnowledgeBaseNames;
+  final List<WorkflowQualityGate> qualityGates;
+  final int maxReplans;
+  final int maxSubagents;
+
+  const WorkflowPolicy({
+    this.resolutionRole = '',
+    this.requiredSkillNames = const [],
+    this.requiredRuleNames = const [],
+    this.requiredKnowledgeBaseNames = const [],
+    this.qualityGates = const [
+      WorkflowQualityGate.analysis,
+      WorkflowQualityGate.focusedTests,
+    ],
+    this.maxReplans = 2,
+    this.maxSubagents = 2,
+  });
+
+  WorkflowPolicy copyWith({
+    String? resolutionRole,
+    List<String>? requiredSkillNames,
+    List<String>? requiredRuleNames,
+    List<String>? requiredKnowledgeBaseNames,
+    List<WorkflowQualityGate>? qualityGates,
+    int? maxReplans,
+    int? maxSubagents,
+  }) => WorkflowPolicy(
+    resolutionRole: resolutionRole ?? this.resolutionRole,
+    requiredSkillNames: requiredSkillNames ?? this.requiredSkillNames,
+    requiredRuleNames: requiredRuleNames ?? this.requiredRuleNames,
+    requiredKnowledgeBaseNames:
+        requiredKnowledgeBaseNames ?? this.requiredKnowledgeBaseNames,
+    qualityGates: qualityGates ?? this.qualityGates,
+    maxReplans: maxReplans ?? this.maxReplans,
+    maxSubagents: maxSubagents ?? this.maxSubagents,
+  );
+
+  Map<String, dynamic> toJson() => {
+    'resolutionRole': resolutionRole,
+    'requiredSkillNames': requiredSkillNames,
+    'requiredRuleNames': requiredRuleNames,
+    'requiredKnowledgeBaseNames': requiredKnowledgeBaseNames,
+    'qualityGates': qualityGates.map((gate) => gate.name).toList(),
+    'maxReplans': maxReplans,
+    'maxSubagents': maxSubagents,
+  };
+
+  factory WorkflowPolicy.fromJson(Map<String, dynamic>? json) {
+    final data = json ?? const <String, dynamic>{};
+    return WorkflowPolicy(
+      resolutionRole: data['resolutionRole'] as String? ?? '',
+      requiredSkillNames:
+          (data['requiredSkillNames'] as List?)?.cast<String>() ?? const [],
+      requiredRuleNames:
+          (data['requiredRuleNames'] as List?)?.cast<String>() ?? const [],
+      requiredKnowledgeBaseNames:
+          (data['requiredKnowledgeBaseNames'] as List?)?.cast<String>() ??
+          const [],
+      qualityGates: (data['qualityGates'] as List? ?? const [])
+          .map((entry) => _qualityGateFromName(entry as String?))
+          .whereType<WorkflowQualityGate>()
+          .toList(),
+      maxReplans: (data['maxReplans'] as int? ?? 2).clamp(0, 2),
+      maxSubagents: (data['maxSubagents'] as int? ?? 2).clamp(0, 2),
+    );
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is WorkflowPolicy &&
+          runtimeType == other.runtimeType &&
+          resolutionRole == other.resolutionRole &&
+          listEquals(requiredSkillNames, other.requiredSkillNames) &&
+          listEquals(requiredRuleNames, other.requiredRuleNames) &&
+          listEquals(
+            requiredKnowledgeBaseNames,
+            other.requiredKnowledgeBaseNames,
+          ) &&
+          listEquals(qualityGates, other.qualityGates) &&
+          maxReplans == other.maxReplans &&
+          maxSubagents == other.maxSubagents;
+
+  @override
+  int get hashCode => Object.hash(
+    resolutionRole,
+    Object.hashAll(requiredSkillNames),
+    Object.hashAll(requiredRuleNames),
+    Object.hashAll(requiredKnowledgeBaseNames),
+    Object.hashAll(qualityGates),
+    maxReplans,
+    maxSubagents,
+  );
+}
+
+WorkflowQualityGate? _qualityGateFromName(String? name) {
+  for (final gate in WorkflowQualityGate.values) {
+    if (gate.name == name) return gate;
+  }
+  return null;
+}
+
+WorkflowKind _workflowKindFromName(String? name) {
+  for (final kind in WorkflowKind.values) {
+    if (kind.name == name) return kind;
+  }
+  return WorkflowKind.general;
+}
+
 /// Returns a human error message if [value] can't be used as a
 /// [Workflow.name], or null if it's valid.
 String? validateWorkflowName(String value) {
@@ -8,75 +131,20 @@ String? validateWorkflowName(String value) {
   return null;
 }
 
-/// One step of a [Workflow]. [role] names a role to fill (compared against
-/// an [AgentProfile]'s role by whoever runs the workflow) — not a specific
-/// agent — so the same workflow can be reused across different projects.
-class WorkflowStep {
-  final String id;
-  final String title;
-  final String role;
-  final String instruction;
-
-  const WorkflowStep({
-    required this.id,
-    required this.title,
-    required this.role,
-    required this.instruction,
-  });
-
-  WorkflowStep copyWith({String? title, String? role, String? instruction}) {
-    return WorkflowStep(
-      id: id,
-      title: title ?? this.title,
-      role: role ?? this.role,
-      instruction: instruction ?? this.instruction,
-    );
-  }
-
-  Map<String, dynamic> toJson() => {
-    'id': id,
-    'title': title,
-    'role': role,
-    'instruction': instruction,
-  };
-
-  factory WorkflowStep.fromJson(Map<String, dynamic> json) {
-    return WorkflowStep(
-      id: json['id'] as String,
-      title: json['title'] as String? ?? '',
-      role: json['role'] as String? ?? '',
-      instruction: json['instruction'] as String? ?? '',
-    );
-  }
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is WorkflowStep &&
-          runtimeType == other.runtimeType &&
-          id == other.id &&
-          title == other.title &&
-          role == other.role &&
-          instruction == other.instruction;
-
-  @override
-  int get hashCode => Object.hash(id, title, role, instruction);
-
-  @override
-  String toString() =>
-      'WorkflowStep(id: $id, title: $title, role: $role, '
-      'instruction: ${instruction.length} chars)';
-}
-
-/// A registered, reusable sequence of steps. [whenToApply] describes the
-/// trigger/condition in free text — y desde que una sesión elige con cuál
-/// corre, ese texto es lo que se lee para elegir.
+/// A registered, reusable adaptive workflow. [whenToApply] describes its
+/// trigger; [policy] describes context and quality requirements.
 class Workflow {
   final String id;
   final String name;
   final String whenToApply;
-  final List<WorkflowStep> steps;
   final DateTime createdAt;
+
+  /// A workflow's intent. It drives its graph and validation gates instead of
+  /// an ordered list of agents.
+  final WorkflowKind kind;
+
+  final WorkflowPolicy policy;
+  final List<WorkflowCapability> capabilities;
 
   /// Skills que este workflow suma a TODOS sus turnos, por nombre.
   ///
@@ -99,25 +167,31 @@ class Workflow {
     required this.name,
     required this.whenToApply,
     required this.createdAt,
-    this.steps = const [],
     this.skillNames = const [],
     this.buildsRoadmap = false,
+    this.kind = WorkflowKind.general,
+    this.policy = const WorkflowPolicy(),
+    this.capabilities = const [],
   });
 
   Workflow copyWith({
     String? name,
     String? whenToApply,
-    List<WorkflowStep>? steps,
     List<String>? skillNames,
     bool? buildsRoadmap,
+    WorkflowKind? kind,
+    WorkflowPolicy? policy,
+    List<WorkflowCapability>? capabilities,
   }) {
     return Workflow(
       id: id,
       name: name ?? this.name,
       whenToApply: whenToApply ?? this.whenToApply,
-      steps: steps ?? this.steps,
       skillNames: skillNames ?? this.skillNames,
       buildsRoadmap: buildsRoadmap ?? this.buildsRoadmap,
+      kind: kind ?? this.kind,
+      policy: policy ?? this.policy,
+      capabilities: capabilities ?? this.capabilities,
       createdAt: createdAt,
     );
   }
@@ -126,22 +200,37 @@ class Workflow {
     'id': id,
     'name': name,
     'whenToApply': whenToApply,
-    'steps': steps.map((step) => step.toJson()).toList(),
     'skillNames': skillNames,
     'buildsRoadmap': buildsRoadmap,
+    'kind': kind.name,
+    'policy': policy.toJson(),
+    'capabilities': capabilities.map((entry) => entry.toJson()).toList(),
     'createdAt': createdAt.toIso8601String(),
   };
 
   factory Workflow.fromJson(Map<String, dynamic> json) {
+    final kind = _workflowKindFromName(json['kind'] as String?);
+    final policy = WorkflowPolicy.fromJson(
+      (json['policy'] as Map?)?.cast<String, dynamic>(),
+    );
+    final storedCapabilities = (json['capabilities'] as List? ?? const [])
+        .map(
+          (entry) => WorkflowCapability.fromJson(
+            (entry as Map).cast<String, dynamic>(),
+          ),
+        )
+        .toList();
     return Workflow(
       id: json['id'] as String,
       name: json['name'] as String,
       whenToApply: json['whenToApply'] as String? ?? '',
-      steps: (json['steps'] as List? ?? const [])
-          .map((entry) => WorkflowStep.fromJson(entry as Map<String, dynamic>))
-          .toList(),
       skillNames: (json['skillNames'] as List?)?.cast<String>() ?? const [],
       buildsRoadmap: json['buildsRoadmap'] as bool? ?? false,
+      kind: kind,
+      policy: policy,
+      capabilities: storedCapabilities.isEmpty
+          ? defaultWorkflowCapabilities(kind, policy.resolutionRole)
+          : storedCapabilities,
       createdAt: DateTime.parse(json['createdAt'] as String),
     );
   }
@@ -154,9 +243,11 @@ class Workflow {
           id == other.id &&
           name == other.name &&
           whenToApply == other.whenToApply &&
-          listEquals(steps, other.steps) &&
           listEquals(skillNames, other.skillNames) &&
           buildsRoadmap == other.buildsRoadmap &&
+          kind == other.kind &&
+          policy == other.policy &&
+          listEquals(capabilities, other.capabilities) &&
           createdAt == other.createdAt;
 
   @override
@@ -164,16 +255,102 @@ class Workflow {
     id,
     name,
     whenToApply,
-    Object.hashAll(steps),
     Object.hashAll(skillNames),
     buildsRoadmap,
+    kind,
+    policy,
+    Object.hashAll(capabilities),
     createdAt,
   );
 
   @override
   String toString() =>
       'Workflow(id: $id, name: $name, whenToApply: $whenToApply, '
-      'steps: ${steps.length}, createdAt: $createdAt)';
+      'kind: ${kind.name}, createdAt: $createdAt)';
+}
+
+List<WorkflowCapability> defaultWorkflowCapabilities(
+  WorkflowKind kind,
+  String resolutionRole,
+) {
+  final owner = resolutionRole.trim();
+  final fallback = owner.isEmpty ? '*' : owner;
+  if (kind == WorkflowKind.roadmap) {
+    return [
+      WorkflowCapability(
+        id: 'implementation',
+        title: 'Construir formato de tareas',
+        instruction: 'Crear o corregir el formato TASKS del proyecto.',
+        role: fallback,
+      ),
+      WorkflowCapability(
+        id: 'verification',
+        title: 'Verificar formato',
+        instruction: 'Validar estructura, referencias y frontmatter.',
+        role: fallback,
+        dependencyIds: const ['implementation'],
+      ),
+    ];
+  }
+  return [
+    WorkflowCapability(
+      id: 'triage',
+      title: kind == WorkflowKind.migration
+          ? 'Mapa de dependencias'
+          : 'Diagnóstico y contrato',
+      instruction: 'Delimitar causa, alcance y evidencia de entrada.',
+      role: fallback,
+    ),
+    if (kind == WorkflowKind.migration)
+      WorkflowCapability(
+        id: 'impact',
+        title: 'Diseño del punto único de entrada',
+        instruction: 'Inventariar impacto end-to-end y compatibilidad.',
+        role: fallback,
+        dependencyIds: const ['triage'],
+      ),
+    WorkflowCapability(
+      id: 'implementation',
+      title: 'Implementar con evidencia',
+      instruction: 'Aplicar la corrección mínima integrada y verificable.',
+      role: fallback,
+      dependencyIds: [kind == WorkflowKind.migration ? 'impact' : 'triage'],
+    ),
+    WorkflowCapability(
+      id: 'code-audit',
+      title: 'Auditar código',
+      instruction: 'Revisar calidad, invariantes y riesgos del cambio.',
+      role: 'auditor',
+      dependencyIds: const ['implementation'],
+      activation: WorkflowCapabilityActivation.optional,
+      requiresIndependentOwner: true,
+    ),
+    WorkflowCapability(
+      id: 'test-audit',
+      title: 'Auditar tests',
+      instruction: 'Comprobar cobertura y valor contrafactual de las pruebas.',
+      role: 'test-auditor',
+      dependencyIds: const ['implementation'],
+      activation: WorkflowCapabilityActivation.optional,
+      requiresIndependentOwner: true,
+    ),
+    WorkflowCapability(
+      id: 'device-e2e',
+      title: 'Verificación end-to-end en dispositivo',
+      instruction: 'Validar el comportamiento completo en el entorno real.',
+      role: 'verifier',
+      dependencyIds: const ['implementation'],
+      activation: WorkflowCapabilityActivation.optional,
+      requiresIndependentOwner: true,
+    ),
+    WorkflowCapability(
+      id: 'verification',
+      title: 'Verificación de cierre',
+      instruction: 'Ejecutar gates y cerrar solo con evidencia suficiente.',
+      role: fallback,
+      dependencyIds: const ['implementation'],
+    ),
+  ];
 }
 
 class WorkflowsState {

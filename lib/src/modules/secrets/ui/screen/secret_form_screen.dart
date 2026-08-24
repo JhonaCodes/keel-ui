@@ -155,8 +155,8 @@ class _SecretFormScreenState extends State<SecretFormScreen> {
                           : 'Valor',
                       helperText:
                           'Nunca pasa por un modelo: se inyecta como '
-                          'variable de entorno solo a tools y MCPs que lo '
-                          'declaren.',
+                          'credencial solo al proveedor, tool o MCP que lo '
+                          'declare.',
                       helperMaxLines: 3,
                       border: const OutlineInputBorder(
                         borderRadius: BorderRadius.all(Radius.circular(16)),

@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:keel_ui/src/core/ui/app_theme.dart';
 import 'package:keel_ui/src/integrations/git_worktree/git_worktree.dart';
 import 'package:keel_ui/src/modules/projects/model/project.dart';
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
 
 final _epoch = DateTime(2026, 8, 23);
 
@@ -25,7 +26,10 @@ Project _project(String dir) => Project(
 );
 
 Widget _app(Project project) => MaterialApp(
+  locale: const Locale('es'),
   theme: buildAppTheme(),
+  localizationsDelegates: AppLocalizations.localizationsDelegates,
+  supportedLocales: AppLocalizations.supportedLocales,
   home: Scaffold(body: WorktreeStrip(project: project)),
 );
 
@@ -33,7 +37,10 @@ Widget _app(Project project) => MaterialApp(
 /// abajo hay rutas largas y párrafos, y un desborde solo aparece a un ancho
 /// concreto.
 Widget _panel(Project project) => MaterialApp(
+  locale: const Locale('es'),
   theme: buildAppTheme(),
+  localizationsDelegates: AppLocalizations.localizationsDelegates,
+  supportedLocales: AppLocalizations.supportedLocales,
   home: Scaffold(
     body: Center(
       child: SizedBox(width: 640, child: WorktreePanel(project: project)),

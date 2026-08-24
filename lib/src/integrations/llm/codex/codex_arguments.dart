@@ -34,18 +34,25 @@ List<String> buildCodexArguments({
   // Un member con alias de Claude (todo agente codex creado antes de que
   // los catálogos se separaran por proveedor) cae al modelo del config.
   final codexModel = codexModelArgument(model);
+  final isResume = sessionId != null;
 
   return [
     'exec',
-    if (sessionId != null) ...['resume', sessionId],
+    if (isResume) ...['resume', sessionId],
     if (codexModel != null) ...['-m', codexModel],
     '--json',
     '--skip-git-repo-check',
-    '-s',
-    fullFileSystemAccess ? 'danger-full-access' : 'workspace-write',
-    if (codexProfileName != null) ...['-p', codexProfileName],
-    '--color',
-    'never',
+    // `resume` has its own CLI parser. Unlike `exec`, it does not accept
+    // sandbox, profile, or colour flags; forwarding them makes the resumed
+    // turn fail before the model sees the prompt. The current Codex CLI has
+    // no equivalent for preserving those process-level options on resume.
+    if (!isResume) ...[
+      '-s',
+      fullFileSystemAccess ? 'danger-full-access' : 'workspace-write',
+      if (codexProfileName != null) ...['-p', codexProfileName],
+      '--color',
+      'never',
+    ],
     prompt,
   ];
 }

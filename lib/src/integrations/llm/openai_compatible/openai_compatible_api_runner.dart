@@ -31,7 +31,7 @@ class OpenAiCompatibleApiRunner implements LlmRunner {
     http.Client? client,
     LlmSecretResolver? resolveSecret,
     OpenAiToolBridge? toolBridge,
-    this.maxToolRounds = 12,
+    this.maxToolRounds = 60,
   }) : // Public constructor names keep infrastructure injectable in tests.
        // ignore: prefer_initializing_formals
        _apiKey = apiKey,

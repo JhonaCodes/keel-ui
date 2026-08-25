@@ -23,6 +23,7 @@ class MapCalloutBox extends StatelessWidget {
     this.onTap,
     this.maxLines = 3,
     this.opaque = false,
+    this.reasoning,
   });
 
   final IconData icon;
@@ -36,6 +37,10 @@ class MapCalloutBox extends StatelessWidget {
   /// línea pasa por detrás del texto y ninguno de los dos se lee.
   final bool opaque;
 
+  /// El razonamiento plegado, cuando este cuadro lo lleva. Se dibuja abajo del
+  /// texto con un divisor punteado —el `.think-peek` del mockup—.
+  final String? reasoning;
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -46,14 +51,14 @@ class MapCalloutBox extends StatelessWidget {
         fill: opaque ? scheme.surface.withValues(alpha: 0.97) : null,
       ),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(8, 5, 8, 6),
+        padding: const EdgeInsets.fromLTRB(9, 6, 9, 6),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
             Row(
               children: [
-                Icon(icon, size: 10, color: color),
+                Icon(icon, size: 11, color: color),
                 const SizedBox(width: 5),
                 Flexible(
                   child: Text(
@@ -62,13 +67,9 @@ class MapCalloutBox extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontFamily: 'monospace',
-                      // Ajustado para que `i18n-traductor → i18n-integrador`
-                      // —dos handles largos y una flecha— entre entero en el
-                      // ancho del cuadro. Cortado a la mitad no dice quién
-                      // habló con quién, que es todo lo que aporta.
-                      fontSize: 8,
+                      fontSize: 9,
                       height: 1.1,
-                      letterSpacing: 0.6,
+                      letterSpacing: 1,
                       color: color,
                     ),
                   ),
@@ -81,11 +82,43 @@ class MapCalloutBox extends StatelessWidget {
               maxLines: maxLines,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                fontSize: 10,
+                fontSize: 11,
                 height: 1.3,
                 color: scheme.onSurfaceVariant,
               ),
             ),
+            if (reasoning case final peek?) ...[
+              const SizedBox(height: 5),
+              SizedBox(
+                height: 1,
+                child: CustomPaint(
+                  painter: _DashedRulePainter(
+                    color: scheme.outline.withValues(alpha: 0.55),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 5),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.chevron_right, size: 10, color: scheme.outline),
+                  const SizedBox(width: 5),
+                  Expanded(
+                    child: Text(
+                      peek,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontFamily: 'monospace',
+                        fontSize: 10,
+                        height: 1.3,
+                        color: scheme.outline,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ],
         ),
       ),
@@ -136,4 +169,33 @@ class MapDashedBoxPainter extends CustomPainter {
   @override
   bool shouldRepaint(MapDashedBoxPainter old) =>
       old.color != color || old.fill != fill;
+}
+
+/// El divisor punteado del `.think-peek`: una línea de guiones de 3 puntos
+/// con 3 de hueco, como el `border-top: 1px dashed` del mockup.
+class _DashedRulePainter extends CustomPainter {
+  const _DashedRulePainter({required this.color});
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..strokeWidth = 1
+      ..color = color;
+    const dash = 3.0;
+    const gap = 3.0;
+    var x = 0.0;
+    while (x < size.width) {
+      canvas.drawLine(
+        Offset(x, 0.5),
+        Offset(math.min(x + dash, size.width), 0.5),
+        paint,
+      );
+      x += dash + gap;
+    }
+  }
+
+  @override
+  bool shouldRepaint(_DashedRulePainter old) => old.color != color;
 }

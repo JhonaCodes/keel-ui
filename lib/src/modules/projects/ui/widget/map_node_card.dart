@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:keel_ui/src/core/ui/app_theme.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/agent_activity_indicator.dart';
 import 'package:keel_ui/src/modules/projects/model/member_color.dart';
 import 'package:keel_ui/src/modules/projects/model/session_map.dart';
@@ -8,22 +9,33 @@ import 'package:keel_ui/src/modules/projects/ui/widget/map_callout_box.dart';
 import 'package:keel_ui/src/modules/projects/ui/widget/map_edges_painter.dart';
 import 'package:keel_ui/src/modules/projects/ui/widget/turn_phase_label.dart';
 
-/// El color de un estado. El icono dice QUÉ pasa; el borde, en qué familia
-/// cae: acento cuando el nodo tiene el turno, verde cuando cerró, rojo cuando
-/// cortó, violeta cuando está contestando hacia atrás.
+/// El color del BORDE de un estado. El icono dice QUÉ pasa; el borde, en qué
+/// familia cae: acento cuando el nodo tiene el turno, teal cuando trabaja,
+/// verde cuando cerró, rojo cuando cortó, violeta cuando contesta hacia atrás.
 Color mapStateColor(MapNodeState state, ColorScheme scheme) => switch (state) {
   MapNodeState.idle => scheme.outlineVariant,
+  MapNodeState.receiving => scheme.primary,
   MapNodeState.thinking => kProjectMemberPalette[6],
-  MapNodeState.working => scheme.primary,
+  MapNodeState.working => kProjectMemberPalette[1],
   MapNodeState.writing => kProjectMemberPalette[0],
   MapNodeState.replying => kMapConsultColor,
-  MapNodeState.waiting => scheme.primary,
+  MapNodeState.waiting => AppColors.brassDeep,
   MapNodeState.done => scheme.tertiary,
   MapNodeState.failed => scheme.error,
 };
 
+/// El color del ICONO de estado. Casi siempre es el del borde; la excepción
+/// es «esperando permiso», que en el mockup lleva el borde brass-deep y el
+/// candado en brass (`.nd.wait` vs `.nd.wait .st`).
+Color mapStateIconColor(MapNodeState state, ColorScheme scheme) =>
+    switch (state) {
+      MapNodeState.waiting => scheme.primary,
+      _ => mapStateColor(state, scheme),
+    };
+
 IconData mapStateIcon(MapNodeState state) => switch (state) {
   MapNodeState.idle => Icons.circle_outlined,
+  MapNodeState.receiving => Icons.arrow_downward,
   MapNodeState.thinking => Icons.psychology_outlined,
   MapNodeState.working => Icons.bolt_outlined,
   MapNodeState.writing => Icons.edit_note,
@@ -130,8 +142,8 @@ class _Head extends StatelessWidget {
 
     return Container(
       padding: bare
-          ? const EdgeInsets.symmetric(horizontal: 9, vertical: 8)
-          : const EdgeInsets.fromLTRB(9, 8, 9, 7),
+          ? const EdgeInsets.symmetric(horizontal: 9, vertical: 7)
+          : const EdgeInsets.fromLTRB(9, 7, 9, 7),
       decoration: BoxDecoration(
         color: idle
             ? scheme.surfaceContainerLow.withValues(alpha: 0.55)
@@ -140,9 +152,9 @@ class _Head extends StatelessWidget {
         border: Border.all(color: stateColor),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.34),
-            blurRadius: 14,
-            offset: const Offset(0, 5),
+            color: Colors.black.withValues(alpha: 0.35),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
@@ -162,12 +174,23 @@ class _Head extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontFamily: 'monospace',
-                    fontSize: 11.5,
+                    fontSize: 11,
                     color: idle ? scheme.onSurfaceVariant : scheme.onSurface,
                   ),
                 ),
               ),
-              Icon(mapStateIcon(node.state), size: 13, color: stateColor),
+              if (node.state == MapNodeState.receiving)
+                _BlinkingIcon(
+                  icon: mapStateIcon(node.state),
+                  color: mapStateIconColor(node.state, scheme),
+                  size: 13,
+                )
+              else
+                Icon(
+                  mapStateIcon(node.state),
+                  size: 13,
+                  color: mapStateIconColor(node.state, scheme),
+                ),
             ],
           ),
           if (!dense && !bare) ...[
@@ -216,7 +239,6 @@ class _Foot extends StatelessWidget {
       return TurnPhaseLabel(phase: phase, accent: accent, compact: true);
     }
 
-    final scheme = Theme.of(context).colorScheme;
     return Row(
       children: [
         // Achica en vez de desbordar. Un nodo con paso, reloj, réplicas y
@@ -266,10 +288,6 @@ class _Foot extends StatelessWidget {
             ),
           ),
         ),
-        if (node.state == MapNodeState.done && node.reasoning.isNotEmpty) ...[
-          const SizedBox(width: 6),
-          Icon(Icons.psychology_outlined, size: 12, color: scheme.outline),
-        ],
       ],
     );
   }
@@ -323,7 +341,7 @@ class _Glyph extends StatelessWidget {
           color: node.kind == MapNodeKind.you
               ? color.withValues(alpha: 0.18)
               : null,
-          borderRadius: BorderRadius.circular(7),
+          borderRadius: BorderRadius.circular(6),
           border: node.kind == MapNodeKind.you
               ? null
               : Border.all(color: color.withValues(alpha: 0.6)),
@@ -339,7 +357,7 @@ class _Glyph extends StatelessWidget {
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: idle ? accent.withValues(alpha: 0.35) : accent,
-        borderRadius: BorderRadius.circular(7),
+        borderRadius: BorderRadius.circular(6),
       ),
       child: Text(
         initialsOf(node.label),
@@ -440,6 +458,17 @@ class _Resolution extends StatelessWidget {
     };
     if (body.isEmpty) return const SizedBox.shrink();
 
+    // El razonamiento plegado vive adentro del cuadro, no en el pie del nodo.
+    // Solo el «resolvió» lo muestra: un subagente que devolvió o una consulta
+    // ya tienen su razonamiento en la ficha, y acá estorbaría.
+    final reasoningPeek =
+        node.state == MapNodeState.done &&
+            !node.answeredOnly &&
+            node.kind != MapNodeKind.subagent &&
+            node.reasoning.trim().isNotEmpty
+        ? 'razonamiento · ${_reasoningLength(node.reasoning)} · tocar para abrir'
+        : null;
+
     return Padding(
       padding: const EdgeInsets.only(top: 10),
       child: SizedBox(
@@ -449,6 +478,7 @@ class _Resolution extends StatelessWidget {
           label: label,
           text: body,
           color: color.withValues(alpha: 0.75),
+          reasoning: reasoningPeek,
           onTap: onTap,
         ),
       ),
@@ -461,6 +491,14 @@ class _Resolution extends StatelessWidget {
     final flat = reasoning.replaceAll(RegExp(r'\s+'), ' ').trim();
     if (flat.length <= 130) return flat;
     return '…${flat.substring(flat.length - 130)}';
+  }
+
+  /// Cuánto ocupa el razonamiento, para el «tocar para abrir». El mockup lo
+  /// muestra como `1.2k` / `3.4k`, no como un conteo crudo.
+  static String _reasoningLength(String reasoning) {
+    final length = reasoning.length;
+    if (length < 1000) return '$length';
+    return '${(length / 1000).toStringAsFixed(1)}k';
   }
 }
 
@@ -515,6 +553,50 @@ class _HaloState extends State<_Halo> with SingleTickerProviderStateMixin {
         );
       },
       child: widget.child,
+    );
+  }
+}
+
+/// El icono que parpadea: solo el estado «recibiendo» lo lleva. Es el
+/// `@keyframes blink` del mockup —va de 1 a .35 y vuelve— y nada más.
+class _BlinkingIcon extends StatefulWidget {
+  const _BlinkingIcon({
+    required this.icon,
+    required this.color,
+    required this.size,
+  });
+
+  final IconData icon;
+  final Color color;
+  final double size;
+
+  @override
+  State<_BlinkingIcon> createState() => _BlinkingIconState();
+}
+
+class _BlinkingIconState extends State<_BlinkingIcon>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1400),
+  )..repeat();
+
+  late final Animation<double> _opacity = TweenSequence<double>([
+    TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.35), weight: 1),
+    TweenSequenceItem(tween: Tween(begin: 0.35, end: 1.0), weight: 1),
+  ]).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: _opacity,
+      child: Icon(widget.icon, size: widget.size, color: widget.color),
     );
   }
 }

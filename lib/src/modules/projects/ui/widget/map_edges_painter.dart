@@ -3,6 +3,7 @@ import 'dart:ui' show PathMetric;
 
 import 'package:flutter/material.dart';
 
+import 'package:keel_ui/src/core/ui/app_theme.dart';
 import 'package:keel_ui/src/modules/projects/model/member_color.dart';
 import 'package:keel_ui/src/modules/projects/model/session_map.dart';
 import 'package:keel_ui/src/modules/projects/model/session_map_layout.dart';
@@ -12,6 +13,10 @@ import 'package:keel_ui/src/modules/projects/model/session_map_layout.dart';
 /// el mismo mundo de color que el resto.
 final Color kMapConsultColor = kProjectMemberPalette[2];
 final Color kMapDelegateColor = kProjectMemberPalette[1];
+
+/// La línea «sin recorrer»: el mockup le da un color propio (#3A4C64), no el
+/// `--rule` (#253141) que es `scheme.outlineVariant`.
+const Color kMapIdleEdgeColor = Color(0xFF3A4C64);
 
 /// Cómo se dibuja cada evento. El grosor dice importancia, el color dice
 /// familia, y el patrón dice dirección del favor: **trazo continuo avanza,
@@ -62,13 +67,13 @@ class MapEdgeStyle {
           dash: (1.5, 5),
         ),
         MapEdgeKind.spawn => MapEdgeStyle(
-          color: scheme.outline.withValues(alpha: 0.7),
+          color: scheme.outline,
           width: 1.2,
           dash: (1, 4),
           arrow: false,
         ),
         MapEdgeKind.untraveled => MapEdgeStyle(
-          color: scheme.outlineVariant,
+          color: kMapIdleEdgeColor,
           width: 1.6,
         ),
       };
@@ -124,11 +129,13 @@ class MapEdgesPainter extends CustomPainter {
     final paint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1
-      ..color = scheme.outlineVariant.withValues(alpha: 0.34);
-    for (var x = _gridStep; x < size.width; x += _gridStep) {
+      ..color = scheme.outlineVariant.withValues(alpha: 0.55);
+    // Desde 0 y no desde el paso: la primera línea del borde también existe
+    // en el mockup —su `.grid` arranca en `inset: 0`—.
+    for (var x = 0.0; x < size.width; x += _gridStep) {
       canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
     }
-    for (var y = _gridStep; y < size.height; y += _gridStep) {
+    for (var y = 0.0; y < size.height; y += _gridStep) {
       canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
     }
   }
@@ -156,7 +163,7 @@ class MapEdgesPainter extends CustomPainter {
   }
 
   void _paintEdge(Canvas canvas, MapEdge edge, Path path) {
-    final style = MapEdgeStyle.of(edge.kind, scheme);
+    final style = _styleOf(edge);
     final color = _fades.contains(edge.kind) && !edge.live
         ? style.color.withValues(alpha: 0.45)
         : style.color;
@@ -185,6 +192,27 @@ class MapEdgesPainter extends CustomPainter {
     if (metric == null) return;
     if (style.arrow) _paintArrow(canvas, metric, color);
     if (edge.live) _paintPacket(canvas, metric, color);
+  }
+
+  /// El estilo efectivo de una arista. La única que cambia según el estado
+  /// del destino es el avance: cuando el paquete llegó y el destino está
+  /// procesando, se atenúa a brass-deep (`.e-fwd.q` del mockup) en vez de
+  /// quedarse en el brass del avance recorrido.
+  MapEdgeStyle _styleOf(MapEdge edge) {
+    if (_forwardIsResting(edge)) {
+      return MapEdgeStyle(color: AppColors.brassDeep, width: 1.6);
+    }
+    return MapEdgeStyle.of(edge.kind, scheme);
+  }
+
+  bool _forwardIsResting(MapEdge edge) {
+    if (edge.kind != MapEdgeKind.forward || edge.live) return false;
+    return switch (map.nodeById(edge.toId)?.state) {
+      MapNodeState.thinking ||
+      MapNodeState.working ||
+      MapNodeState.writing => true,
+      _ => false,
+    };
   }
 
   void _paintArrow(Canvas canvas, PathMetric metric, Color color) {

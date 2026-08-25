@@ -18,10 +18,15 @@ const kSubagentsDrawn = 4;
 
 enum MapNodeKind { you, work, free, consultation, subagent, end }
 
-/// Los ocho estados de un nodo. Es el mismo cuadro cambiando de estado: nada
+/// Los nueve estados de un nodo. Es el mismo cuadro cambiando de estado: nada
 /// se apila, nada se acumula.
+///
+/// `receiving` es el instante del viaje: el paquete está llegando y el nodo
+/// todavía no lo procesa. Dura lo que dura la línea en vuelo; después salta a
+/// pensar, trabajar o escribir.
 enum MapNodeState {
   idle,
+  receiving,
   thinking,
   working,
   writing,
@@ -436,6 +441,7 @@ class SessionMap {
             own: own,
             live: isCurrent ? live : null,
             waiting: waiting && isCurrent,
+            receiving: isCurrent && !tookTheStep,
           ),
           resolved: own.isEmpty ? '' : firstSentenceOf(own.last.text),
           said: own.isEmpty ? '' : own.last.text.trim(),
@@ -1036,9 +1042,11 @@ MapNodeState _stateOf({
   required List<ChatMessage> own,
   required SessionLiveTurn? live,
   required bool waiting,
+  required bool receiving,
 }) {
   if (waiting) return MapNodeState.waiting;
   if (live != null) {
+    if (receiving) return MapNodeState.receiving;
     if (live.consultOfProfileId != null) return MapNodeState.replying;
     return switch (live.phase) {
       TurnPhase.thinking => MapNodeState.thinking,

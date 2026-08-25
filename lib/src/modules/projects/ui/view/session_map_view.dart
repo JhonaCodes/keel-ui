@@ -300,13 +300,17 @@ class _Vignette extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return DecoratedBox(
       decoration: BoxDecoration(
         gradient: RadialGradient(
           center: const Alignment(0, -0.2),
           radius: 0.95,
-          colors: [Colors.transparent, Colors.black.withValues(alpha: 0.42)],
-          stops: const [0.55, 1],
+          colors: [
+            Colors.transparent,
+            scheme.surfaceContainerLowest.withValues(alpha: 0.55),
+          ],
+          stops: const [0.45, 1],
         ),
       ),
     );
@@ -368,7 +372,7 @@ class _Canvas extends StatelessWidget {
             _LaneLabel(
               y: layout.guideLaneY,
               icon: Icons.account_tree_outlined,
-              label: 'consulta / delega',
+              label: 'delega',
             ),
           ..._consultCallouts(),
           for (final node in map.nodes)
@@ -481,10 +485,10 @@ class _LaneLabel extends StatelessWidget {
 
     return Positioned(
       left: 12,
-      top: y - 9,
+      top: y - 8,
       child: Container(
         color: scheme.surface,
-        padding: const EdgeInsets.symmetric(horizontal: 7),
+        padding: const EdgeInsets.symmetric(horizontal: 8),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [

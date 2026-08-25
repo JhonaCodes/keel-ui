@@ -296,11 +296,18 @@ class _Header extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(mapStateIcon(node.state), size: 12, color: stateColor),
+                Icon(
+                  mapStateIcon(node.state),
+                  size: 12,
+                  color: mapStateIconColor(node.state, scheme),
+                ),
                 const SizedBox(width: 5),
                 Text(
                   _stateLabel(node.state),
-                  style: TextStyle(fontSize: 10.5, color: stateColor),
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    color: mapStateIconColor(node.state, scheme),
+                  ),
                 ),
               ],
             ),
@@ -312,6 +319,7 @@ class _Header extends StatelessWidget {
 
   static String _stateLabel(MapNodeState state) => switch (state) {
     MapNodeState.idle => 'en reposo',
+    MapNodeState.receiving => 'recibiendo',
     MapNodeState.thinking => 'pensando',
     MapNodeState.working => 'trabajando',
     MapNodeState.writing => 'escribiendo',

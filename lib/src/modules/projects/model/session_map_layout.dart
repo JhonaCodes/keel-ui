@@ -52,15 +52,15 @@ class MapLayout {
   /// Aire entre columnas. Ancho porque el cuadro de «resolvió» mide 196 y a
   /// 56 quedaban 8 puntos entre cuadro y cuadro: seis pasos seguidos se leían
   /// como una tira continua en vez de seis cosas.
-  static const columnGap = 76.0;
-  static const padLeft = 28.0;
+  static const columnGap = 54.0;
+  static const padLeft = 26.0;
   static const padRight = 56.0;
 
   /// Cuánto aire hay antes del primer carril.
   static const _topPad = 54.0;
 
   /// El alto mínimo de la banda de «vuelve», sin ningún cuadro adentro.
-  static const _minTopBand = 66.0;
+  static const _minTopBand = 58.0;
 
   /// Lo que ocupa una fila de réplicas: el cuadro, y el aire hasta la
   /// siguiente. Los dos rieles ya no suman: pasan POR DETRÁS del cuadro, así

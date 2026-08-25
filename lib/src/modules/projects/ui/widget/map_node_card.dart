@@ -230,7 +230,9 @@ class _Foot extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (node.workNodeId != null)
+                if (node.kind == MapNodeKind.consultation)
+                  _Chip(label: 'consulta')
+                else if (node.workNodeId != null)
                   _Chip(label: node.nodeTitle)
                 else if (node.kind == MapNodeKind.subagent)
                   _Chip(label: 'subagente'),
@@ -295,11 +297,13 @@ class _Glyph extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
 
-    // Vos, el fin y un subagente no son miembros del elenco: no tienen color
-    // ni handle, y llevan su icono.
+    // Vos, el fin y las actividades que cuelgan del tronco llevan un icono
+    // semántico. Una consulta sí tiene perfil/color, pero el reply deja claro
+    // que no es otro paso del workflow.
     final icon = switch (node.kind) {
       MapNodeKind.you => Icons.person_outline,
       MapNodeKind.end => Icons.flag_outlined,
+      MapNodeKind.consultation => Icons.reply,
       MapNodeKind.subagent => Icons.account_tree_outlined,
       _ => null,
     };
@@ -307,6 +311,7 @@ class _Glyph extends StatelessWidget {
     if (icon != null) {
       final color = switch (node.kind) {
         MapNodeKind.you => scheme.primary,
+        MapNodeKind.consultation => kMapConsultColor,
         MapNodeKind.subagent => kMapDelegateColor,
         _ => scheme.outline,
       };
@@ -383,20 +388,44 @@ class _Resolution extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
 
-    final (label, icon, color, body) = switch (node.state) {
-      MapNodeState.failed => (
+    final (label, icon, color, body) = switch ((node.kind, node.state)) {
+      (MapNodeKind.consultation, MapNodeState.replying) => (
+        'le pidió',
+        Icons.reply,
+        kMapConsultColor,
+        node.nodeInstruction,
+      ),
+      (MapNodeKind.subagent, MapNodeState.done) => (
+        'devolvió',
+        Icons.check,
+        kMapDelegateColor,
+        node.resolved,
+      ),
+      (MapNodeKind.subagent, MapNodeState.failed) => (
         'cortó',
         Icons.warning_amber_rounded,
         scheme.error,
         node.resolved,
       ),
-      MapNodeState.done when node.answeredOnly => (
+      (MapNodeKind.subagent, _) => (
+        'le pidió',
+        Icons.account_tree_outlined,
+        kMapDelegateColor,
+        node.nodeInstruction,
+      ),
+      (_, MapNodeState.failed) => (
+        'cortó',
+        Icons.warning_amber_rounded,
+        scheme.error,
+        node.resolved,
+      ),
+      (_, MapNodeState.done) when node.answeredOnly => (
         'contestó',
         Icons.reply,
         kMapConsultColor,
         node.resolved,
       ),
-      MapNodeState.done => (
+      (_, MapNodeState.done) => (
         'resolvió',
         Icons.check,
         scheme.tertiary,

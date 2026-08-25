@@ -33,7 +33,7 @@ void main() {
             [
               'data: {"id":"chatcmpl-1","choices":[{"delta":{"content":"Ho"}}]}',
               'data: {"choices":[{"delta":{"content":"la"}}]}',
-              'data: {"choices":[{"finish_reason":"stop","delta":{}}],"usage":{"prompt_tokens":3,"completion_tokens":2,"total_tokens":5}}',
+              'data: {"choices":[{"finish_reason":"stop","delta":{}}],"usage":{"prompt_tokens":100,"completion_tokens":20,"total_tokens":120,"cost":0.125,"prompt_tokens_details":{"cached_tokens":60,"cache_write_tokens":10}}}',
               'data: [DONE]',
               '',
             ].join('\n'),
@@ -69,13 +69,18 @@ void main() {
         {
           'type': 'turnCompleted',
           'isError': false,
-          'costUsd': 0.0,
+          'costUsd': 0.125,
+          'costReported': true,
           'durationMs': isA<int>(),
           'model': 'openai/gpt-4',
-          'inputTokens': 3,
-          'outputTokens': 2,
-          'cacheReadTokens': 0,
-          'cacheCreationTokens': 0,
+          'inputTokens': 30,
+          'outputTokens': 20,
+          'cacheReadTokens': 60,
+          'cacheCreationTokens': 10,
+          'tokensReported': true,
+          'usageIsCumulative': false,
+          'contextUsedTokens': 100,
+          'contextWindowTokens': 0,
         },
       ]);
     });

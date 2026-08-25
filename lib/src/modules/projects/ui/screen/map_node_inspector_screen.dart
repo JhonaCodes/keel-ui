@@ -143,8 +143,12 @@ class _MapNodeInspectorScreenState extends State<MapNodeInspectorScreen> {
                       ),
                   ] else ...[
                     _Section(
-                      icon: Icons.assignment_outlined,
-                      label: 'el encargo',
+                      icon: _node.kind == MapNodeKind.consultation
+                          ? Icons.reply
+                          : Icons.assignment_outlined,
+                      label: _node.kind == MapNodeKind.consultation
+                          ? 'le pidió'
+                          : 'el encargo',
                       child: _Body(
                         text: _node.nodeInstruction,
                         empty:
@@ -231,6 +235,8 @@ class _Header extends StatelessWidget {
     final subtitle = switch (node.kind) {
       MapNodeKind.subagent =>
         'subagente · abierto por ${owner?.name ?? 'un miembro'}',
+      MapNodeKind.consultation =>
+        'consulta · rama de ${node.nodeTitle.isEmpty ? 'un nodo' : node.nodeTitle}',
       _ =>
         node.workNodeId == null
             ? (owner?.role ?? 'miembro del proyecto')
@@ -250,9 +256,11 @@ class _Header extends StatelessWidget {
               borderRadius: BorderRadius.circular(9),
             ),
             child: Icon(
-              node.kind == MapNodeKind.subagent
-                  ? Icons.account_tree_outlined
-                  : Icons.smart_toy,
+              switch (node.kind) {
+                MapNodeKind.subagent => Icons.account_tree_outlined,
+                MapNodeKind.consultation => Icons.reply,
+                _ => Icons.smart_toy,
+              },
               size: 17,
               color: accent,
             ),

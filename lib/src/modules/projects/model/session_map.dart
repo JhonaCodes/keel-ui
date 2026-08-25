@@ -16,7 +16,7 @@ import 'package:keel_ui/src/modules/workflows/model/workflow.dart';
 /// abre.
 const kSubagentsDrawn = 4;
 
-enum MapNodeKind { you, work, free, subagent, end }
+enum MapNodeKind { you, work, free, consultation, subagent, end }
 
 /// Los ocho estados de un nodo. Es el mismo cuadro cambiando de estado: nada
 /// se apila, nada se acumula.
@@ -101,12 +101,18 @@ class MapNode {
 
   final int column;
 
-  /// 0 es la fila principal; 1 es el carril de abajo, el de los subagentes.
+  /// 0 es el tronco principal; 1..N son la profundidad del árbol local.
   final int lane;
 
-  /// Orden dentro del carril, para que dos subagentes del mismo padre no se
-  /// dibujen encima.
+  /// Orden vertical dentro del árbol de su WorkNode.
   final int laneSlot;
+
+  /// Nodo del que nace esta rama. Solo es null en el tronco principal.
+  ///
+  /// Una consulta pertenece al [WorkNode] que la pidió, aunque el perfil
+  /// consultado tenga además otro nodo principal. Un subagente pertenece al
+  /// turno que lo abrió: puede ser un nodo principal o una consulta.
+  final String? parentId;
 
   final String? workNodeId;
   final String nodeTitle;
@@ -165,6 +171,7 @@ class MapNode {
     required this.column,
     this.lane = 0,
     this.laneSlot = 0,
+    this.parentId,
     this.profileId,
     this.colorIndex = -1,
     this.workNodeId,
@@ -225,8 +232,8 @@ class MapEdge {
   });
 }
 
-/// La sesión vista como un recorrido, con carriles fijos: arriba vuelve, al
-/// medio avanza, abajo se delega.
+/// La sesión vista como un recorrido: el `ResolutionCase` forma el tronco y
+/// cada WorkNode tiene debajo su árbol de consultas y delegaciones.
 ///
 /// Las columnas representan la profundidad de las dependencias, no agentes ni
 /// índices. Dos nodos independientes comparten columna y conservan su grafo.
@@ -387,7 +394,11 @@ class SessionMap {
           if (message.consultOfProfileId case final askerId?)
             MapConsult(
               askedBy: handleOf[askerId] ?? askerId,
-              ask: _askedIn(messages.take(messages.indexOf(message)), askerId),
+              ask: _askedIn(
+                messages.take(messages.indexOf(message)),
+                askerId,
+                targetHandle: handleOf[message.authorProfileId],
+              ),
               answer: message.text.trim(),
             ),
       ];
@@ -494,7 +505,9 @@ class SessionMap {
                 : depthOf(post.workNodeId!),
             lane: 1,
             laneSlot: slot,
+            parentId: post.id,
             profileId: post.profileId,
+            nodeInstruction: subagent.ask,
             state: _subagentStateOf(subagent),
             resolved: subagent.phase == SubagentPhase.done
                 ? firstSentenceOf(subagent.result)
@@ -520,6 +533,25 @@ class SessionMap {
           ),
         );
       }
+    }
+
+    // Las consultas no son candidatos del workflow esperando en la fila.
+    // Nacen del WorkNode que las pidió y forman, junto con los subagentes que
+    // ellas mismas abran, el árbol local de ese trabajo.
+    if (workById.isNotEmpty) {
+      final branches = _consultationBranches(
+        messages: messages,
+        members: members,
+        session: session,
+        posts: posts,
+        existingNodes: nodes,
+        subagents: subagents,
+        expandedParents: expandedParents,
+        colorOf: colorOf,
+        handleOf: handleOf,
+      );
+      nodes.addAll(branches.nodes);
+      edges.addAll(branches.edges);
     }
 
     // ── el final ─────────────────────────────────────────────────────────
@@ -564,18 +596,303 @@ class SessionMap {
       );
     }
 
-    final back = _backEdges(
-      messages: messages,
-      posts: posts,
-      live: live,
-      handleOf: handleOf,
-    );
+    final back = workById.isEmpty
+        ? _backEdges(
+            messages: messages,
+            posts: posts,
+            live: live,
+            handleOf: handleOf,
+          )
+        : (edges: const <MapEdge>[], callouts: const <MapCallout>[]);
     edges.addAll(back.edges);
-    edges.addAll(_spawnEdges(members: members, posts: posts));
+    if (workById.isEmpty) {
+      edges.addAll(_spawnEdges(members: members, posts: posts));
+    }
 
     return SessionMap(nodes: nodes, edges: edges, callouts: back.callouts);
   }
 }
+
+/// Actividad que cuelga de un nodo principal.
+///
+/// El `ResolutionCase` define el tronco; este traductor reconstruye sus ramas
+/// desde evidencia persistida del hilo. No inventa candidatos a consultar: un
+/// perfil aparece únicamente cuando hubo una consulta real o existe una en
+/// vuelo.
+({List<MapNode> nodes, List<MapEdge> edges}) _consultationBranches({
+  required List<ChatMessage> messages,
+  required List<AgentProfile> members,
+  required Session? session,
+  required List<_Post> posts,
+  required List<MapNode> existingNodes,
+  required List<SessionSubagent> subagents,
+  required Set<String> expandedParents,
+  required Map<String, int> colorOf,
+  required Map<String, String> handleOf,
+}) {
+  final answersByKey = <String, List<({ChatMessage message, String ask})>>{};
+  final askerByKey = <String, String>{};
+  final targetByKey = <String, String>{};
+  final workByKey = <String, String>{};
+
+  for (var index = 0; index < messages.length; index++) {
+    final message = messages[index];
+    final asker = message.consultOfProfileId;
+    final target = message.authorProfileId;
+    final workNodeId = message.workNodeId;
+    if (message.role != ChatRole.assistant ||
+        asker == null ||
+        target == null ||
+        workNodeId == null ||
+        asker == target) {
+      continue;
+    }
+    final key = _consultationKey(workNodeId, asker, target);
+    askerByKey[key] = asker;
+    targetByKey[key] = target;
+    workByKey[key] = workNodeId;
+    answersByKey.putIfAbsent(key, () => []).add((
+      message: message,
+      ask: _askedIn(
+        messages.take(index),
+        asker,
+        targetHandle: handleOf[target],
+      ),
+    ));
+  }
+
+  String? liveKey;
+  final live = session?.isRunning == true ? session?.liveTurn : null;
+  final liveAsker = live?.consultOfProfileId;
+  if (live != null && liveAsker != null && liveAsker != live.profileId) {
+    final workNodeId = _workNodeOfLiveConsult(
+      session: session,
+      messages: messages,
+      askerId: liveAsker,
+    );
+    if (workNodeId != null) {
+      liveKey = _consultationKey(workNodeId, liveAsker, live.profileId);
+      askerByKey[liveKey] = liveAsker;
+      targetByKey[liveKey] = live.profileId;
+      workByKey[liveKey] = workNodeId;
+      answersByKey.putIfAbsent(liveKey, () => []);
+    }
+  }
+
+  final allNodes = <String, MapNode>{
+    for (final node in existingNodes) node.id: node,
+  };
+  final actorAtWork = <String, String>{
+    for (final post in posts)
+      if (post.workNodeId != null)
+        _actorAtWorkKey(post.profileId, post.workNodeId!): post.id,
+  };
+
+  String rootIdOf(MapNode node) {
+    var current = node;
+    final seen = <String>{};
+    while (true) {
+      final parentId = current.parentId;
+      if (parentId == null) break;
+      if (!seen.add(parentId)) break;
+      final parent = allNodes[parentId];
+      if (parent == null) break;
+      current = parent;
+    }
+    return current.id;
+  }
+
+  final nextSlotByRoot = <String, int>{};
+  for (final node in existingNodes.where((node) => node.lane > 0)) {
+    final rootId = rootIdOf(node);
+    final next = node.laneSlot + 1;
+    if (next > (nextSlotByRoot[rootId] ?? 0)) nextSlotByRoot[rootId] = next;
+  }
+
+  int takeSlot(MapNode parent) {
+    final rootId = rootIdOf(parent);
+    final slot = nextSlotByRoot[rootId] ?? 0;
+    nextSlotByRoot[rootId] = slot + 1;
+    return slot;
+  }
+
+  final nodes = <MapNode>[];
+  final edges = <MapEdge>[];
+  final drawnSubagents = {
+    for (final node in existingNodes)
+      if (node.subagent != null) node.subagent!.id,
+  };
+  final maxSubagentsByParent = <String, int>{};
+
+  for (final entry in answersByKey.entries) {
+    final key = entry.key;
+    final asker = askerByKey[key]!;
+    final target = targetByKey[key]!;
+    final workNodeId = workByKey[key]!;
+    final parentId = actorAtWork[_actorAtWorkKey(asker, workNodeId)];
+    final parent = parentId == null ? null : allNodes[parentId];
+    final member = members.where((item) => item.id == target).firstOrNull;
+    if (parent == null || member == null) continue;
+
+    final id = 'consult:$workNodeId:$asker:$target';
+    final answers = entry.value;
+    final latest = answers.lastOrNull;
+    final isLive = key == liveKey;
+    final ask = isLive
+        ? _askedIn(messages, asker, targetHandle: member.name)
+        : (latest?.ask ?? '').trim();
+    final matchingSubagents = [
+      for (final subagent in subagents)
+        if (!drawnSubagents.contains(subagent.id) &&
+            subagent.parentProfileId == target &&
+            subagent.parentWorkNodeId == workNodeId)
+          subagent,
+    ];
+    final drawn = expandedParents.contains(id)
+        ? matchingSubagents.length
+        : _minInt(matchingSubagents.length, kSubagentsDrawn);
+    maxSubagentsByParent[id] = drawn;
+
+    final node = MapNode(
+      id: id,
+      kind: MapNodeKind.consultation,
+      label: member.name,
+      column: parent.column,
+      lane: parent.lane + 1,
+      laneSlot: takeSlot(parent),
+      parentId: parent.id,
+      profileId: member.id,
+      colorIndex: colorOf[member.id] ?? -1,
+      workNodeId: workNodeId,
+      nodeTitle: parent.nodeTitle,
+      nodeInstruction: ask,
+      state: isLive ? MapNodeState.replying : MapNodeState.done,
+      resolved: latest == null ? '' : firstSentenceOf(latest.message.text),
+      said: latest?.message.text.trim() ?? '',
+      answeredOnly: true,
+      reasoning: isLive
+          ? (live?.reasoning ?? '')
+          : (latest?.message.reasoning ?? ''),
+      activity: isLive ? live?.activity : null,
+      elapsed: Duration(
+        milliseconds: answers.fold(
+          0,
+          (total, answer) => total + (answer.message.durationMs ?? 0),
+        ),
+      ),
+      costUsd: answers.fold(
+        0.0,
+        (total, answer) => total + (answer.message.costUsd ?? 0),
+      ),
+      consults: [
+        for (final answer in answers)
+          MapConsult(
+            askedBy: handleOf[asker] ?? asker,
+            ask: answer.ask,
+            answer: answer.message.text.trim(),
+          ),
+      ],
+      subagentCount: matchingSubagents.length,
+      hiddenSubagents: matchingSubagents.length - drawn,
+    );
+    nodes.add(node);
+    allNodes[id] = node;
+    actorAtWork[_actorAtWorkKey(target, workNodeId)] = id;
+
+    edges.add(
+      MapEdge(
+        fromId: parent.id,
+        toId: id,
+        kind: MapEdgeKind.back,
+        label: ask,
+        live: isLive,
+      ),
+    );
+    if (answers.isNotEmpty) {
+      edges.add(MapEdge(fromId: id, toId: parent.id, kind: MapEdgeKind.answer));
+    }
+  }
+
+  final childIndexByParent = <String, int>{};
+  for (final subagent in subagents) {
+    if (drawnSubagents.contains(subagent.id)) continue;
+    final workNodeId = subagent.parentWorkNodeId;
+    if (workNodeId == null) continue;
+    final parentId =
+        actorAtWork[_actorAtWorkKey(subagent.parentProfileId, workNodeId)];
+    final parent = parentId == null ? null : allNodes[parentId];
+    if (parent == null) continue;
+    final childIndex = childIndexByParent.update(
+      parent.id,
+      (value) => value + 1,
+      ifAbsent: () => 0,
+    );
+    final maximum = maxSubagentsByParent[parent.id] ?? kSubagentsDrawn;
+    if (childIndex >= maximum) continue;
+
+    final node = MapNode(
+      id: 'sub:${subagent.id}',
+      kind: MapNodeKind.subagent,
+      label: subagent.agentType,
+      column: parent.column,
+      lane: parent.lane + 1,
+      laneSlot: takeSlot(parent),
+      parentId: parent.id,
+      profileId: subagent.parentProfileId,
+      nodeInstruction: subagent.ask,
+      state: _subagentStateOf(subagent),
+      resolved: subagent.phase == SubagentPhase.done
+          ? firstSentenceOf(subagent.result)
+          : '',
+      said: subagent.phase == SubagentPhase.done ? subagent.result.trim() : '',
+      reasoning: subagent.reasoning,
+      activity: subagent.activity,
+      elapsed: subagent.elapsed,
+      subagent: subagent,
+    );
+    nodes.add(node);
+    allNodes[node.id] = node;
+    edges.add(
+      MapEdge(
+        fromId: parent.id,
+        toId: node.id,
+        kind: subagent.isRunning
+            ? MapEdgeKind.delegate
+            : MapEdgeKind.delegateBack,
+        label: subagent.ask,
+        live: subagent.isRunning,
+      ),
+    );
+  }
+
+  return (nodes: nodes, edges: edges);
+}
+
+String _consultationKey(String workNodeId, String askerId, String targetId) =>
+    '$workNodeId\u0000$askerId\u0000$targetId';
+
+String _actorAtWorkKey(String profileId, String workNodeId) =>
+    '$profileId\u0000$workNodeId';
+
+String? _workNodeOfLiveConsult({
+  required Session? session,
+  required List<ChatMessage> messages,
+  required String askerId,
+}) {
+  for (final message in messages.reversed) {
+    if (message.authorProfileId == askerId &&
+        message.consultOfProfileId == null &&
+        message.workNodeId != null) {
+      return message.workNodeId;
+    }
+  }
+  return session?.resolutionCase?.nodes
+      .where((node) => node.status == WorkNodeStatus.running)
+      .firstOrNull
+      ?.id;
+}
+
+int _minInt(int left, int right) => left < right ? left : right;
 
 /// Un lugar donde pasa trabajo: un nodo de resolución o un miembro que habló
 /// fuera de un caso.
@@ -606,7 +923,13 @@ class _Post {
 bool _belongsTo(ChatMessage message, _Post post, {required bool isFirstPost}) {
   if (message.role != ChatRole.assistant) return false;
   if (message.authorProfileId != post.profileId) return false;
-  if (message.consultOfProfileId != null) return isFirstPost;
+  // En una sesión sin caso el perfil libre sigue siendo su único nodo. Con
+  // un caso, las respuestas consultadas viven en una rama propia del nodo que
+  // hizo la pregunta; sumarlas al primer trabajo del consultado es lo que
+  // falseaba el tronco y su estado.
+  if (message.consultOfProfileId != null) {
+    return post.kind == MapNodeKind.free && isFirstPost;
+  }
   return message.workNodeId == post.workNodeId;
 }
 
@@ -649,6 +972,11 @@ List<_Post> _postsOf({
     placed.add(owner.id);
   }
 
+  // Un caso activo ya tiene su elenco de ejecución en los WorkNode. Los
+  // demás miembros son posibilidades de consulta, no etapas del workflow:
+  // aparecen recién cuando un nodo los llama, como ramas de ese nodo.
+  if (work.isNotEmpty) return posts;
+
   // Fuera de un caso, el elenco se ordena por quién habló primero; quien no
   // habló todavía queda detrás, en reposo.
   final spoke = <String>[];
@@ -685,6 +1013,7 @@ bool _isCurrentPost(
 ) {
   // Un turno de consulta no pertenece al nodo activo: vive donde contesta.
   if (live.consultOfProfileId != null) {
+    if (post.kind != MapNodeKind.free) return false;
     final first = posts.firstWhere(
       (entry) => entry.profileId == live.profileId,
       orElse: () => post,
@@ -767,7 +1096,11 @@ MapNodeState _subagentStateOf(SessionSubagent subagent) =>
           fromId: from,
           toId: to,
           kind: MapEdgeKind.back,
-          label: _askedIn(messages.take(index), asker),
+          label: _askedIn(
+            messages.take(index),
+            asker,
+            targetHandle: handleOf[answerer],
+          ),
         ),
       );
       edges.add(MapEdge(fromId: to, toId: from, kind: MapEdgeKind.answer));
@@ -794,7 +1127,11 @@ MapNodeState _subagentStateOf(SessionSubagent subagent) =>
       edges.removeWhere(
         (edge) => edge.fromId == from && edge.toId == to && !edge.live,
       );
-      final ask = _askedIn(messages, asker);
+      final ask = _askedIn(
+        messages,
+        asker,
+        targetHandle: handleOf[live.profileId],
+      );
       edges.add(
         MapEdge(
           fromId: from,
@@ -827,11 +1164,22 @@ MapNodeState _subagentStateOf(SessionSubagent subagent) =>
 
 /// Qué le preguntó. Es la frase donde el que preguntó nombró al otro, que es
 /// literalmente lo que disparó el turno.
-String _askedIn(Iterable<ChatMessage> before, String askerId) {
+String _askedIn(
+  Iterable<ChatMessage> before,
+  String askerId, {
+  String? targetHandle,
+}) {
   for (final message in before.toList().reversed) {
     if (message.authorProfileId != askerId) continue;
-    if (message.consultOfProfileId != null) continue;
-    final sentence = _sentenceWithMention(message.text);
+    // Sin destino explícito se conserva la semántica del modo libre: una
+    // respuesta no se interpreta como consulta nueva. En el árbol conocemos
+    // el destino y sí debemos aceptar una consulta encadenada desde esa
+    // respuesta, buscando exactamente su @handle.
+    if (targetHandle == null && message.consultOfProfileId != null) continue;
+    final sentence = _sentenceWithMention(
+      message.text,
+      targetHandle: targetHandle,
+    );
     if (sentence.isNotEmpty) return sentence;
   }
   return '';
@@ -839,10 +1187,19 @@ String _askedIn(Iterable<ChatMessage> before, String askerId) {
 
 final RegExp _mentionSentence = RegExp(r'[^.!?\n]*@[a-z0-9_-]+[^.!?\n]*[.!?]?');
 
-String _sentenceWithMention(String text) {
-  final match = _mentionSentence.firstMatch(text);
-  if (match == null) return '';
-  return firstSentenceOf(match.group(0) ?? '');
+String _sentenceWithMention(String text, {String? targetHandle}) {
+  for (final match in _mentionSentence.allMatches(text)) {
+    final sentence = match.group(0) ?? '';
+    if (targetHandle != null &&
+        !RegExp(
+          '@${RegExp.escape(targetHandle)}(?=\$|[^a-z0-9_-])',
+          caseSensitive: false,
+        ).hasMatch(sentence)) {
+      continue;
+    }
+    return firstSentenceOf(sentence);
+  }
+  return '';
 }
 
 /// Quién registró a quién. No es un salto: es una relación de elenco, se ve

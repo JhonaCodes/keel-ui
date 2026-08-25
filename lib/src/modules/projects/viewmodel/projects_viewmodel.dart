@@ -45,12 +45,15 @@ import 'package:keel_ui/src/modules/projects/model/session_live_turn.dart';
 import 'package:keel_ui/src/modules/projects/model/session_subagent.dart';
 import 'package:keel_ui/src/modules/projects/model/session_plan_item.dart';
 import 'package:keel_ui/src/modules/projects/model/session_queued_message.dart';
+import 'package:keel_ui/src/modules/projects/model/session_usage.dart';
+import 'package:keel_ui/src/modules/projects/model/token_usage.dart';
 import 'package:keel_ui/src/modules/projects/model/resolution_case.dart';
 import 'package:keel_ui/src/modules/projects/model/resolution_evidence.dart';
 import 'package:keel_ui/src/modules/projects/model/resolution_preflight.dart';
 import 'package:keel_ui/src/modules/projects/model/migration_coverage.dart';
 import 'package:keel_ui/src/modules/projects/model/work_node.dart';
 import 'package:keel_ui/src/modules/projects/repository/projects_repository.dart';
+import 'package:keel_ui/src/modules/projects/service/project_chat_reference_service.dart';
 import 'package:keel_ui/src/modules/projects/service/resolution_engine.dart';
 import 'package:keel_ui/src/modules/tools/model/tool.dart';
 import 'package:keel_ui/src/modules/tools/viewmodel/tools_viewmodel.dart';
@@ -211,6 +214,11 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
   /// the queued follow-up.
   final Set<String> _activeSessionRuns = {};
 
+  /// Reference resolution may touch the filesystem before a turn owns a CLI.
+  /// This closes that short gap so two fast sends cannot start two turns for
+  /// the same session while the first one is still materializing its links.
+  final Set<String> _preparingSessionTurns = {};
+
   /// Lo último que se leyó del roadmap de cada proyecto, para el sidebar.
   final Map<String, ({DateTime at, int percent, bool ok})> _radarBadges = {};
   final Set<String> _stoppedSessionIds = {};
@@ -327,8 +335,22 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
       '' => project.activeWorkflowId ?? '',
       final id => id,
     };
-    if (!session.isRunning && workflowId == session.workflowId) return session;
-    return session.copyWith(isRunning: false, workflowId: workflowId);
+    final hasDeliveryWaitingForDeadRun = session.queuedMessages.any(
+      (message) => message.delivery != SessionQueuedDelivery.standby,
+    );
+    if (!session.isRunning &&
+        workflowId == session.workflowId &&
+        !hasDeliveryWaitingForDeadRun) {
+      return session;
+    }
+    return session.copyWith(
+      isRunning: false,
+      workflowId: workflowId,
+      queuedMessages: [
+        for (final message in session.queuedMessages)
+          message.copyWith(delivery: SessionQueuedDelivery.standby),
+      ],
+    );
   }
 
   // ── alta y configuración ────────────────────────────────────────────
@@ -1741,24 +1763,29 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     }
     final trimmed = text.trim();
     if (trimmed.isEmpty && imagePaths.isEmpty) return;
-    final prompt = [
-      if (trimmed.isNotEmpty) trimmed,
-      if (imagePaths.isNotEmpty) _describeChannelAttachments(imagePaths),
-    ].join('\n\n');
 
-    final project = _projectById(projectId);
+    var project = _projectById(projectId);
     if (project == null) return;
 
-    final session = _sessionById(project, sessionId);
+    var session = _sessionById(project, sessionId);
     if (session == null) return;
-    if (session.isRunning) return;
+    if (session.isRunning || _preparingSessionTurns.contains(sessionId)) {
+      await queueSessionMessage(
+        projectId,
+        sessionId,
+        trimmed,
+        imagePaths: imagePaths,
+      );
+      return;
+    }
 
     final started = session.messages.any(
       (message) => message.role == ChatRole.assistant,
     );
     if (!started) {
-      // El título se deduce del primer pedido SOLO si sigue siendo el de
-      // fábrica: si el usuario ya lo puso a mano, el suyo manda.
+      // Lock the workflow choice immediately. Resolving a linked directory or
+      // knowledge document is asynchronous, but the first request has already
+      // started from the user's point of view.
       _updateSession(
         projectId,
         session.id,
@@ -1780,6 +1807,40 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
           imagePaths: imagePaths,
         ),
       );
+    }
+
+    _preparingSessionTurns.add(sessionId);
+    late final String explicitContext;
+    try {
+      explicitContext = await ProjectChatReferenceService.promptContext(
+        project,
+        trimmed,
+      );
+    } finally {
+      _preparingSessionTurns.remove(sessionId);
+    }
+    project = _projectById(projectId);
+    if (project == null) return;
+    session = _sessionById(project, sessionId);
+    if (session == null) return;
+    if (session.isRunning) {
+      if (started) {
+        await queueSessionMessage(
+          projectId,
+          sessionId,
+          trimmed,
+          imagePaths: imagePaths,
+        );
+      }
+      return;
+    }
+    final prompt = [
+      if (trimmed.isNotEmpty) trimmed,
+      if (explicitContext.isNotEmpty) explicitContext,
+      if (imagePaths.isNotEmpty) _describeChannelAttachments(imagePaths),
+    ].join('\n\n');
+
+    if (!started) {
       return _runWorkflow(projectId, session.id, prompt);
     }
 
@@ -1793,7 +1854,13 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
         imagePaths: imagePaths,
       ),
     );
-    final member = _followUpOwner(project, session);
+    final members = membersOf(project, session: session);
+    final member =
+        ProjectChatReferenceService.explicitlyMentionedMember(
+          trimmed,
+          members,
+        ) ??
+        _followUpOwner(project, session);
     if (member == null) {
       _appendMessage(
         projectId,
@@ -1935,6 +2002,13 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
 
     final project = _projectById(projectId);
     final session = project == null ? null : _sessionById(project, sessionId);
+    final isStillQueued = session?.queuedMessages.any(
+      (message) => message.id == messageId,
+    );
+    // The old turn may have settled while persistence yielded. Its finalizer
+    // then already dispatched this exact message; stopping here would cancel
+    // the new turn we intended to start.
+    if (isStillQueued != true) return;
     if (session?.isRunning ?? false) {
       final activeRunWillDispatch = _activeSessionRuns.contains(sessionId);
       stopSession(projectId, sessionId);
@@ -2709,32 +2783,61 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
           final isError = turn.isError;
           final costUsd = turn.costUsd;
           final durationMs = turn.durationMs;
-          if (!isError) {
+          final reportedTokens = TokenUsage(
+            inputTokens: turn.inputTokens,
+            outputTokens: turn.outputTokens,
+            cacheReadTokens: turn.cacheReadTokens,
+            cacheCreationTokens: turn.cacheCreationTokens,
+          );
+          final currentProject = _projectById(projectId);
+          final beforeUsage = currentProject == null
+              ? const SessionUsage()
+              : _sessionById(currentProject, sessionId)?.usage ??
+                    const SessionUsage();
+          final previousCumulative =
+              beforeUsage.cumulativeByProfileId[member.id] ??
+              const TokenUsage();
+          final turnTokens = turn.tokensReported && turn.usageIsCumulative
+              ? reportedTokens.deltaFrom(previousCumulative)
+              : reportedTokens;
+          final usage = beforeUsage.recordTurn(
+            profileId: member.id,
+            workNodeId: workNodeId,
+            reportedTokens: reportedTokens,
+            tokensReported: turn.tokensReported,
+            usageIsCumulative: turn.usageIsCumulative,
+            reportedCostUsd: costUsd,
+            costReported: turn.costReported,
+            durationMs: durationMs,
+            contextUsedTokens: turn.contextUsedTokens,
+            contextWindowTokens: turn.contextWindowTokens,
+          );
+          _updateSession(
+            projectId,
+            sessionId,
+            (session) => session.copyWith(usage: usage),
+          );
+          if (!isError || turn.tokensReported || turn.costReported) {
             unawaited(
               UsageLedgerService.instance.notifier.record(
                 provider: engine.provider.alias,
-                model: turn.model,
+                model: turn.model.isEmpty ? engine.model : turn.model,
                 profileId: member.id,
                 projectId: projectId,
                 sessionId: sessionId,
-                inputTokens: turn.inputTokens,
-                outputTokens: turn.outputTokens,
-                cacheReadTokens: turn.cacheReadTokens,
-                cacheCreationTokens: turn.cacheCreationTokens,
+                inputTokens: turnTokens.inputTokens,
+                outputTokens: turnTokens.outputTokens,
+                cacheReadTokens: turnTokens.cacheReadTokens,
+                cacheCreationTokens: turnTokens.cacheCreationTokens,
+                tokensReported: turn.tokensReported,
                 durationMs: durationMs,
                 costUsd: costUsd,
+                costReported: turn.costReported,
+                workNodeId: workNodeId ?? '',
+                contextUsedTokens: turn.contextUsedTokens,
+                contextWindowTokens: turn.contextWindowTokens,
               ),
             );
-          }
-          if (costUsd > 0) {
-            _updateSession(projectId, sessionId, (session) {
-              final costs = Map<String, double>.from(session.costByProfileId);
-              costs[member.id] = (costs[member.id] ?? 0) + costUsd;
-              return session.copyWith(
-                costUsd: session.costUsd + costUsd,
-                costByProfileId: costs,
-              );
-            });
           }
           if (isError) {
             turnFailed = true;
@@ -2779,8 +2882,10 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
             projectId,
             sessionId,
             (session) => session.copyWith(
-              contextUsedTokens: usedTokens,
-              contextWindowTokens: windowTokens,
+              usage: session.usage.withLatestContext(
+                used: usedTokens,
+                window: windowTokens,
+              ),
             ),
           );
 

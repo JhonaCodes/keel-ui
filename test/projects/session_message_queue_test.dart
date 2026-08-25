@@ -103,6 +103,28 @@ void main() {
     },
   );
 
+  test('al revivir no finge que un turno inexistente sigue pendiente', () {
+    final queued = SessionQueuedMessage(
+      id: 'pending-1',
+      text: 'Después',
+      createdAt: _epoch,
+      delivery: SessionQueuedDelivery.afterCurrentTurn,
+    );
+    final project = runningProject(queuedMessages: [queued]);
+
+    final revived = ProjectsViewModel.revivedSession(
+      project.activeSession!,
+      project,
+      workflowId,
+    );
+
+    expect(revived.isRunning, isFalse);
+    expect(
+      revived.queuedMessages.single.delivery,
+      SessionQueuedDelivery.standby,
+    );
+  });
+
   test('edita y programa por id estable sin alterar otro mensaje', () async {
     final viewmodel = ProjectsViewModel();
     await viewmodel.ready;
@@ -140,6 +162,41 @@ void main() {
     expect(queued.last.text, 'segundo');
     expect(queued.last.delivery, SessionQueuedDelivery.afterCurrentTurn);
   });
+
+  test(
+    'enviar ahora entrega el mensaje solo después de cerrar el turno',
+    () async {
+      final viewmodel = ProjectsViewModel();
+      await viewmodel.ready;
+      final project = runningProject();
+      viewmodel.updateState(
+        ProjectsState(projects: [project], selectedProjectId: project.id),
+      );
+      final messageId = await viewmodel.queueSessionMessage(
+        project.id,
+        'session',
+        'Cambiá el enfoque ahora',
+      );
+
+      await viewmodel.sendQueuedSessionMessageNow(
+        project.id,
+        'session',
+        messageId!,
+      );
+
+      final settled = viewmodel.data.projects.single.activeSession!;
+      expect(settled.isRunning, isFalse);
+      expect(settled.queuedMessages, isEmpty);
+      expect(
+        settled.messages.any(
+          (message) =>
+              message.role == ChatRole.user &&
+              message.text == 'Cambiá el enfoque ahora',
+        ),
+        isTrue,
+      );
+    },
+  );
 
   testWidgets('se puede escribir y guardar en espera durante un turno', (
     tester,

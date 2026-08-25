@@ -20,12 +20,20 @@ class ChatComposerField extends StatefulWidget {
     required this.onSend,
     required this.hintText,
     this.enabled = true,
+    this.onChanged,
+    this.onKeyEvent,
   });
 
   final TextEditingController controller;
   final VoidCallback onSend;
   final String hintText;
   final bool enabled;
+  final ValueChanged<String>? onChanged;
+
+  /// Gets first refusal on keyboard events. Autocomplete uses it for arrows,
+  /// Escape and Enter; returning [KeyEventResult.ignored] preserves the normal
+  /// composer behavior.
+  final KeyEventResult Function(KeyEvent event)? onKeyEvent;
 
   @override
   State<ChatComposerField> createState() => _ChatComposerFieldState();
@@ -42,6 +50,10 @@ class _ChatComposerFieldState extends State<ChatComposerField> {
 
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
+    final externalResult = widget.onKeyEvent?.call(event);
+    if (externalResult == KeyEventResult.handled) {
+      return KeyEventResult.handled;
+    }
     if (event.logicalKey != LogicalKeyboardKey.enter) {
       return KeyEventResult.ignored;
     }
@@ -66,6 +78,7 @@ class _ChatComposerFieldState extends State<ChatComposerField> {
         maxLines: 6,
         keyboardType: TextInputType.multiline,
         textInputAction: TextInputAction.newline,
+        onChanged: widget.onChanged,
         decoration: InputDecoration(
           hintText: widget.hintText,
           border: InputBorder.none,

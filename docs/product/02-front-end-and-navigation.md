@@ -80,15 +80,36 @@ To see the real drawing of this screen, open `../mockup/mapa-de-razonamiento.htm
 
 ## Writing while the agent works
 
-The composer doesn't block during a turn. Writing and sending while the agent is responding **enqueues** the message — both CLIs are one-shot per turn, so there's no way to inject it mid-turn — and when it finishes, everything queued comes out as a single next turn, with any images attached ([see F14](../features/14-cola-de-mensajes.md)).
+The composer doesn't block during a turn. In project sessions, writing while
+agents are responding creates a visible, persisted standby message with any
+attached images. It can be edited, deleted, sent after the current turn, or
+sent now ([see F14](../features/14-cola-de-mensajes.md)).
 
-If the turn stopped with **Stop**, the queue doesn't fire by itself: stopping is "I'm taking control", and the interface offers "Send now" instead of starting a new turn automatically. This queue applies to 1:1 chat and the Keel AI window; projects don't have their own queue yet ([see F14](../features/14-cola-de-mensajes.md)).
+Both CLIs are one-shot per turn, so **Send now** cancels the current process,
+waits until it actually releases the session, and only then opens the queued
+message as a new turn. Manual standby messages never fire merely because the
+user pressed **Stop**. Queues are available in 1:1 chat, Keel AI, and project
+sessions.
+
+## Explicit references in a project session
+
+The session composer filters real project resources as soon as a prefix is
+typed: `/` links a project directory, `@` selects a member agent, `$` links a
+registered skill or rule, and `#` links a knowledge base or one of its indexed
+documents. The menu supports mouse, arrow keys, Enter/Tab, and Escape.
+
+Selections for directories, instructions, and knowledge are persisted as
+readable Markdown backed by typed `keel://` links. At delivery time, Keel
+resolves only those explicit links into bounded prompt context and rejects any
+directory escape. An explicit `@member` routes a follow-up to that project
+member; it never imports an agent from another project or bypasses workflow
+preflight on the first message ([see F38](../features/38-referencias-del-chat.md)).
 
 ## Images in chat
 
 Dropped directly on the conversation area (or with the composer button). Each attachment shows as a card preview (200×140), never full-size, and opens large on click. The image is copied to the app's storage before being shown — so it survives if the original file moves or is deleted — and reaches the model **by path**, not by bytes: the agent reads it with its own `Read` tool when it decides it needs to look at it ([see F13](../features/13-imagenes-en-el-chat.md)).
 
-This works in 1:1 chat (and in the Keel AI window, which shares the same widget); projects don't accept attachments yet.
+This works in 1:1 chat, the Keel AI window, and project sessions.
 
 ## Clickable links and the session's PR
 

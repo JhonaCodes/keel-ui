@@ -60,10 +60,15 @@ class UsageLedgerViewModel extends ViewModel<UsageLedgerState> {
     required int outputTokens,
     required int cacheReadTokens,
     required int cacheCreationTokens,
+    required bool tokensReported,
     required int durationMs,
     required double costUsd,
+    required bool costReported,
     String projectId = '',
     String sessionId = '',
+    String workNodeId = '',
+    int contextUsedTokens = 0,
+    int contextWindowTokens = 0,
   }) async {
     await ready;
 
@@ -80,12 +85,17 @@ class UsageLedgerViewModel extends ViewModel<UsageLedgerState> {
       profileId: profileId,
       projectId: projectId,
       sessionId: sessionId,
+      workNodeId: workNodeId,
       inputTokens: inputTokens,
       outputTokens: outputTokens,
       cacheReadTokens: cacheReadTokens,
       cacheCreationTokens: cacheCreationTokens,
+      tokensReported: tokensReported,
       durationMs: durationMs,
       costUsd: costUsd,
+      costReported: costReported,
+      contextUsedTokens: contextUsedTokens,
+      contextWindowTokens: contextWindowTokens,
     );
 
     final cutoff = DateTime.now().subtract(retention);

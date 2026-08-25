@@ -67,13 +67,18 @@ class MapLayout {
   /// que la fila mide lo que mide el cuadro.
   static const _rowPitch = calloutHeight + 26;
 
-  /// Del carril de avanzar al de delegar, y del de delegar a los subagentes.
+  /// Del tronco a la guía de ramas, y de la guía al primer nivel del árbol.
   static const _rowToGuideLane = 162.0;
   static const _rowToLane = 186.0;
 
   /// Alto del nodo MÁS su cuadro punteado: con el paso justo, el subagente
   /// de abajo tapaba lo que devolvió el de arriba.
   static const laneSlotPitch = 150.0;
+
+  /// Cada nivel de una rama se corre a la derecha. La altura la decide el
+  /// orden DFS de [MapNode.laneSlot]; la sangría es lo que deja visible que
+  /// un subagente nació dentro de una consulta y no directamente del tronco.
+  static const branchIndent = 44.0;
   static const bottomPad = 44.0;
 
   final Size size;
@@ -89,10 +94,9 @@ class MapLayout {
   /// Por qué punto del borde de arriba sale cada arista, por `'$edgeKey@$nodeId'`.
   final Map<String, double> _ports;
 
-  /// Los tres carriles: arriba vuelve, al medio avanza, abajo se delega.
-  /// Son siempre los mismos y en el mismo orden, así que una línea que sube
-  /// significa lo mismo en cualquier sesión sin mirar la leyenda. Sus alturas
-  /// dependen de cuántas filas de réplicas haya arriba.
+  /// Guías del lienzo. En sesiones con un caso, las consultas viven en los
+  /// árboles inferiores; la banda superior sólo sigue aplicando al modo libre
+  /// sin `ResolutionCase`.
   final double guideTopY;
   final double guideRowY;
   final double rowY;
@@ -168,8 +172,16 @@ class MapLayout {
           ..lineTo(leftToRight ? to.left - 3 : to.right + 3, y);
 
       case MapEdgeKind.back:
+        if ((mapNode(edge.fromId)?.lane ?? 0) > 0 ||
+            (mapNode(edge.toId)?.lane ?? 0) > 0) {
+          return _underpass(edge, from, to);
+        }
         return _overpass(edge, from, to, _corridorOf(edge));
       case MapEdgeKind.answer:
+        if ((mapNode(edge.fromId)?.lane ?? 0) > 0 ||
+            (mapNode(edge.toId)?.lane ?? 0) > 0) {
+          return _underpass(edge, from, to, reversed: true);
+        }
         return _overpass(edge, from, to, _corridorOf(edge) + corridorGap);
       case MapEdgeKind.spawn:
         return _overpass(edge, from, to, spawnCorridorY);
@@ -179,6 +191,13 @@ class MapLayout {
       case MapEdgeKind.delegateBack:
         return _underpass(edge, from, to, reversed: true);
     }
+  }
+
+  MapNode? mapNode(String id) {
+    for (final node in nodes) {
+      if (node.id == id) return node;
+    }
+    return null;
   }
 
   double _corridorOf(MapEdge edge) {
@@ -204,9 +223,8 @@ class MapLayout {
     );
   }
 
-  /// La bajada al carril de los subagentes: baja del pie del padre, dobla a
-  /// un montante a la izquierda de la columna y entra a cada hijo por su
-  /// costado. Es un árbol, y se dibuja como un árbol.
+  /// La bajada al árbol local: baja del pie del padre, dobla a un montante a
+  /// la izquierda de la columna y entra a cada hijo por su costado.
   ///
   /// El montante existe porque los subagentes de un mismo padre se apilan en
   /// la misma columna: una línea que bajara derecho hasta el tercero
@@ -313,7 +331,7 @@ class MapLayout {
   factory MapLayout.of(SessionMap map) {
     final columnWidth = <int, double>{};
     for (final node in map.nodes) {
-      final width = _widthOf(node);
+      final width = _widthOf(node) + math.max(0, node.lane - 1) * branchIndent;
       final current = columnWidth[node.column] ?? 0;
       if (width > current) columnWidth[node.column] = width;
     }
@@ -324,7 +342,7 @@ class MapLayout {
       columnX[column] = x;
       x += (columnWidth[column] ?? nodeWidth) + columnGap;
     }
-    final width = x - columnGap + padRight;
+    final baseWidth = x - columnGap + padRight;
 
     double? centerOf(String nodeId) {
       final node = map.nodeById(nodeId);
@@ -346,7 +364,7 @@ class MapLayout {
       if (from == null || to == null) continue;
       final calloutLeft = ((from + to) / 2 - calloutWidth / 2).clamp(
         padLeft,
-        math.max(padLeft, width - padRight - calloutWidth),
+        math.max(padLeft, baseWidth - padRight - calloutWidth),
       );
       spans[callout.pairId] = (
         left: math.min(math.min(from, to), calloutLeft.toDouble()),
@@ -403,13 +421,21 @@ class MapLayout {
     final rects = <String, Rect>{};
     var deepestSlot = 0;
     for (final node in map.nodes) {
-      final left = columnX[node.column] ?? padLeft;
+      final left =
+          (columnX[node.column] ?? padLeft) +
+          math.max(0, node.lane - 1) * branchIndent;
       final top = node.lane == 0 ? rowY : laneY + node.laneSlot * laneSlotPitch;
       if (node.lane > 0 && node.laneSlot > deepestSlot) {
         deepestSlot = node.laneSlot;
       }
       rects[node.id] = Rect.fromLTWH(left, top, _widthOf(node), nodeHeight);
     }
+
+    final width = math.max(
+      baseWidth,
+      rects.values.fold(0.0, (right, rect) => math.max(right, rect.right)) +
+          padRight,
+    );
 
     final hasLane = map.nodes.any((node) => node.lane > 0);
     final height = hasLane

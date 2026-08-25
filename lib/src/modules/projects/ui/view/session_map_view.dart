@@ -22,8 +22,8 @@ const _kDenseBelow = 0.5;
 const _kMinScale = 0.25;
 const _kMaxScale = 2.0;
 
-/// El mapa de la sesión: un lienzo que se recorre, con carriles fijos —arriba
-/// vuelve, al medio avanza, abajo se delega— y nodos que cambian de estado.
+/// El mapa de la sesión: un lienzo que se recorre, con el grafo de trabajo en
+/// el centro y los árboles de consulta/delegación debajo.
 ///
 /// Reemplaza al carril vertical con arcos que había antes, que contaba quién
 /// le pasó a quién —lo que el hilo ya decía— y nada de lo que uno quiere
@@ -368,7 +368,7 @@ class _Canvas extends StatelessWidget {
             _LaneLabel(
               y: layout.guideLaneY,
               icon: Icons.account_tree_outlined,
-              label: 'delega',
+              label: 'consulta / delega',
             ),
           ..._consultCallouts(),
           for (final node in map.nodes)

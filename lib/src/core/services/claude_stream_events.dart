@@ -53,14 +53,12 @@ class ClaudeStreamReader {
         return [..._hookBlock(event), ..._subagentResult(event)];
 
       case 'assistant':
-        final content =
-            (event['message'] as Map<String, dynamic>?)?['content']
-                as List<dynamic>?;
-        if (content == null) return const [];
+        final content = _messageContentBlocks(event);
+        if (content.isEmpty) return const [];
 
         final events = <Map<String, dynamic>>[];
         final textBuffer = StringBuffer();
-        for (final block in content.whereType<Map<String, dynamic>>()) {
+        for (final block in content) {
           switch (block['type']) {
             case 'thinking':
               final thinking = block['thinking'] as String?;
@@ -91,12 +89,17 @@ class ClaudeStreamReader {
             'type': 'turnCompleted',
             'isError': event['is_error'] as bool,
             'costUsd': usage.costUsd,
+            'costReported': event['total_cost_usd'] is num,
             'durationMs': usage.durationMs,
             'model': usage.model,
             'inputTokens': usage.inputTokens,
             'outputTokens': usage.outputTokens,
             'cacheReadTokens': usage.cacheReadTokens,
             'cacheCreationTokens': usage.cacheCreationTokens,
+            'tokensReported': event['usage'] is Map,
+            'usageIsCumulative': false,
+            'contextUsedTokens': usedContextOf(usage),
+            'contextWindowTokens': usage.contextWindowTokens,
           },
           if (usage.contextWindowTokens > 0)
             {
@@ -138,13 +141,12 @@ class ClaudeStreamReader {
   }
 
   List<Map<String, dynamic>> _subagentResult(Map<String, dynamic> event) {
-    final content =
-        (event['message'] as Map<String, dynamic>?)?['content'] as List?;
-    if (content == null) return const [];
+    final content = _messageContentBlocks(event);
+    if (content.isEmpty) return const [];
 
     final events = <Map<String, dynamic>>[];
     for (final part in content) {
-      if (part is! Map || part['type'] != 'tool_result') continue;
+      if (part['type'] != 'tool_result') continue;
       final id = part['tool_use_id'] as String?;
       if (id == null || !_subagentToolUseIds.remove(id)) continue;
       events.add({
@@ -162,14 +164,12 @@ class ClaudeStreamReader {
     String parentId,
   ) {
     if (event['type'] != 'assistant') return const [];
-    final content =
-        (event['message'] as Map<String, dynamic>?)?['content']
-            as List<dynamic>?;
-    if (content == null) return const [];
+    final content = _messageContentBlocks(event);
+    if (content.isEmpty) return const [];
 
     final events = <Map<String, dynamic>>[];
     final textBuffer = StringBuffer();
-    for (final block in content.whereType<Map<String, dynamic>>()) {
+    for (final block in content) {
       switch (block['type']) {
         case 'thinking':
           final thinking = block['thinking'] as String?;
@@ -206,12 +206,11 @@ class ClaudeStreamReader {
   /// NUESTROS hooks: uno que el usuario tenga en su propia configuración no la
   /// lleva, y un error común de herramienta tampoco.
   List<Map<String, dynamic>> _hookBlock(Map<String, dynamic> event) {
-    final content =
-        (event['message'] as Map<String, dynamic>?)?['content'] as List?;
-    if (content == null) return const [];
+    final content = _messageContentBlocks(event);
+    if (content.isEmpty) return const [];
 
     for (final part in content) {
-      if (part is! Map || part['type'] != 'tool_result') continue;
+      if (part['type'] != 'tool_result') continue;
       final text = _flatten(part['content']);
       if (!text.contains(kHookDenialMarker)) continue;
       return [
@@ -225,6 +224,33 @@ class ClaudeStreamReader {
       ];
     }
     return const [];
+  }
+
+  /// Normaliza las dos formas que emite Claude Code para `message.content`.
+  ///
+  /// Los turnos normales usan una lista de bloques Anthropic. Los comandos de
+  /// control, incluido `/compact`, pueden emitir el mensaje de confirmación
+  /// como un [String] directo. La frontera del protocolo absorbe esa diferencia
+  /// para que ningún consumidor tenga que hacer casts sobre datos del CLI.
+  static List<Map<String, dynamic>> _messageContentBlocks(
+    Map<String, dynamic> event,
+  ) {
+    final message = event['message'];
+    if (message is! Map) return const [];
+
+    final content = message['content'];
+    if (content is String) {
+      if (content.isEmpty) return const [];
+      return [
+        {'type': 'text', 'text': content},
+      ];
+    }
+    if (content is! List) return const [];
+
+    return [
+      for (final block in content)
+        if (block is Map<String, dynamic>) block,
+    ];
   }
 
   static String _flatten(Object? content) =>

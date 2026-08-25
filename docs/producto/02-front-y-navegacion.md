@@ -81,15 +81,37 @@ Para ver el dibujo real de esta pantalla, abrí `../mockup/mapa-de-razonamiento.
 
 ## Escribir mientras el agente trabaja
 
-El composer no se bloquea durante un turno. Escribir y enviar mientras el agente está respondiendo **encola** el mensaje — los dos CLIs son de un solo tiro por turno, así que no hay forma de inyectarlo a mitad de turno — y al terminar, todo lo encolado sale como un único turno siguiente, con las imágenes que se le hayan adjuntado ([ver F14](../features/14-cola-de-mensajes.md)).
+El composer no se bloquea durante un turno. En una sesión de proyecto, escribir
+mientras los agentes responden crea un mensaje visible y persistido en espera,
+con sus imágenes. Se puede editar, eliminar, enviar al terminar el turno o
+enviar ahora ([ver F14](../features/14-cola-de-mensajes.md)).
 
-Si el turno se frenó con **Detener**, la cola no se dispara sola: parar es "tomo el control", y la tira ofrece "Enviar ahora" en vez de arrancar un turno nuevo automáticamente. Esta cola aplica al chat 1:1 y a la ventana de Keel AI; los proyectos todavía no tienen cola propia ([ver F14](../features/14-cola-de-mensajes.md)).
+Si el turno se frenó con **Detener**, la cola manual no se dispara sola:
+parar es "tomo el control". En las sesiones de proyecto cada mensaje pendiente
+puede mantenerse en espera, editarse, eliminarse, programarse para el final del
+turno o enviarse ahora interrumpiendo de forma segura. La cola aplica al chat
+1:1, a Keel AI y a los proyectos ([ver F14](../features/14-cola-de-mensajes.md)).
+
+## Referencias explícitas en una sesión de proyecto
+
+El composer filtra recursos reales del proyecto desde que se escribe un
+prefijo: `/` enlaza un directorio, `@` elige un agente miembro, `$` enlaza una
+skill o regla registrada y `#` enlaza una base o documento indexado de Saber.
+La lista responde al mouse, flechas, Enter/Tab y Escape.
+
+Directorios, instrucciones y Saber se persisten como Markdown legible con un
+enlace `keel://` tipado. Al entregar el mensaje, Keel materializa solo esas
+referencias como contexto acotado y rechaza rutas que salgan del proyecto. Un
+`@miembro` explícito dirige un seguimiento a ese agente; nunca incorpora un
+agente ajeno ni salta el preflight del workflow en el primer mensaje
+([ver F38](../features/38-referencias-del-chat.md)).
 
 ## Imágenes en el chat
 
 Se sueltan directamente sobre el área de conversación (o con el botón del composer). Cada adjunto se ve como una tarjeta de preview acotada (200×140), nunca a tamaño completo, y se abre en grande al hacer clic. La imagen se copia al almacenamiento de la app antes de mostrarse — así sobrevive aunque el archivo original se mueva o se borre — y llega al modelo **por ruta**, no por bytes: el agente la lee con su propia tool `Read` cuando decide que hace falta mirarla ([ver F13](../features/13-imagenes-en-el-chat.md)).
 
-Esto funciona en el chat 1:1 (y en la ventana de Keel AI, que comparte el mismo widget); los proyectos todavía no aceptan adjuntos.
+Esto funciona en el chat 1:1, en la ventana de Keel AI y en las sesiones de
+proyecto.
 
 ## Enlaces clickeables y el PR de la sesión
 

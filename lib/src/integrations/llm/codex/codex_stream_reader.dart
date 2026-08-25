@@ -65,8 +65,7 @@ class CodexStreamReader {
                     {
                       'type': 'toolUse',
                       'name': event['item'] is Map
-                          ? ((event['item'] as Map)['tool'] as String? ??
-                                'mcp')
+                          ? ((event['item'] as Map)['tool'] as String? ?? 'mcp')
                           : 'mcp',
                       'input': null,
                     },
@@ -82,12 +81,34 @@ class CodexStreamReader {
         }
 
       case 'turn.completed':
-        return const [
+        final usage = (event['usage'] as Map?)?.cast<String, dynamic>();
+        final cached = _usageInt(usage?['cached_input_tokens']);
+        final cacheWrite = _usageInt(usage?['cache_write_input_tokens']);
+        final reportedInput = _usageInt(usage?['input_tokens']);
+        return [
           {
             'type': 'turnCompleted',
             'isError': false,
             'costUsd': 0.0,
+            'costReported': false,
             'durationMs': 0,
+            if (usage != null) ...{
+              // Codex reports total input including the cached buckets. Keel's
+              // normalized contract keeps the buckets disjoint so totals do
+              // not count the same token twice.
+              'inputTokens': (reportedInput - cached - cacheWrite).clamp(
+                0,
+                reportedInput,
+              ),
+              'outputTokens': _usageInt(usage['output_tokens']),
+              'cacheReadTokens': cached,
+              'cacheCreationTokens': cacheWrite,
+              // `codex exec resume` reports the accumulated CLI-thread usage,
+              // not the delta for only this request. The session model uses
+              // this marker to subtract its persisted previous snapshot.
+              'tokensReported': true,
+              'usageIsCumulative': true,
+            },
           },
         ];
 
@@ -117,3 +138,5 @@ class CodexStreamReader {
     }
   }
 }
+
+int _usageInt(Object? value) => (value as num?)?.toInt() ?? 0;

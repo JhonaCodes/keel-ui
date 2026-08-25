@@ -214,6 +214,49 @@ void main() {
       ]);
     });
 
+    test('un comando de control puede devolver content como texto', () {
+      final reader = ClaudeStreamReader();
+
+      final events = reader.read({
+        'type': 'assistant',
+        'message': {'content': 'Conversation compacted.'},
+      });
+
+      expect(events, [
+        {'type': 'assistantText', 'text': 'Conversation compacted.'},
+      ]);
+    });
+
+    test('el texto directo de un subagente conserva su autoría', () {
+      final reader = ClaudeStreamReader();
+
+      final events = reader.read({
+        'type': 'assistant',
+        'parent_tool_use_id': 'toolu_compact',
+        'message': {'content': 'Context compacted.'},
+      });
+
+      expect(events, [
+        {
+          'type': 'subagentText',
+          'id': 'toolu_compact',
+          'text': 'Context compacted.',
+        },
+      ]);
+    });
+
+    test('un evento user con content textual no derriba el lector', () {
+      final reader = ClaudeStreamReader();
+
+      expect(
+        reader.read({
+          'type': 'user',
+          'message': {'content': 'Compaction boundary.'},
+        }),
+        isEmpty,
+      );
+    });
+
     test('el bloqueo de un hook se reconoce por su marca', () {
       final reader = ClaudeStreamReader();
       final events = reader.read(

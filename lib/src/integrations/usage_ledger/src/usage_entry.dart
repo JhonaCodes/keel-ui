@@ -16,11 +16,13 @@ class UsageEntry {
   final String profileId;
   final String projectId;
   final String sessionId;
+  final String workNodeId;
 
   final int inputTokens;
   final int outputTokens;
   final int cacheReadTokens;
   final int cacheCreationTokens;
+  final bool tokensReported;
 
   final int durationMs;
 
@@ -28,6 +30,9 @@ class UsageEntry {
   /// UI a propósito— pero se sigue midiendo: sacarlo del dato también
   /// habría cerrado la puerta a volver.
   final double costUsd;
+  final bool costReported;
+  final int contextUsedTokens;
+  final int contextWindowTokens;
 
   const UsageEntry({
     required this.id,
@@ -37,12 +42,17 @@ class UsageEntry {
     required this.profileId,
     required this.projectId,
     required this.sessionId,
+    this.workNodeId = '',
     required this.inputTokens,
     required this.outputTokens,
     required this.cacheReadTokens,
     required this.cacheCreationTokens,
+    this.tokensReported = true,
     required this.durationMs,
     required this.costUsd,
+    this.costReported = true,
+    this.contextUsedTokens = 0,
+    this.contextWindowTokens = 0,
   });
 
   int get totalTokens =>
@@ -59,12 +69,17 @@ class UsageEntry {
     'profileId': profileId,
     'projectId': projectId,
     'sessionId': sessionId,
+    'workNodeId': workNodeId,
     'inputTokens': inputTokens,
     'outputTokens': outputTokens,
     'cacheReadTokens': cacheReadTokens,
     'cacheCreationTokens': cacheCreationTokens,
+    'tokensReported': tokensReported,
     'durationMs': durationMs,
     'costUsd': costUsd,
+    'costReported': costReported,
+    'contextUsedTokens': contextUsedTokens,
+    'contextWindowTokens': contextWindowTokens,
   };
 
   factory UsageEntry.fromJson(Map<String, dynamic> json) => UsageEntry(
@@ -75,14 +90,27 @@ class UsageEntry {
     profileId: json['profileId'] as String? ?? '',
     projectId: json['projectId'] as String? ?? '',
     sessionId: json['sessionId'] as String? ?? '',
+    workNodeId: json['workNodeId'] as String? ?? '',
     inputTokens: json['inputTokens'] as int? ?? 0,
     outputTokens: json['outputTokens'] as int? ?? 0,
     cacheReadTokens: json['cacheReadTokens'] as int? ?? 0,
     cacheCreationTokens: json['cacheCreationTokens'] as int? ?? 0,
+    tokensReported: json['tokensReported'] as bool? ?? _legacyHasTokens(json),
     durationMs: json['durationMs'] as int? ?? 0,
     costUsd: (json['costUsd'] as num?)?.toDouble() ?? 0,
+    costReported:
+        json['costReported'] as bool? ??
+        ((json['costUsd'] as num?)?.toDouble() ?? 0) > 0,
+    contextUsedTokens: json['contextUsedTokens'] as int? ?? 0,
+    contextWindowTokens: json['contextWindowTokens'] as int? ?? 0,
   );
 }
+
+bool _legacyHasTokens(Map<String, dynamic> json) =>
+    (json['inputTokens'] as int? ?? 0) > 0 ||
+    (json['outputTokens'] as int? ?? 0) > 0 ||
+    (json['cacheReadTokens'] as int? ?? 0) > 0 ||
+    (json['cacheCreationTokens'] as int? ?? 0) > 0;
 
 class UsageLedgerState {
   /// Los turnos anotados, del más viejo al más nuevo.

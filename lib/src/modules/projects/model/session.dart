@@ -7,6 +7,7 @@ import 'package:keel_ui/src/modules/projects/model/session_live_turn.dart';
 import 'package:keel_ui/src/modules/projects/model/session_subagent.dart';
 import 'package:keel_ui/src/modules/projects/model/resolution_case.dart';
 import 'package:keel_ui/src/modules/projects/model/session_queued_message.dart';
+import 'package:keel_ui/src/modules/projects/model/session_usage.dart';
 
 enum SessionStatus { running, finished, failed }
 
@@ -72,16 +73,10 @@ class Session {
   /// guardadas antes de que esto existiera se migran al abrir la app.
   final String workflowId;
 
-  /// Accumulated cost of every CLI turn this session ran (USD), total and
-  /// broken down by member profile — the ledger that makes the economics of
-  /// a channel visible instead of invisible.
-  final double costUsd;
-  final Map<String, double> costByProfileId;
-
-  /// Context the last turn of this session reported. Per session, not per project:
-  /// a new session opens fresh sessions, so its context starts from zero again.
-  final int? contextUsedTokens;
-  final int? contextWindowTokens;
+  /// Exact usage reported by the providers for this session. It survives the
+  /// machine ledger's retention window and keeps independent totals per
+  /// workflow node and profile.
+  final SessionUsage usage;
 
   /// A tool one of the members tried to use and was not allowed to. Held on
   /// the session so the thread can ask you about it once, instead of the turn
@@ -116,10 +111,7 @@ class Session {
     this.workflowId = '',
     this.isRunning = false,
     this.resolutionCase,
-    this.costUsd = 0,
-    this.costByProfileId = const {},
-    this.contextUsedTokens,
-    this.contextWindowTokens,
+    this.usage = const SessionUsage(),
     this.pendingPermission,
     this.liveTurn,
     this.subagents = const [],
@@ -128,9 +120,9 @@ class Session {
 
   /// How full the context is, 0..1, or null while nothing has reported yet.
   double? get contextUsageRatio {
-    final used = contextUsedTokens;
-    final window = contextWindowTokens;
-    if (used == null || window == null || window <= 0) return null;
+    final used = usage.latestContextUsedTokens;
+    final window = usage.latestContextWindowTokens;
+    if (used <= 0 || window <= 0) return null;
     return (used / window).clamp(0.0, 1.0);
   }
 
@@ -146,10 +138,7 @@ class Session {
     bool? isRunning,
     ResolutionCase? resolutionCase,
     bool clearResolutionCase = false,
-    double? costUsd,
-    Map<String, double>? costByProfileId,
-    int? contextUsedTokens,
-    int? contextWindowTokens,
+    SessionUsage? usage,
     PermissionRequest? pendingPermission,
     bool clearPendingPermission = false,
     SessionLiveTurn? liveTurn,
@@ -173,10 +162,7 @@ class Session {
       resolutionCase: clearResolutionCase
           ? null
           : (resolutionCase ?? this.resolutionCase),
-      costUsd: costUsd ?? this.costUsd,
-      costByProfileId: costByProfileId ?? this.costByProfileId,
-      contextUsedTokens: contextUsedTokens ?? this.contextUsedTokens,
-      contextWindowTokens: contextWindowTokens ?? this.contextWindowTokens,
+      usage: usage ?? this.usage,
       pendingPermission: clearPendingPermission
           ? null
           : (pendingPermission ?? this.pendingPermission),
@@ -199,10 +185,7 @@ class Session {
     'workflowId': workflowId,
     'isRunning': isRunning,
     'resolutionCase': resolutionCase?.toJson(),
-    'costUsd': costUsd,
-    'costByProfileId': costByProfileId,
-    'contextUsedTokens': contextUsedTokens,
-    'contextWindowTokens': contextWindowTokens,
+    'usage': usage.toJson(),
     'subagents': [for (final subagent in subagents) subagent.toJson()],
     'queuedMessages': [for (final message in queuedMessages) message.toJson()],
   };
@@ -241,14 +224,7 @@ class Session {
               (json['resolutionCase'] as Map).cast<String, dynamic>(),
             )
           : null,
-      costUsd: (json['costUsd'] as num?)?.toDouble() ?? 0,
-      costByProfileId:
-          (json['costByProfileId'] as Map?)?.map(
-            (key, value) => MapEntry(key as String, (value as num).toDouble()),
-          ) ??
-          const {},
-      contextUsedTokens: json['contextUsedTokens'] as int?,
-      contextWindowTokens: json['contextWindowTokens'] as int?,
+      usage: _sessionUsageFrom(json),
       subagents: [
         for (final entry in json['subagents'] as List? ?? const [])
           SessionSubagent.fromJson(entry as Map<String, dynamic>),
@@ -276,10 +252,7 @@ class Session {
           request == other.request &&
           workflowId == other.workflowId &&
           isRunning == other.isRunning &&
-          costUsd == other.costUsd &&
-          mapEquals(costByProfileId, other.costByProfileId) &&
-          contextUsedTokens == other.contextUsedTokens &&
-          contextWindowTokens == other.contextWindowTokens &&
+          usage == other.usage &&
           pendingPermission == other.pendingPermission &&
           liveTurn == other.liveTurn &&
           listEquals(subagents, other.subagents) &&
@@ -300,12 +273,7 @@ class Session {
     request,
     workflowId,
     isRunning,
-    costUsd,
-    Object.hashAll(
-      costByProfileId.entries.map((e) => Object.hash(e.key, e.value)),
-    ),
-    contextUsedTokens,
-    contextWindowTokens,
+    usage,
     pendingPermission,
     liveTurn,
     Object.hashAll(subagents),
@@ -318,4 +286,20 @@ class Session {
       'messages: ${messages.length}, '
       'queued: ${queuedMessages.length}, '
       'running: $isRunning)';
+}
+
+SessionUsage _sessionUsageFrom(Map<String, dynamic> json) {
+  final persisted = json['usage'];
+  if (persisted is Map) {
+    return SessionUsage.fromJson(persisted.cast<String, dynamic>());
+  }
+
+  // Old persisted sessions carried only cost and the latest context. Reading
+  // those fields once preserves the evidence; the next save writes solely the
+  // structured usage contract above.
+  return SessionUsage(
+    reportedCostUsd: (json['costUsd'] as num?)?.toDouble() ?? 0,
+    latestContextUsedTokens: json['contextUsedTokens'] as int? ?? 0,
+    latestContextWindowTokens: json['contextWindowTokens'] as int? ?? 0,
+  );
 }

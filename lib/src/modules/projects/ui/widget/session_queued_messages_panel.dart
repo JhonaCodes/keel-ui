@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:keel_ui/src/modules/projects/model/session_queued_message.dart';
+import 'package:keel_ui/src/modules/projects/service/project_chat_reference_service.dart';
 
 /// Mensajes que el usuario dejó preparados mientras el workflow trabaja.
 ///
@@ -126,7 +127,7 @@ class _QueuedSessionMessageRow extends StatelessWidget {
                   Text(
                     message.text.isEmpty
                         ? '$imageCount ${imageCount == 1 ? 'imagen' : 'imágenes'}'
-                        : message.text,
+                        : ProjectChatReferenceService.visibleText(message.text),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),

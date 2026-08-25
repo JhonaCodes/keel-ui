@@ -132,15 +132,31 @@ void main() {
     expect(messages, isEmpty);
   });
 
-  test('turn.completed emite turnCompleted sin error', () {
-    final messages = reader.read({'type': 'turn.completed'});
+  test('turn.completed conserva el uso acumulado que informa Codex', () {
+    final messages = reader.read({
+      'type': 'turn.completed',
+      'usage': {
+        'input_tokens': 2100,
+        'cached_input_tokens': 1500,
+        'cache_write_input_tokens': 100,
+        'output_tokens': 320,
+        'reasoning_output_tokens': 280,
+      },
+    });
 
     expect(messages, [
       {
         'type': 'turnCompleted',
         'isError': false,
         'costUsd': 0.0,
+        'costReported': false,
         'durationMs': 0,
+        'inputTokens': 500,
+        'outputTokens': 320,
+        'cacheReadTokens': 1500,
+        'cacheCreationTokens': 100,
+        'tokensReported': true,
+        'usageIsCumulative': true,
       },
     ]);
   });

@@ -191,7 +191,7 @@ class JobsApiViewModel extends ViewModel<JobsApiState> {
             'project': project.name,
             'status': session.status.name,
             'isRunning': session.isRunning,
-            'costUsd': session.costUsd,
+            'costUsd': session.usage.reportedCostUsd,
             'messages': session.messages.length,
           });
           return;

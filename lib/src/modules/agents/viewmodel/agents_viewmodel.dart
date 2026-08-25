@@ -600,8 +600,12 @@ class AgentsViewModel extends ViewModel<AgentsState> {
                 outputTokens: turn.outputTokens,
                 cacheReadTokens: turn.cacheReadTokens,
                 cacheCreationTokens: turn.cacheCreationTokens,
+                tokensReported: turn.tokensReported,
                 durationMs: durationMs,
                 costUsd: costUsd,
+                costReported: turn.costReported,
+                contextUsedTokens: turn.contextUsedTokens,
+                contextWindowTokens: turn.contextWindowTokens,
               ),
             );
           }

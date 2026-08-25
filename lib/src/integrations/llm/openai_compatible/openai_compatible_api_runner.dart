@@ -290,13 +290,20 @@ class OpenAiCompatibleApiRunner implements LlmRunner {
     'type': 'turnCompleted',
     'isError': isError,
     if (hasReportedFailure) 'hasReportedFailure': true,
-    'costUsd': 0.0,
+    'costUsd': usage.costUsd ?? 0.0,
+    if (usage.costUsd != null) 'costReported': true,
     'durationMs': started.elapsedMilliseconds,
     'model': spec.model,
     'inputTokens': usage.inputTokens,
     'outputTokens': usage.outputTokens,
     'cacheReadTokens': usage.cacheReadTokens,
     'cacheCreationTokens': usage.cacheCreationTokens,
+    if (usage.reported) ...{
+      'tokensReported': true,
+      'usageIsCumulative': false,
+      'contextUsedTokens': usage.latestContextTokens,
+      'contextWindowTokens': 0,
+    },
   };
 }
 
@@ -402,12 +409,19 @@ class _OpenAiCompatibleUsage {
   final int inputTokens;
   final int outputTokens;
   final int cacheReadTokens;
-  final int cacheCreationTokens = 0;
+  final int cacheCreationTokens;
+  final int latestContextTokens;
+  final double? costUsd;
+  final bool reported;
 
   const _OpenAiCompatibleUsage({
     this.inputTokens = 0,
     this.outputTokens = 0,
     this.cacheReadTokens = 0,
+    this.cacheCreationTokens = 0,
+    this.latestContextTokens = 0,
+    this.costUsd,
+    this.reported = false,
   });
 
   _OpenAiCompatibleUsage operator +(_OpenAiCompatibleUsage other) =>
@@ -415,19 +429,41 @@ class _OpenAiCompatibleUsage {
         inputTokens: inputTokens + other.inputTokens,
         outputTokens: outputTokens + other.outputTokens,
         cacheReadTokens: cacheReadTokens + other.cacheReadTokens,
+        cacheCreationTokens: cacheCreationTokens + other.cacheCreationTokens,
+        latestContextTokens: other.reported
+            ? other.latestContextTokens
+            : latestContextTokens,
+        costUsd: costUsd == null && other.costUsd == null
+            ? null
+            : (costUsd ?? 0) + (other.costUsd ?? 0),
+        reported: reported || other.reported,
       );
 
   static _OpenAiCompatibleUsage? fromJson(Object? json) {
     if (json is! Map<String, dynamic>) return null;
-    final promptDetails =
-        json['prompt_tokens_details'] as Map<String, dynamic>?;
+    final promptDetails = (json['prompt_tokens_details'] as Map?)
+        ?.cast<String, dynamic>();
+    final promptTokens = _usageInt(json['prompt_tokens']);
+    final cacheReadTokens = _usageInt(
+      promptDetails?['cached_tokens'] ?? json['prompt_cache_hit_tokens'],
+    );
+    final cacheCreationTokens = _usageInt(promptDetails?['cache_write_tokens']);
     return _OpenAiCompatibleUsage(
-      inputTokens: json['prompt_tokens'] as int? ?? 0,
-      outputTokens: json['completion_tokens'] as int? ?? 0,
-      cacheReadTokens: promptDetails?['cached_tokens'] as int? ?? 0,
+      inputTokens: (promptTokens - cacheReadTokens - cacheCreationTokens).clamp(
+        0,
+        promptTokens,
+      ),
+      outputTokens: _usageInt(json['completion_tokens']),
+      cacheReadTokens: cacheReadTokens,
+      cacheCreationTokens: cacheCreationTokens,
+      latestContextTokens: promptTokens,
+      costUsd: (json['cost'] as num?)?.toDouble(),
+      reported: true,
     );
   }
 }
+
+int _usageInt(Object? value) => (value as num?)?.toInt() ?? 0;
 
 Uri _chatCompletionsUri(String baseUrl) {
   final uri = Uri.parse(baseUrl);

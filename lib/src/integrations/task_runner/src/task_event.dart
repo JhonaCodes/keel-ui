@@ -45,12 +45,17 @@ sealed class TaskEvent {
         isError: message['isError'] as bool,
         hasReportedFailure: message['hasReportedFailure'] as bool? ?? false,
         costUsd: (message['costUsd'] as num).toDouble(),
+        costReported: message['costReported'] as bool? ?? false,
         durationMs: message['durationMs'] as int,
         model: message['model'] as String? ?? '',
         inputTokens: message['inputTokens'] as int? ?? 0,
         outputTokens: message['outputTokens'] as int? ?? 0,
         cacheReadTokens: message['cacheReadTokens'] as int? ?? 0,
         cacheCreationTokens: message['cacheCreationTokens'] as int? ?? 0,
+        tokensReported: message['tokensReported'] as bool? ?? false,
+        usageIsCumulative: message['usageIsCumulative'] as bool? ?? false,
+        contextUsedTokens: message['contextUsedTokens'] as int? ?? 0,
+        contextWindowTokens: message['contextWindowTokens'] as int? ?? 0,
       ),
       'contextUsage' => TaskContextUsage(
         usedTokens: message['usedTokens'] as int,
@@ -104,6 +109,7 @@ class TaskTurnCompleted extends TaskEvent {
   final bool isError;
   final bool hasReportedFailure;
   final double costUsd;
+  final bool costReported;
   final int durationMs;
 
   /// Los contadores del turno, para el ledger. Ver [ClaudeTurnCompleted]:
@@ -113,17 +119,26 @@ class TaskTurnCompleted extends TaskEvent {
   final int outputTokens;
   final int cacheReadTokens;
   final int cacheCreationTokens;
+  final bool tokensReported;
+  final bool usageIsCumulative;
+  final int contextUsedTokens;
+  final int contextWindowTokens;
 
   const TaskTurnCompleted({
     required this.isError,
     this.hasReportedFailure = false,
     required this.costUsd,
+    this.costReported = false,
     required this.durationMs,
     this.model = '',
     this.inputTokens = 0,
     this.outputTokens = 0,
     this.cacheReadTokens = 0,
     this.cacheCreationTokens = 0,
+    this.tokensReported = false,
+    this.usageIsCumulative = false,
+    this.contextUsedTokens = 0,
+    this.contextWindowTokens = 0,
   });
 
   /// A provider fallback is useful only when the runner could not provide a

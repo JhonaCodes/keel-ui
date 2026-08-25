@@ -11,19 +11,20 @@ import 'package:keel_ui/src/modules/agent_profiles/viewmodel/agent_profiles_view
 import 'package:keel_ui/src/modules/agents/model/chat_message.dart';
 import 'package:keel_ui/src/modules/agents/service/chat_attachment_store.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/chat_attachment_strip.dart';
-import 'package:keel_ui/src/modules/agents/ui/widget/chat_composer_field.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/fade_in_entrance.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/permission_request_banner.dart';
 import 'package:keel_ui/src/modules/projects/model/member_color.dart';
 import 'package:keel_ui/src/modules/projects/model/project.dart';
 import 'package:keel_ui/src/modules/projects/model/session.dart';
 import 'package:keel_ui/src/modules/projects/model/session_queued_message.dart';
+import 'package:keel_ui/src/modules/projects/service/project_chat_reference_service.dart';
 import 'package:keel_ui/src/modules/projects/model/thread_entry.dart';
 import 'package:keel_ui/src/modules/projects/ui/view/session_map_view.dart';
 import 'package:keel_ui/src/modules/projects/ui/widget/session_agent_picker.dart';
 import 'package:keel_ui/src/modules/projects/ui/widget/session_live_turn_strip.dart';
 import 'package:keel_ui/src/modules/projects/ui/widget/session_message_bubble.dart';
 import 'package:keel_ui/src/modules/projects/ui/widget/session_queued_messages_panel.dart';
+import 'package:keel_ui/src/modules/projects/ui/widget/session_chat_composer_field.dart';
 import 'package:keel_ui/src/modules/projects/ui/widget/workflow_progress_panel.dart';
 import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
 import 'package:keel_ui/src/modules/workflows/model/workflow.dart';
@@ -176,7 +177,7 @@ class _ProjectChannel extends StatelessWidget {
                       ),
               ),
               if (tab == SessionTab.chat)
-                _Composer(project: project, session: session),
+                _Composer(project: project, session: session, members: members),
             ],
           ),
         ),
@@ -340,10 +341,15 @@ class _HandoffDivider extends StatelessWidget {
 }
 
 class _Composer extends StatefulWidget {
-  const _Composer({required this.project, required this.session});
+  const _Composer({
+    required this.project,
+    required this.session,
+    required this.members,
+  });
 
   final Project project;
   final Session? session;
+  final List<AgentProfile> members;
 
   @override
   State<_Composer> createState() => _ComposerState();
@@ -523,8 +529,10 @@ class _ComposerState extends State<_Composer> {
                         ),
                       ),
                     ),
-                    child: ChatComposerField(
+                    child: SessionChatComposerField(
                       controller: _controller,
+                      project: project,
+                      members: widget.members,
                       onSend: _send,
                       enabled: session != null,
                       hintText: switch (session) {
@@ -567,6 +575,16 @@ class _ComposerState extends State<_Composer> {
                       'corregir el rumbo — se registra en el nodo activo.',
               }, style: Theme.of(context).textTheme.bodySmall),
             ),
+            Padding(
+              padding: const EdgeInsets.only(top: 3, left: 4),
+              child: Text(
+                'Referencias: / directorios · @ agentes · '
+                r'$ skills y reglas · # saber',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
           ],
         ),
       ),
@@ -591,7 +609,9 @@ class _QueuedMessageEditorDialogState
   @override
   void initState() {
     super.initState();
-    _controller = TextEditingController(text: widget.message.text);
+    _controller = TextEditingController(
+      text: ProjectChatReferenceService.visibleText(widget.message.text),
+    );
   }
 
   @override
@@ -603,7 +623,12 @@ class _QueuedMessageEditorDialogState
   void _save() {
     final text = _controller.text.trim();
     if (text.isEmpty && widget.message.imagePaths.isEmpty) return;
-    Navigator.of(context).pop(text);
+    Navigator.of(context).pop(
+      ProjectChatReferenceService.restoreReferencesAfterEdit(
+        widget.message.text,
+        text,
+      ),
+    );
   }
 
   @override
@@ -672,9 +697,9 @@ class _ChannelHeader extends StatelessWidget {
   /// techo estamos hablando, que no es el mismo en todos los modelos.
   String _contextDetail() {
     final open = session;
-    final used = open?.contextUsedTokens;
-    final total = open?.contextWindowTokens;
-    if (used == null || total == null || total <= 0) return '';
+    final used = open?.usage.latestContextUsedTokens ?? 0;
+    final total = open?.usage.latestContextWindowTokens ?? 0;
+    if (used <= 0 || total <= 0) return '';
     return 'Contexto: ${_thousands(used)} de ${_thousands(total)} tokens';
   }
 

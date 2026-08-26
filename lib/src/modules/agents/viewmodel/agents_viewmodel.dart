@@ -19,6 +19,7 @@ import 'package:keel_ui/src/modules/agents/model/agent_model_option.dart';
 import 'package:keel_ui/src/modules/agents/model/agent_provider.dart';
 import 'package:keel_ui/src/modules/agents/model/agent_tool_activity.dart';
 import 'package:keel_ui/src/modules/agents/model/chat_message.dart';
+import 'package:keel_ui/src/modules/agents/service/remote_conversation_history.dart';
 import 'package:keel_ui/src/modules/agents/model/file_edit.dart';
 import 'package:keel_ui/src/modules/agents/model/line_diff.dart';
 import 'package:keel_ui/src/modules/agents/model/permission_request.dart';
@@ -29,6 +30,9 @@ import 'package:keel_ui/src/modules/hooks/model/hook_event.dart';
 import 'package:keel_ui/src/modules/hooks/viewmodel/hooks_viewmodel.dart';
 import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
 import 'package:keel_ui/src/modules/agent_profiles/viewmodel/agent_profiles_viewmodel.dart';
+import 'package:keel_ui/src/modules/catalog_locks/model/catalog_lock.dart';
+import 'package:keel_ui/src/modules/catalog_locks/viewmodel/catalog_locks_viewmodel.dart';
+import 'package:keel_ui/src/modules/assistant/model/assistant_action.dart';
 import 'package:keel_ui/src/modules/assistant/service/assistant_action_executor.dart';
 import 'package:keel_ui/src/modules/assistant/service/assistant_action_parser.dart';
 import 'package:keel_ui/src/modules/settings/viewmodel/settings_viewmodel.dart';
@@ -52,6 +56,7 @@ class AgentsViewModel extends ViewModel<AgentsState> {
   /// es lo que saca del hilo de la interfaz el parseo de cada línea del
   /// stream —el trabajo que ponía la app pastosa mientras se conversaba.
   final Map<String, TaskRun> _runningTurns = {};
+  final Map<String, Completer<bool>> _catalogChangePermissions = {};
 
   /// Pid → agente, para poder despublicarlo de la pantalla de Máquina.
   final Map<String, int> _runningPids = {};
@@ -248,6 +253,11 @@ class AgentsViewModel extends ViewModel<AgentsState> {
       agentId,
       (agent) => agent.copyWith(clearPendingPermission: true),
     );
+    if (request.isCatalogChange) {
+      final pending = _catalogChangePermissions.remove(agentId);
+      if (pending != null && !pending.isCompleted) pending.complete(grant);
+      return;
+    }
     if (!grant) return;
 
     if (request.isSandboxRestriction) {
@@ -265,6 +275,52 @@ class AgentsViewModel extends ViewModel<AgentsState> {
         'Ya tienes permiso para usar ${request.toolName}, continúa.',
       ),
     );
+  }
+
+  /// Suspends an MCP mutation until the person controlling this conversation
+  /// approves it. The timeout is deliberately local: an unanswered request
+  /// never lets a stale tool call write later.
+  Future<bool> requestCatalogChangePermission({
+    required String agentId,
+    required String kind,
+    required String name,
+    required String intent,
+    required String reason,
+  }) async {
+    final target = data.agents
+        .where((agent) => agent.id == agentId)
+        .firstOrNull;
+    if (target == null || target.pendingPermission != null) return false;
+    final completer = Completer<bool>();
+    _catalogChangePermissions[agentId] = completer;
+    _updateAgent(
+      agentId,
+      (agent) => agent.copyWith(
+        pendingPermission: PermissionRequest(
+          toolName: 'catalog_lock',
+          message: 'Keel AI pidió modificar un elemento bloqueado.',
+          kind: kind,
+          itemName: name,
+          changeIntent: intent,
+          changeReason: reason,
+          requestedBy: agent.name,
+        ),
+      ),
+    );
+    try {
+      return await Future.any([
+        completer.future,
+        Future<bool>.delayed(const Duration(minutes: 2), () => false),
+      ]);
+    } finally {
+      if (_catalogChangePermissions[agentId] == completer) {
+        _catalogChangePermissions.remove(agentId);
+        _updateAgent(
+          agentId,
+          (agent) => agent.copyWith(clearPendingPermission: true),
+        );
+      }
+    }
   }
 
   void deleteAgent(String id) {
@@ -481,6 +537,7 @@ class AgentsViewModel extends ViewModel<AgentsState> {
         hooksSettings: turnHooks.claudeSettings,
         hooksConfig: turnHooks.codexConfig,
         hookFiles: turnHooks.files,
+        conversationHistory: remoteConversationHistory(target.messages),
       ),
     );
     _runningTurns[agentId] = run;
@@ -781,6 +838,28 @@ class AgentsViewModel extends ViewModel<AgentsState> {
     final actions = parseAssistantActions(assistantText);
     if (actions.isEmpty) return;
 
+    // Legacy fenced action blocks cannot declare intent/reason or pause for
+    // the approval UI. Refuse the whole batch if it includes a locked target
+    // rather than allowing this older transport to bypass the MCP guard.
+    final locked = actions
+        .map(_lockedLegacyActionName)
+        .whereType<String>()
+        .toList();
+    if (locked.isNotEmpty) {
+      _appendMessage(
+        agentId,
+        ChatMessage(
+          role: ChatRole.assistant,
+          text:
+              'No ejecuté el bloque automático: intenta cambiar elementos '
+              'bloqueados (${locked.join(', ')}). Usá las tools MCP con '
+              'change_intent y change_reason para pedir permiso.',
+          timestamp: DateTime.now(),
+        ),
+      );
+      return;
+    }
+
     final results = executeAssistantActions(actions);
     final summary = summarizeAssistantActionResults(results);
     if (summary.isEmpty) return;
@@ -793,6 +872,20 @@ class AgentsViewModel extends ViewModel<AgentsState> {
         timestamp: DateTime.now(),
       ),
     );
+  }
+
+  String? _lockedLegacyActionName(AssistantAction action) {
+    final target = switch (action) {
+      CreateSkillAction(:final name) => (CatalogLockKind.skill, name),
+      CreateRuleAction(:final name) => (CatalogLockKind.rule, name),
+      CreateToolAction(:final name) => (CatalogLockKind.tool, name),
+      CreateAgentAction(:final handle) => (CatalogLockKind.agent, handle),
+      CreateWorkflowAction(:final name) => (CatalogLockKind.workflow, name),
+      CreateProjectAction(:final name) => (CatalogLockKind.project, name),
+    };
+    return CatalogLocksService.instance.notifier.isLocked(target.$1, target.$2)
+        ? '${target.$1.alias}:${target.$2}'
+        : null;
   }
 
   /// Concatenates the GLOBAL skills (every agent gets them, profile or

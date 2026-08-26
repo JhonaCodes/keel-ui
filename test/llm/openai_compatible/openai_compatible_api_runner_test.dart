@@ -21,6 +21,50 @@ const _spec = LlmTurnSpec(
 
 void main() {
   group('OpenAiCompatibleApiRunner', () {
+    test('entrega el historial aislado antes del mensaje actual', () async {
+      late http.Request seen;
+      final runner = OpenAiCompatibleApiRunner(
+        baseUrl: 'https://openrouter.ai/api/v1',
+        secretRef: 'OPENROUTER_API_KEY',
+        resolveSecret: (_) async => 'test-token-openrouter',
+        client: MockClient((request) async {
+          seen = request;
+          return http.Response('data: [DONE]\n', 200);
+        }),
+      );
+
+      await runner
+          .run(
+            const LlmTurnSpec(
+              prompt: 'Sí, aplicalo.',
+              workingDirectory: '.',
+              model: 'openai/gpt-4',
+              fullFileSystemAccess: false,
+              effort: 'medium',
+              conversationHistory: [
+                LlmConversationMessage(
+                  role: LlmConversationRole.user,
+                  content: '¿Podés aplicar la migración?',
+                ),
+                LlmConversationMessage(
+                  role: LlmConversationRole.assistant,
+                  content: 'Encontré tres archivos. ¿La aplico?',
+                ),
+              ],
+            ),
+            userPath: '',
+            cancel: const Stream<void>.empty(),
+          )
+          .drain<void>();
+
+      final body = jsonDecode(seen.body) as Map<String, dynamic>;
+      expect(body['messages'], [
+        {'role': 'user', 'content': '¿Podés aplicar la migración?'},
+        {'role': 'assistant', 'content': 'Encontré tres archivos. ¿La aplico?'},
+        {'role': 'user', 'content': 'Sí, aplicalo.'},
+      ]);
+    });
+
     test('OpenRouter conserva provider/model y normaliza el stream', () async {
       late http.Request seen;
       final runner = OpenAiCompatibleApiRunner(

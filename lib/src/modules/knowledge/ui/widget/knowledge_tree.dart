@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import 'package:keel_ui/src/modules/catalog_locks/model/catalog_lock.dart';
+import 'package:keel_ui/src/modules/catalog_locks/ui/widget/catalog_lock_button.dart';
+import 'package:keel_ui/src/modules/catalog_locks/viewmodel/catalog_locks_viewmodel.dart';
 import 'package:keel_ui/src/modules/knowledge/model/knowledge_base.dart';
 import 'package:keel_ui/src/modules/knowledge/model/knowledge_document.dart';
 import 'package:keel_ui/src/modules/knowledge/ui/screen/knowledge_base_form_screen.dart';
@@ -120,6 +123,10 @@ class _BaseRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isLocked = CatalogLocksService.instance.notifier.isLocked(
+      CatalogLockKind.knowledgeBase,
+      base.name,
+    );
 
     return InkWell(
       onTap: onToggle,
@@ -179,7 +186,12 @@ class _BaseRow extends StatelessWidget {
             IconButton(
               tooltip: 'Editar base',
               icon: const Icon(Icons.tune, size: 18),
-              onPressed: onEdit,
+              onPressed: isLocked ? null : onEdit,
+            ),
+            CatalogLockButton(
+              kind: CatalogLockKind.knowledgeBase,
+              name: base.name,
+              size: 18,
             ),
           ],
         ),

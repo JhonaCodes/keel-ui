@@ -13,5 +13,6 @@ export 'codex/codex_target.dart';
 export 'openai_compatible/openai_compatible_target.dart';
 
 part 'src/llm_provider.dart';
+part 'src/llm_conversation_message.dart';
 part 'src/llm_runner.dart';
 part 'src/llm_turn_spec.dart';

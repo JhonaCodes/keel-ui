@@ -4,6 +4,9 @@ import 'package:reactive_notifier/reactive_notifier.dart';
 import 'package:keel_ui/src/modules/assistant/service/assistant_window_bridge.dart';
 import 'package:keel_ui/src/modules/boards/model/board.dart';
 import 'package:keel_ui/src/modules/boards/model/board_run.dart';
+import 'package:keel_ui/src/modules/catalog_locks/model/catalog_lock.dart';
+import 'package:keel_ui/src/modules/catalog_locks/ui/widget/catalog_lock_button.dart';
+import 'package:keel_ui/src/modules/catalog_locks/viewmodel/catalog_locks_viewmodel.dart';
 import 'package:keel_ui/src/modules/boards/ui/screen/board_form_screen.dart';
 import 'package:keel_ui/src/modules/boards/ui/widget/delete_board_dialog.dart';
 import 'package:keel_ui/src/modules/boards/viewmodel/boards_viewmodel.dart';
@@ -37,7 +40,11 @@ class ProjectBoardsView extends StatelessWidget {
             Expanded(
               child: boards.isEmpty
                   ? _Empty(project: project)
-                  : _Grid(boards: boards, state: state),
+                  : _Grid(
+                      boards: boards,
+                      state: state,
+                      projectName: project.name,
+                    ),
             ),
           ],
         );
@@ -186,10 +193,15 @@ class _Empty extends StatelessWidget {
 }
 
 class _Grid extends StatelessWidget {
-  const _Grid({required this.boards, required this.state});
+  const _Grid({
+    required this.boards,
+    required this.state,
+    required this.projectName,
+  });
 
   final List<Board> boards;
   final BoardsState state;
+  final String projectName;
 
   @override
   Widget build(BuildContext context) {
@@ -203,6 +215,7 @@ class _Grid extends StatelessWidget {
             for (final board in boards)
               _BoardCard(
                 board: board,
+                projectName: projectName,
                 running: state.running.contains(board.id),
                 lastRun: state.runs[board.id]?.firstOrNull,
               ),
@@ -216,11 +229,13 @@ class _Grid extends StatelessWidget {
 class _BoardCard extends StatelessWidget {
   const _BoardCard({
     required this.board,
+    required this.projectName,
     required this.running,
     required this.lastRun,
   });
 
   final Board board;
+  final String projectName;
   final bool running;
   final BoardRun? lastRun;
 
@@ -230,6 +245,11 @@ class _BoardCard extends StatelessWidget {
     final scheme = theme.colorScheme;
     final campos = board.fields.length;
     final acciones = board.actions.length;
+    final lockName = catalogBoardLockName(projectName, board.name);
+    final isLocked = CatalogLocksService.instance.notifier.isLocked(
+      CatalogLockKind.board,
+      lockName,
+    );
 
     return SizedBox(
       width: 268,
@@ -270,6 +290,12 @@ class _BoardCard extends StatelessWidget {
                       size: 14,
                       color: lastRun!.ok ? scheme.tertiary : scheme.error,
                     ),
+                  CatalogLockButton(
+                    kind: CatalogLockKind.board,
+                    name: lockName,
+                    size: 15,
+                    compact: true,
+                  ),
                   IconButton(
                     tooltip: 'Editar',
                     icon: const Icon(Icons.edit_outlined, size: 15),
@@ -278,8 +304,9 @@ class _BoardCard extends StatelessWidget {
                       height: 26,
                     ),
                     padding: EdgeInsets.zero,
-                    onPressed: () =>
-                        openBoardFormScreen(context, initial: board),
+                    onPressed: isLocked
+                        ? null
+                        : () => openBoardFormScreen(context, initial: board),
                   ),
                   IconButton(
                     tooltip: 'Eliminar',
@@ -289,7 +316,9 @@ class _BoardCard extends StatelessWidget {
                       height: 26,
                     ),
                     padding: EdgeInsets.zero,
-                    onPressed: () => confirmAndDeleteBoard(context, board),
+                    onPressed: isLocked
+                        ? null
+                        : () => confirmAndDeleteBoard(context, board),
                   ),
                 ],
               ),

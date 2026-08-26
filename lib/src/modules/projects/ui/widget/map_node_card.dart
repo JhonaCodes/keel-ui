@@ -262,6 +262,10 @@ class _Foot extends StatelessWidget {
                   const SizedBox(width: 8),
                   _Count(icon: Icons.schedule, label: _clock(node.elapsed)),
                 ],
+                if (node.kind == MapNodeKind.subagent) ...[
+                  const SizedBox(width: 8),
+                  _Count(icon: Icons.chevron_right, label: 'entrar'),
+                ],
                 if (node.backCalls > 0) ...[
                   const SizedBox(width: 8),
                   _Count(
@@ -327,13 +331,14 @@ class _Glyph extends StatelessWidget {
     };
 
     if (icon != null) {
+      final ghost = node.kind == MapNodeKind.subagent;
       final color = switch (node.kind) {
         MapNodeKind.you => scheme.primary,
         MapNodeKind.consultation => kMapConsultColor,
-        MapNodeKind.subagent => kMapDelegateColor,
+        MapNodeKind.subagent => scheme.outline, // el `.av.ghost` del mockup
         _ => scheme.outline,
       };
-      return Container(
+      final glyph = Container(
         width: 22,
         height: 22,
         alignment: Alignment.center,
@@ -342,12 +347,13 @@ class _Glyph extends StatelessWidget {
               ? color.withValues(alpha: 0.18)
               : null,
           borderRadius: BorderRadius.circular(6),
-          border: node.kind == MapNodeKind.you
+          border: node.kind == MapNodeKind.you || ghost
               ? null
               : Border.all(color: color.withValues(alpha: 0.6)),
         ),
         child: Icon(icon, size: 13, color: color),
       );
+      return ghost ? _GhostBorder(color: color, child: glyph) : glyph;
     }
 
     final idle = node.state == MapNodeState.idle;
@@ -459,13 +465,19 @@ class _Resolution extends StatelessWidget {
     if (body.isEmpty) return const SizedBox.shrink();
 
     // El razonamiento plegado vive adentro del cuadro, no en el pie del nodo.
-    // Solo el «resolvió» lo muestra: un subagente que devolvió o una consulta
-    // ya tienen su razonamiento en la ficha, y acá estorbaría.
-    final reasoningPeek =
-        node.state == MapNodeState.done &&
-            !node.answeredOnly &&
-            node.kind != MapNodeKind.subagent &&
-            node.reasoning.trim().isNotEmpty
+    // «resolvió» lo muestra como atajo a la ficha; el subagente en curso
+    // («le pidió») muestra la cola de lo que está razonando AHORA, como el
+    // `think-peek` del mockup. «devolvió» y «cortó» no lo llevan.
+    final reasoning = node.reasoning.trim();
+    final liveSubagent = node.kind == MapNodeKind.subagent &&
+        node.state != MapNodeState.done &&
+        node.state != MapNodeState.failed;
+    final reasoningPeek = liveSubagent
+        ? (reasoning.isEmpty ? null : _tailOf(node.reasoning))
+        : node.state == MapNodeState.done &&
+              !node.answeredOnly &&
+              node.kind != MapNodeKind.subagent &&
+              reasoning.isNotEmpty
         ? 'razonamiento · ${_reasoningLength(node.reasoning)} · tocar para abrir'
         : null;
 
@@ -661,4 +673,54 @@ class _Count extends StatelessWidget {
       child: GestureDetector(onTap: onTap, child: row),
     );
   }
+}
+
+/// El borde punteado del avatar fantasma de un subagente: el `.av.ghost` del
+/// mockup usa `border: 1px dashed var(--ink-faint)`, y `BoxDecoration` no
+/// tiene modo punteado.
+class _GhostBorder extends StatelessWidget {
+  const _GhostBorder({required this.color, required this.child});
+
+  final Color color;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      foregroundPainter: _DashedGlyphRRectPainter(color: color),
+      child: child,
+    );
+  }
+}
+
+class _DashedGlyphRRectPainter extends CustomPainter {
+  _DashedGlyphRRectPainter({required this.color});
+
+  final Color color;
+
+  static const _dashWidth = 4.0;
+  static const _dashGap = 3.0;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rrect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(0.5, 0.5, size.width - 1, size.height - 1),
+      const Radius.circular(6),
+    );
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+    final metric = (Path()..addRRect(rrect)).computeMetrics().first;
+    var distance = 0.0;
+    while (distance < metric.length) {
+      final next = (distance + _dashWidth).clamp(0.0, metric.length);
+      canvas.drawPath(metric.extractPath(distance, next), paint);
+      distance = next + _dashGap;
+    }
+  }
+
+  @override
+  bool shouldRepaint(_DashedGlyphRRectPainter oldDelegate) =>
+      oldDelegate.color != color;
 }

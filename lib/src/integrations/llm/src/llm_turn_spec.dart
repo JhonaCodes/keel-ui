@@ -21,6 +21,11 @@ class LlmTurnSpec {
   final String? hooksConfig;
   final Map<String, String> hookFiles;
 
+  /// Prior entries from exactly this Keel thread. API providers are
+  /// stateless, whereas local CLIs resume with [sessionId]. The current user
+  /// instruction remains [prompt] and is deliberately not repeated here.
+  final List<LlmConversationMessage> conversationHistory;
+
   const LlmTurnSpec({
     required this.prompt,
     required this.workingDirectory,
@@ -34,5 +39,6 @@ class LlmTurnSpec {
     this.hooksSettings,
     this.hooksConfig,
     this.hookFiles = const {},
+    this.conversationHistory = const [],
   });
 }

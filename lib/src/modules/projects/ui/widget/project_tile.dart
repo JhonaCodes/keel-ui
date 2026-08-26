@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
 import 'package:keel_ui/src/core/ui/typed_deletion_dialog.dart';
+import 'package:keel_ui/src/modules/catalog_locks/model/catalog_lock.dart';
+import 'package:keel_ui/src/modules/catalog_locks/ui/widget/catalog_lock_button.dart';
+import 'package:keel_ui/src/modules/catalog_locks/viewmodel/catalog_locks_viewmodel.dart';
 import 'package:keel_ui/src/modules/projects/model/project.dart';
 import 'package:keel_ui/src/modules/requirements/viewmodel/requirements_viewmodel.dart';
 import 'package:keel_ui/src/modules/roadmap/viewmodel/task_claims_viewmodel.dart';
@@ -71,6 +74,10 @@ class ProjectTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isLocked = CatalogLocksService.instance.notifier.isLocked(
+      CatalogLockKind.project,
+      project.name,
+    );
     return ListTile(
       title: Text(
         '#${project.name}',
@@ -95,15 +102,18 @@ class ProjectTile extends StatelessWidget {
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
+          CatalogLockButton(kind: CatalogLockKind.project, name: project.name),
           IconButton(
             tooltip: 'Editar',
             icon: const Icon(Icons.edit_outlined),
-            onPressed: () => openProjectFormScreen(context, initial: project),
+            onPressed: isLocked
+                ? null
+                : () => openProjectFormScreen(context, initial: project),
           ),
           IconButton(
             tooltip: 'Eliminar',
             icon: const Icon(Icons.delete_outline),
-            onPressed: () => _confirmAndDelete(context),
+            onPressed: isLocked ? null : () => _confirmAndDelete(context),
           ),
         ],
       ),

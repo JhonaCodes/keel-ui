@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import 'package:keel_ui/src/modules/catalog_locks/model/catalog_lock.dart';
+import 'package:keel_ui/src/modules/catalog_locks/ui/widget/catalog_lock_button.dart';
+import 'package:keel_ui/src/modules/catalog_locks/viewmodel/catalog_locks_viewmodel.dart';
 import 'package:keel_ui/src/integrations/catalog_bundle/catalog_bundle.dart';
 import 'package:keel_ui/src/modules/skills/model/skill.dart';
 import 'package:keel_ui/src/modules/skills/viewmodel/skills_viewmodel.dart';
@@ -39,6 +42,10 @@ class SkillTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isLocked = CatalogLocksService.instance.notifier.isLocked(
+      CatalogLockKind.skill,
+      skill.name,
+    );
     return ListTile(
       leading: skill.isGlobal
           ? const Tooltip(
@@ -58,10 +65,13 @@ class SkillTile extends StatelessWidget {
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
+          CatalogLockButton(kind: CatalogLockKind.skill, name: skill.name),
           IconButton(
             tooltip: 'Editar',
             icon: const Icon(Icons.edit_outlined),
-            onPressed: () => openSkillFormScreen(context, initial: skill),
+            onPressed: isLocked
+                ? null
+                : () => openSkillFormScreen(context, initial: skill),
           ),
           IconButton(
             tooltip: 'Exportar como paquete',
@@ -72,7 +82,7 @@ class SkillTile extends StatelessWidget {
           IconButton(
             tooltip: 'Eliminar',
             icon: const Icon(Icons.delete_outline),
-            onPressed: () => _confirmAndDelete(context),
+            onPressed: isLocked ? null : () => _confirmAndDelete(context),
           ),
         ],
       ),

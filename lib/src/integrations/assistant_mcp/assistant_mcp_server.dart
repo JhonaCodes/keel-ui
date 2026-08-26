@@ -13,10 +13,13 @@ import 'package:keel_ui/src/integrations/mcp_catalog/mcp_catalog.dart';
 import 'package:keel_ui/src/integrations/catalog_shape/catalog_shape.dart';
 import 'package:keel_ui/src/integrations/assistant_mcp/keel_catalog_inspector.dart';
 import 'package:keel_ui/src/modules/hooks/model/hook.dart';
+import 'package:keel_ui/src/modules/catalog_locks/model/catalog_lock.dart';
+import 'package:keel_ui/src/modules/catalog_locks/viewmodel/catalog_locks_viewmodel.dart';
 import 'package:keel_ui/src/modules/hooks/model/hook_event.dart';
 import 'package:keel_ui/src/modules/hooks/viewmodel/hooks_viewmodel.dart';
 import 'package:keel_ui/src/integrations/system_vault/system_vault.dart';
 import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
+import 'package:keel_ui/src/modules/boards/viewmodel/boards_viewmodel.dart';
 import 'package:keel_ui/src/modules/agents/model/agent_provider.dart';
 import 'package:keel_ui/src/modules/knowledge/model/knowledge_base.dart';
 import 'package:keel_ui/src/modules/knowledge/viewmodel/knowledge_viewmodel.dart';
@@ -56,6 +59,9 @@ const kKeelAiMcpToolNames = [
   'mcp__keelai-actions__list_workflows',
   'mcp__keelai-actions__list_projects',
   'mcp__keelai-actions__get_item',
+  'mcp__keelai-actions__list_locked_items',
+  'mcp__keelai-actions__lock_item',
+  'mcp__keelai-actions__unlock_item',
   'mcp__keelai-actions__describe_system',
   'mcp__keelai-actions__list_secret_names',
   'mcp__keelai-actions__update_skill',

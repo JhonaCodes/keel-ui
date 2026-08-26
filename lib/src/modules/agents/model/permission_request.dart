@@ -3,8 +3,23 @@ import 'package:keel_ui/src/core/services/cli_turn_workspace.dart';
 class PermissionRequest {
   final String toolName;
   final String message;
+  final String? kind;
+  final String? itemName;
+  final String? changeIntent;
+  final String? changeReason;
+  final String? requestedBy;
 
-  const PermissionRequest({required this.toolName, required this.message});
+  const PermissionRequest({
+    required this.toolName,
+    required this.message,
+    this.kind,
+    this.itemName,
+    this.changeIntent,
+    this.changeReason,
+    this.requestedBy,
+  });
+
+  bool get isCatalogChange => kind != null;
 
   bool get isSandboxRestriction => message.contains('allowed working director');
 
@@ -23,12 +38,25 @@ class PermissionRequest {
     return match?.group(1);
   }
 
-  Map<String, dynamic> toJson() => {'toolName': toolName, 'message': message};
+  Map<String, dynamic> toJson() => {
+    'toolName': toolName,
+    'message': message,
+    'kind': kind,
+    'itemName': itemName,
+    'changeIntent': changeIntent,
+    'changeReason': changeReason,
+    'requestedBy': requestedBy,
+  };
 
   factory PermissionRequest.fromJson(Map<String, dynamic> json) {
     return PermissionRequest(
       toolName: json['toolName'] as String,
       message: json['message'] as String,
+      kind: json['kind'] as String?,
+      itemName: json['itemName'] as String?,
+      changeIntent: json['changeIntent'] as String?,
+      changeReason: json['changeReason'] as String?,
+      requestedBy: json['requestedBy'] as String?,
     );
   }
 
@@ -38,10 +66,23 @@ class PermissionRequest {
       other is PermissionRequest &&
           runtimeType == other.runtimeType &&
           toolName == other.toolName &&
-          message == other.message;
+          message == other.message &&
+          kind == other.kind &&
+          itemName == other.itemName &&
+          changeIntent == other.changeIntent &&
+          changeReason == other.changeReason &&
+          requestedBy == other.requestedBy;
 
   @override
-  int get hashCode => Object.hash(toolName, message);
+  int get hashCode => Object.hash(
+    toolName,
+    message,
+    kind,
+    itemName,
+    changeIntent,
+    changeReason,
+    requestedBy,
+  );
 
   @override
   String toString() =>

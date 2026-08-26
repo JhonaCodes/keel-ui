@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import 'package:keel_ui/src/modules/catalog_locks/model/catalog_lock.dart';
+import 'package:keel_ui/src/modules/catalog_locks/ui/widget/catalog_lock_button.dart';
+import 'package:keel_ui/src/modules/catalog_locks/viewmodel/catalog_locks_viewmodel.dart';
 import 'package:keel_ui/src/modules/tools/model/tool.dart';
 import 'package:keel_ui/src/modules/tools/viewmodel/tools_viewmodel.dart';
 import 'package:keel_ui/src/modules/tools/ui/screen/tool_form_screen.dart';
@@ -38,6 +41,10 @@ class ToolTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isLocked = CatalogLocksService.instance.notifier.isLocked(
+      CatalogLockKind.tool,
+      tool.name,
+    );
     return ListTile(
       leading: Chip(
         label: Text(tool.runtime.label),
@@ -52,15 +59,18 @@ class ToolTile extends StatelessWidget {
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
+          CatalogLockButton(kind: CatalogLockKind.tool, name: tool.name),
           IconButton(
             tooltip: 'Editar',
             icon: const Icon(Icons.edit_outlined),
-            onPressed: () => openToolFormScreen(context, initial: tool),
+            onPressed: isLocked
+                ? null
+                : () => openToolFormScreen(context, initial: tool),
           ),
           IconButton(
             tooltip: 'Eliminar',
             icon: const Icon(Icons.delete_outline),
-            onPressed: () => _confirmAndDelete(context),
+            onPressed: isLocked ? null : () => _confirmAndDelete(context),
           ),
         ],
       ),

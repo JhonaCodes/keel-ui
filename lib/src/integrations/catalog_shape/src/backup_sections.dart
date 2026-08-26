@@ -14,7 +14,8 @@ enum BackupSection {
   agents('profiles', 'Agentes'),
   projects('projects', 'Proyectos'),
   requirements('requirements', 'Requerimientos'),
-  boards('boards', 'Tableros');
+  boards('boards', 'Tableros'),
+  locks('catalog_locks', 'Candados');
 
   const BackupSection(this.category, this.label);
 
@@ -150,10 +151,14 @@ Set<String> existingCatalogNames(BackupSection section) {
             case final project?)
           '${project.name} · ${board.name}',
     },
+    BackupSection.locks => {
+      for (final lock in CatalogLocksService.instance.notifier.data.locks)
+        lock.key,
+    },
   };
 }
 
-/// Espera a que los diez catálogos —y los ajustes— estén REALMENTE cargados.
+/// Espera a que todos los catálogos —y los ajustes— estén REALMENTE cargados.
 ///
 /// Serializar o mergear con una carga en vuelo lee listas vacías: el
 /// respaldo saldría vacío y pisaría el bueno. Los ajustes entran en la
@@ -174,6 +179,7 @@ Future<void> awaitCatalogsReady() => Future.wait([
   ProjectsService.instance.notifier.ready,
   RequirementsService.instance.notifier.ready,
   BoardsService.instance.notifier.ready,
+  CatalogLocksService.instance.notifier.ready,
 ]);
 
 /// Si el sistema está vacío de verdad: nada que un respaldo pueda pisar.
@@ -187,6 +193,9 @@ Future<void> awaitCatalogsReady() => Future.wait([
 /// ser una decisión con preview.
 bool catalogIsEmpty() {
   for (final section in BackupSection.values) {
+    // The registry carries its own system entry from first launch. It must
+    // not prevent the first automatic restore on a fresh installation.
+    if (section == BackupSection.locks) continue;
     final names = existingCatalogNames(section)
       ..remove(kKeelAiSkillNameForExport)
       ..remove(kKeelAiHandle);

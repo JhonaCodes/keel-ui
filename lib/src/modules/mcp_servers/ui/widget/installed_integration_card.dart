@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
 import 'package:keel_ui/src/integrations/mcp_catalog/mcp_catalog.dart';
+import 'package:keel_ui/src/modules/catalog_locks/model/catalog_lock.dart';
+import 'package:keel_ui/src/modules/catalog_locks/ui/widget/catalog_lock_button.dart';
+import 'package:keel_ui/src/modules/catalog_locks/viewmodel/catalog_locks_viewmodel.dart';
 import 'package:keel_ui/src/modules/agent_profiles/viewmodel/agent_profiles_viewmodel.dart';
 import 'package:keel_ui/src/modules/mcp_servers/model/mcp_probe_result.dart';
 import 'package:keel_ui/src/modules/mcp_servers/model/mcp_server_config.dart';
@@ -59,6 +62,10 @@ class InstalledIntegrationCard extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final entry = mcpCatalogEntryFor(server.catalogId);
+    final isLocked = CatalogLocksService.instance.notifier.isLocked(
+      CatalogLockKind.mcpServer,
+      server.name,
+    );
 
     final users = AgentProfilesService.instance.notifier.data.profiles
         .where((profile) => profile.mcpServers.contains(server.name))
@@ -129,22 +136,30 @@ class InstalledIntegrationCard extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           TextButton(
-            onPressed: probing
+            onPressed: probing || isLocked
                 ? null
                 : () => McpServersService.instance.notifier.probeServer(
                     server.id,
                   ),
             child: const Text('Probar'),
           ),
+          CatalogLockButton(
+            kind: CatalogLockKind.mcpServer,
+            name: server.name,
+            size: 18,
+            compact: true,
+          ),
           IconButton(
             tooltip: 'Editar',
             icon: const Icon(Icons.edit_outlined, size: 18),
-            onPressed: () => openMcpServerFormScreen(context, initial: server),
+            onPressed: isLocked
+                ? null
+                : () => openMcpServerFormScreen(context, initial: server),
           ),
           IconButton(
             tooltip: 'Eliminar',
             icon: const Icon(Icons.delete_outline, size: 18),
-            onPressed: () => _confirmAndDelete(context),
+            onPressed: isLocked ? null : () => _confirmAndDelete(context),
           ),
         ],
       ),

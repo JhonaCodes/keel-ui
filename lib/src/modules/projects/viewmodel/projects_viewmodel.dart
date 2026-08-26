@@ -24,6 +24,7 @@ import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
 import 'package:keel_ui/src/modules/agent_profiles/viewmodel/agent_profiles_viewmodel.dart';
 import 'package:keel_ui/src/modules/agents/model/agent_tool_activity.dart';
 import 'package:keel_ui/src/modules/agents/model/chat_message.dart';
+import 'package:keel_ui/src/modules/agents/service/remote_conversation_history.dart';
 import 'package:keel_ui/src/modules/agents/model/agent_provider.dart';
 import 'package:keel_ui/src/integrations/boards_mcp/boards_mcp.dart';
 import 'package:keel_ui/src/modules/boards/viewmodel/boards_viewmodel.dart';
@@ -2390,6 +2391,20 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     if (project == null) return (ok: false, answer: '');
     if (_stoppedSessionIds.contains(sessionId)) return (ok: false, answer: '');
 
+    // The current user request is delivered as `prompt` below. Everything
+    // before it is reconstructed for remote APIs; removing that final user
+    // entry avoids sending it twice to the provider.
+    final messagesBeforeCurrentTurn = [
+      ...?_sessionById(project, sessionId)?.messages,
+    ];
+    if (messagesBeforeCurrentTurn.lastOrNull?.role == ChatRole.user) {
+      messagesBeforeCurrentTurn.removeLast();
+    }
+    final conversationHistory = remoteConversationHistory(
+      messagesBeforeCurrentTurn,
+      includeAssistantAuthor: true,
+    );
+
     final cliSessionId = _sessionById(
       project,
       sessionId,
@@ -2597,6 +2612,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
         hooksSettings: turnHooks.claudeSettings,
         hooksConfig: turnHooks.codexConfig,
         hookFiles: turnHooks.files,
+        conversationHistory: conversationHistory,
         provider: engine.provider.alias,
         providerApiKey: providerApiKey,
       ),

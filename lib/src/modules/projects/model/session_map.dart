@@ -378,6 +378,27 @@ class SessionMap {
         if (post.workNodeId != null) post.workNodeId!: post,
     };
 
+    // ── resolución de colisiones de columna ──────────────────────────────
+    // `depthOf` da la profundidad en el DAG, no un carril: dos capacidades
+    // paralelas (ninguna depende de la otra) comparten esa profundidad y
+    // caerían en la misma columna, dibujadas superpuestas en el tronco. Esta
+    // segunda pasada, en el orden temporal de `posts`, corre cada nodo a la
+    // siguiente columna libre. La secuencia lineal —el caso del mockup— queda
+    // exactamente igual, porque cada nodo ya ocupa una columna distinta.
+    final columnOf = <String, int>{};
+    final usedColumns = <int>{0}; // 'you' ocupa la columna 0.
+    for (var index = 0; index < posts.length; index++) {
+      final post = posts[index];
+      var column = post.workNodeId == null
+          ? index + 1
+          : depthOf(post.workNodeId!);
+      while (usedColumns.contains(column)) {
+        column++;
+      }
+      usedColumns.add(column);
+      columnOf[post.id] = column;
+    }
+
     // ── los nodos de trabajo ─────────────────────────────────────────────
     for (var index = 0; index < posts.length; index++) {
       final post = posts[index];
@@ -429,9 +450,7 @@ class SessionMap {
           id: post.id,
           kind: post.kind,
           label: post.label,
-          column: post.workNodeId == null
-              ? index + 1
-              : depthOf(post.workNodeId!),
+          column: columnOf[post.id]!,
           profileId: post.profileId,
           colorIndex: colorOf[post.profileId] ?? -1,
           workNodeId: post.workNodeId,
@@ -506,9 +525,7 @@ class SessionMap {
             id: 'sub:${subagent.id}',
             kind: MapNodeKind.subagent,
             label: subagent.agentType,
-            column: post.workNodeId == null
-                ? index + 1
-                : depthOf(post.workNodeId!),
+            column: columnOf[post.id]!,
             lane: 1,
             laneSlot: slot,
             parentId: post.id,

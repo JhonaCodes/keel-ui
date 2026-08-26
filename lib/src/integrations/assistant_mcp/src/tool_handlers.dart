@@ -35,7 +35,7 @@ Future<CallToolResult> dispatchKeelAiTool(
     );
   }
 
-  if (request.name == 'backup_system' || request.name == 'restore_system') {
+  if (request.name == 'backup_system') {
     final vault = SystemVaultService.instance.notifier;
     final message = await _runVaultTool(vault, request);
     AgentsService.instance.notifier.appendSystemNote(agentId, message);
@@ -46,7 +46,34 @@ Future<CallToolResult> dispatchKeelAiTool(
     );
   }
 
-  final (ok, message) = _runKeelAiTool(agentId, request);
+  if (request.name == 'restore_system') {
+    final guarded = await _guardLockedCatalogMutation(agentId, request);
+    final (ok, message) =
+        guarded ??
+        (
+          true,
+          await _runVaultTool(SystemVaultService.instance.notifier, request),
+        );
+    AgentsService.instance.notifier.appendSystemNote(agentId, message);
+    return CallToolResult(
+      content: [
+        TextContent(text: jsonEncode({'ok': ok, 'message': message})),
+      ],
+      isError: !ok,
+    );
+  }
+
+  final target = _lockedTargetOf(request);
+  final guarded = await _guardLockedCatalogMutation(agentId, request);
+  final (ok, message) = guarded ?? await _runKeelAiTool(agentId, request);
+  final renamedTo = _renamedTargetName(request);
+  if (ok && target != null && renamedTo != null) {
+    await CatalogLocksService.instance.notifier.rename(
+      target.kind,
+      from: target.name,
+      to: renamedTo,
+    );
+  }
   // La nota de sistema existe para dejar rastro de lo que CAMBIÓ. Una tool
   // de lectura no cambia nada: su respuesta ya viaja al modelo por el
   // resultado, y ponerla además en el hilo solo ensucia la conversación.
@@ -70,9 +97,120 @@ const _readOnlyTools = {
   'list_secret_names',
   'get_item',
   'describe_system',
+  'list_locked_items',
 };
 
-(bool, String) _runKeelAiTool(String agentId, CallToolRequest request) {
+typedef _LockedTarget = ({CatalogLockKind kind, String name});
+
+/// A locked item is never mutated until its caller has declared why and the
+/// person using Keel has approved this exact request. The registry itself is
+/// initialized locked, so `lock_item` and `unlock_item` follow this path too.
+Future<(bool, String)?> _guardLockedCatalogMutation(
+  String agentId,
+  CallToolRequest request,
+) async {
+  final target = _lockedTargetOf(request);
+  if (target == null ||
+      !CatalogLocksService.instance.notifier.isLocked(
+        target.kind,
+        target.name,
+      )) {
+    return null;
+  }
+  final arguments = request.arguments ?? const <String, Object?>{};
+  final intent = (arguments['change_intent'] as String? ?? '').trim();
+  final reason = (arguments['change_reason'] as String? ?? '').trim();
+  if (intent.isEmpty || reason.isEmpty) {
+    final missing = [
+      if (intent.isEmpty) 'change_intent',
+      if (reason.isEmpty) 'change_reason',
+    ].join(' y ');
+    return (false, 'No escribí: falta declarar $missing.');
+  }
+  final approved = await AgentsService.instance.notifier
+      .requestCatalogChangePermission(
+        agentId: agentId,
+        kind: target.kind.alias,
+        name: target.name,
+        intent: intent,
+        reason: reason,
+      );
+  return approved
+      ? null
+      : (false, 'No escribí: el cambio bloqueado fue rechazado o expiró.');
+}
+
+_LockedTarget? _lockedTargetOf(CallToolRequest request) {
+  final arguments = request.arguments ?? const <String, Object?>{};
+  String value(String key) => (arguments[key] as String? ?? '').trim();
+  CatalogLockKind? kind;
+  String name;
+  switch (request.name) {
+    case 'create_skill' || 'update_skill' || 'delete_skill':
+      kind = CatalogLockKind.skill;
+      name = value('name');
+    case 'create_rule' || 'update_rule' || 'delete_rule':
+      kind = CatalogLockKind.rule;
+      name = value('name');
+    case 'create_tool' || 'update_tool' || 'delete_tool':
+      kind = CatalogLockKind.tool;
+      name = value('name');
+    case 'create_hook' || 'set_hook_enabled' || 'delete_hook':
+      kind = CatalogLockKind.hook;
+      name = value('name');
+    case 'create_or_update_agent' || 'delete_agent' || 'unassign_from_agent':
+      kind = CatalogLockKind.agent;
+      name = value('handle');
+    case 'create_workflow' || 'update_workflow' || 'delete_workflow':
+      kind = CatalogLockKind.workflow;
+      name = value('name');
+    case 'create_project' || 'update_project' || 'delete_project':
+      kind = CatalogLockKind.project;
+      name = value('name');
+    case 'register_mcp_server' || 'delete_mcp_server':
+      kind = CatalogLockKind.mcpServer;
+      name = value('name');
+    case 'install_mcp_integration':
+      final entry = mcpCatalogEntryFor(value('catalog_id'));
+      if (entry == null) return null;
+      kind = CatalogLockKind.mcpServer;
+      name = entry.serverName;
+    case 'create_knowledge_base' ||
+        'update_knowledge_base' ||
+        'delete_knowledge_base':
+      kind = CatalogLockKind.knowledgeBase;
+      name = value('name');
+    case 'request_secret':
+      kind = CatalogLockKind.secret;
+      name = value('name');
+    case 'lock_item' || 'unlock_item' || 'restore_system':
+      kind = CatalogLockKind.lockRegistry;
+      name = kCatalogLockRegistryName;
+    default:
+      return null;
+  }
+  return name.isEmpty ? null : (kind: kind, name: name);
+}
+
+String? _renamedTargetName(CallToolRequest request) {
+  switch (request.name) {
+    case 'update_skill':
+    case 'update_rule':
+    case 'update_tool':
+    case 'update_workflow':
+    case 'update_project':
+    case 'update_knowledge_base':
+      final name = (request.arguments?['new_name'] as String? ?? '').trim();
+      return name.isEmpty ? null : name;
+    default:
+      return null;
+  }
+}
+
+Future<(bool, String)> _runKeelAiTool(
+  String agentId,
+  CallToolRequest request,
+) async {
   final arguments = request.arguments ?? const <String, Object?>{};
   switch (request.name) {
     case 'create_skill':
@@ -252,6 +390,34 @@ const _readOnlyTools = {
       return _getItem(
         (arguments['kind'] as String).trim().toLowerCase(),
         (arguments['name'] as String).trim(),
+      );
+
+    case 'list_locked_items':
+      final locks = CatalogLocksService.instance.notifier.data.locks;
+      return (
+        true,
+        locks.map((entry) => '${entry.kind.alias}:${entry.name}').join('\n'),
+      );
+
+    case 'lock_item':
+    case 'unlock_item':
+      final kind = CatalogLockKind.tryFromAlias(
+        arguments['kind'] as String? ?? '',
+      );
+      final name = (arguments['name'] as String? ?? '').trim();
+      if (kind == null || name.isEmpty) {
+        return (false, 'Indicá un kind válido y un name no vacío.');
+      }
+      await CatalogLocksService.instance.notifier.setLocked(
+        kind,
+        name,
+        locked: request.name == 'lock_item',
+      );
+      return (
+        true,
+        request.name == 'lock_item'
+            ? 'Bloqueé ${kind.alias} "$name".'
+            : 'Desbloqueé ${kind.alias} "$name".',
       );
 
     case 'describe_system':
@@ -820,6 +986,50 @@ String _describeCatalog(String kind) {
               if (project.knowledgeBaseNames.contains(base.name)) project.name])}',
       );
 
+    case 'secret':
+      final secret = SecretsService.instance.notifier.data.secrets
+          .where((entry) => entry.name == name)
+          .firstOrNull;
+      if (secret == null) return (false, 'No existe el secret "$name".');
+      return (
+        true,
+        'Secret "${secret.name}"\n'
+            'Descripción: ${_orMissing(secret.description)}\n'
+            'Estado: ${secret.isPending ? 'pendiente de valor' : 'configurado'}\n'
+            'El valor nunca se expone.',
+      );
+
+    case 'board':
+      final parts = name.split(' · ');
+      if (parts.length != 2) {
+        return (false, 'El tablero se identifica como "proyecto · tablero".');
+      }
+      final project = ProjectsService.instance.notifier.data.projects
+          .where((entry) => entry.name == parts.first)
+          .firstOrNull;
+      final board = project == null
+          ? null
+          : BoardsService.instance.notifier.boardNamed(project.id, parts.last);
+      if (board == null) return (false, 'No existe el tablero "$name".');
+      return (
+        true,
+        'Tablero "${catalogBoardLockName(project!.name, board.name)}"\n'
+            'Nota: ${_orMissing(board.note)}\n'
+            'Campos: ${board.fields.length}\n'
+            'Acciones: ${board.actions.length}',
+      );
+
+    case 'lock_registry':
+      if (name != kCatalogLockRegistryName) {
+        return (false, 'El único registro es "$kCatalogLockRegistryName".');
+      }
+      final locks = CatalogLocksService.instance.notifier.data.locks;
+      return (
+        true,
+        'Registro de candados (${locks.length}):\n'
+            '${locks.map((entry) => '- ${entry.key}').join('\n')}',
+      );
+
     case 'mcp_server':
       final server = McpServersService.instance.notifier.data.servers
           .where((entry) => entry.name == name)
@@ -837,7 +1047,8 @@ String _describeCatalog(String kind) {
       return (
         false,
         'No conozco el tipo "$kind". Válidos: skill, rule, tool, agent, '
-            'workflow, project, hook, mcp_server o knowledge_base.',
+            'workflow, project, hook, mcp_server, knowledge_base, board, '
+            'secret o lock_registry.',
       );
   }
 }

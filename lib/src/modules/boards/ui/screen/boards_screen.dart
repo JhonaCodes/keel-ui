@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
 
+import 'package:keel_ui/src/modules/catalog_locks/model/catalog_lock.dart';
+import 'package:keel_ui/src/modules/catalog_locks/ui/widget/catalog_lock_button.dart';
+import 'package:keel_ui/src/modules/catalog_locks/viewmodel/catalog_locks_viewmodel.dart';
 import 'package:keel_ui/src/modules/boards/model/board.dart';
 import 'package:keel_ui/src/modules/boards/model/board_run.dart';
 import 'package:keel_ui/src/modules/boards/ui/screen/board_form_screen.dart';
@@ -40,6 +43,7 @@ class BoardsScreen extends StatelessWidget {
                     for (final board in boards)
                       _BoardTile(
                         board: board,
+                        projectName: project.name,
                         lastRun: state.runs[board.id]?.firstOrNull,
                         onOpen: () {
                           Navigator.of(context).pop();
@@ -123,11 +127,13 @@ class _ProjectHead extends StatelessWidget {
 class _BoardTile extends StatelessWidget {
   const _BoardTile({
     required this.board,
+    required this.projectName,
     required this.lastRun,
     required this.onOpen,
   });
 
   final Board board;
+  final String projectName;
   final BoardRun? lastRun;
   final VoidCallback onOpen;
 
@@ -137,6 +143,11 @@ class _BoardTile extends StatelessWidget {
     final scheme = theme.colorScheme;
     final acciones = board.actions.length;
     final campos = board.fields.length;
+    final lockName = catalogBoardLockName(projectName, board.name);
+    final isLocked = CatalogLocksService.instance.notifier.isLocked(
+      CatalogLockKind.board,
+      lockName,
+    );
 
     return ListTile(
       contentPadding: EdgeInsets.zero,
@@ -159,15 +170,25 @@ class _BoardTile extends StatelessWidget {
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
+          CatalogLockButton(
+            kind: CatalogLockKind.board,
+            name: lockName,
+            size: 18,
+            compact: true,
+          ),
           IconButton(
             tooltip: 'Editar',
             icon: const Icon(Icons.edit_outlined, size: 18),
-            onPressed: () => openBoardFormScreen(context, initial: board),
+            onPressed: isLocked
+                ? null
+                : () => openBoardFormScreen(context, initial: board),
           ),
           IconButton(
             tooltip: 'Eliminar',
             icon: const Icon(Icons.delete_outline, size: 18),
-            onPressed: () => confirmAndDeleteBoard(context, board),
+            onPressed: isLocked
+                ? null
+                : () => confirmAndDeleteBoard(context, board),
           ),
         ],
       ),

@@ -39,6 +39,7 @@ class TaskRunSpec {
   /// Los archivos que hay que dejar en el disco para que los hooks corran:
   /// el wrapper de cada uno y, si el cuerpo es una tool, su código.
   final Map<String, String> hookFiles;
+  final List<LlmConversationMessage> conversationHistory;
 
   const TaskRunSpec({
     required this.prompt,
@@ -53,6 +54,7 @@ class TaskRunSpec {
     this.hooksSettings,
     this.hooksConfig,
     this.hookFiles = const {},
+    this.conversationHistory = const [],
     this.provider = 'claude',
     this.providerApiKey,
   });
@@ -70,6 +72,9 @@ class TaskRunSpec {
     'hooksSettings': hooksSettings,
     'hooksConfig': hooksConfig,
     'hookFiles': hookFiles,
+    'conversationHistory': conversationHistory
+        .map((message) => message.toJson())
+        .toList(),
     'provider': provider,
     'providerApiKey': providerApiKey,
   };
@@ -90,6 +95,13 @@ class TaskRunSpec {
       hooksConfig: message['hooksConfig'] as String?,
       hookFiles:
           (message['hookFiles'] as Map?)?.cast<String, String>() ?? const {},
+      conversationHistory: (message['conversationHistory'] as List? ?? const [])
+          .map(
+            (entry) => LlmConversationMessage.fromJson(
+              (entry as Map).cast<String, dynamic>(),
+            ),
+          )
+          .toList(),
       provider: message['provider'] as String? ?? 'claude',
       providerApiKey: message['providerApiKey'] as String?,
     );

@@ -223,64 +223,42 @@ class MapLayout {
     );
   }
 
-  /// La bajada al árbol local: baja del pie del padre, dobla a un montante a
-  /// la izquierda de la columna y entra a cada hijo por su costado.
+  /// La bajada al árbol local, con una curva orgánica en vez de codos.
   ///
-  /// El montante existe porque los subagentes de un mismo padre se apilan en
-  /// la misma columna: una línea que bajara derecho hasta el tercero
-  /// atravesaría los cuadros de los dos primeros.
+  /// La ida (delegate) baja del padre y barre por el corredor a la izquierda
+  /// de la columna; la vuelta (delegateBack / answer) es una curva distinta
+  /// que sube del nodo de abajo al de arriba, no la ida invertida. El corredor
+  /// a la izquierda sigue siendo lo que evita que la línea atraviese los
+  /// cuadros de los subagentes apilados: la regla anti-cruce no cambia, cambia
+  /// la forma del trazo.
   Path _underpass(MapEdge edge, Rect from, Rect to, {bool reversed = false}) {
-    final parent = reversed ? to : from;
-    final child = reversed ? from : to;
-    // Dos montantes de a diez puntos: el de ida y el de vuelta, como los dos
-    // rieles de una consulta allá arriba.
-    final riser = child.left - (reversed ? 12 : 22);
-    final shelf = parent.bottom + 16;
-    final entry = Offset(child.left - 4, child.center.dy);
-    final exit = Offset(parent.center.dx, parent.bottom + 3);
-
-    Path draw() => Path()
-      ..moveTo(exit.dx, exit.dy)
-      ..lineTo(exit.dx, shelf - corridorRadius)
-      ..arcToPoint(
-        Offset(exit.dx - corridorRadius, shelf),
-        radius: const Radius.circular(corridorRadius),
-        clockwise: false,
-      )
-      ..lineTo(riser + corridorRadius, shelf)
-      ..arcToPoint(
-        Offset(riser, shelf + corridorRadius),
-        radius: const Radius.circular(corridorRadius),
-        clockwise: false,
-      )
-      ..lineTo(riser, entry.dy - corridorRadius)
-      ..arcToPoint(
-        Offset(riser + corridorRadius, entry.dy),
-        radius: const Radius.circular(corridorRadius),
-        clockwise: true,
-      )
-      ..lineTo(entry.dx, entry.dy);
-
-    if (!reversed) return draw();
-    // La devolución es el mismo recorrido al revés: que las dos coincidan de
-    // forma es lo que las hace leer como ida y vuelta de lo mismo.
-    return _reverse(draw());
+    // Quién está arriba y quién abajo, por geometría y no por dirección de la
+    // arista: `from`/`to` se invierten según el tipo de borde.
+    final top = from.top <= to.top ? from : to;
+    final bottom = from.top <= to.top ? to : from;
+    return reversed
+        ? _ascentCurve(top, bottom)
+        : _descentCurve(top, bottom);
   }
 
-  /// Un camino recorrido para el otro lado, punto por punto.
-  static Path _reverse(Path path) {
-    final metric = path.computeMetrics().first;
-    final reversed = Path();
-    const steps = 48;
-    for (var i = steps; i >= 0; i--) {
-      final point = metric.getTangentForOffset(metric.length * i / steps)!;
-      if (i == steps) {
-        reversed.moveTo(point.position.dx, point.position.dy);
-      } else {
-        reversed.lineTo(point.position.dx, point.position.dy);
-      }
-    }
-    return reversed;
+  /// Ida: del pie del padre, barriendo al montante, hasta el costado del hijo.
+  Path _descentCurve(Rect top, Rect bottom) {
+    final start = Offset(top.center.dx, top.bottom + 3);
+    final end = Offset(bottom.left - 4, bottom.center.dy);
+    final riser = math.min(top.left, bottom.left) - 22;
+    return Path()
+      ..moveTo(start.dx, start.dy)
+      ..cubicTo(riser, start.dy + 16, riser, end.dy - 4, end.dx, end.dy);
+  }
+
+  /// Vuelta: del nodo de abajo al de arriba por un riel distinto, más pegado.
+  Path _ascentCurve(Rect top, Rect bottom) {
+    final start = Offset(bottom.center.dx, bottom.top - 4);
+    final end = Offset(top.center.dx, top.bottom + 3);
+    final riser = math.min(top.left, bottom.left) - 12;
+    return Path()
+      ..moveTo(start.dx, start.dy)
+      ..cubicTo(riser, start.dy - 16, riser, end.dy + 4, end.dx, end.dy);
   }
 
   /// El camino de tres tramos: vertical, horizontal, vertical.

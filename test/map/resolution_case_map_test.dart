@@ -82,7 +82,12 @@ void main() {
       'implementation',
     ]);
     final byId = {for (final node in nodes) node.workNodeId!: node};
-    expect(byId['impact']!.column, byId['implementation']!.column);
+    // Dos capacidades paralelas —impact e implementation dependen ambas de
+    // triage pero no entre sí— comparten profundidad en el DAG, así que sin
+    // resolución de colisión caerían en la misma columna y se verían
+    // superpuestas en el carril superior. El fix las separa en columnas
+    // distintas.
+    expect(byId['impact']!.column, isNot(byId['implementation']!.column));
     expect(
       map.edges.any(
         (edge) =>
@@ -92,6 +97,12 @@ void main() {
       ),
       isTrue,
     );
+
+    // Y en el lienzo ocupan rects separados, no superpuestos.
+    final layout = MapLayout.of(map);
+    final impactRect = layout.rectOf('node:impact')!;
+    final implementationRect = layout.rectOf('node:implementation')!;
+    expect(impactRect.overlaps(implementationRect), isFalse);
   });
 
   test('el mapa dibuja el agente concreto persistido por cada nodo', () {
@@ -467,5 +478,80 @@ void main() {
       layout.rectOf(data.id)!.left,
       greaterThan(layout.rectOf(architect.id)!.left),
     );
+  });
+
+  test('la delegación baja con una curva y la devolución sube con otra', () {
+    final session = Session(
+      id: 'delegation',
+      title: 'delegation',
+      createdAt: _epoch,
+      subagents: [
+        SessionSubagent(
+          id: 'explore-1',
+          parentProfileId: 'resolver',
+          parentWorkNodeId: 'implementation',
+          agentType: 'Explore',
+          ask: 'Buscar dónde vive el precio.',
+          prompt: 'Buscar dónde vive el precio final.',
+          phase: SubagentPhase.thinking,
+          startedAt: _epoch,
+        ),
+        SessionSubagent(
+          id: 'plan-1',
+          parentProfileId: 'resolver',
+          parentWorkNodeId: 'implementation',
+          agentType: 'Plan',
+          ask: 'Armar el plan.',
+          prompt: 'Armar el plan de pasos.',
+          result: 'Cuatro pasos.',
+          phase: SubagentPhase.done,
+          startedAt: _epoch,
+          finishedAt: _epoch.add(const Duration(seconds: 2)),
+        ),
+      ],
+      resolutionCase: const ResolutionCase(
+        id: 'case-delegation',
+        ownerRole: 'resolver',
+        status: ResolutionCaseStatus.active,
+        nodes: [
+          WorkNode(
+            id: 'implementation',
+            kind: WorkNodeKind.implementation,
+            ownerRole: 'resolver',
+            ownerProfileId: 'resolver',
+          ),
+        ],
+      ),
+    );
+
+    final map = SessionMap.from(
+      session: session,
+      members: [_member('resolver')],
+      workflow: Workflow(
+        id: 'workflow',
+        name: 'bug',
+        whenToApply: '',
+        createdAt: _epoch,
+      ),
+    );
+    final layout = MapLayout.of(map);
+
+    final delegate = map.edges.singleWhere(
+      (edge) => edge.kind == MapEdgeKind.delegate,
+    );
+    final delegateBack = map.edges.singleWhere(
+      (edge) => edge.kind == MapEdgeKind.delegateBack,
+    );
+
+    final down = layout.routeOf(delegate);
+    final up = layout.routeOf(delegateBack);
+    expect(down, isNotNull);
+    expect(up, isNotNull);
+
+    // Una curva cúbica de verdad ocupa un área: no es un camino degenerado.
+    expect(down!.getBounds().width, greaterThan(0));
+    expect(down.getBounds().height, greaterThan(0));
+    expect(up!.getBounds().width, greaterThan(0));
+    expect(up.getBounds().height, greaterThan(0));
   });
 }

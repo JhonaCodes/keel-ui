@@ -83,6 +83,8 @@ class OpenAiCompatibleApiRunner implements LlmRunner {
         if (spec.additionalSystemPrompt case final prompt?
             when prompt.isNotEmpty)
           {'role': 'system', 'content': prompt},
+        for (final message in spec.conversationHistory)
+          {'role': message.role.name, 'content': message.content},
         {'role': 'user', 'content': spec.prompt},
       ];
       var usage = const _OpenAiCompatibleUsage();

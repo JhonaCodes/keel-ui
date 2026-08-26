@@ -4,7 +4,42 @@ part of '../assistant_mcp_server.dart';
 /// see `assistant_action_executor.dart`. Deliberately no new scope here:
 /// changing transport and scope in the same step would be hard to diagnose
 /// if something broke.
-final List<Tool> keelAiTools = [
+final List<Tool> keelAiTools = _withCatalogChangeParameters([
+  Tool(
+    name: 'list_locked_items',
+    description: 'Lista el registro persistente de elementos bloqueados.',
+    inputSchema: ObjectSchema(properties: {}),
+  ),
+  Tool(
+    name: 'lock_item',
+    description:
+        'Bloquea un elemento del catálogo. Como el registro está protegido, '
+        'siempre pedirá permiso al usuario antes de escribir.',
+    inputSchema: ObjectSchema(
+      properties: {
+        'kind': Schema.string(description: 'kind de get_item.'),
+        'name': Schema.string(description: 'Nombre exacto del elemento.'),
+        'change_intent': Schema.string(description: 'Qué cambio querés hacer.'),
+        'change_reason': Schema.string(description: 'Por qué es necesario.'),
+      },
+      required: ['kind', 'name', 'change_intent', 'change_reason'],
+    ),
+  ),
+  Tool(
+    name: 'unlock_item',
+    description:
+        'Desbloquea un elemento del catálogo. SIEMPRE requiere permiso '
+        'explícito del usuario.',
+    inputSchema: ObjectSchema(
+      properties: {
+        'kind': Schema.string(description: 'kind de get_item.'),
+        'name': Schema.string(description: 'Nombre exacto del elemento.'),
+        'change_intent': Schema.string(description: 'Qué cambio querés hacer.'),
+        'change_reason': Schema.string(description: 'Por qué es necesario.'),
+      },
+      required: ['kind', 'name', 'change_intent', 'change_reason'],
+    ),
+  ),
   Tool(
     name: 'create_skill',
     description:
@@ -382,7 +417,8 @@ final List<Tool> keelAiTools = [
         'kind': Schema.string(
           description:
               'Tipo: skill, rule, tool, agent, workflow, project, '
-              'hook, mcp_server o knowledge_base.',
+              'hook, mcp_server, knowledge_base, board, secret o '
+              'lock_registry. Un tablero usa "proyecto · tablero".',
         ),
         'name': Schema.string(
           description: 'Nombre exacto (para un agente, su handle sin @).',
@@ -990,4 +1026,64 @@ final List<Tool> keelAiTools = [
       required: ['name'],
     ),
   ),
+]);
+
+const _catalogMutationToolNames = {
+  'create_skill',
+  'update_skill',
+  'delete_skill',
+  'create_rule',
+  'update_rule',
+  'delete_rule',
+  'create_tool',
+  'update_tool',
+  'delete_tool',
+  'create_hook',
+  'set_hook_enabled',
+  'delete_hook',
+  'create_or_update_agent',
+  'unassign_from_agent',
+  'delete_agent',
+  'create_workflow',
+  'update_workflow',
+  'delete_workflow',
+  'create_project',
+  'update_project',
+  'delete_project',
+  'register_mcp_server',
+  'install_mcp_integration',
+  'delete_mcp_server',
+  'create_knowledge_base',
+  'update_knowledge_base',
+  'delete_knowledge_base',
+  'request_secret',
+  'restore_system',
+};
+
+/// The fields stay optional for the unchanged unlocked path. They are part
+/// of every write schema so a model can provide the required explanation
+/// when the target turns out to be protected.
+List<Tool> _withCatalogChangeParameters(List<Tool> tools) => [
+  for (final tool in tools)
+    if (!_catalogMutationToolNames.contains(tool.name))
+      tool
+    else
+      Tool(
+        name: tool.name,
+        description:
+            '${tool.description}\n\nSi el elemento está bloqueado, incluí '
+            'change_intent y change_reason; sin ambos no se escribe.',
+        inputSchema: ObjectSchema(
+          properties: {
+            ...?tool.inputSchema.properties,
+            'change_intent': Schema.string(
+              description: 'Qué cambio querés hacer, si está bloqueado.',
+            ),
+            'change_reason': Schema.string(
+              description: 'Por qué el cambio es necesario, si está bloqueado.',
+            ),
+          },
+          required: tool.inputSchema.required,
+        ),
+      ),
 ];

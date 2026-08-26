@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
 
 import 'package:keel_ui/src/modules/hooks/model/hook.dart';
+import 'package:keel_ui/src/modules/catalog_locks/model/catalog_lock.dart';
+import 'package:keel_ui/src/modules/catalog_locks/ui/widget/catalog_lock_button.dart';
+import 'package:keel_ui/src/modules/catalog_locks/viewmodel/catalog_locks_viewmodel.dart';
 import 'package:keel_ui/src/modules/hooks/viewmodel/hooks_viewmodel.dart';
 import 'package:keel_ui/src/modules/rules/model/rule.dart';
 import 'package:keel_ui/src/modules/rules/viewmodel/rules_viewmodel.dart';
@@ -42,6 +45,10 @@ class RuleTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isLocked = CatalogLocksService.instance.notifier.isLocked(
+      CatalogLockKind.rule,
+      rule.name,
+    );
     return ListTile(
       title: Text(rule.name),
       subtitle: Column(
@@ -54,15 +61,18 @@ class RuleTile extends StatelessWidget {
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
+          CatalogLockButton(kind: CatalogLockKind.rule, name: rule.name),
           IconButton(
             tooltip: 'Editar',
             icon: const Icon(Icons.edit_outlined),
-            onPressed: () => openRuleFormScreen(context, initial: rule),
+            onPressed: isLocked
+                ? null
+                : () => openRuleFormScreen(context, initial: rule),
           ),
           IconButton(
             tooltip: 'Eliminar',
             icon: const Icon(Icons.delete_outline),
-            onPressed: () => _confirmAndDelete(context),
+            onPressed: isLocked ? null : () => _confirmAndDelete(context),
           ),
         ],
       ),

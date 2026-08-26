@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import 'package:keel_ui/src/modules/catalog_locks/model/catalog_lock.dart';
+import 'package:keel_ui/src/modules/catalog_locks/ui/widget/catalog_lock_button.dart';
+import 'package:keel_ui/src/modules/catalog_locks/viewmodel/catalog_locks_viewmodel.dart';
 import 'package:keel_ui/src/modules/secrets/model/secret.dart';
 import 'package:keel_ui/src/modules/secrets/ui/screen/secret_form_screen.dart';
 import 'package:keel_ui/src/modules/secrets/ui/widget/secret_delete_dialog.dart';
@@ -12,6 +15,10 @@ class SecretTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final isLocked = CatalogLocksService.instance.notifier.isLocked(
+      CatalogLockKind.secret,
+      secret.name,
+    );
 
     return ListTile(
       leading: Icon(
@@ -43,15 +50,20 @@ class SecretTile extends StatelessWidget {
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
+          CatalogLockButton(kind: CatalogLockKind.secret, name: secret.name),
           IconButton(
             tooltip: secret.isPending ? 'Cargar valor' : 'Editar',
             icon: const Icon(Icons.edit_outlined),
-            onPressed: () => openSecretFormScreen(context, initial: secret),
+            onPressed: isLocked
+                ? null
+                : () => openSecretFormScreen(context, initial: secret),
           ),
           IconButton(
             tooltip: 'Eliminar',
             icon: const Icon(Icons.delete_outline),
-            onPressed: () => confirmDeleteSecret(context, secret),
+            onPressed: isLocked
+                ? null
+                : () => confirmDeleteSecret(context, secret),
           ),
         ],
       ),

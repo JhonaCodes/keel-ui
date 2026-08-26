@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import 'package:keel_ui/src/modules/catalog_locks/model/catalog_lock.dart';
+import 'package:keel_ui/src/modules/catalog_locks/ui/widget/catalog_lock_button.dart';
+import 'package:keel_ui/src/modules/catalog_locks/viewmodel/catalog_locks_viewmodel.dart';
 import 'package:keel_ui/src/integrations/catalog_bundle/catalog_bundle.dart';
 import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
 import 'package:keel_ui/src/modules/agent_profiles/viewmodel/agent_profiles_viewmodel.dart';
@@ -41,6 +44,10 @@ class AgentProfileTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isLocked = CatalogLocksService.instance.notifier.isLocked(
+      CatalogLockKind.agent,
+      profile.name,
+    );
     return ListTile(
       title: Text(
         profile.name,
@@ -103,11 +110,13 @@ class AgentProfileTile extends StatelessWidget {
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
+          CatalogLockButton(kind: CatalogLockKind.agent, name: profile.name),
           IconButton(
             tooltip: 'Editar',
             icon: const Icon(Icons.edit_outlined),
-            onPressed: () =>
-                openAgentProfileFormScreen(context, initial: profile),
+            onPressed: isLocked
+                ? null
+                : () => openAgentProfileFormScreen(context, initial: profile),
           ),
           IconButton(
             tooltip: 'Exportar como paquete',
@@ -118,7 +127,7 @@ class AgentProfileTile extends StatelessWidget {
           IconButton(
             tooltip: 'Eliminar',
             icon: const Icon(Icons.delete_outline),
-            onPressed: () => _confirmAndDelete(context),
+            onPressed: isLocked ? null : () => _confirmAndDelete(context),
           ),
         ],
       ),

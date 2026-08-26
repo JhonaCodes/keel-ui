@@ -30,7 +30,11 @@ class Skill {
     this.isGlobal = false,
   });
 
-  Skill copyWith({String? name, String? content, bool? isGlobal}) {
+  Skill copyWith({
+    String? name,
+    String? content,
+    bool? isGlobal,
+  }) {
     return Skill(
       id: id,
       name: name ?? this.name,
@@ -70,7 +74,8 @@ class Skill {
           createdAt == other.createdAt;
 
   @override
-  int get hashCode => Object.hash(id, name, content, isGlobal, createdAt);
+  int get hashCode =>
+      Object.hash(id, name, content, isGlobal, createdAt);
 
   @override
   String toString() =>

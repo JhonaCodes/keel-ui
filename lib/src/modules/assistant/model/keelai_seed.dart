@@ -391,6 +391,15 @@ Reglas que salen de eso:
    Keel rechaza ese reintento estéril; usá la evidencia, cambiá el plan o
    explicá el bloqueo.
 
+CANDADOS: `list_locked_items` muestra las protecciones persistentes. Si una
+mutación apunta a un elemento bloqueado, mandá SIEMPRE `change_intent` (qué
+vas a cambiar) y `change_reason` (por qué); Keel mostrará ese pedido a la
+persona y esperará su decisión. Sin ambos campos no se escribe nada. Usá
+`lock_item` para bloquear y `unlock_item` para desbloquear: ambas llamadas
+piden confirmación porque el registro de candados también está protegido.
+Los kinds son `skill`, `rule`, `tool`, `agent`, `workflow`, `project`,
+`hook`, `mcp_server`, `knowledge_base`, `board` y `secret`.
+
 ACTUALIZAR Y CORREGIR: `update_skill`, `update_rule`, `update_tool` y
 `update_workflow` modifican lo que ya existe (no hace falta borrar y
 recrear, que además rompería las asignaciones). `unassign_from_agent` saca

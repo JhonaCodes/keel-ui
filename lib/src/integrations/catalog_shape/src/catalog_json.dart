@@ -13,6 +13,7 @@ const kCatalogCategories = [
   'projects',
   'requirements',
   'boards',
+  'catalog_locks',
 ];
 
 /// El nombre de archivo de una entidad dentro de su categoría. Los
@@ -28,6 +29,15 @@ Map<String, List<Map<String, dynamic>>> catalogAsJson() {
     for (final category in kCatalogCategories)
       category: <Map<String, dynamic>>[],
   };
+
+  for (final lock in CatalogLocksService.instance.notifier.data.locks) {
+    byCategory['catalog_locks']!.add({
+      'name': lock.key,
+      'kind': lock.kind.alias,
+      'itemName': lock.name,
+      'createdAt': lock.createdAt.toIso8601String(),
+    });
+  }
 
   for (final skill in SkillsService.instance.notifier.data.skills) {
     // The system map is compiled app knowledge, re-seeded on every launch —
@@ -771,6 +781,19 @@ Future<String> mergeCatalogJson(
     } else {
       updated++;
     }
+  }
+
+  final catalogLocks = CatalogLocksService.instance.notifier;
+  for (final json
+      in byCategory['catalog_locks'] ?? const <Map<String, dynamic>>[]) {
+    final kind = CatalogLockKind.tryFromAlias(json['kind'] as String? ?? '');
+    final itemName = json['itemName'] as String?;
+    if (kind == null || itemName == null || itemName.isEmpty) {
+      problems.add('candado inválido');
+      continue;
+    }
+    await catalogLocks.setLocked(kind, itemName, locked: true);
+    created++;
   }
 
   final parts = [

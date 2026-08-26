@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import 'package:keel_ui/src/modules/catalog_locks/model/catalog_lock.dart';
+import 'package:keel_ui/src/modules/catalog_locks/ui/widget/catalog_lock_button.dart';
+import 'package:keel_ui/src/modules/catalog_locks/viewmodel/catalog_locks_viewmodel.dart';
 import 'package:keel_ui/src/integrations/catalog_bundle/catalog_bundle.dart';
 import 'package:keel_ui/src/modules/workflows/model/workflow.dart';
 import 'package:keel_ui/src/modules/workflows/service/workflow_deletion_service.dart';
@@ -41,6 +44,10 @@ class WorkflowTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isLocked = CatalogLocksService.instance.notifier.isLocked(
+      CatalogLockKind.workflow,
+      workflow.name,
+    );
     return ListTile(
       title: Text(workflow.name),
       isThreeLine: true,
@@ -77,10 +84,16 @@ class WorkflowTile extends StatelessWidget {
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
+          CatalogLockButton(
+            kind: CatalogLockKind.workflow,
+            name: workflow.name,
+          ),
           IconButton(
             tooltip: 'Editar',
             icon: const Icon(Icons.edit_outlined),
-            onPressed: () => openWorkflowFormScreen(context, initial: workflow),
+            onPressed: isLocked
+                ? null
+                : () => openWorkflowFormScreen(context, initial: workflow),
           ),
           IconButton(
             tooltip: 'Exportar como paquete',
@@ -94,7 +107,7 @@ class WorkflowTile extends StatelessWidget {
           IconButton(
             tooltip: 'Eliminar',
             icon: const Icon(Icons.delete_outline),
-            onPressed: () => _confirmAndDelete(context),
+            onPressed: isLocked ? null : () => _confirmAndDelete(context),
           ),
         ],
       ),

@@ -25,6 +25,14 @@ class PermissionRequestBanner extends StatelessWidget {
       return _HookDenialBanner(request: request);
     }
 
+    if (request.isCatalogChange) {
+      return _CatalogChangePermissionBanner(
+        request: request,
+        busy: busy,
+        onRespond: onRespond,
+      );
+    }
+
     final grantLabel = request.isSandboxRestriction
         ? 'Dar acceso a todo el disco'
         : 'Permitir ${request.toolName}';
@@ -79,6 +87,110 @@ class PermissionRequestBanner extends StatelessWidget {
       ),
     );
   }
+}
+
+class _CatalogChangePermissionBanner extends StatelessWidget {
+  const _CatalogChangePermissionBanner({
+    required this.request,
+    required this.busy,
+    required this.onRespond,
+  });
+
+  final PermissionRequest request;
+  final bool busy;
+  final void Function(bool grant) onRespond;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 520),
+        child: Container(
+          margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          padding: const EdgeInsets.all(14),
+          decoration: ShapeDecoration(
+            color: scheme.surfaceContainerHigh,
+            shape: 16.smoothBorder(
+              side: BorderSide(color: scheme.primary.withValues(alpha: 0.3)),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.lock_outline, size: 18, color: scheme.primary),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Cambio sobre un elemento bloqueado',
+                      style: TextStyle(
+                        color: scheme.onSurface,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              _CatalogDetail(
+                label: 'Elemento',
+                value: '${request.kind} · ${request.itemName}',
+              ),
+              _CatalogDetail(
+                label: 'Intención',
+                value: request.changeIntent ?? '',
+              ),
+              _CatalogDetail(
+                label: 'Motivo',
+                value: request.changeReason ?? '',
+              ),
+              _CatalogDetail(
+                label: 'Solicitado por',
+                value: request.requestedBy ?? 'Keel AI',
+              ),
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: busy ? null : () => onRespond(false),
+                    child: const Text('Rechazar'),
+                  ),
+                  const SizedBox(width: 8),
+                  FilledButton(
+                    onPressed: busy ? null : () => onRespond(true),
+                    child: const Text('Aprobar cambio'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CatalogDetail extends StatelessWidget {
+  const _CatalogDetail({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 6),
+    child: Text(
+      '$label: $value',
+      style: TextStyle(
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+        fontSize: 12,
+      ),
+    ),
+  );
 }
 
 /// Lo frenó un guardarraíl, no un permiso.

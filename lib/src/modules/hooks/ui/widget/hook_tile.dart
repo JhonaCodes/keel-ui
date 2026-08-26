@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import 'package:keel_ui/src/modules/catalog_locks/model/catalog_lock.dart';
+import 'package:keel_ui/src/modules/catalog_locks/ui/widget/catalog_lock_button.dart';
+import 'package:keel_ui/src/modules/catalog_locks/viewmodel/catalog_locks_viewmodel.dart';
 import 'package:keel_ui/src/modules/hooks/model/hook.dart';
 import 'package:keel_ui/src/modules/hooks/ui/screen/hook_form_screen.dart';
 import 'package:keel_ui/src/modules/hooks/viewmodel/hooks_viewmodel.dart';
@@ -56,6 +59,10 @@ class HookTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isLocked = CatalogLocksService.instance.notifier.isLocked(
+      CatalogLockKind.hook,
+      hook.name,
+    );
     final subtitle = [
       hook.event.label,
       if (hook.matcher.isNotEmpty) 'en ${hook.matcher}',
@@ -68,8 +75,10 @@ class HookTile extends StatelessWidget {
         message: hook.enabled ? 'Activo' : 'Apagado',
         child: Switch(
           value: hook.enabled,
-          onChanged: (value) =>
-              HooksService.instance.notifier.setEnabled(hook.id, value),
+          onChanged: isLocked
+              ? null
+              : (value) =>
+                    HooksService.instance.notifier.setEnabled(hook.id, value),
         ),
       ),
       title: Text(
@@ -94,15 +103,18 @@ class HookTile extends StatelessWidget {
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
+          CatalogLockButton(kind: CatalogLockKind.hook, name: hook.name),
           IconButton(
             tooltip: 'Editar',
             icon: const Icon(Icons.edit_outlined),
-            onPressed: () => openHookFormScreen(context, initial: hook),
+            onPressed: isLocked
+                ? null
+                : () => openHookFormScreen(context, initial: hook),
           ),
           IconButton(
             tooltip: 'Eliminar',
             icon: const Icon(Icons.delete_outline),
-            onPressed: () => _confirmAndDelete(context),
+            onPressed: isLocked ? null : () => _confirmAndDelete(context),
           ),
         ],
       ),

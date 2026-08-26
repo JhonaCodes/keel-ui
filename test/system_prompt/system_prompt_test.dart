@@ -110,9 +110,29 @@ void main() {
     });
 
     test('la regla deja `git` en paz: solo reemplaza gh y la API', () {
-      expect(kGithubMcpPrompt, contains('Local `git` is unaffected'));
+      expect(kGithubMcpPrompt, contains('local `git`'));
       expect(kGithubMcpPrompt, contains('`gh`'));
       expect(kGithubMcpPrompt, contains('curl'));
+    });
+
+    test('prohíbe commitear por el MCP, que es lo que rompe la firma', () {
+      // Nombradas una por una: la prohibición genérica no le impidió a un
+      // agente rehacer un commit con create_or_update_file «para usar mejor
+      // el MCP», y el commit salió sin firma.
+      for (final tool in const [
+        'create_or_update_file',
+        'push_files',
+        'create_commit',
+        'delete_file',
+      ]) {
+        expect(kGithubMcpPrompt, contains(tool));
+      }
+      expect(kGithubMcpPrompt, contains('unsigned'));
+      expect(kGithubMcpPrompt, contains('Unverified'));
+      expect(
+        kGithubMcpPrompt.indexOf('THE LINE'),
+        greaterThan(kGithubMcpPrompt.indexOf('GITHUB GOES THROUGH')),
+      );
     });
   });
 

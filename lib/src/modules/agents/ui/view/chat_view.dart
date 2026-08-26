@@ -95,6 +95,11 @@ class _ChatViewState extends State<ChatView> {
     if (oldWidget.agent.provider != widget.agent.provider) {
       _modelOptions = _modelCatalog.load(widget.agent.provider);
     }
+    // Contestado el permiso, el hueco que le tenía reservado el hilo se va
+    // con él: si no, queda un espacio en blanco abajo hasta el próximo.
+    if (widget.agent.pendingPermission == null && _permissionHeight != 0) {
+      _permissionHeight = 0;
+    }
   }
 
   @override
@@ -218,6 +223,63 @@ class _ChatViewState extends State<ChatView> {
     }
   }
 
+  /// Cuánto ocupa el pedido de permiso que está flotando, para que el hilo
+  /// le reserve ese espacio abajo. Medido y no estimado: la tarjeta cambia
+  /// de alto según la variante —un permiso de tool es una línea, un cambio
+  /// de catálogo son cuatro— y un número inventado deja la última burbuja
+  /// tapada o un hueco vacío.
+  double _permissionHeight = 0;
+
+  /// El hilo: las burbujas, o el cartel de bienvenida cuando todavía no hay
+  /// ninguna. Sale del `build` para que el pedido de permiso pueda flotar
+  /// encima suyo sin anidar tres Stacks en la misma expresión.
+  Widget _conversation(Agent agent) {
+    return agent.messages.isEmpty
+        ? widget.emptyState ??
+              const Center(child: Text('Escríbele algo a tu agente'))
+        : Stack(
+            children: [
+              SelectionArea(
+                child: ListView.builder(
+                  controller: _messageScroll,
+                  reverse: true,
+                  padding: EdgeInsets.fromLTRB(
+                    16,
+                    16,
+                    16,
+                    16 + _permissionHeight,
+                  ),
+                  itemCount: agent.messages.length,
+                  itemBuilder: (context, index) {
+                    final msgIndex = agent.messages.length - 1 - index;
+                    final message = agent.messages[msgIndex];
+                    return FadeInEntrance(
+                      key: ValueKey(message.timestamp.microsecondsSinceEpoch),
+                      child: ChatMessageBubble(
+                        message: message,
+                        agentId: agent.id,
+                        agentColor: agent.iconColor,
+                        actions: widget.actions,
+                        fontScaleOverride: widget.fontScaleOverride,
+                      ),
+                    );
+                  },
+                ),
+              ),
+              if (!_atLatest)
+                Positioned(
+                  right: 20,
+                  bottom: 16,
+                  child: FloatingActionButton.small(
+                    tooltip: 'Ir al mensaje más reciente',
+                    onPressed: _goToLatest,
+                    child: const Icon(Icons.arrow_downward),
+                  ),
+                ),
+            ],
+          );
+  }
+
   @override
   Widget build(BuildContext context) {
     final agent = widget.agent;
@@ -338,63 +400,55 @@ class _ChatViewState extends State<ChatView> {
                 ),
               ),
               const Divider(height: 1),
-              if (agent.pendingPermission != null)
-                ConstrainedBox(
-                  constraints: const BoxConstraints(maxHeight: 160),
-                  child: SingleChildScrollView(
-                    child: PermissionRequestBanner(
-                      request: agent.pendingPermission!,
-                      busy: agent.isStreaming,
-                      onRespond: (grant) => widget.actions
-                          .respondToPermissionRequest(agent.id, grant: grant),
-                    ),
-                  ),
-                ),
               Expanded(
-                child: agent.messages.isEmpty
-                    ? widget.emptyState ??
-                          const Center(
-                            child: Text('Escríbele algo a tu agente'),
-                          )
-                    : Stack(
-                        children: [
-                          SelectionArea(
-                            child: ListView.builder(
-                              controller: _messageScroll,
-                              reverse: true,
-                              padding: const EdgeInsets.all(16),
-                              itemCount: agent.messages.length,
-                              itemBuilder: (context, index) {
-                                final msgIndex =
-                                    agent.messages.length - 1 - index;
-                                final message = agent.messages[msgIndex];
-                                return FadeInEntrance(
-                                  key: ValueKey(
-                                    message.timestamp.microsecondsSinceEpoch,
-                                  ),
-                                  child: ChatMessageBubble(
-                                    message: message,
-                                    agentId: agent.id,
-                                    agentColor: agent.iconColor,
-                                    actions: widget.actions,
-                                    fontScaleOverride: widget.fontScaleOverride,
-                                  ),
-                                );
-                              },
+                child: Stack(
+                  children: [
+                    Positioned.fill(child: _conversation(agent)),
+                    // El pedido de permiso va ENCIMA de la conversación, y
+                    // pegado al composer, que es donde está el ojo. Antes
+                    // era una fila más arriba del listado, recortada a 160
+                    // px: la variante de cambio de catálogo no entra en esa
+                    // altura, así que se cortaba justo donde empiezan las
+                    // burbujas —los botones quedaban del otro lado del
+                    // corte— y se leía como si el chat lo tapara.
+                    if (agent.pendingPermission case final request?)
+                      Positioned(
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        child: LayoutBuilder(
+                          builder: (context, constraints) => ConstrainedBox(
+                            // Un pedido larguísimo no se come la
+                            // conversación entera: se desplaza adentro.
+                            constraints: BoxConstraints(
+                              maxHeight: constraints.maxHeight * 0.7,
                             ),
-                          ),
-                          if (!_atLatest)
-                            Positioned(
-                              right: 20,
-                              bottom: 16,
-                              child: FloatingActionButton.small(
-                                tooltip: 'Ir al mensaje más reciente',
-                                onPressed: _goToLatest,
-                                child: const Icon(Icons.arrow_downward),
+                            child: SingleChildScrollView(
+                              reverse: true,
+                              child: _MeasuredHeight(
+                                onChanged: (height) {
+                                  if (height == _permissionHeight) return;
+                                  setState(() => _permissionHeight = height);
+                                },
+                                child: Padding(
+                                  padding: const EdgeInsets.only(bottom: 10),
+                                  child: PermissionRequestBanner(
+                                    request: request,
+                                    busy: agent.isStreaming,
+                                    onRespond: (grant) => widget.actions
+                                        .respondToPermissionRequest(
+                                          agent.id,
+                                          grant: grant,
+                                        ),
+                                  ),
+                                ),
                               ),
                             ),
-                        ],
+                          ),
+                        ),
                       ),
+                  ],
+                ),
               ),
               if (agent.liveReasoning != null &&
                   agent.liveReasoning!.isNotEmpty)
@@ -520,4 +574,50 @@ class _ChatViewState extends State<ChatView> {
       ),
     );
   }
+}
+
+/// Le avisa a quien lo envuelve cuánto mide su hijo, después de dibujarlo.
+///
+/// Existe por una sola cosa: el pedido de permiso flota sobre el hilo, y el
+/// hilo tiene que reservar exactamente ese alto abajo para que la última
+/// burbuja no quede debajo de la tarjeta.
+class _MeasuredHeight extends StatefulWidget {
+  const _MeasuredHeight({required this.child, required this.onChanged});
+
+  final Widget child;
+  final ValueChanged<double> onChanged;
+
+  @override
+  State<_MeasuredHeight> createState() => _MeasuredHeightState();
+}
+
+class _MeasuredHeightState extends State<_MeasuredHeight> {
+  final _key = GlobalKey();
+
+  @override
+  void initState() {
+    super.initState();
+    _report();
+  }
+
+  @override
+  void didUpdateWidget(_MeasuredHeight oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _report();
+  }
+
+  /// Después del frame, nunca durante: leer el tamaño mientras se construye
+  /// es preguntarle a un render que todavía no existe.
+  void _report() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final box = _key.currentContext?.findRenderObject() as RenderBox?;
+      if (box == null || !box.hasSize) return;
+      widget.onChanged(box.size.height);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) =>
+      KeyedSubtree(key: _key, child: widget.child);
 }

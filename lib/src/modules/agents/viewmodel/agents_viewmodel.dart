@@ -62,6 +62,10 @@ class AgentsViewModel extends ViewModel<AgentsState> {
   final Map<String, TaskRun> _runningTurns = {};
   final Map<String, Completer<bool>> _catalogChangePermissions = {};
 
+  /// Los agentes cuyo último pedido de permiso contestó una persona. Lo que
+  /// distingue un «no» de un «nadie miró».
+  final Set<String> _answeredPermissions = {};
+
   /// Pid → agente, para poder despublicarlo de la pantalla de Máquina.
   final Map<String, int> _runningPids = {};
   final Set<String> _stoppedAgentIds = {};
@@ -249,8 +253,12 @@ class AgentsViewModel extends ViewModel<AgentsState> {
   }
 
   void respondToPermissionRequest(String agentId, {required bool grant}) {
-    final target = data.agents.firstWhere((agent) => agent.id == agentId);
-    final request = target.pendingPermission;
+    // Sin `orElse`: contestar el pedido de un agente que se borró mientras
+    // la tarjeta estaba en pantalla tiraba una excepción en el tap.
+    final target = data.agents
+        .where((agent) => agent.id == agentId)
+        .firstOrNull;
+    final request = target?.pendingPermission;
     if (request == null) return;
 
     _updateAgent(
@@ -259,7 +267,10 @@ class AgentsViewModel extends ViewModel<AgentsState> {
     );
     if (request.isCatalogChange) {
       final pending = _catalogChangePermissions.remove(agentId);
-      if (pending != null && !pending.isCompleted) pending.complete(grant);
+      if (pending != null && !pending.isCompleted) {
+        _answeredPermissions.add(agentId);
+        pending.complete(grant);
+      }
       return;
     }
     if (!grant) return;
@@ -284,6 +295,21 @@ class AgentsViewModel extends ViewModel<AgentsState> {
   /// Suspends an MCP mutation until the person controlling this conversation
   /// approves it. The timeout is deliberately local: an unanswered request
   /// never lets a stale tool call write later.
+  /// Cuánto se espera una respuesta antes de dar el pedido por caído.
+  ///
+  /// Eran dos minutos, que es menos de lo que tarda alguien en volver del
+  /// café. Y el pedido se lee: dice qué elemento, qué se le cambia y por
+  /// qué. Diez minutos es el tiempo de leerlo y decidir sin que el turno se
+  /// caiga solo; más que eso ya es un agente esperando a nadie.
+  static const _kPermissionPatience = Duration(minutes: 10);
+
+  /// Si la última respuesta a [agentId] la dio una persona, y no el reloj.
+  ///
+  /// Se consume al leerla: es el dato de UN pedido, no un estado que quede
+  /// colgado para el siguiente.
+  bool lastPermissionWasAnswered(String agentId) =>
+      _answeredPermissions.remove(agentId);
+
   Future<bool> requestCatalogChangePermission({
     required String agentId,
     required String kind,
@@ -295,6 +321,8 @@ class AgentsViewModel extends ViewModel<AgentsState> {
         .where((agent) => agent.id == agentId)
         .firstOrNull;
     if (target == null || target.pendingPermission != null) return false;
+    // Un pedido nuevo arranca sin la respuesta del anterior encima.
+    _answeredPermissions.remove(agentId);
     final completer = Completer<bool>();
     _catalogChangePermissions[agentId] = completer;
     _updateAgent(
@@ -314,7 +342,7 @@ class AgentsViewModel extends ViewModel<AgentsState> {
     try {
       return await Future.any([
         completer.future,
-        Future<bool>.delayed(const Duration(minutes: 2), () => false),
+        Future<bool>.delayed(_kPermissionPatience, () => false),
       ]);
     } finally {
       if (_catalogChangePermissions[agentId] == completer) {

@@ -1072,7 +1072,12 @@ List<Tool> _withCatalogChangeParameters(List<Tool> tools) => [
         name: tool.name,
         description:
             '${tool.description}\n\nSi el elemento está bloqueado, incluí '
-            'change_intent y change_reason; sin ambos no se escribe.',
+            'change_intent y change_reason; sin ambos no se escribe. Y con '
+            'los dos, esta llamada QUEDA ESPERANDO a que la persona apruebe '
+            'o rechace: puede tardar minutos y eso es normal. No la '
+            'reintentes, no la canceles y no busques otro camino para el '
+            'mismo cambio mientras esperás — cuando conteste, la tool te '
+            'dice si escribió o no.',
         inputSchema: ObjectSchema(
           properties: {
             ...?tool.inputSchema.properties,

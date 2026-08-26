@@ -95,6 +95,8 @@ void _permissionTests() {
     WidgetTester tester, {
     PermissionRequest? permiso,
     int mensajes = 12,
+    bool trabajando = false,
+    ValueChanged<_RecordingChatActions>? onActions,
   }) async {
     await tester.binding.setSurfaceSize(const Size(720, 800));
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -102,8 +104,9 @@ void _permissionTests() {
       MaterialApp(
         home: Scaffold(
           body: _ChatHarness(
-            onActionsReady: (_) {},
+            onActionsReady: onActions ?? (_) {},
             pendingPermission: permiso,
+            isStreaming: trabajando,
             messages: [
               for (var i = 0; i < mensajes; i++)
                 ChatMessage(
@@ -116,7 +119,14 @@ void _permissionTests() {
         ),
       ),
     );
-    await tester.pumpAndSettle();
+    // Con el agente trabajando hay una barra de progreso infinita: nunca
+    // «settlea», así que se avanzan frames a mano.
+    if (trabajando) {
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+    } else {
+      await tester.pumpAndSettle();
+    }
   }
 
   testWidgets('el pedido se ve entero, con sus dos botones', (tester) async {
@@ -175,6 +185,50 @@ void _permissionTests() {
     );
   });
 
+  testWidgets('se puede contestar CON el agente trabajando', (tester) async {
+    // El caso real: la tool está suspendida esperando la respuesta, así que
+    // el turno figura corriendo justo mientras hay que contestar. Con los
+    // botones atados a `isStreaming` no había forma de destrabarlo.
+    await abrir(tester, permiso: _catalogRequest, trabajando: true);
+
+    expect(
+      tester.widget<FilledButton>(find.byType(FilledButton)).onPressed,
+      isNotNull,
+    );
+    expect(
+      tester
+          .widget<TextButton>(
+            find.ancestor(
+              of: find.text('Rechazar'),
+              matching: find.byType(TextButton),
+            ),
+          )
+          .onPressed,
+      isNotNull,
+    );
+  });
+
+  testWidgets('contestada una vez, no se puede contestar dos', (tester) async {
+    late _RecordingChatActions actions;
+    await abrir(
+      tester,
+      permiso: _catalogRequest,
+      trabajando: true,
+      onActions: (value) => actions = value,
+    );
+
+    await tester.tap(find.text('Aprobar cambio'));
+    await tester.pump();
+    await tester.tap(find.text('Aprobar cambio'), warnIfMissed: false);
+    await tester.pump();
+
+    expect(actions.permissionAnswers, [true]);
+    expect(
+      tester.widget<FilledButton>(find.byType(FilledButton)).onPressed,
+      isNull,
+    );
+  });
+
   testWidgets('sin permiso pendiente no queda hueco abajo', (tester) async {
     await abrir(tester);
 
@@ -189,11 +243,13 @@ class _ChatHarness extends StatefulWidget {
     required this.onActionsReady,
     this.messages = const [],
     this.pendingPermission,
+    this.isStreaming = false,
   });
 
   final ValueChanged<_RecordingChatActions> onActionsReady;
   final List<ChatMessage> messages;
   final PermissionRequest? pendingPermission;
+  final bool isStreaming;
 
   @override
   State<_ChatHarness> createState() => _ChatHarnessState();
@@ -216,6 +272,7 @@ class _ChatHarnessState extends State<_ChatHarness> {
       effort: 'medium',
       messages: widget.messages,
       pendingPermission: widget.pendingPermission,
+      isStreaming: widget.isStreaming,
     );
     _actions = _RecordingChatActions(
       onProviderChanged: (agentId, provider) {
@@ -241,6 +298,14 @@ class _RecordingChatActions extends LocalChatActions {
 
   final void Function(String agentId, AgentProvider provider) onProviderChanged;
   final List<(String, AgentProvider)> providerChanges = [];
+  final List<bool> permissionAnswers = [];
+
+  /// Sin esto la respuesta cae en el ViewModel de verdad, que en un test no
+  /// tiene a este agente registrado.
+  @override
+  void respondToPermissionRequest(String agentId, {required bool grant}) {
+    permissionAnswers.add(grant);
+  }
 
   @override
   void setAgentProvider(String agentId, AgentProvider provider) {

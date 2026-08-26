@@ -434,7 +434,6 @@ class _ChatViewState extends State<ChatView> {
                                   padding: const EdgeInsets.only(bottom: 10),
                                   child: PermissionRequestBanner(
                                     request: request,
-                                    busy: agent.isStreaming,
                                     onRespond: (grant) => widget.actions
                                         .respondToPermissionRequest(
                                           agent.id,

@@ -3,20 +3,54 @@ import 'package:flutter/material.dart';
 import 'package:keel_ui/src/modules/agents/model/permission_request.dart';
 import 'package:keel_ui/src/shared/shared.dart';
 
-class PermissionRequestBanner extends StatelessWidget {
+/// Lo que un agente te pide para poder seguir.
+///
+/// Los botones NO se deshabilitan porque el turno esté corriendo, y ese es
+/// el punto: mientras hay un pedido en pantalla, el turno está corriendo
+/// JUSTAMENTE porque te está esperando. La tool que lo pidió está suspendida
+/// hasta que contestes. Atarlos a `isStreaming` —como estaban— dejaba los
+/// dos botones grises hasta que el pedido expiraba solo a los diez minutos:
+/// la única forma de contestar era no poder contestar.
+///
+/// Lo único que los apaga es haber contestado ya, para que un doble click no
+/// mande la respuesta dos veces en el instante que la tarjeta tarda en irse.
+class PermissionRequestBanner extends StatefulWidget {
   const PermissionRequestBanner({
     super.key,
     required this.request,
-    required this.busy,
     required this.onRespond,
   });
 
   final PermissionRequest request;
-  final bool busy;
   final void Function(bool grant) onRespond;
 
   @override
+  State<PermissionRequestBanner> createState() =>
+      _PermissionRequestBannerState();
+}
+
+class _PermissionRequestBannerState extends State<PermissionRequestBanner> {
+  bool _answered = false;
+
+  void _respond(bool grant) {
+    if (_answered) return;
+    setState(() => _answered = true);
+    widget.onRespond(grant);
+  }
+
+  @override
+  void didUpdateWidget(PermissionRequestBanner oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Otro pedido, otra decisión: la tarjeta se reusa y no puede quedar
+    // apagada por la respuesta anterior.
+    if (oldWidget.request != widget.request) _answered = false;
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final request = widget.request;
+    final busy = _answered;
+    final onRespond = _respond;
     final scheme = Theme.of(context).colorScheme;
     // Un bloqueo de hook NO se destraba con un permiso: no fue el permiso lo
     // que frenó. Ofrecer "permitir" ahí manda al usuario a prender un ajuste

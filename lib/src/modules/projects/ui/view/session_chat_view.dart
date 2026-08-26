@@ -155,7 +155,6 @@ class _ProjectChannel extends StatelessWidget {
                   pendingPermission != null)
                 PermissionRequestBanner(
                   request: pendingPermission,
-                  busy: running,
                   onRespond: (grant) => ProjectsService.instance.notifier
                       .respondToSessionPermission(
                         project.id,

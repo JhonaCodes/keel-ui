@@ -37,6 +37,39 @@ class CatalogLocksViewModel extends ViewModel<CatalogLocksState> {
   bool isLocked(CatalogLockKind kind, String name) =>
       data.locks.any((entry) => entry.kind == kind && entry.name == name);
 
+  /// Los candados que puso el usuario, agrupados por tipo y ordenados por
+  /// nombre — el orden del enum para los grupos, alfabético adentro de cada
+  /// uno. Es lo que muestra la pantalla de bloqueados.
+  ///
+  /// El registro de candados queda AFUERA: existe siempre, se re-crea solo
+  /// ([_withRegistryLock]) y no se saca desde la lista. Mezclarlo con lo que
+  /// eligió el usuario haría creer que se puede.
+  Map<CatalogLockKind, List<CatalogLock>> get locksByKind {
+    final grouped = <CatalogLockKind, List<CatalogLock>>{};
+    for (final lock in userLocks) {
+      grouped.putIfAbsent(lock.kind, () => []).add(lock);
+    }
+    for (final locks in grouped.values) {
+      locks.sort(
+        (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+      );
+    }
+    // Se reconstruye en el orden del enum: `grouped` quedó en el orden en
+    // que aparecieron los candados, que es el de la base y no significa nada.
+    final ordered = <CatalogLockKind, List<CatalogLock>>{};
+    for (final kind in CatalogLockKind.values) {
+      final locks = grouped[kind];
+      if (locks != null) ordered[kind] = locks;
+    }
+    return ordered;
+  }
+
+  /// Todo lo bloqueado menos la entrada del sistema.
+  List<CatalogLock> get userLocks => [
+    for (final lock in data.locks)
+      if (lock.kind != CatalogLockKind.lockRegistry) lock,
+  ];
+
   /// Direct user action from the UI. Tool calls must first obtain approval.
   Future<void> setLocked(
     CatalogLockKind kind,

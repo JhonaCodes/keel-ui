@@ -10,6 +10,7 @@ import 'package:keel_ui/src/modules/hooks/viewmodel/hooks_viewmodel.dart';
 import 'package:keel_ui/src/modules/rules/model/rule.dart';
 import 'package:keel_ui/src/modules/rules/viewmodel/rules_viewmodel.dart';
 import 'package:keel_ui/src/modules/rules/ui/screen/rule_form_screen.dart';
+import 'package:keel_ui/src/core/ui/confirm_card.dart';
 
 class RuleTile extends StatelessWidget {
   const RuleTile({super.key, required this.rule});
@@ -17,28 +18,16 @@ class RuleTile extends StatelessWidget {
   final Rule rule;
 
   Future<void> _confirmAndDelete(BuildContext context) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Eliminar regla'),
-        content: Text(
+    final confirmed = await confirmWithCard(
+      context,
+      title: 'Eliminar regla',
+      body:
           'Se eliminará la regla "${rule.name}". Los agentes que la tenían '
           'asignada dejarán de recibir sus instrucciones.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Eliminar'),
-          ),
-        ],
-      ),
+      destructive: true,
     );
 
-    if (confirmed ?? false) {
+    if (confirmed) {
       RulesService.instance.notifier.deleteRule(rule.id);
     }
   }

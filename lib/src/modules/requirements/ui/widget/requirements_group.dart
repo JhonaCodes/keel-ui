@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
 
 import 'package:keel_ui/src/modules/requirements/model/internal_requirement.dart';
+import 'package:keel_ui/src/modules/sidebar_layout/model/sidebar_layout.dart';
+import 'package:keel_ui/src/modules/sidebar_layout/ui/widget/sidebar_section_list.dart';
 import 'package:keel_ui/src/modules/requirements/viewmodel/requirements_viewmodel.dart';
 
 /// El grupo del sidebar, entre los proyectos y los agentes sueltos.
@@ -40,54 +42,58 @@ class RequirementsGroup extends StatelessWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(14, 22, 6, 6),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'REQUERIMIENTOS',
-                      style: TextStyle(
-                        fontFamily: 'monospace',
-                        fontSize: 10,
-                        letterSpacing: 1.2,
-                        color: scheme.outline,
-                      ),
-                    ),
-                  ),
-                  if (abiertos.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 6),
+            SidebarSectionDropHead(
+              kind: SidebarSectionKind.requirement,
+              presentIds: [for (final requirement in abiertos) requirement.id],
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(14, 22, 6, 6),
+                child: Row(
+                  children: [
+                    Expanded(
                       child: Text(
-                        '${abiertos.length}',
+                        'REQUERIMIENTOS',
                         style: TextStyle(
                           fontFamily: 'monospace',
                           fontSize: 10,
-                          color: scheme.primary,
+                          letterSpacing: 1.2,
+                          color: scheme.outline,
                         ),
                       ),
                     ),
-                  IconButton(
-                    tooltip: 'Todos los requerimientos',
-                    icon: const Icon(Icons.tune, size: 15),
-                    constraints: const BoxConstraints.tightFor(
-                      width: 28,
-                      height: 28,
+                    if (abiertos.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: Text(
+                          '${abiertos.length}',
+                          style: TextStyle(
+                            fontFamily: 'monospace',
+                            fontSize: 10,
+                            color: scheme.primary,
+                          ),
+                        ),
+                      ),
+                    IconButton(
+                      tooltip: 'Todos los requerimientos',
+                      icon: const Icon(Icons.tune, size: 15),
+                      constraints: const BoxConstraints.tightFor(
+                        width: 28,
+                        height: 28,
+                      ),
+                      padding: EdgeInsets.zero,
+                      onPressed: onManage,
                     ),
-                    padding: EdgeInsets.zero,
-                    onPressed: onManage,
-                  ),
-                  IconButton(
-                    tooltip: 'Abrir un requerimiento',
-                    icon: const Icon(Icons.add, size: 17),
-                    constraints: const BoxConstraints.tightFor(
-                      width: 28,
-                      height: 28,
+                    IconButton(
+                      tooltip: 'Abrir un requerimiento',
+                      icon: const Icon(Icons.add, size: 17),
+                      constraints: const BoxConstraints.tightFor(
+                        width: 28,
+                        height: 28,
+                      ),
+                      padding: EdgeInsets.zero,
+                      onPressed: onAdd,
                     ),
-                    padding: EdgeInsets.zero,
-                    onPressed: onAdd,
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
             if (abiertos.isEmpty)
@@ -99,13 +105,18 @@ class RequirementsGroup extends StatelessWidget {
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ),
-            for (final requirement in abiertos)
-              _RequirementRow(
+            SidebarSectionList<InternalRequirement>(
+              kind: SidebarSectionKind.requirement,
+              items: abiertos,
+              idOf: (requirement) => requirement.id,
+              labelOf: (requirement) => requirement.code,
+              rowBuilder: (requirement) => _RequirementRow(
                 requirement: requirement,
                 selectedProjectId: selectedProjectId,
                 selected: selectedRequirementId == requirement.id,
                 onTap: () => onSelect(requirement.id),
               ),
+            ),
           ],
         );
       },

@@ -12,7 +12,9 @@ import 'package:keel_ui/src/integrations/llm/openai_compatible/remote_model_cata
 import 'package:keel_ui/src/modules/agents/service/chat_actions.dart';
 import 'package:keel_ui/src/modules/agents/service/chat_attachment_store.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/chat_attachment_strip.dart';
-import 'package:keel_ui/src/modules/agents/ui/widget/chat_composer_field.dart';
+import 'package:keel_ui/src/core/ui/confirm_card.dart';
+import 'package:keel_ui/src/integrations/chat_references/chat_references.dart';
+import 'package:keel_ui/src/modules/agents/ui/widget/chat_reference_composer_field.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/chat_message_bubble.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/queued_messages_strip.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/agent_activity_indicator.dart';
@@ -168,25 +170,14 @@ class _ChatViewState extends State<ChatView> {
 
   Future<void> _confirmAndDelete() async {
     final agent = widget.agent;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Eliminar agente'),
-        content: Text('Se eliminará "${agent.name}" y su historial de chat.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Eliminar'),
-          ),
-        ],
-      ),
+    final confirmed = await confirmWithCard(
+      context,
+      title: 'Eliminar agente',
+      body: 'Se eliminará "${agent.name}" y su historial de chat.',
+      destructive: true,
     );
 
-    if (confirmed ?? false) {
+    if (confirmed) {
       widget.actions.deleteAgent(agent.id);
     }
   }
@@ -213,27 +204,16 @@ class _ChatViewState extends State<ChatView> {
       return;
     }
 
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Dar acceso a todo el sistema de archivos'),
-        content: Text(
-          '"${agent.name}" podrá leer y escribir en cualquier carpeta del computador, no solo en tu carpeta de usuario.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Dar acceso'),
-          ),
-        ],
-      ),
+    final confirmed = await confirmWithCard(
+      context,
+      title: 'Dar acceso a todo el sistema de archivos',
+      body:
+          '"${agent.name}" podrá leer y escribir en cualquier carpeta del '
+          'computador, no solo en tu carpeta de usuario.',
+      confirmLabel: 'Dar acceso',
     );
 
-    if (confirmed ?? false) {
+    if (confirmed) {
       widget.actions.setAgentFullFileSystemAccess(agent.id, true);
     }
   }
@@ -491,8 +471,14 @@ class _ChatViewState extends State<ChatView> {
                                 ),
                               ),
                             ),
-                            child: ChatComposerField(
+                            child: ChatReferenceComposerField(
                               controller: _controller,
+                              // Sin proyecto: se pueden nombrar las carpetas
+                              // de los proyectos registrados, las raíces
+                              // conocidas y todo el catálogo.
+                              scope: const GlobalReferenceScope(),
+                              suggestionsResolver:
+                                  widget.actions.referenceSuggestions,
                               onSend: _send,
                               hintText: agent.isStreaming
                                   ? 'Escribí y se envía cuando termine…'

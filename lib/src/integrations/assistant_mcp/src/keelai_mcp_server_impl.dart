@@ -21,9 +21,7 @@ final class KeelAiMcpServer extends MCPServer with ToolsSupport {
            name: 'keelai-actions',
            version: '1.0.0',
          ),
-         instructions:
-             'Tools to inspect, create, update and delete Keel AI objects, '
-             'including complete workflow contracts.',
+         instructions: kKeelAiMcpInstructions,
        ) {
     for (final tool in keelAiTools) {
       registerTool(tool, (request) => dispatchKeelAiTool(agentId, request));

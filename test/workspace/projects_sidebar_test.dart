@@ -11,6 +11,9 @@ import 'package:keel_ui/src/modules/projects/model/project.dart';
 import 'package:keel_ui/src/modules/boards/viewmodel/boards_viewmodel.dart';
 import 'package:keel_ui/src/modules/projects/ui/view/projects_sidebar.dart';
 import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
+import 'package:keel_ui/src/modules/sidebar_layout/model/sidebar_layout.dart';
+import 'package:keel_ui/src/modules/sidebar_layout/ui/widget/sidebar_group_row.dart';
+import 'package:keel_ui/src/modules/sidebar_layout/viewmodel/sidebar_layout_viewmodel.dart';
 import 'package:keel_ui/src/modules/workspace/model/workspace_lens.dart';
 import 'package:keel_ui/src/modules/workspace/viewmodel/workspace_viewmodel.dart';
 
@@ -91,6 +94,19 @@ void main() {
       ProjectsService.instance.notifier.deleteProject(project.id);
     }
     WorkspaceService.instance.notifier.cleanState();
+
+    // La disposición del sidebar es persistente: sin vaciarla, los grupos
+    // que arma un test aparecen en el siguiente.
+    final layout = SidebarLayoutService.instance.notifier;
+    await layout.ready;
+    for (final kind in SidebarSectionKind.values) {
+      final slots = layout.slotsFor(kind, const <String>[]);
+      for (final slot in slots) {
+        if (slot is SidebarGroupSlot) {
+          await layout.ungroup(kind, slot.id, presentIds: const []);
+        }
+      }
+    }
   });
 
   group('las tres secciones son hermanas', () {
@@ -224,6 +240,109 @@ void main() {
         BoardsService.instance.notifier.data.forProject(projectId),
         isEmpty,
       );
+    });
+  });
+
+  group('acomodar la lista', () {
+    /// Arrastra la fila de un proyecto sobre la de otro, apuntando al centro
+    /// —que es el gesto de agrupar— y suelta.
+    Future<void> arrastrarSobre(
+      WidgetTester tester, {
+      required String desde,
+      required String hasta,
+    }) async {
+      final origen = tester.getCenter(find.text(desde));
+      final destino = tester.getCenter(find.text(hasta));
+      final gesto = await tester.startGesture(origen);
+      // Un paso corto primero: el Draggable arranca recién cuando el puntero
+      // se movió, y saltar directo al destino se pierde el arranque.
+      await tester.pump(const Duration(milliseconds: 20));
+      await gesto.moveTo(origen + const Offset(0, 6));
+      await tester.pump();
+      await gesto.moveTo(destino);
+      await tester.pump();
+      await gesto.up();
+      await tester.pumpAndSettle();
+      // El soltar cuenta como un click: sin esta pausa, el tap que hace el
+      // test a continuación entra como doble click y abre el renombre en
+      // vez de plegar.
+      await tester.pump(const Duration(milliseconds: 400));
+    }
+
+    /// La fila del grupo también renombra con doble click, así que un tap
+    /// simple no cuenta hasta que vence el plazo del doble.
+    Future<void> plegar(WidgetTester tester) async {
+      await tester.tap(find.byType(SidebarGroupRow));
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('arrastrar un proyecto sobre otro crea el grupo', (
+      tester,
+    ) async {
+      _project('alfa');
+      _project('beta');
+      await tester.pumpWidget(_app());
+      await tester.pumpAndSettle();
+
+      await arrastrarSobre(tester, desde: 'beta', hasta: 'alfa');
+
+      expect(find.byType(SidebarGroupRow), findsOneWidget);
+      final grupo = SidebarLayoutService.instance.notifier.groupOf(
+        SidebarSectionKind.project,
+        'alfa',
+      );
+      expect(grupo, isNull, reason: 'los grupos guardan ids, no nombres');
+      expect(
+        SidebarLayoutService.instance.notifier
+            .slotsFor(SidebarSectionKind.project, [
+              for (final p in ProjectsService.instance.notifier.data.projects)
+                p.id,
+            ])
+            .whereType<SidebarGroupSlot>()
+            .single
+            .memberIds,
+        hasLength(2),
+      );
+      // Los dos proyectos siguen visibles adentro del grupo.
+      expect(find.text('alfa'), findsOneWidget);
+      expect(find.text('beta'), findsOneWidget);
+    });
+
+    testWidgets('el galón del grupo lo pliega sin borrar nada', (tester) async {
+      _project('alfa');
+      _project('beta');
+      await tester.pumpWidget(_app());
+      await tester.pumpAndSettle();
+      await arrastrarSobre(tester, desde: 'beta', hasta: 'alfa');
+
+      await plegar(tester);
+
+      expect(find.text('alfa'), findsNothing);
+      expect(find.text('beta'), findsNothing);
+      expect(find.byType(SidebarGroupRow), findsOneWidget);
+
+      await plegar(tester);
+      expect(find.text('alfa'), findsOneWidget);
+    });
+
+    testWidgets('el doble click renombra el grupo', (tester) async {
+      _project('alfa');
+      _project('beta');
+      await tester.pumpWidget(_app());
+      await tester.pumpAndSettle();
+      await arrastrarSobre(tester, desde: 'beta', hasta: 'alfa');
+
+      await tester.tap(find.text('Grupo'), warnIfMissed: false);
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.tap(find.text('Grupo'), warnIfMissed: false);
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField).first, 'Clientes');
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Clientes'), findsOneWidget);
     });
   });
 }

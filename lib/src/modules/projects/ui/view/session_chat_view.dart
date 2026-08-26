@@ -6,6 +6,7 @@ import 'package:reactive_notifier/reactive_notifier.dart';
 import 'package:desktop_drop/desktop_drop.dart';
 
 import 'package:keel_ui/src/core/services/external_link_service.dart';
+import 'package:keel_ui/src/integrations/workspace_roots/workspace_roots.dart';
 import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
 import 'package:keel_ui/src/modules/agent_profiles/viewmodel/agent_profiles_viewmodel.dart';
 import 'package:keel_ui/src/modules/agents/model/chat_message.dart';
@@ -17,14 +18,14 @@ import 'package:keel_ui/src/modules/projects/model/member_color.dart';
 import 'package:keel_ui/src/modules/projects/model/project.dart';
 import 'package:keel_ui/src/modules/projects/model/session.dart';
 import 'package:keel_ui/src/modules/projects/model/session_queued_message.dart';
-import 'package:keel_ui/src/modules/projects/service/project_chat_reference_service.dart';
+import 'package:keel_ui/src/integrations/chat_references/chat_references.dart';
 import 'package:keel_ui/src/modules/projects/model/thread_entry.dart';
 import 'package:keel_ui/src/modules/projects/ui/view/session_map_view.dart';
 import 'package:keel_ui/src/modules/projects/ui/widget/session_agent_picker.dart';
 import 'package:keel_ui/src/modules/projects/ui/widget/session_live_turn_strip.dart';
 import 'package:keel_ui/src/modules/projects/ui/widget/session_message_bubble.dart';
 import 'package:keel_ui/src/modules/projects/ui/widget/session_queued_messages_panel.dart';
-import 'package:keel_ui/src/modules/projects/ui/widget/session_chat_composer_field.dart';
+import 'package:keel_ui/src/modules/agents/ui/widget/chat_reference_composer_field.dart';
 import 'package:keel_ui/src/modules/projects/ui/widget/workflow_progress_panel.dart';
 import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
 import 'package:keel_ui/src/modules/workflows/model/workflow.dart';
@@ -529,10 +530,12 @@ class _ComposerState extends State<_Composer> {
                         ),
                       ),
                     ),
-                    child: SessionChatComposerField(
+                    child: ChatReferenceComposerField(
                       controller: _controller,
-                      project: project,
-                      members: widget.members,
+                      scope: ProjectReferenceScope(
+                        project: project,
+                        members: widget.members,
+                      ),
                       onSend: _send,
                       enabled: session != null,
                       hintText: switch (session) {
@@ -610,7 +613,7 @@ class _QueuedMessageEditorDialogState
   void initState() {
     super.initState();
     _controller = TextEditingController(
-      text: ProjectChatReferenceService.visibleText(widget.message.text),
+      text: ChatReferenceService.visibleText(widget.message.text),
     );
   }
 
@@ -624,7 +627,7 @@ class _QueuedMessageEditorDialogState
     final text = _controller.text.trim();
     if (text.isEmpty && widget.message.imagePaths.isEmpty) return;
     Navigator.of(context).pop(
-      ProjectChatReferenceService.restoreReferencesAfterEdit(
+      ChatReferenceService.restoreReferencesAfterEdit(
         widget.message.text,
         text,
       ),
@@ -993,7 +996,10 @@ class _MissingFolderBanner extends StatelessWidget {
   final String projectId;
 
   Future<void> _pickFolder() async {
-    final path = await getDirectoryPath(confirmButtonText: 'Usar esta carpeta');
+    final path = await getDirectoryPath(
+      confirmButtonText: 'Usar esta carpeta',
+      initialDirectory: WorkspaceRootsService.instance.notifier.lastUsedPath,
+    );
     if (path == null) return;
     ProjectsService.instance.notifier.setProjectWorkingDirectory(
       projectId,

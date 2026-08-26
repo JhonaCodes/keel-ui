@@ -199,9 +199,7 @@ final class _RoadmapMcpServer extends mcp.MCPServer with mcp.ToolsSupport {
            name: kRoadmapMcpServerKey,
            version: '1.0.0',
          ),
-         instructions:
-             'El roadmap de este proyecto. Antes de trabajar en una tarea, '
-             'tomala: si otro la tiene, pasá a la siguiente.',
+         instructions: kRoadmapMcpInstructions,
        ) {
     registerTool(_listTool, _list);
     registerTool(_checkTool, _check);

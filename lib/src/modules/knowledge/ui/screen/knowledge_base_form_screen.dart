@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 
 import 'package:keel_ui/src/core/ui/form_panel.dart';
 import 'package:keel_ui/src/modules/knowledge/model/knowledge_base.dart';
 import 'package:keel_ui/src/modules/knowledge/viewmodel/knowledge_viewmodel.dart';
+import 'package:keel_ui/src/integrations/workspace_roots/workspace_roots.dart';
 
 Future<void> openKnowledgeBaseFormScreen(
   BuildContext context, {
@@ -61,8 +63,12 @@ class _KnowledgeBaseFormScreenState extends State<KnowledgeBaseFormScreen> {
   }
 
   Future<void> _pickFolder() async {
-    final path = await getDirectoryPath(confirmButtonText: 'Usar esta carpeta');
+    final path = await getDirectoryPath(
+      confirmButtonText: 'Usar esta carpeta',
+      initialDirectory: WorkspaceRootsService.instance.notifier.lastUsedPath,
+    );
     if (path == null) return;
+    unawaited(WorkspaceRootsService.instance.notifier.remember(path));
     setState(() {
       _localPath = path;
       _formError = null;

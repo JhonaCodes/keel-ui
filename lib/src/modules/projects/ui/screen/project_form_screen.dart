@@ -14,6 +14,7 @@ import 'package:keel_ui/src/modules/projects/model/project.dart';
 import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
 import 'package:keel_ui/src/modules/workflows/viewmodel/workflows_viewmodel.dart';
 import 'package:keel_ui/src/modules/workflows/ui/widget/workflow_multi_select.dart';
+import 'package:keel_ui/src/integrations/workspace_roots/workspace_roots.dart';
 
 Future<void> openProjectFormScreen(BuildContext context, {Project? initial}) {
   return showFormPanel<void>(
@@ -79,8 +80,13 @@ class _ProjectFormScreenState extends State<ProjectFormScreen> {
 
   Future<void> _pickWorkingDirectory() async {
     final current = _workingDirectoryController.text.trim();
+    // Sin valor previo, abrir donde el usuario trabajó la última vez. El
+    // default del sistema es su carpeta de usuario, y quien tiene los
+    // proyectos en otro disco navegaba el árbol entero cada vez.
     final path = await getDirectoryPath(
-      initialDirectory: current.isEmpty ? null : current,
+      initialDirectory: current.isEmpty
+          ? WorkspaceRootsService.instance.notifier.lastUsedPath
+          : current,
     );
     if (path == null) return;
     setState(() => _workingDirectoryController.text = path);

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'package:keel_ui/src/core/ui/typed_deletion_dialog.dart';
+import 'package:keel_ui/src/core/ui/confirm_card.dart';
 import 'package:keel_ui/src/modules/catalog_locks/model/catalog_lock.dart';
 import 'package:keel_ui/src/modules/catalog_locks/ui/widget/catalog_lock_button.dart';
 import 'package:keel_ui/src/modules/catalog_locks/viewmodel/catalog_locks_viewmodel.dart';
@@ -34,11 +34,12 @@ class ProjectTile extends StatelessWidget {
         )
         .length;
 
-    final confirmed = await confirmTypedDeletion(
+    final confirmed = await confirmWithCard(
       context,
       title: 'Eliminar el proyecto #${project.name}',
-      expected: project.name,
-      consequences: [
+      typeToConfirm: project.name,
+      destructive: true,
+      details: [
         (
           lead:
               '${project.sessions.length} ${_plural(project.sessions.length, 'sesión', 'sesiones')}',

@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:logger_rs/logger_rs.dart';
 
 import 'package:keel_ui/src/core/services/app_window_service.dart';
+import 'package:keel_ui/src/integrations/chat_references/chat_references.dart';
 import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
 import 'package:keel_ui/src/modules/agent_profiles/viewmodel/agent_profiles_viewmodel.dart';
 import 'package:keel_ui/src/modules/agents/model/agent.dart';
@@ -106,6 +107,16 @@ class AssistantWindowBridge {
           ),
         );
         return null;
+
+      case 'referenceSuggestions':
+        // El catálogo se arma de este lado: la ventana no tiene base.
+        final suggestions = await ChatReferenceService.suggestions(
+          scope: const GlobalReferenceScope(),
+          query: ChatReferenceQuery.fromJson(payload),
+        );
+        return jsonEncode([
+          for (final suggestion in suggestions) suggestion.toJson(),
+        ]);
 
       case 'sendQueued':
         unawaited(_agents.sendQueuedMessages(agentId!));

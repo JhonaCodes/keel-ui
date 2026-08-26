@@ -12,6 +12,7 @@ import 'package:keel_ui/src/modules/mcp_servers/ui/widget/integration_glyph.dart
 import 'package:keel_ui/src/modules/mcp_servers/ui/widget/probe_status.dart';
 import 'package:keel_ui/src/modules/mcp_servers/viewmodel/mcp_servers_viewmodel.dart';
 import 'package:keel_ui/src/modules/secrets/ui/widget/pending_secrets_badge.dart';
+import 'package:keel_ui/src/core/ui/confirm_card.dart';
 
 /// Una integración registrada, con lo que hace falta para saber si sirve:
 /// cómo se conecta, si levanta, si le falta una clave y quién la usa.
@@ -32,27 +33,15 @@ class InstalledIntegrationCard extends StatelessWidget {
   final bool probing;
 
   Future<void> _confirmAndDelete(BuildContext context) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Eliminar integración'),
-        content: Text(
+    final confirmed = await confirmWithCard(
+      context,
+      title: 'Eliminar integración',
+      body:
           'Se elimina "${server.name}". Los agentes que la tenían asignada '
           'dejan de recibir sus tools.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Eliminar'),
-          ),
-        ],
-      ),
+      destructive: true,
     );
-    if (confirmed ?? false) {
+    if (confirmed) {
       McpServersService.instance.notifier.deleteServer(server.id);
     }
   }

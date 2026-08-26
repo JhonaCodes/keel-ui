@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:keel_ui/src/core/services/agent_bridge_channel.dart';
+import 'package:keel_ui/src/integrations/chat_references/chat_references.dart';
 import 'package:keel_ui/src/modules/agents/model/agent_provider.dart';
 import 'package:keel_ui/src/modules/agents/model/file_edit.dart';
 import 'package:keel_ui/src/modules/agents/service/chat_actions.dart';
@@ -15,6 +16,13 @@ class BridgeChatActions extends ChatActions {
 
   void _invoke(String method, Map<String, dynamic> payload) {
     agentBridgeChannel.invokeMethod('assistant.$method', jsonEncode(payload));
+  }
+
+  Future<String?> _ask(String method, Map<String, dynamic> payload) {
+    return agentBridgeChannel.invokeMethod<String>(
+      'assistant.$method',
+      jsonEncode(payload),
+    );
   }
 
   @override
@@ -94,6 +102,27 @@ class BridgeChatActions extends ChatActions {
       'lineContent': lineContent,
       'question': question,
     });
+  }
+
+  /// La única llamada del puerto que ESPERA una respuesta: el catálogo lo
+  /// arma MAIN, porque este engine no tiene base de datos y sus catálogos
+  /// están vacíos. Si el viaje falla, la lista queda vacía y el compositor
+  /// sigue siendo un campo de texto normal — nunca rompe el tipeo.
+  @override
+  Future<List<ChatReferenceSuggestion>> referenceSuggestions(
+    ChatReferenceQuery query,
+  ) async {
+    try {
+      final answer = await _ask('referenceSuggestions', query.toJson());
+      if (answer == null || answer.isEmpty) return const [];
+      final decoded = jsonDecode(answer) as List;
+      return [
+        for (final entry in decoded)
+          ChatReferenceSuggestion.fromJson((entry as Map).cast()),
+      ];
+    } catch (_) {
+      return const [];
+    }
   }
 
   @override

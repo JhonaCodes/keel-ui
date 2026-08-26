@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:keel_ui/src/integrations/chat_references/chat_references.dart';
 import 'package:keel_ui/src/modules/agents/model/agent_provider.dart';
 import 'package:keel_ui/src/modules/agents/model/file_edit.dart';
 import 'package:keel_ui/src/modules/agents/viewmodel/agents_viewmodel.dart';
@@ -46,6 +47,16 @@ abstract class ChatActions {
     required String question,
   });
   void recordManualEdit(String agentId, FileEdit edit);
+
+  /// Las opciones del autocompletado de referencias (`/`, `@`, `$`, `#`).
+  ///
+  /// Es lo único del chat que necesita RESPUESTA y no solo disparo: la lista
+  /// se dibuja mientras el usuario escribe. Arma el catálogo quien tiene la
+  /// base de datos — que en la ventana de Keel AI es el engine principal, no
+  /// el que dibuja.
+  Future<List<ChatReferenceSuggestion>> referenceSuggestions(
+    ChatReferenceQuery query,
+  );
 }
 
 /// Direct delegation to this engine's [AgentsService] singleton — the only
@@ -123,4 +134,12 @@ class LocalChatActions extends ChatActions {
   @override
   void recordManualEdit(String agentId, FileEdit edit) =>
       _agents.recordManualEdit(agentId, edit);
+
+  @override
+  Future<List<ChatReferenceSuggestion>> referenceSuggestions(
+    ChatReferenceQuery query,
+  ) => ChatReferenceService.suggestions(
+    scope: const GlobalReferenceScope(),
+    query: query,
+  );
 }

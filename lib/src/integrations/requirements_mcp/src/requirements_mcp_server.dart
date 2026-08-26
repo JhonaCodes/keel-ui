@@ -172,10 +172,7 @@ final class _RequirementsMcpServer extends mcp.MCPServer with mcp.ToolsSupport {
            name: kRequirementsMcpServerKey,
            version: '1.0.0',
          ),
-         instructions:
-             'Lo que este proyecto le pide a otros y lo que otros le piden a '
-             'él. Cerrar un requerimiento es de quien lo abrió: del otro lado '
-             'se PIDE el cierre, con justificación.',
+         instructions: kRequirementsMcpInstructions,
        ) {
     registerTool(_listTool, _list);
     registerTool(_createTool, _create);

@@ -8,6 +8,8 @@ import 'package:keel_ui/src/modules/requirements/model/internal_requirement.dart
 import 'package:keel_ui/src/modules/requirements/viewmodel/requirements_viewmodel.dart';
 import 'package:keel_ui/src/modules/workflows/ui/screen/workflow_picker_panel.dart';
 import 'package:keel_ui/src/modules/workspace/viewmodel/workspace_viewmodel.dart';
+import 'package:keel_ui/src/integrations/chat_references/chat_references.dart';
+import 'package:keel_ui/src/modules/agents/ui/widget/chat_reference_composer_field.dart';
 
 /// Los dos lados, con su color. Origen y destino se distinguen a simple vista
 /// o el hilo se vuelve una pared de texto de dos autores anónimos.
@@ -51,11 +53,15 @@ class _RequirementThreadViewState extends State<RequirementThreadView> {
   void _send() {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
+    // Se guarda el texto LEGIBLE, no los enlaces `keel://`. Un requerimiento
+    // es un documento que cruza de proyecto y viaja en el respaldo, donde
+    // las rutas de esta máquina se sacan a propósito: nombrar la carpeta
+    // sirve, guardar su ruta absoluta no.
     RequirementsService.instance.notifier.reply(
       requirement.id,
       side: RequirementSide.usuario,
       kind: RequirementEntryKind.correccion,
-      text: text,
+      text: ChatReferenceService.visibleText(text),
     );
     _controller.clear();
   }
@@ -467,18 +473,14 @@ class _Composer extends StatelessWidget {
                 borderRadius: BorderRadius.circular(16),
               ),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-              child: TextField(
+              // El mismo compositor del resto de la app: acá también se
+              // nombra una carpeta, una skill o una base — este hilo lo lee
+              // el agente del otro proyecto, que no sabe dónde está nada.
+              child: ChatReferenceComposerField(
                 controller: controller,
-                minLines: 1,
-                maxLines: 4,
-                style: const TextStyle(fontSize: 12.6),
-                onSubmitted: (_) => onSend(),
-                decoration: const InputDecoration(
-                  isDense: true,
-                  border: InputBorder.none,
-                  hintText: 'Escribí acá — lo ven los dos lados',
-                  hintStyle: TextStyle(fontSize: 12.6),
-                ),
+                scope: const GlobalReferenceScope(),
+                onSend: onSend,
+                hintText: 'Escribí acá — lo ven los dos lados',
               ),
             ),
           ),

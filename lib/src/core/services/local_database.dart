@@ -191,7 +191,18 @@ class LocalDatabase {
     List<Map<String, dynamic>> items,
   ) async {
     if (_unavailable) return;
-    final currentIds = items.map((item) => item['id'] as String).toSet();
+    // Un mapa sin `id` no tiene clave posible: el cast crudo reventaba con
+    // «Null is not a subtype of String», sin decir qué prefijo ni qué
+    // registro. El error nombra al culpable.
+    final currentIds = items.map((item) {
+      final id = item['id'];
+      if (id is! String || id.isEmpty) {
+        throw LocalDatabaseException(
+          'replaceAllWithPrefix($prefix): un registro no trae `id` — $item',
+        );
+      }
+      return id;
+    }).toSet();
     final existing = await getAllWithPrefix(prefix);
 
     for (final item in items) {

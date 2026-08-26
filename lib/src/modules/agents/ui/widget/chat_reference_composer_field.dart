@@ -1,39 +1,48 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
+import 'package:keel_ui/src/integrations/chat_references/chat_references.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/chat_composer_field.dart';
-import 'package:keel_ui/src/modules/projects/model/chat_reference_kind.dart';
-import 'package:keel_ui/src/modules/projects/model/chat_reference_query.dart';
-import 'package:keel_ui/src/modules/projects/model/chat_reference_suggestion.dart';
-import 'package:keel_ui/src/modules/projects/model/project.dart';
-import 'package:keel_ui/src/modules/projects/service/project_chat_reference_service.dart';
 
-/// Composer de sesión con referencias seleccionables en cualquier posición.
-class SessionChatComposerField extends StatefulWidget {
-  const SessionChatComposerField({
+/// Cómo se piden las sugerencias cuando este engine no puede armarlas.
+///
+/// La ventana de Keel AI corre en su propio engine y SIN base de datos
+/// (`LocalDatabase.markUnavailable`), así que no puede leer skills, reglas
+/// ni proyectos: se las pide al engine principal por el bridge. Los demás
+/// chats dejan esto en null y resuelven en el lugar.
+typedef ChatReferenceSuggestionsResolver =
+    Future<List<ChatReferenceSuggestion>> Function(ChatReferenceQuery query);
+
+/// Composer con referencias seleccionables en cualquier posición del texto.
+///
+/// El universo de lo que se puede nombrar lo decide el [scope]: adentro de
+/// una sesión son las carpetas del proyecto y sus miembros; afuera, los
+/// proyectos registrados y todo el catálogo de agentes.
+class ChatReferenceComposerField extends StatefulWidget {
+  const ChatReferenceComposerField({
     super.key,
     required this.controller,
-    required this.project,
-    required this.members,
+    required this.scope,
     required this.onSend,
     required this.hintText,
     this.enabled = true,
+    this.suggestionsResolver,
   });
 
   final TextEditingController controller;
-  final Project project;
-  final List<AgentProfile> members;
+  final ChatReferenceScope scope;
   final VoidCallback onSend;
   final String hintText;
   final bool enabled;
+  final ChatReferenceSuggestionsResolver? suggestionsResolver;
 
   @override
-  State<SessionChatComposerField> createState() =>
-      _SessionChatComposerFieldState();
+  State<ChatReferenceComposerField> createState() =>
+      _ChatReferenceComposerFieldState();
 }
 
-class _SessionChatComposerFieldState extends State<SessionChatComposerField> {
+class _ChatReferenceComposerFieldState
+    extends State<ChatReferenceComposerField> {
   ChatReferenceQuery? _query;
   List<ChatReferenceSuggestion> _suggestions = const [];
   final List<({String visible, String insertion})> _selectedReferences = [];
@@ -41,11 +50,9 @@ class _SessionChatComposerFieldState extends State<SessionChatComposerField> {
   int _requestSerial = 0;
 
   @override
-  void didUpdateWidget(SessionChatComposerField oldWidget) {
+  void didUpdateWidget(ChatReferenceComposerField oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (_query != null &&
-        (oldWidget.project != widget.project ||
-            oldWidget.members != widget.members)) {
+    if (_query != null && oldWidget.scope != widget.scope) {
       _refreshSuggestions();
     }
   }
@@ -55,7 +62,7 @@ class _SessionChatComposerFieldState extends State<SessionChatComposerField> {
       (reference) => !text.contains(reference.visible),
     );
     final offset = widget.controller.selection.baseOffset;
-    final query = ProjectChatReferenceService.queryAt(text, offset);
+    final query = ChatReferenceService.queryAt(text, offset);
     if (query == null) {
       _closeSuggestions();
       return;
@@ -69,11 +76,13 @@ class _SessionChatComposerFieldState extends State<SessionChatComposerField> {
     final query = _query;
     if (query == null) return;
     final request = ++_requestSerial;
-    final suggestions = await ProjectChatReferenceService.suggestions(
-      project: widget.project,
-      members: widget.members,
-      query: query,
-    );
+    final resolver = widget.suggestionsResolver;
+    final suggestions = resolver != null
+        ? await resolver(query)
+        : await ChatReferenceService.suggestions(
+            scope: widget.scope,
+            query: query,
+          );
     if (!mounted || request != _requestSerial || _query != query) return;
     setState(() {
       _suggestions = suggestions;

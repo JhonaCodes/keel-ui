@@ -8,6 +8,7 @@ import 'package:keel_ui/src/integrations/catalog_backup/catalog_backup.dart';
 import 'package:keel_ui/src/integrations/jobs_api/jobs_api.dart';
 import 'package:keel_ui/src/integrations/system_vault/system_vault.dart';
 import 'package:keel_ui/src/core/services/external_link_service.dart';
+import 'package:keel_ui/src/modules/catalog_locks/ui/screen/catalog_locks_screen.dart';
 import 'package:keel_ui/src/modules/settings/model/app_settings.dart';
 import 'package:keel_ui/src/modules/settings/model/keel_about.dart';
 import 'package:keel_ui/src/modules/settings/ui/widget/terms_panel.dart';
@@ -145,6 +146,27 @@ class SettingsPanel extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               const _JobsApiInfo(),
+              const SizedBox(height: 24),
+              Text(
+                'Elementos bloqueados',
+                style: Theme.of(context).textTheme.labelLarge,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Lo que un agente no puede cambiar ni borrar sin pedirte '
+                'permiso primero. El candado se pone desde cada ítem; acá se '
+                'ven todos juntos.',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: OutlinedButton.icon(
+                  onPressed: () => openCatalogLocksPanel(context),
+                  icon: const Icon(Icons.lock_outline, size: 18),
+                  label: const Text('Ver bloqueados…'),
+                ),
+              ),
               const SizedBox(height: 32),
               const _AboutKeel(),
             ],

@@ -9,6 +9,7 @@ import 'package:stream_channel/stream_channel.dart';
 
 import 'package:keel_ui/src/modules/projects/model/session_plan_item.dart';
 import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
+import 'package:keel_ui/src/integrations/system_prompt/system_prompt.dart';
 
 /// Clave con la que se registra este servidor en la config MCP del turno.
 const kSessionPlanMcpServerKey = 'keel-plan';
@@ -181,7 +182,7 @@ final class _SessionPlanMcpServer extends mcp.MCPServer with mcp.ToolsSupport {
          // en la sección PLAN del system prompt del turno; acá solo la
          // mecánica de la llamada, para no repetir la misma regla en dos
          // lugares que después divergen.
-         instructions: 'El plan de trabajo de la sesión en la que estás.',
+         instructions: kSessionPlanMcpInstructions,
        ) {
     registerTool(_setPlanTool, _setPlan);
     registerTool(_completeTool, _complete);

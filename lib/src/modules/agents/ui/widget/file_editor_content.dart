@@ -7,6 +7,7 @@ import 'package:keel_ui/src/modules/agents/model/file_edit.dart';
 import 'package:keel_ui/src/modules/agents/model/highlighted_line.dart';
 import 'package:keel_ui/src/modules/agents/model/line_diff.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/code_editing_controller.dart';
+import 'package:keel_ui/src/core/ui/confirm_card.dart';
 
 typedef AskAboutLineCallback =
     Future<void> Function({
@@ -147,29 +148,17 @@ class _FileEditorContentState extends State<FileEditorContent> {
     }
   }
 
-  Future<bool> _confirmOverwriteStale() async {
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('El archivo cambió'),
-        content: const Text(
+  Future<bool> _confirmOverwriteStale() {
+    return confirmWithCard(
+      context,
+      title: 'El archivo cambió',
+      body:
           'Este archivo se modificó (por ejemplo el agente lo editó) desde '
           'que abriste esta ventana. Si guardas ahora, vas a sobrescribir '
           'ese cambio con lo que tienes aquí.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Sobrescribir igual'),
-          ),
-        ],
-      ),
+      confirmLabel: 'Sobrescribir igual',
+      destructive: true,
     );
-    return result ?? false;
   }
 
   Future<void> _save() async {
@@ -211,27 +200,16 @@ class _FileEditorContentState extends State<FileEditorContent> {
 
   Future<void> _reload() async {
     if (_editController.text != _loadedSnapshot) {
-      final discard = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Descartar cambios sin guardar'),
-          content: const Text(
+      final discard = await confirmWithCard(
+        context,
+        title: 'Descartar cambios sin guardar',
+        body:
             'Tienes cambios sin guardar en este editor. Si recargas del '
             'disco ahora, los vas a perder.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Cancelar'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Descartar y recargar'),
-            ),
-          ],
-        ),
+        confirmLabel: 'Descartar y recargar',
+        destructive: true,
       );
-      if (discard != true) return;
+      if (!discard) return;
     }
 
     setState(() => _loading = true);

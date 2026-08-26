@@ -7,6 +7,7 @@ import 'package:keel_ui/src/integrations/catalog_bundle/catalog_bundle.dart';
 import 'package:keel_ui/src/modules/workflows/model/workflow.dart';
 import 'package:keel_ui/src/modules/workflows/service/workflow_deletion_service.dart';
 import 'package:keel_ui/src/modules/workflows/ui/screen/workflow_form_screen.dart';
+import 'package:keel_ui/src/core/ui/confirm_card.dart';
 
 class WorkflowTile extends StatelessWidget {
   const WorkflowTile({super.key, required this.workflow});
@@ -14,30 +15,18 @@ class WorkflowTile extends StatelessWidget {
   final Workflow workflow;
 
   Future<void> _confirmAndDelete(BuildContext context) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Eliminar workflow'),
-        content: Text(
+    final confirmed = await confirmWithCard(
+      context,
+      title: 'Eliminar workflow',
+      body:
           'Se eliminará el workflow "${workflow.name}" y se limpiarán sus '
           'asignaciones, default, overrides y referencias de sesión en todos '
           'los proyectos. El historial y los casos ya materializados se '
           'conservan.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Eliminar'),
-          ),
-        ],
-      ),
+      destructive: true,
     );
 
-    if (confirmed ?? false) {
+    if (confirmed) {
       workflowDeletionService.deleteWorkflow(workflow.id);
     }
   }

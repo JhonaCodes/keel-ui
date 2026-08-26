@@ -1,24 +1,15 @@
-import 'dart:convert';
-import 'dart:io';
-
-import 'package:path/path.dart' as path;
-
-import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
-import 'package:keel_ui/src/modules/knowledge/model/knowledge_base.dart';
-import 'package:keel_ui/src/modules/knowledge/model/knowledge_document.dart';
-import 'package:keel_ui/src/modules/knowledge/viewmodel/knowledge_viewmodel.dart';
-import 'package:keel_ui/src/modules/projects/model/chat_reference_kind.dart';
-import 'package:keel_ui/src/modules/projects/model/chat_reference_query.dart';
-import 'package:keel_ui/src/modules/projects/model/chat_reference_suggestion.dart';
-import 'package:keel_ui/src/modules/projects/model/project.dart';
-import 'package:keel_ui/src/modules/rules/viewmodel/rules_viewmodel.dart';
-import 'package:keel_ui/src/modules/skills/viewmodel/skills_viewmodel.dart';
-import 'package:keel_ui/src/shared/shared.dart';
+part of '../chat_references.dart';
 
 const _maximumSuggestions = 8;
 const _maximumReferenceContext = 40000;
 const _maximumItemContext = 16000;
 const _directoryCacheLifetime = Duration(seconds: 15);
+const _maximumDirectories = 3000;
+
+/// Cuántas carpetas se traen POR RAÍZ cuando hay varias. Sin el tope, un
+/// monorepo se come la lista entera y los otros proyectos no aparecen nunca.
+const _maximumDirectoriesPerRoot = 600;
+
 const _skippedDirectoryNames = {
   '.git',
   '.dart_tool',
@@ -36,8 +27,8 @@ typedef _DirectoryCacheEntry = ({DateTime scannedAt, List<String> paths});
 /// La selección inserta enlaces `keel://` tipados. El texto sigue siendo
 /// Markdown legible, mientras el runtime resuelve IDs y rutas sin adivinar
 /// nombres ni confiar en contenido escrito a mano.
-class ProjectChatReferenceService {
-  ProjectChatReferenceService._();
+class ChatReferenceService {
+  ChatReferenceService._();
 
   static final Map<String, _DirectoryCacheEntry> _directoryCache = {};
   static final RegExp _referenceLinkPattern = RegExp(r'\((keel://[^)\s]+)\)');
@@ -73,13 +64,12 @@ class ProjectChatReferenceService {
   }
 
   static Future<List<ChatReferenceSuggestion>> suggestions({
-    required Project project,
-    required List<AgentProfile> members,
+    required ChatReferenceScope scope,
     required ChatReferenceQuery query,
   }) async {
     final candidates = switch (query.kind) {
-      ChatReferenceKind.directory => await _directorySuggestions(project),
-      ChatReferenceKind.agent => _agentSuggestions(members),
+      ChatReferenceKind.directory => await _directorySuggestions(scope),
+      ChatReferenceKind.agent => _agentSuggestions(scope.agents),
       ChatReferenceKind.skill => _instructionSuggestions(),
       ChatReferenceKind.rule => const <ChatReferenceSuggestion>[],
       ChatReferenceKind.knowledge => _knowledgeSuggestions(),
@@ -145,9 +135,12 @@ class ProjectChatReferenceService {
   }
 
   /// Materializa solo los recursos enlazados explícitamente en este mensaje.
-  /// Los links inválidos o borrados se ignoran; nunca permiten escapar del
-  /// proyecto ni inventar contenido de catálogo.
-  static Future<String> promptContext(Project project, String text) async {
+  /// Los links inválidos o borrados se ignoran; nunca permiten escapar de las
+  /// raíces del scope ni inventar contenido de catálogo.
+  static Future<String> promptContext(
+    ChatReferenceScope scope,
+    String text,
+  ) async {
     final uris = <Uri>[];
     final seen = <String>{};
     for (final match in _referenceLinkPattern.allMatches(text)) {
@@ -160,7 +153,7 @@ class ProjectChatReferenceService {
 
     final sections = <String>[];
     for (final uri in uris) {
-      final section = await _sectionFor(project, uri);
+      final section = await _sectionFor(scope, uri);
       if (section.isEmpty) continue;
       final used = sections.fold<int>(0, (total, item) => total + item.length);
       if (used >= _maximumReferenceContext) break;
@@ -221,24 +214,63 @@ class ProjectChatReferenceService {
     ];
   }
 
+  /// Las carpetas ofrecidas por `/`.
+  ///
+  /// Con una sola raíz —una sesión de proyecto— el enlace guarda la ruta
+  /// relativa a secas, igual que siempre: los mensajes en cola escritos
+  /// antes de esto siguen resolviendo. Con varias, el enlace tiene que decir
+  /// TAMBIÉN de qué raíz cuelga, porque `lib/src` existe en los diez.
   static Future<List<ChatReferenceSuggestion>> _directorySuggestions(
-    Project project,
+    ChatReferenceScope scope,
   ) async {
-    final root = project.workingDirectory.trim();
-    if (root.isEmpty) return const [];
-    final paths = await _projectDirectories(root);
-    return [
-      for (final relativePath in paths)
-        ChatReferenceSuggestion(
-          kind: ChatReferenceKind.directory,
-          title: '/$relativePath',
-          subtitle: 'Directorio del proyecto',
-          insertion:
-              '[/${_escapeLabel(relativePath)}]'
-              '(keel://directory?path=${Uri.encodeQueryComponent(relativePath)})',
-          searchText: relativePath,
-        ),
-    ];
+    final roots = scope.directoryRoots;
+    final suggestions = <ChatReferenceSuggestion>[];
+    final perRoot = roots.length > 1
+        ? _maximumDirectoriesPerRoot
+        : _maximumDirectories;
+
+    for (final entry in roots) {
+      final labelled = entry.label.isNotEmpty;
+      if (labelled) {
+        // La raíz misma también se puede nombrar: pedir "mirá keel-ui" es
+        // más común que pedir una subcarpeta suya.
+        suggestions.add(
+          ChatReferenceSuggestion(
+            kind: ChatReferenceKind.directory,
+            title: '/${entry.label}',
+            subtitle: entry.root,
+            insertion:
+                '[/${_escapeLabel(entry.label)}]'
+                '(keel://directory?path=.'
+                '&root=${Uri.encodeQueryComponent(entry.root)})',
+            searchText: entry.label,
+          ),
+        );
+      }
+      final paths = await _directoriesUnder(
+        entry.root,
+        depth: scope.directoryDepth,
+        limit: perRoot,
+      );
+      for (final relativePath in paths) {
+        final visible = labelled
+            ? '${entry.label}/$relativePath'
+            : relativePath;
+        suggestions.add(
+          ChatReferenceSuggestion(
+            kind: ChatReferenceKind.directory,
+            title: '/$visible',
+            subtitle: labelled ? entry.root : 'Directorio del proyecto',
+            insertion:
+                '[/${_escapeLabel(visible)}]'
+                '(keel://directory?path=${Uri.encodeQueryComponent(relativePath)}'
+                '${labelled ? '&root=${Uri.encodeQueryComponent(entry.root)}' : ''})',
+            searchText: visible,
+          ),
+        );
+      }
+    }
+    return suggestions;
   }
 
   static List<ChatReferenceSuggestion> _knowledgeSuggestions() {
@@ -284,9 +316,14 @@ class ProjectChatReferenceService {
     }
   }
 
-  static Future<List<String>> _projectDirectories(String root) async {
+  static Future<List<String>> _directoriesUnder(
+    String root, {
+    required int depth,
+    required int limit,
+  }) async {
     final normalizedRoot = path.normalize(path.absolute(root));
-    final cached = _directoryCache[normalizedRoot];
+    final cacheKey = '$normalizedRoot|$depth|$limit';
+    final cached = _directoryCache[cacheKey];
     if (cached != null &&
         DateTime.now().difference(cached.scannedAt) < _directoryCacheLifetime) {
       return cached.paths;
@@ -295,35 +332,36 @@ class ProjectChatReferenceService {
     if (!await rootDirectory.exists()) return const [];
 
     final result = <String>[];
-    final pending = <Directory>[rootDirectory];
-    while (pending.isNotEmpty && result.length < 3000) {
-      final directory = pending.removeLast();
+    final pending = <({Directory directory, int level})>[
+      (directory: rootDirectory, level: 0),
+    ];
+    while (pending.isNotEmpty && result.length < limit) {
+      final current = pending.removeLast();
       try {
-        await for (final entity in directory.list(followLinks: false)) {
+        await for (final entity in current.directory.list(followLinks: false)) {
           if (entity is! Directory) continue;
           final name = path.basename(entity.path);
           if (_skippedDirectoryNames.contains(name)) continue;
           final relativePath = path.relative(entity.path, from: normalizedRoot);
           if (relativePath.startsWith('..')) continue;
           result.add(relativePath);
-          pending.add(entity);
-          if (result.length >= 3000) break;
+          if (depth == _unlimitedDepth || current.level + 1 < depth) {
+            pending.add((directory: entity, level: current.level + 1));
+          }
+          if (result.length >= limit) break;
         }
       } on FileSystemException {
         // Un subdirectorio sin permisos no invalida el resto del proyecto.
       }
     }
     result.sort();
-    _directoryCache[normalizedRoot] = (
-      scannedAt: DateTime.now(),
-      paths: result,
-    );
+    _directoryCache[cacheKey] = (scannedAt: DateTime.now(), paths: result);
     return result;
   }
 
-  static Future<String> _sectionFor(Project project, Uri uri) async {
+  static Future<String> _sectionFor(ChatReferenceScope scope, Uri uri) async {
     return switch (uri.host) {
-      'directory' => await _directorySection(project, uri),
+      'directory' => await _directorySection(scope, uri),
       'skill' => _skillSection(uri),
       'rule' => _ruleSection(uri),
       'knowledge' => await _knowledgeSection(uri),
@@ -331,14 +369,28 @@ class ProjectChatReferenceService {
     };
   }
 
-  static Future<String> _directorySection(Project project, Uri uri) async {
+  static Future<String> _directorySection(
+    ChatReferenceScope scope,
+    Uri uri,
+  ) async {
     final relativePath = uri.queryParameters['path']?.trim() ?? '';
     if (relativePath.isEmpty) return '';
-    final rootValue = project.workingDirectory.trim();
+
+    // La raíz declarada en el enlace vale SOLO si sigue siendo una raíz de
+    // este scope: un enlace fabricado a mano apuntando a `/etc` no lo es.
+    final declaredRoot = uri.queryParameters['root']?.trim() ?? '';
+    final roots = scope.directoryRoots;
+    final rootValue = declaredRoot.isEmpty
+        ? (roots.length == 1 ? roots.single.root : '')
+        : (roots.any((entry) => entry.root == declaredRoot)
+              ? declaredRoot
+              : '');
     if (rootValue.isEmpty) return '';
+
     final lexicalRoot = path.normalize(path.absolute(rootValue));
     final lexicalTarget = path.normalize(path.join(lexicalRoot, relativePath));
-    if (!path.isWithin(lexicalRoot, lexicalTarget)) {
+    if (lexicalTarget != lexicalRoot &&
+        !path.isWithin(lexicalRoot, lexicalTarget)) {
       return '';
     }
     try {
@@ -346,7 +398,10 @@ class ProjectChatReferenceService {
       if (!await target.exists()) return '';
       final resolvedRoot = await Directory(lexicalRoot).resolveSymbolicLinks();
       final resolvedTarget = await target.resolveSymbolicLinks();
-      if (!path.isWithin(resolvedRoot, resolvedTarget)) return '';
+      if (resolvedTarget != resolvedRoot &&
+          !path.isWithin(resolvedRoot, resolvedTarget)) {
+        return '';
+      }
       return 'DIRECTORIO ENLAZADO: $resolvedTarget\n'
           'Trabajá sobre esta carpeta cuando el pedido se refiera a ella.';
     } on FileSystemException {

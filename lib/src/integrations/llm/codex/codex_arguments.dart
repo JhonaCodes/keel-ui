@@ -1,3 +1,4 @@
+import 'package:keel_ui/src/integrations/system_prompt/system_prompt.dart';
 import 'package:keel_ui/src/modules/agents/model/agent_model_option.dart'
     show codexModelArgument;
 
@@ -15,10 +16,10 @@ String buildCodexPrompt({
       additionalSystemPrompt.isEmpty) {
     return prompt;
   }
-  return '### Instrucciones de tu rol (fijas para toda la conversación)\n'
-      '$additionalSystemPrompt\n'
-      '### Fin de instrucciones\n\n'
-      '$prompt';
+  return codexRoleWrappedPrompt(
+    prompt: prompt,
+    systemPrompt: additionalSystemPrompt,
+  );
 }
 
 /// Los argumentos de `codex exec` para un turno. Migrado literal de

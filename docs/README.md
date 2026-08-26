@@ -26,6 +26,7 @@ completo; esto es el detalle.
 | [F28](features/28-catalogo-de-integraciones.md) | El catálogo, y poder probarlas |
 | [F16](features/16-bases-de-saber.md) | Bases de saber |
 | [F22](features/22-hooks.md) | Hooks: guardarraíles que corren solos |
+| [F39](features/39-candados-del-catalogo.md) | Candados: lo que una tool no toca sola |
 | [F6](features/06-proveedor-codex.md) | Proveedor codex por agente |
 | [F18](features/18-motor-por-proyecto.md) | Motor de un miembro por proyecto |
 
@@ -41,6 +42,7 @@ completo; esto es el detalle.
 | [F8](features/08-agente-por-sesion.md) | Agente temporal por sesión |
 | [F29](features/29-tableros.md) | Tableros de prueba |
 | [F32](features/32-una-sola-navegacion.md) | Una sola navegación |
+| [F42](features/42-grupos-en-el-sidebar.md) | Acomodar el sidebar: grupos y orden |
 | [F34](features/34-worktrees.md) | Trabajar en otro worktree, y volver |
 | [F37](features/37-un-workflow-por-sesion.md) | Workflows adaptativos por sesión |
 
@@ -54,6 +56,8 @@ completo; esto es el detalle.
 | [F7](features/07-comunicacion-economica.md) | Comunicación económica + el ledger |
 | [F10](features/10-sugerencias-skills.md) | Sugerencias de skills recurrentes |
 | [F11](features/11-conocimiento.md) | La sección Conocimiento |
+| [F38](features/38-referencias-del-chat.md) | Referencias explícitas en el chat |
+| [F40](features/40-referencias-en-todos-los-chats.md) | Las mismas referencias, en todos los chats |
 
 ## La máquina
 
@@ -68,6 +72,7 @@ completo; esto es el detalle.
 | [F31](features/31-mapa-de-razonamiento.md) | El mapa: ver cómo se piensa |
 | [F35](features/35-diario-de-fallas.md) | El diario de fallas |
 | [F36](features/36-actualizar-keel.md) | Qué Keel estás corriendo, y actualizarlo |
+| [F41](features/41-raices-y-volumenes.md) | Otros discos, y dónde están tus proyectos |
 
 ## Lo demás
 

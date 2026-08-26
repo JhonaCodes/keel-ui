@@ -22,5 +22,6 @@ import 'package:keel_ui/src/integrations/genui/genui.dart';
 import 'package:keel_ui/src/modules/boards/model/board.dart';
 import 'package:keel_ui/src/modules/boards/viewmodel/boards_viewmodel.dart';
 import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
+import 'package:keel_ui/src/integrations/system_prompt/system_prompt.dart';
 
 part 'src/boards_mcp_server.dart';

@@ -14,6 +14,7 @@ import 'package:keel_ui/src/modules/agent_profiles/viewmodel/agent_profiles_view
 import 'package:keel_ui/src/modules/secrets/viewmodel/secrets_viewmodel.dart';
 import 'package:keel_ui/src/modules/tools/model/tool.dart';
 import 'package:keel_ui/src/modules/tools/viewmodel/tools_viewmodel.dart';
+import 'package:keel_ui/src/integrations/system_prompt/system_prompt.dart';
 
 /// How a registered [Tool]'s name surfaces to `claude --allowedTools`: the
 /// MCP spec prefixes every tool with `mcp__<server-key>__`, and the server
@@ -221,10 +222,7 @@ final class _UserToolsMcpServer extends mcp.MCPServer with mcp.ToolsSupport {
            name: kUserToolsMcpServerKey,
            version: '1.0.0',
          ),
-         instructions:
-             'Tools deterministas registradas por el usuario, asignadas a '
-             'este agente. Cada una ejecuta un script real y devuelve su '
-             'salida.',
+         instructions: kUserToolsMcpInstructions,
        ) {
     for (final tool in _assignedTools(profileId)) {
       registerTool(

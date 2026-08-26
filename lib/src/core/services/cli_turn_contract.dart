@@ -5,33 +5,12 @@
 /// constante duplicada de este tipo se despega en silencio: el chat 1:1 y
 /// los proyectos terminan hablando con dos CLIs distintos sin que nadie se
 /// entere.
+///
+/// Las pistas de texto que acompañaban a estas tools se mudaron a
+/// `integrations/system_prompt/src/cli_hints_prompt.dart`, con el resto del
+/// corpus de prompts: `core/` no puede importar `integrations/`, y quien las
+/// arma —`claude_cli_runner.dart`— ya vive del otro lado.
 library;
-
-const _diagramSystemPromptHint =
-    'Para mostrar un diagrama, una jerarquía, una línea de tiempo o un '
-    'flujo, preferí un bloque ```mermaid antes que SVG crudo: cuesta muchos '
-    'menos tokens y en este cliente se ve igual de bien. Caé a ```svg solo '
-    'cuando mermaid no pueda expresar la forma (ilustraciones precisas a '
-    'medida).';
-
-const _codeEditSystemPromptHint =
-    'Cuando el mensaje ES un pedido de cambiar código de un archivo real '
-    'del disco —escribir, corregir, convertir, refactorizar—, hacé el '
-    'cambio con tus herramientas de archivo (Write/Edit) en vez de imprimir '
-    'el código en la respuesta: este cliente muestra la edición real como '
-    'una tarjeta de diff que el usuario revisa, ajusta y guarda. Imprimí '
-    'código inline solo cuando te piden VER o discutir un fragmento. Y si '
-    'el mensaje era una pregunta y no un pedido, esta regla no aplica: '
-    'primero respondé.';
-
-/// Los dos consejos que encabezan el system prompt de TODO turno claude —
-/// 1:1, proyecto o asistente. Públicos por la misma razón que
-/// [kAlwaysAllowedTools]: el isolate del task runner los necesita y dos
-/// copias divergiendo en silencio es exactamente lo que no puede pasar.
-/// En español, como el resto del corpus: abrían en inglés un prompt que
-/// después habla todo en castellano.
-const kCliSystemHints =
-    '$_diagramSystemPromptHint\n\n$_codeEditSystemPromptHint';
 
 /// Tools every agent gets, no setting required. They are all read-only or
 /// network reads: an agent that cannot open a file is blind, and the whole

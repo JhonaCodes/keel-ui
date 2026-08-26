@@ -8,6 +8,7 @@ import 'package:keel_ui/src/modules/boards/ui/screen/board_form_screen.dart';
 import 'package:keel_ui/src/modules/boards/ui/widget/board_field_input.dart';
 import 'package:keel_ui/src/modules/boards/ui/widget/board_response_pane.dart';
 import 'package:keel_ui/src/modules/boards/viewmodel/boards_viewmodel.dart';
+import 'package:keel_ui/src/core/ui/confirm_card.dart';
 
 /// El tablero, andando.
 ///
@@ -62,43 +63,20 @@ class _BoardRunViewState extends State<BoardRunView> {
         if (step.kind == BoardStepKind.comando) step.preview,
     ];
 
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('"${action.label}" corre comandos en tu máquina'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Text(
-              'Antes de la primera vez conviene leerlos. Después no se '
-              'vuelve a preguntar por esta acción.',
-            ),
-            const SizedBox(height: 14),
-            for (final command in commands)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 6),
-                child: SelectableText(
-                  command,
-                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-                ),
-              ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Correr'),
-          ),
-        ],
-      ),
+    final ok = await confirmWithCard(
+      context,
+      title: '"${action.label}" corre comandos en tu máquina',
+      body:
+          'Antes de la primera vez conviene leerlos. Después no se vuelve a '
+          'preguntar por esta acción.',
+      // Los comandos van como detalles, uno por línea: es lo que hay que
+      // leer, y la tarjeta ya los sabe listar detrás del filete.
+      details: [for (final command in commands) (lead: command, rest: '')],
+      monospaceDetails: true,
+      confirmLabel: 'Correr',
     );
 
-    if (ok ?? false) {
+    if (ok) {
       _confirmed.add(action.id);
       return true;
     }

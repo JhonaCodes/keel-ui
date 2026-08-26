@@ -6,6 +6,7 @@ import 'package:keel_ui/src/modules/catalog_locks/viewmodel/catalog_locks_viewmo
 import 'package:keel_ui/src/modules/tools/model/tool.dart';
 import 'package:keel_ui/src/modules/tools/viewmodel/tools_viewmodel.dart';
 import 'package:keel_ui/src/modules/tools/ui/screen/tool_form_screen.dart';
+import 'package:keel_ui/src/core/ui/confirm_card.dart';
 
 class ToolTile extends StatelessWidget {
   const ToolTile({super.key, required this.tool});
@@ -13,28 +14,16 @@ class ToolTile extends StatelessWidget {
   final Tool tool;
 
   Future<void> _confirmAndDelete(BuildContext context) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Eliminar tool'),
-        content: Text(
+    final confirmed = await confirmWithCard(
+      context,
+      title: 'Eliminar tool',
+      body:
           'Se eliminará la tool "${tool.name}". Los agentes que la tenían '
           'asignada dejarán de poder ejecutarla.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Eliminar'),
-          ),
-        ],
-      ),
+      destructive: true,
     );
 
-    if (confirmed ?? false) {
+    if (confirmed) {
       ToolsService.instance.notifier.deleteTool(tool.id);
     }
   }

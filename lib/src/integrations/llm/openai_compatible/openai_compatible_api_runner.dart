@@ -79,12 +79,20 @@ class OpenAiCompatibleApiRunner implements LlmRunner {
 
       final functions = await toolBridge.functions(spec);
       if (cancelled) return;
+      // Los hitos del canal (preflight, cambios de nodo) viajan como
+      // `system` adentro del hilo, y un `system` a mitad del array lo
+      // rechazan varios endpoints compatibles: el único que aceptan todos es
+      // el de la cabecera. Se entregan como turno del usuario, marcados,
+      // para que el agente los lea igual sin pelearse con el proveedor.
       final messages = <Map<String, dynamic>>[
         if (spec.additionalSystemPrompt case final prompt?
             when prompt.isNotEmpty)
           {'role': 'system', 'content': prompt},
         for (final message in spec.conversationHistory)
-          {'role': message.role.name, 'content': message.content},
+          if (message.role == LlmConversationRole.system)
+            {'role': 'user', 'content': '[keel] ${message.content}'}
+          else
+            {'role': message.role.name, 'content': message.content},
         {'role': 'user', 'content': spec.prompt},
       ];
       var usage = const _OpenAiCompatibleUsage();

@@ -11,6 +11,7 @@ import 'package:keel_ui/src/core/services/claude_stream_events.dart';
 import 'package:keel_ui/src/core/services/cli_turn_contract.dart';
 import 'package:keel_ui/src/core/services/cli_turn_workspace.dart';
 import 'package:keel_ui/src/integrations/llm/llm.dart';
+import 'package:keel_ui/src/integrations/system_prompt/system_prompt.dart';
 import 'package:keel_ui/src/integrations/llm/claude/claude_arguments.dart';
 import 'package:keel_ui/src/integrations/llm/src/cli_cancel_guard.dart';
 

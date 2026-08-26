@@ -42,6 +42,7 @@ import 'package:keel_ui/src/modules/tools/viewmodel/tools_viewmodel.dart';
 import 'package:keel_ui/src/modules/workflows/model/workflow.dart';
 import 'package:keel_ui/src/modules/workflows/service/workflow_deletion_service.dart';
 import 'package:keel_ui/src/modules/workflows/viewmodel/workflows_viewmodel.dart';
+import 'package:keel_ui/src/integrations/system_prompt/system_prompt.dart';
 
 part 'src/tool_definitions.dart';
 part 'src/tool_handlers.dart';

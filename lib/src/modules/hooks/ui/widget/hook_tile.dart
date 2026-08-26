@@ -6,6 +6,7 @@ import 'package:keel_ui/src/modules/catalog_locks/viewmodel/catalog_locks_viewmo
 import 'package:keel_ui/src/modules/hooks/model/hook.dart';
 import 'package:keel_ui/src/modules/hooks/ui/screen/hook_form_screen.dart';
 import 'package:keel_ui/src/modules/hooks/viewmodel/hooks_viewmodel.dart';
+import 'package:keel_ui/src/core/ui/confirm_card.dart';
 
 class HookTile extends StatelessWidget {
   const HookTile({super.key, required this.hook});
@@ -28,32 +29,18 @@ class HookTile extends StatelessWidget {
             '${assignments.projects == 1 ? 'proyecto' : 'proyectos'}',
     ];
 
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Eliminar hook'),
-        content: Text(
-          attached.isEmpty
-              ? 'Se eliminará el hook "${hook.name}". No lo tiene asignado '
-                    'nadie.'
-              : 'Se eliminará el hook "${hook.name}" y se quitará de '
-                    '${attached.join(' y ')}. Eso que dejaba de pasar, '
-                    'vuelve a poder pasar.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Eliminar'),
-          ),
-        ],
-      ),
+    final confirmed = await confirmWithCard(
+      context,
+      title: 'Eliminar hook',
+      body: attached.isEmpty
+          ? 'Se eliminará el hook "${hook.name}". No lo tiene asignado nadie.'
+          : 'Se eliminará el hook "${hook.name}" y se quitará de '
+                '${attached.join(' y ')}. Eso que dejaba de pasar, vuelve a '
+                'poder pasar.',
+      destructive: true,
     );
 
-    if (confirmed ?? false) viewmodel.deleteHook(hook.id);
+    if (confirmed) viewmodel.deleteHook(hook.id);
   }
 
   @override

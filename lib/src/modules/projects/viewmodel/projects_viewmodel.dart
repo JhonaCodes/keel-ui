@@ -7,6 +7,8 @@ import 'package:reactive_notifier/reactive_notifier.dart';
 import 'package:keel_ui/src/core/services/file_edit_collector.dart';
 import 'package:keel_ui/src/integrations/git_worktree/git_worktree.dart';
 import 'package:keel_ui/src/integrations/prompt_insights/prompt_insights.dart';
+import 'package:keel_ui/src/integrations/system_prompt/system_prompt.dart';
+import 'package:keel_ui/src/integrations/workspace_roots/workspace_roots.dart';
 import 'package:keel_ui/src/integrations/task_runner/task_runner.dart';
 import 'package:keel_ui/src/integrations/machine/machine.dart';
 import 'package:keel_ui/src/integrations/usage_ledger/usage_ledger.dart';
@@ -54,7 +56,7 @@ import 'package:keel_ui/src/modules/projects/model/resolution_preflight.dart';
 import 'package:keel_ui/src/modules/projects/model/migration_coverage.dart';
 import 'package:keel_ui/src/modules/projects/model/work_node.dart';
 import 'package:keel_ui/src/modules/projects/repository/projects_repository.dart';
-import 'package:keel_ui/src/modules/projects/service/project_chat_reference_service.dart';
+import 'package:keel_ui/src/integrations/chat_references/chat_references.dart';
 import 'package:keel_ui/src/modules/projects/service/resolution_engine.dart';
 import 'package:keel_ui/src/modules/tools/model/tool.dart';
 import 'package:keel_ui/src/modules/tools/viewmodel/tools_viewmodel.dart';
@@ -99,104 +101,13 @@ class _AdaptivePreflightResult {
   String? get error => preflight.ready ? null : preflight.errorSummary;
 }
 
-/// Un canal es una conversación, no una cinta de producción. Sin esta
-/// distinción cada mensaje entra como orden de trabajo: el usuario pregunta
-/// "¿cuál es la siguiente sesión?" y el agente sale a correr comandos, abrir
-/// tickets y tocar archivos, porque todo lo demás que lleva en el turno —sus
-/// skills de proceso, las reglas del proyecto— habla de ejecutar.
-const _askVsWorkPrompt =
-    'PREGUNTA O PEDIDO: un mensaje del usuario en el canal puede ser un '
-    'PEDIDO DE TRABAJO o una PREGUNTA. Distinguilos antes de mover un dedo.\n'
-    '- Es una PREGUNTA cuando quiere saber algo: en qué va la sesión, qué '
-    'sigue, qué decidiste, qué dice un documento, por qué hiciste algo. '
-    'Contestá con lo que ya sabés, o leyendo lo mínimo para responder. NO '
-    'corras comandos, no modifiques archivos, no abras ni cierres nada, no '
-    'empieces el trabajo del paso siguiente. Una respuesta de dos líneas es '
-    'una respuesta completa si eso alcanza.\n'
-    '- Es un PEDIDO DE TRABAJO cuando te dice qué hacer o te da el material '
-    'para hacerlo. Ahí sí ejecutás lo que corresponde a tu paso.\n'
-    'Ante la duda, preguntá qué quiere antes de ejecutar: una pregunta '
-    'contestada de más cuesta un turno; trabajo que nadie pidió cuesta el '
-    'turno, el dinero y deshacer lo que tocaste.\n'
-    'Esta decisión va primero: cualquier otra instrucción del estilo "hacé '
-    'el cambio de verdad con tus herramientas de archivo" aplica recién '
-    'DESPUÉS de decidir que el mensaje es un pedido de trabajo. Ante una '
-    'pregunta, respondés y no tocás nada.';
-
-/// La definición de ENTREGA. Vive en el prompt porque no vivía en ningún
-/// lado: ni la doc ni los workflows decían qué es "terminar", y sin esto
-/// cada flujo lo inventaba — mergear, no abrir PR, o abrir uno nuevo por
-/// ciclo. Solo entra en proyectos cuyo directorio de trabajo tiene git.
-const _deliveryPrompt =
-    'ENTREGA: el resultado de una sesión que toca código se entrega como PULL '
-    'REQUEST EN DRAFT — nunca mergeado ni marcado listo para review: eso lo '
-    'decide el usuario. En el primer ciclo que toque código, creá una rama '
-    'para la sesión, commiteá ahí y abrí el PR en draft (`gh pr create '
-    '--draft`). En los ciclos siguientes, commiteá a la MISMA rama del mismo '
-    'PR — no abras otro. Apenas el PR exista, dejá su URL completa en una '
-    'línea propia de tu respuesta, FUERA de bloques de código: así queda '
-    'clickeable y el encabezado de la sesión muestra "PR #N". Cerrar el '
-    'último ciclo sin la URL del PR en el hilo es cerrar sin entregar.';
-
-/// Lo que hay que decirle a un agente que corre en un worktree de al lado.
-///
-/// La sección ENTREGA le pide crear una rama para la sesión. Acá eso está
-/// MAL: la rama ya existe —es la razón de que la carpeta exista— y abrir otra
-/// encima parte el mismo trabajo en dos ramas y dos PRs.
-///
-/// Y no es algo que pueda deducir solo: `git status` le dice en qué rama
-/// está, no que esa rama sea la de este worktree ni que haya otra copia del
-/// repo al lado. Por eso se declara, y por eso se declara siempre igual.
-String _worktreePrompt(WorktreePlace place) {
-  if (!place.isLinked) return '';
-  final branch = place.branch;
-  final root = place.main?.path ?? '';
-  return [
-    'WORKTREE: este directorio es un worktree APARTE del repo, no el '
-        'principal.',
-    if (branch.isNotEmpty)
-      'Ya está parado en la rama `$branch`, que es la rama de este trabajo: '
-          'commiteá acá y NO crees otra rama ni te cambies de rama. Donde la '
-          'sección ENTREGA dice "creá una rama para la sesión", esa rama ya '
-          'está creada y es esta.'
-    else
-      'Está en HEAD suelto, sin rama. Antes de commitear, decilo en tu '
-          'respuesta y pedí que se resuelva: no inventes una rama.',
-    if (root.isNotEmpty)
-      'El worktree principal del repo está en `$root` y NO es tuyo en este '
-          'turno: no le hagas checkout, no le cambies de rama, no escribas '
-          'adentro.',
-    'Acá `.git` es un archivo y no una carpeta. Es normal en un worktree y no '
-        'hay nada que arreglar.',
-  ].join(' ');
-}
-
-/// Nothing an agent does may be invisible. The CLI can spawn subagents of its
-/// own, which run outside the channel, cost money, and answer to nobody the
-/// user registered — so they are forbidden outright, and the way to get a
-/// specialist is to declare it and have the app register it in the open.
-/// El título con el que nace una sesión. Vale como marca de "todavía no
-/// tiene nombre propio": mientras siga siendo este, el primer pedido la
-/// renombra sola.
 /// Cada cuánto se relee el roadmap para la fila de Estado del sidebar.
 const _kBadgeTtl = Duration(seconds: 15);
 
+/// El título con el que nace una sesión. Vale como marca de "todavía no
+/// tiene nombre propio": mientras siga siendo este, el primer pedido la
+/// renombra sola.
 const kDefaultSessionTitle = 'Sesión nueva';
-
-String _subagentPolicyPrompt({
-  required AgentProvider provider,
-  required int maxSubagents,
-}) {
-  if (provider != AgentProvider.claude || maxSubagents == 0) {
-    return 'Este proveedor no tiene delegación interna habilitada en este '
-        'workflow. Resolvé el nodo en este hilo.';
-  }
-  return 'SUBAGENTES CONTROLADOS: podés abrir hasta $maxSubagents tareas '
-      'internas, únicamente para investigación, inventario de impacto o '
-      'verificación independiente. Sus resultados quedan visibles en el mapa. '
-      'No les delegues implementación ni escritura: vos sos el único escritor '
-      'y debés sintetizar su evidencia antes de cerrar el nodo.';
-}
 
 class ProjectsViewModel extends ViewModel<ProjectsState> {
   ProjectsViewModel() : super(const ProjectsState());
@@ -391,6 +302,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
       data.copyWith(projects: projects, selectedProjectId: project.id),
     );
     unawaited(_repository.save(projects));
+    unawaited(_rememberRoot(project.workingDirectory));
     return null;
   }
 
@@ -435,6 +347,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
 
     updateState(data.copyWith(projects: projects));
     unawaited(_repository.save(projects));
+    unawaited(_rememberRoot(workingDirectory.trim()));
     return null;
   }
 
@@ -1055,6 +968,10 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
       ),
     );
     unawaited(_persist());
+    // Antes de que el agente escriba un solo archivo: la carpeta que está por
+    // crear es la libreta de trabajo de Keel, y no tiene por qué aparecer en
+    // el `git status` del usuario ni terminar comiteada con el código.
+    unawaited(ensureRoadmapIgnored(project.workingDirectory));
     unawaited(sendToChannel(projectId, _roadmapFormatRequest(project, check)));
     return session.id;
   }
@@ -1429,7 +1346,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
           sessionId: sessionId,
           member: nodeOwner,
           workNodeId: node.id,
-          instruction: _adaptiveNodePrompt(
+          instruction: adaptiveNodePrompt(
             request: _sessionById(project, sessionId)?.request ?? request,
             workflow: workflow,
             resolution: resolution,
@@ -1704,36 +1621,6 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     );
   }
 
-  String _adaptiveNodePrompt({
-    required String request,
-    required Workflow workflow,
-    required ResolutionCase resolution,
-    required WorkNode node,
-  }) {
-    final findings = resolution.findings
-        .map(
-          (finding) =>
-              '- ${finding.evidence.source.name}: '
-              '${finding.evidence.summary}',
-        )
-        .join('\n');
-    return 'Pedido original:\n$request\n\n'
-        'Sos el agente asignado al nodo "${node.title.isEmpty ? node.id : node.title}" '
-        'del workflow "${workflow.name}". Contrato del nodo: '
-        '${node.instruction.isEmpty ? 'producir evidencia verificable para esta capacidad' : node.instruction}. '
-        'El responsable de integración conserva el rol ${resolution.ownerRole}. '
-        'No recorras un flujo fijo ni delegues '
-        'la escritura. Trabajá solo lo que desbloquea este nodo y conservá la '
-        'evidencia verificable. Hallazgos abiertos:\n'
-        '${findings.isEmpty ? '- ninguno' : findings}\n\n'
-        'Antes de cerrar, ejecutá el gate que corresponda y dejá qué cambió, '
-        'qué evidencia lo valida y qué dependencia queda lista. Si este es '
-        'una migración, registrá cada área que verificaste con bloques '
-        '```cobertura (area: model|serialization|persistence|dataMigration|'
-        'callers|compatibility|tests|ui; estado: satisfied|notApplicable; '
-        'motivo: evidencia o justificación).';
-  }
-
   /// What the composer calls. Everything it does happens **inside the session
   /// that is already open** — it never creates one. The first message of a
   /// session kicks off the workflow; every message after that is a follow-up to
@@ -1813,8 +1700,11 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     _preparingSessionTurns.add(sessionId);
     late final String explicitContext;
     try {
-      explicitContext = await ProjectChatReferenceService.promptContext(
-        project,
+      explicitContext = await ChatReferenceService.promptContext(
+        ProjectReferenceScope(
+          project: project,
+          members: membersOf(project, session: session),
+        ),
         trimmed,
       );
     } finally {
@@ -1857,10 +1747,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     );
     final members = membersOf(project, session: session);
     final member =
-        ProjectChatReferenceService.explicitlyMentionedMember(
-          trimmed,
-          members,
-        ) ??
+        ChatReferenceService.explicitlyMentionedMember(trimmed, members) ??
         _followUpOwner(project, session);
     if (member == null) {
       _appendMessage(
@@ -2364,7 +2251,15 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
   void setProjectWorkingDirectory(String id, String path) {
     _updateProject(id, (project) => project.copyWith(workingDirectory: path));
     unawaited(_persist());
+    unawaited(_rememberRoot(path));
   }
+
+  /// La carpeta de un proyecto es, por definición, un lugar donde este
+  /// usuario trabaja: entra a las raíces conocidas para que el próximo
+  /// selector abra ahí y para que un agente sin proyecto sepa que existe —
+  /// aunque esté en otro disco.
+  Future<void> _rememberRoot(String path) =>
+      WorkspaceRootsService.instance.notifier.remember(path);
 
   // ── ejecución de un turno ───────────────────────────────────────────
 
@@ -2400,9 +2295,22 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     if (messagesBeforeCurrentTurn.lastOrNull?.role == ChatRole.user) {
       messagesBeforeCurrentTurn.removeLast();
     }
+    // La firma del hilo va con HANDLE, no con id: el system prompt le
+    // promete al agente que "los mensajes vienen firmados con el handle de
+    // quien los escribió" y `authorProfileId` es un UUID. Firmando con el id
+    // la promesa se rompe en silencio y el agente no puede seguir quién dijo
+    // qué en un canal de varios.
+    final threadMembers = membersOf(
+      project,
+      session: _sessionById(project, sessionId),
+    );
     final conversationHistory = remoteConversationHistory(
       messagesBeforeCurrentTurn,
       includeAssistantAuthor: true,
+      handleOf: (profileId) => threadMembers
+          .where((candidate) => candidate.id == profileId)
+          .firstOrNull
+          ?.name,
     );
 
     final cliSessionId = _sessionById(
@@ -2539,7 +2447,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     // El estado vivo viaja antepuesto al pedido, que sí llega siempre.
     final effectiveInstruction = (isCodex && cliSessionId != null)
         ? [
-            _planSection(
+            planSectionPrompt(
               _sessionById(project, sessionId),
               isConsult: consultOfProfileId != null,
               hasPlanTools: false,
@@ -2605,6 +2513,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
           hasPlanTools: planEntry != null,
           usesGit: usesGit,
           place: place,
+          usesGithubMcp: externalServers.any(isGithubMcpServer),
         ),
         mcpConfig: mcpServers.isEmpty
             ? null
@@ -3369,7 +3278,11 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
         sessionId: sessionId,
         member: target,
         workNodeId: workNodeId,
-        instruction: _consultPrompt(asker, _consultExcerpt(text, handle)),
+        instruction: consultRequestPrompt(
+          askerHandle: asker.name,
+          askerRole: asker.role,
+          excerpt: _consultExcerpt(text, handle),
+        ),
         consultOfProfileId: asker.id,
         turnId: turnId,
         depth: depth + 1,
@@ -3404,7 +3317,10 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
         sessionId: sessionId,
         member: asker,
         workNodeId: workNodeId,
-        instruction: _consultAnswerPrompt(target, consulta.answer),
+        instruction: consultAnswerPrompt(
+          targetHandle: target.name,
+          answer: consulta.answer,
+        ),
         consultOfProfileId: null,
         turnId: turnId,
         depth: depth + 1,
@@ -3414,13 +3330,6 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
   }
 
   // ── prompts ─────────────────────────────────────────────────────────
-
-  String _consultPrompt(AgentProfile asker, String excerpt) =>
-      '@${asker.name} (${asker.role}) te pide una consulta acotada:\n\n'
-      '$excerpt\n\n'
-      'Respondé solo desde tu especialidad con evidencia concreta. Esta '
-      'consulta no habilita escribir ni abrir trabajo paralelo: el '
-      'responsable del caso sintetiza tu respuesta y decide el siguiente nodo.';
 
   /// Los párrafos de [text] que mencionan a @[handle], más el inmediatamente
   /// anterior de cada uno. La regla de "mínimo contexto" no la puede cumplir
@@ -3451,115 +3360,19 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     return '${trimmed.substring(0, 4000)}…';
   }
 
-  /// El estado real del plan, dentro del turno.
-  ///
-  /// Nombrar las tools no alcanzaba: `complete_plan_items` pide "el texto
-  /// exacto" de puntos que el agente nunca vio, y decidir si escribir el plan
-  /// quedaba en manos de que el modelo leyera su paso como "planificar" —el
-  /// paso 1 de tdd se llama "Charter" y nadie lo llamó así—. Las dos son
-  /// decisiones que la app puede tomar por él.
-  String _planSection(
-    Session? session, {
-    required bool isConsult,
-    required bool hasPlanTools,
-  }) {
-    final plan = session?.plan ?? const <SessionPlanItem>[];
-
-    if (plan.isEmpty) {
-      // Un consultado no planifica la sesión de otro: contesta y se va.
-      if (isConsult) return '';
-      // Codex no tiene las tools del plan: escribe con el bloque fenced.
-      final como = hasPlanTools
-          ? 'escribilo con `set_session_plan`'
-          : 'escribilo dejando en tu respuesta un bloque exactamente así:\n'
-                '```plan\n'
-                'puntos:\n'
-                'Primer punto concreto y verificable | puesto que lo hace\n'
-                'Segundo punto\n'
-                '```\n'
-                'El puesto (tras el último "|") es opcional; no uses "|" '
-                'dentro del texto del punto. Escribilo';
-      return 'PLAN DE LA SESIÓN: esta sesión todavía no tiene plan, y el plan '
-          'es lo que el usuario mira para saber qué falta. ANTES que nada en '
-          'este turno, $como: entre 3 y 8 puntos '
-          'concretos y verificables que haya que cumplir para darla por '
-          'terminada — no las etapas del workflow, que ya se ven aparte. A '
-          'cada punto ponele el PUESTO que lo tiene que hacer cuando esté '
-          'claro. No importa cómo se llame tu paso: si no hay plan, lo '
-          'escribís vos. Después seguí con tu trabajo normal.\n'
-          'Cada punto se trabaja después en su propia vuelta del workflow: '
-          'un punto es una unidad entregable, no una sesión de media hora.';
-    }
-
-    final buffer = StringBuffer();
-    buffer.writeln(
-      'PLAN DE LA SESIÓN (${plan.doneCount} de ${plan.length} cumplidos'
-      '${plan.discardedCount == 0 ? '' : ', ${plan.discardedCount} descartados por el usuario — marcados [-], no se hacen'}) — es '
-      'lo que el usuario mira para saber qué falta:',
-    );
-    for (final item in plan) {
-      final puesto = item.ownerRole == null ? '' : ' (${item.ownerRole})';
-      // Tres estados y no dos: `[-]` es un punto que el usuario sacó de la
-      // mesa. Sin esa marca el agente lo lee como pendiente y sale a
-      // hacerlo, que es justo lo que se acaba de decidir que no.
-      final marca = item.discarded ? '[-]' : (item.done ? '[x]' : '[ ]');
-      buffer.writeln('$marca$puesto ${item.text}');
-    }
-
-    if (isConsult) {
-      buffer.writeln(
-        'Va como contexto: el plan lo marca quien está ejecutando el paso — '
-        'en este turno no tenés las tools del plan.',
-      );
-      return buffer.toString().trim();
-    }
-
-    if (hasPlanTools) {
-      buffer.writeln(
-        'Al cerrar tu turno marcá con `complete_plan_items` los puntos que '
-        'efectivamente resolviste, copiando su texto tal como está acá '
-        'arriba — la comparación ignora mayúsculas, acentos y puntuación, '
-        'pero no adivina: cambiá una palabra y no lo encuentra. Solo esos: '
-        'marcar de más deja al usuario ciego. Si el plan quedó viejo, '
-        'reescribilo entero con `set_session_plan` — lo hecho que no cambie de '
-        'texto se conserva marcado.',
-      );
-    } else {
-      buffer.writeln(
-        'Al cerrar tu turno marcá lo que efectivamente resolviste dejando en '
-        'tu respuesta un bloque así, un punto por línea con su texto tal '
-        'como está acá arriba:\n'
-        '```cumplido\n'
-        'puntos:\n'
-        'Texto del punto resuelto\n'
-        '```\n'
-        'Solo esos: marcar de más deja al usuario ciego. Si el plan quedó '
-        'viejo, reescribilo entero con un bloque ```plan — lo hecho que no '
-        'cambie de texto se conserva marcado.',
-      );
-    }
-    buffer.writeln(
-      'El plan es el contrato de la sesión: terminados los pasos, si queda un '
-      'punto sin cumplir la sesión NO se da por terminada y pasa a '
-      'verificación. Si algo de tu paso queda afuera, decilo en el momento.',
-    );
-    return buffer.toString().trim();
-  }
-
-  String _consultAnswerPrompt(AgentProfile target, String answer) {
-    return '@${target.name} respondió tu consulta:\n\n$answer\n\n'
-        'Seguí con tu paso usando esa respuesta.';
-  }
-
   /// Composes what this member knows for the whole turn: the global skills
   /// every agent carries, who it is, the project's shared rules and
   /// documents, and who else it can consult.
   ///
   /// El orden es contrato: skills globales → prompt del perfil → skills →
-  /// reglas → saber → IDENTIDAD (siempre) → COMPAÑEROS (si hay) → MODO DE
-  /// TRABAJO → PLAN → ENTREGA (si hay git y no es consulta) → REGLA DEL
-  /// CANAL. Cada regla vive en UNA sección; las demás, si la necesitan,
-  /// apuntan a ella.
+  /// reglas → saber → IDENTIDAD (siempre) → COMPAÑEROS (si hay) → GITHUB
+  /// POR MCP (si lo tiene) → MODO DE TRABAJO → PLAN → ENTREGA (si hay git y
+  /// no es consulta) → REGLA DEL CANAL. Cada regla vive en UNA sección; las
+  /// demás, si la necesitan, apuntan a ella.
+  ///
+  /// El texto de cada sección vive en `integrations/system_prompt/`. Acá se
+  /// decide el ORDEN y qué secciones entran, que es lo que depende del
+  /// estado de la app.
   String _turnSystemPrompt(
     Project project,
     AgentProfile member, {
@@ -3568,6 +3381,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     required bool hasPlanTools,
     required bool usesGit,
     required WorktreePlace place,
+    bool usesGithubMcp = false,
   }) {
     final buffer = StringBuffer();
 
@@ -3642,12 +3456,12 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     // "SOS @handle" y el nombre del proyecto.
     buffer.writeln();
     buffer.writeln(
-      'SOS @${member.name} (${member.role}), trabajando en el proyecto '
-      '"${project.name}"'
-      '${project.purpose.isEmpty ? '' : ' — ${project.purpose}'}. '
-      'Los mensajes del hilo vienen firmados con el handle de quien los '
-      'escribió: si no dice @${member.name}, no lo escribiste vos. No '
-      'discutas identidades — leé la firma.',
+      identityPrompt(
+        handle: member.name,
+        role: member.role,
+        projectName: project.name,
+        projectPurpose: project.purpose,
+      ),
     );
 
     // Las skills del WORKFLOW, no las del agente: las del agente son quién
@@ -3666,68 +3480,27 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
 
     if (!project.maintained) {
       buffer.writeln();
-      buffer.writeln(
-        'ESTE PROYECTO NO ES TUYO PARA DECIDIR. No lo mantiene quien te está '
-        'usando, así que es de SOLO LECTURA: leelo, entendelo y contestá, '
-        'pero no lo cambies. Las tools que escriben no te fueron entregadas '
-        'en este turno; si hace falta un cambio, decilo con precisión —qué '
-        'archivo, qué cambio y por qué— para que lo pida quien sí lo '
-        'mantiene, en vez de intentarlo vos.',
-      );
+      buffer.writeln(kReadOnlyProjectPrompt);
     }
 
     if (companions.isNotEmpty) {
-      buffer.writeln('Tus compañeros en el canal son:');
-      for (final companion in companions) {
-        buffer.writeln('- @${companion.name} (${companion.role})');
-      }
       buffer.writeln(
-        'El rol de cada uno es su ÁREA DE AUTORIDAD. Si lo que se pregunta '
-        'cae en el área de un compañero, tu trabajo es pasársela mencionando '
-        'su @handle — aunque creas que podrías contestarla vos. Su respuesta '
-        'es la autorizada; la tuya sería una opinión con forma de dato. No te '
-        'saltes ese conducto para contestar de todo vos mismo.',
-      );
-      buffer.writeln(
-        'Podés adelantar contexto o tu lectura del problema, pero la '
-        'afirmación de fondo sobre el área de otro la da él, no vos.',
-      );
-      buffer.writeln(
-        'Al mismo tiempo, mencionar DISPARA UN TURNO REAL suyo, con su costo '
-        'y su demora: nunca menciones para saludar, agradecer, confirmar que '
-        'estás de acuerdo, cerrar un tema ni decir que quedás a disposición. '
-        'Para eso escribí el nombre sin la arroba. La regla corta es: por '
-        'cortesía nunca, por especialidad siempre.',
-      );
-      buffer.writeln(
-        'Cuando consultes, escribí la pregunta puntual en su propio párrafo, '
-        'junto a la mención: al consultado le llega SOLO el párrafo donde lo '
-        'nombrás (y el anterior), no todo tu turno. Lo que no esté ahí, no '
-        'lo ve.',
-      );
-      buffer.writeln(
-        'Tampoco menciones a quien le toca el paso siguiente para pasarle el '
-        'trabajo: el workflow le da la palabra solo cuando vos terminás. Si '
-        'lo mencionás, lo que hace corre COMO CONSULTA TUYA, adentro de tu '
-        'paso. Y el desempate, cuando el especialista es además el del paso '
-        'siguiente, es una sola pregunta: ¿tu paso puede cerrarse sin su '
-        'respuesta? Si sí, no lo menciones — decí qué dejás listo y cerrá '
-        'el turno. Si no, consultalo con solo la pregunta que te falta.',
-      );
-      buffer.writeln(
-        'Esa lista de compañeros es completa. Mencionar un handle que no '
-        'está en ella no dispara nada: no le llega a nadie y no vas a '
-        'recibir respuesta, así que no esperes una ni la reclames. Si te '
-        'falta un especialista que el proyecto no tiene, declaralo con el '
-        'bloque `agente` de la REGLA DEL CANAL en vez de nombrarlo como si '
-        'ya estuviera.',
+        companionsPrompt([
+          for (final companion in companions)
+            (handle: companion.name, role: companion.role),
+        ]),
       );
     }
 
-    buffer.writeln();
-    buffer.writeln(_askVsWorkPrompt);
+    if (usesGithubMcp) {
+      buffer.writeln();
+      buffer.writeln(kGithubMcpPrompt);
+    }
 
-    final plan = _planSection(
+    buffer.writeln();
+    buffer.writeln(kAskVsWorkPrompt);
+
+    final plan = planSectionPrompt(
       session,
       isConsult: isConsult,
       hasPlanTools: hasPlanTools,
@@ -3741,8 +3514,11 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     // solo tiene sentido donde hay git.
     if (!isConsult && usesGit) {
       buffer.writeln();
-      buffer.writeln(_deliveryPrompt);
-      final worktree = _worktreePrompt(place);
+      // Con el MCP de GitHub asignado, la variante que abre el PR por tool:
+      // dejar la de `gh` sería contradecir a kGithubMcpPrompt, que ya entró
+      // más arriba en este mismo prompt.
+      buffer.writeln(usesGithubMcp ? kGithubDeliveryPrompt : kDeliveryPrompt);
+      final worktree = worktreePrompt(place);
       if (worktree.isNotEmpty) {
         buffer.writeln();
         buffer.writeln(worktree);
@@ -3752,7 +3528,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     buffer.writeln();
     final subagentPolicy = session == null ? null : workflowOf(session)?.policy;
     buffer.writeln(
-      _subagentPolicyPrompt(
+      subagentPolicyPrompt(
         provider: project.tuned(member).provider,
         maxSubagents: subagentPolicy?.maxSubagents ?? 0,
       ),
@@ -3962,6 +3738,9 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     }
 
     final check = checkRoadmapFormat(project.workingDirectory);
+    // Idempotente y barato: acá está el único punto por el que pasan también
+    // las carpetas que ya existían antes de que Keel las ignorara.
+    if (check.ok) unawaited(ensureRoadmapIgnored(project.workingDirectory));
     final lineas = [
       for (final done in check.passed) '  ✓  $done',
       for (final finding in check.findings) '  ✗  $finding',

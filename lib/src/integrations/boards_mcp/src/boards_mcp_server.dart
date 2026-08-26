@@ -189,10 +189,7 @@ final class _BoardsMcpServer extends mcp.MCPServer with mcp.ToolsSupport {
            name: kBoardsMcpServerKey,
            version: '1.0.0',
          ),
-         instructions:
-             'Los tableros de prueba de este proyecto: pantallitas para que '
-             'el usuario dispare algo contra su propia app. Vos los ARMÁS; '
-             'dispararlos es de él, y por eso no hay tool para correrlos.',
+         instructions: kBoardsMcpInstructions,
        ) {
     registerTool(_listTool, _list);
     registerTool(_getTool, _get);

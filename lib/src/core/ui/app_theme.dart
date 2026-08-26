@@ -92,6 +92,18 @@ ThemeData buildAppTheme() {
       showCheckmark: true,
       checkmarkColor: AppColors.brass,
     ),
+    // Los diálogos que quedan —los selectores de un workflow, los
+    // formularios que viven en diálogo— con el mismo radio y el mismo fondo
+    // que la tarjeta de confirmación. Sin esto son lo único de la app con
+    // esquinas de 28 y fondo de fábrica.
+    dialogTheme: DialogThemeData(
+      backgroundColor: AppColors.raise,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: AppColors.rule),
+      ),
+    ),
     tooltipTheme: TooltipThemeData(
       decoration: BoxDecoration(
         color: AppColors.raise,

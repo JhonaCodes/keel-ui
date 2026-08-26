@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:keel_ui/src/core/ui/confirm_card.dart';
 import 'package:keel_ui/src/core/ui/form_panel.dart';
 import 'package:keel_ui/src/core/ui/inline_rename_field.dart';
 import 'package:keel_ui/src/core/ui/sidebar_section_row.dart';
@@ -18,6 +19,8 @@ import 'package:keel_ui/src/modules/projects/model/project.dart';
 import 'package:keel_ui/src/modules/projects/model/session.dart';
 import 'package:keel_ui/src/modules/projects/ui/widget/session_plan_list.dart';
 import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
+import 'package:keel_ui/src/modules/sidebar_layout/model/sidebar_layout.dart';
+import 'package:keel_ui/src/modules/sidebar_layout/ui/widget/sidebar_section_list.dart';
 import 'package:keel_ui/src/modules/workflows/model/workflow.dart';
 import 'package:keel_ui/src/modules/workflows/viewmodel/workflows_viewmodel.dart';
 import 'package:keel_ui/src/modules/workspace/model/workspace_lens.dart';
@@ -105,10 +108,14 @@ class _SidebarListState extends State<_SidebarList> {
       child: ListView(
         padding: const EdgeInsets.symmetric(vertical: 14),
         children: [
-          _GroupHead(
-            label: 'Proyectos',
-            onAdd: widget.onNewProject,
-            onManage: widget.onManageProjects,
+          SidebarSectionDropHead(
+            kind: SidebarSectionKind.project,
+            presentIds: [for (final project in state.projects) project.id],
+            child: _GroupHead(
+              label: 'Proyectos',
+              onAdd: widget.onNewProject,
+              onManage: widget.onManageProjects,
+            ),
           ),
           if (state.projects.isEmpty)
             Padding(
@@ -119,34 +126,48 @@ class _SidebarListState extends State<_SidebarList> {
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ),
-          for (final project in state.projects) ...[
-            _ProjectRow(
+          SidebarSectionList<Project>(
+            kind: SidebarSectionKind.project,
+            items: state.projects,
+            idOf: (project) => project.id,
+            labelOf: (project) => '#${project.name}',
+            rowBuilder: (project) => _ProjectRow(
               project: project,
               selected:
                   workspace.isProjectScoped &&
                   state.selectedProjectId == project.id,
               onTap: () => navigator.openProject(project.id),
             ),
-            if (state.selectedProjectId == project.id) ...[
-              _StateRow(
-                project: project,
-                selected: workspace.lens == WorkspaceLens.projectState,
-                onTap: () => navigator.openProjectState(project.id),
-              ),
-              BoardsSection(
-                projectId: project.id,
-                workspace: workspace,
-                expanded: _boardsOpen,
-                onToggle: () => setState(() => _boardsOpen = !_boardsOpen),
-              ),
-              _SessionsSection(
-                project: project,
-                workspace: workspace,
-                expanded: _sessionsOpen,
-                onToggle: () => setState(() => _sessionsOpen = !_sessionsOpen),
-              ),
-            ],
-          ],
+            // Las secciones del proyecto abierto cuelgan de su fila pero no
+            // se arrastran con ella: no son ítems de la lista, son las
+            // partes del proyecto.
+            belowBuilder: (project) => state.selectedProjectId != project.id
+                ? const SizedBox.shrink()
+                : Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _StateRow(
+                        project: project,
+                        selected: workspace.lens == WorkspaceLens.projectState,
+                        onTap: () => navigator.openProjectState(project.id),
+                      ),
+                      BoardsSection(
+                        projectId: project.id,
+                        workspace: workspace,
+                        expanded: _boardsOpen,
+                        onToggle: () =>
+                            setState(() => _boardsOpen = !_boardsOpen),
+                      ),
+                      _SessionsSection(
+                        project: project,
+                        workspace: workspace,
+                        expanded: _sessionsOpen,
+                        onToggle: () =>
+                            setState(() => _sessionsOpen = !_sessionsOpen),
+                      ),
+                    ],
+                  ),
+          ),
           RequirementsGroup(
             selectedProjectId: state.selectedProjectId,
             selectedRequirementId: workspace.lens == WorkspaceLens.requirement
@@ -157,35 +178,45 @@ class _SidebarListState extends State<_SidebarList> {
                 showFormPanel(context, child: const RequirementsScreen()),
             onAdd: () => openRequirementFormPanel(context),
           ),
-          _LooseAgentsHead(
-            onAdd: () => openUseAgentPanel(context),
-            onManage: widget.onManageAgents,
-          ),
           ReactiveViewModelBuilder<AgentsViewModel, AgentsState>(
             viewmodel: AgentsService.instance.notifier,
             build: (agentsState, viewmodel, keep) {
               // Sin las sesiones de Keel AI: el asistente vive en su ventana
               // flotante, no acá entre los agentes que registró el usuario.
               final agents = viewmodel.listableAgents;
-              if (agents.isEmpty) {
-                return Padding(
-                  padding: const EdgeInsets.fromLTRB(14, 2, 14, 8),
-                  child: Text(
-                    'Ninguno abierto. Usá un agente registrado para hablarle '
-                    'directo, sin proyecto.',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                );
-              }
               return Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  for (final agent in agents)
-                    _LooseAgentRow(
-                      agent: agent,
-                      selected:
-                          workspace.lens == WorkspaceLens.agent &&
-                          agentsState.selectedAgentId == agent.id,
-                      onTap: () => navigator.openAgent(agent.id),
+                  SidebarSectionDropHead(
+                    kind: SidebarSectionKind.agent,
+                    presentIds: [for (final agent in agents) agent.id],
+                    child: _LooseAgentsHead(
+                      onAdd: () => openUseAgentPanel(context),
+                      onManage: widget.onManageAgents,
+                    ),
+                  ),
+                  if (agents.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(14, 2, 14, 8),
+                      child: Text(
+                        'Ninguno abierto. Usá un agente registrado para '
+                        'hablarle directo, sin proyecto.',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    )
+                  else
+                    SidebarSectionList<Agent>(
+                      kind: SidebarSectionKind.agent,
+                      items: agents,
+                      idOf: (agent) => agent.id,
+                      labelOf: (agent) => agent.name,
+                      rowBuilder: (agent) => _LooseAgentRow(
+                        agent: agent,
+                        selected:
+                            workspace.lens == WorkspaceLens.agent &&
+                            agentsState.selectedAgentId == agent.id,
+                        onTap: () => navigator.openAgent(agent.id),
+                      ),
                     ),
                 ],
               );
@@ -554,29 +585,18 @@ class _SessionRowState extends State<_SessionRow> {
   }
 
   Future<void> _confirmAndClose(BuildContext context) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Cerrar sesión'),
-        content: Text(
-          'Se borra el hilo de "${session.title}" y el contexto que los agentes '
-          'acumularon en ella. El proyecto queda igual, con sus agentes, '
-          'reglas y documentos.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Cerrar sesión'),
-          ),
-        ],
-      ),
+    final confirmed = await confirmWithCard(
+      context,
+      title: 'Cerrar sesión',
+      body:
+          'Se borra el hilo de "${session.title}" y el contexto que los '
+          'agentes acumularon en ella. El proyecto queda igual, con sus '
+          'agentes, reglas y documentos.',
+      confirmLabel: 'Cerrar sesión',
+      destructive: true,
     );
 
-    if (confirmed ?? false) {
+    if (confirmed) {
       ProjectsService.instance.notifier.closeSession(projectId, session.id);
     }
   }

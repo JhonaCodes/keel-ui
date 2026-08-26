@@ -9,6 +9,7 @@ import 'package:keel_ui/src/modules/agent_profiles/viewmodel/agent_profiles_view
 import 'package:keel_ui/src/modules/agent_profiles/ui/screen/agent_profile_form_screen.dart';
 import 'package:keel_ui/src/modules/agents/model/agent_model_option.dart';
 import 'package:keel_ui/src/modules/agents/model/effort_level.dart';
+import 'package:keel_ui/src/core/ui/confirm_card.dart';
 
 class AgentProfileTile extends StatelessWidget {
   const AgentProfileTile({super.key, required this.profile});
@@ -16,28 +17,16 @@ class AgentProfileTile extends StatelessWidget {
   final AgentProfile profile;
 
   Future<void> _confirmAndDelete(BuildContext context) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Eliminar agente registrado'),
-        content: Text(
+    final confirmed = await confirmWithCard(
+      context,
+      title: 'Eliminar agente registrado',
+      body:
           'Se eliminará el registro "${profile.name}". Esto no afecta a los '
           'chats que ya usaste con esta configuración.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Eliminar'),
-          ),
-        ],
-      ),
+      destructive: true,
     );
 
-    if (confirmed ?? false) {
+    if (confirmed) {
       AgentProfilesService.instance.notifier.deleteProfile(profile.id);
     }
   }

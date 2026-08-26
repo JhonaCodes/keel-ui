@@ -5,6 +5,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:keel_ui/src/core/services/local_database.dart';
+import 'package:keel_ui/src/integrations/chat_references/chat_references.dart';
+import 'package:keel_ui/src/modules/agents/ui/widget/chat_reference_composer_field.dart';
 import 'package:keel_ui/src/core/ui/app_theme.dart';
 import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
 import 'package:keel_ui/src/modules/agent_profiles/viewmodel/agent_profiles_viewmodel.dart';
@@ -12,12 +14,8 @@ import 'package:keel_ui/src/modules/agents/model/chat_message.dart';
 import 'package:keel_ui/src/modules/knowledge/model/knowledge_base.dart';
 import 'package:keel_ui/src/modules/knowledge/viewmodel/knowledge_viewmodel.dart';
 import 'package:keel_ui/src/modules/projects/model/project.dart';
-import 'package:keel_ui/src/modules/projects/model/chat_reference_kind.dart';
-import 'package:keel_ui/src/modules/projects/model/chat_reference_query.dart';
 import 'package:keel_ui/src/modules/projects/model/session.dart';
-import 'package:keel_ui/src/modules/projects/service/project_chat_reference_service.dart';
 import 'package:keel_ui/src/modules/projects/ui/view/session_chat_view.dart';
-import 'package:keel_ui/src/modules/projects/ui/widget/session_chat_composer_field.dart';
 import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
 import 'package:keel_ui/src/modules/rules/model/rule.dart';
 import 'package:keel_ui/src/modules/rules/viewmodel/rules_viewmodel.dart';
@@ -200,9 +198,8 @@ void main() {
     final field = find.byType(TextField).last;
 
     final directorySuggestions = await tester.runAsync(
-      () => ProjectChatReferenceService.suggestions(
-        project: project,
-        members: [profile],
+      () => ChatReferenceService.suggestions(
+        scope: ProjectReferenceScope(project: project, members: [profile]),
         query: const ChatReferenceQuery(
           kind: ChatReferenceKind.directory,
           text: 'lib',
@@ -252,10 +249,9 @@ void main() {
       MaterialApp(
         theme: buildAppTheme(),
         home: Scaffold(
-          body: SessionChatComposerField(
+          body: ChatReferenceComposerField(
             controller: controller,
-            project: project,
-            members: [profile],
+            scope: ProjectReferenceScope(project: project, members: [profile]),
             onSend: () {
               sent = controller.text;
               controller.clear();
@@ -290,8 +286,8 @@ void main() {
         '[/escape](keel://directory?path=..%2Fescape)',
       ].join(' ');
 
-      final context = await ProjectChatReferenceService.promptContext(
-        project,
+      final context = await ChatReferenceService.promptContext(
+        ProjectReferenceScope(project: project, members: [profile]),
         text,
       );
 
@@ -308,18 +304,18 @@ void main() {
         'Revisá [\$tdd-workflow](keel://skill/skill-tdd) antes de cerrar.';
 
     expect(
-      ProjectChatReferenceService.visibleText(original),
+      ChatReferenceService.visibleText(original),
       'Revisá \$tdd-workflow antes de cerrar.',
     );
     expect(
-      ProjectChatReferenceService.restoreReferencesAfterEdit(
+      ChatReferenceService.restoreReferencesAfterEdit(
         original,
         'Revisá \$tdd-workflow con más cuidado.',
       ),
       contains('[\$tdd-workflow](keel://skill/skill-tdd)'),
     );
     expect(
-      ProjectChatReferenceService.restoreReferencesAfterEdit(
+      ChatReferenceService.restoreReferencesAfterEdit(
         original,
         'Ya no uses esa instrucción.',
       ),
@@ -329,21 +325,21 @@ void main() {
 
   test('una @mención explícita elige solo miembros y omite código', () {
     expect(
-      ProjectChatReferenceService.explicitlyMentionedMember(
+      ChatReferenceService.explicitlyMentionedMember(
         'Consultá a @flutter-expert.',
         [profile],
       ),
       profile,
     );
     expect(
-      ProjectChatReferenceService.explicitlyMentionedMember(
+      ChatReferenceService.explicitlyMentionedMember(
         'Ejemplo: `@flutter-expert`',
         [profile],
       ),
       isNull,
     );
     expect(
-      ProjectChatReferenceService.explicitlyMentionedMember(
+      ChatReferenceService.explicitlyMentionedMember(
         'Consultá a @otro-proyecto.',
         [profile],
       ),
@@ -361,9 +357,11 @@ void main() {
       effort: 'high',
       createdAt: now,
     );
-    final suggestions = await ProjectChatReferenceService.suggestions(
-      project: project,
-      members: [profile, reviewer],
+    final suggestions = await ChatReferenceService.suggestions(
+      scope: ProjectReferenceScope(
+        project: project,
+        members: [profile, reviewer],
+      ),
       query: const ChatReferenceQuery(
         kind: ChatReferenceKind.agent,
         text: '',

@@ -5,9 +5,9 @@
 Una lista de tareas para varios agentes tiene dos partes con naturalezas
 opuestas, y meterlas en el mismo lugar rompe una de las dos.
 
-La **definición** de una tarea describe el código: se ramifica con él, se
-revisa en un PR, la lee cualquiera que abra el repo, y en una rama vieja esa
-tarea legítimamente no estaba hecha. Eso pertenece al repo.
+La **definición** de una tarea describe el código: vive al lado de él, la lee
+cualquiera que abra la carpeta, y sus rutas son relativas a la raíz del repo.
+Eso pertenece al proyecto.
 
 La **toma** —quién la está haciendo ahora— no describe el código, describe
 este momento. Y necesita ser atómica: entre que un agente lee "libre" y
@@ -31,6 +31,25 @@ TASKS/
 └── _borradores/                 salida cruda de una investigación,
     └── …                        sin numerar, esperando al estandarizador
 ```
+
+### La carpeta no se comitea
+
+Cuando Keel arranca la sesión que define el formato, agrega `TASKS/` al
+`.gitignore` del proyecto —con un comentario que explica de dónde salió la
+línea— y no vuelve a tocarlo. El roadmap es la libreta de trabajo de quien
+está usando Keel, no una entrega del proyecto: un archivo que se mueve todos
+los días ensucia el historial y los PRs de todo el equipo para contar algo
+que solo le sirve a quien lo está corriendo. El prompt del formato se lo dice
+también al agente, así no la saca del `.gitignore` por su cuenta.
+
+Dos cosas que la app **no** hace, a propósito: no corre `git rm --cached`, así
+que una `TASKS/` que ya estaba comiteada de antes sigue estándolo hasta que
+la saques vos; y no toca `.git/info/exclude`. Si el proyecto no es un repo
+git, no escribe nada.
+
+Efecto lateral esperado: al unificar un worktree, `TASKS/` aparece en la
+lista de «esto ignorado se va con la carpeta». Está bien que aparezca —es
+justamente lo que git no iba a extrañar y vos sí.
 
 **No hay `TOMADAS.md` ni `SEGUIMIENTO.md`.** Es deliberado: un archivo de
 estado compartido es un imán de conflictos, porque cada agente que termina

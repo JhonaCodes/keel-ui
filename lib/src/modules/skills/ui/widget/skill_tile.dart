@@ -7,6 +7,7 @@ import 'package:keel_ui/src/integrations/catalog_bundle/catalog_bundle.dart';
 import 'package:keel_ui/src/modules/skills/model/skill.dart';
 import 'package:keel_ui/src/modules/skills/viewmodel/skills_viewmodel.dart';
 import 'package:keel_ui/src/modules/skills/ui/screen/skill_form_screen.dart';
+import 'package:keel_ui/src/core/ui/confirm_card.dart';
 
 class SkillTile extends StatelessWidget {
   const SkillTile({super.key, required this.skill});
@@ -14,28 +15,16 @@ class SkillTile extends StatelessWidget {
   final Skill skill;
 
   Future<void> _confirmAndDelete(BuildContext context) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Eliminar skill'),
-        content: Text(
+    final confirmed = await confirmWithCard(
+      context,
+      title: 'Eliminar skill',
+      body:
           'Se eliminará el skill "${skill.name}". Los agentes que lo tenían '
           'asignado dejarán de recibir sus instrucciones.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Eliminar'),
-          ),
-        ],
-      ),
+      destructive: true,
     );
 
-    if (confirmed ?? false) {
+    if (confirmed) {
       SkillsService.instance.notifier.deleteSkill(skill.id);
     }
   }

@@ -47,7 +47,11 @@ class CatalogLock {
 
   String get key => '${kind.alias}:$name';
 
+  /// El `id` es la clave del registro en la base local: `replaceAllWithPrefix`
+  /// lo exige en cada mapa que guarda, y para un candado la identidad estable
+  /// es justamente el par `(kind, name)` que ya expone [key].
   Map<String, dynamic> toJson() => {
+    'id': key,
     'kind': kind.alias,
     'name': name,
     'createdAt': createdAt.toIso8601String(),

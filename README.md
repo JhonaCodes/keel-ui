@@ -294,6 +294,13 @@ un `mixin XService`, y su UI en `ui/{screen,view,widget}`.
 Lo que se puede probar sin la app —parsers, plantillas, agregadores,
 migraciones— vive en `integrations/` como funciones puras, y tiene pruebas.
 
+Ahí vive también el **corpus de prompts**: `integrations/system_prompt/`
+tiene, en un archivo por sección y documentado en español, todo lo que un
+agente lleva puesto — el system prompt de Keel AI, las secciones del turno de
+una sesión, las pistas del CLI y las `instructions` de cada MCP propio.
+Estaban repartidos entre cuatro carpetas, y dos prompts que se contradicen
+entre sí no se notaban hasta verlos correr.
+
 ## La documentación
 
 Las treinta features están contadas una por una en

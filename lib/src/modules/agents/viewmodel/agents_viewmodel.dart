@@ -26,6 +26,10 @@ import 'package:keel_ui/src/modules/agents/model/permission_request.dart';
 import 'package:keel_ui/src/modules/agents/model/queued_message.dart';
 import 'package:keel_ui/src/modules/agents/repository/agents_repository.dart';
 import 'package:keel_ui/src/integrations/hook_delivery/hook_delivery.dart';
+import 'package:keel_ui/src/integrations/chat_references/chat_references.dart';
+import 'package:keel_ui/src/integrations/system_prompt/system_prompt.dart';
+import 'package:keel_ui/src/integrations/workspace_roots/workspace_roots.dart';
+import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
 import 'package:keel_ui/src/modules/hooks/model/hook_event.dart';
 import 'package:keel_ui/src/modules/hooks/viewmodel/hooks_viewmodel.dart';
 import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
@@ -426,9 +430,23 @@ class AgentsViewModel extends ViewModel<AgentsState> {
         (agent) => agent.copyWith(clearPendingUserEdit: true),
       );
     }
+    // Las referencias `keel://` que el compositor dejó en el texto se
+    // materializan ACÁ, en el mismo turno y solo para él: una skill enlazada
+    // aporta su contenido, una carpeta su ruta absoluta. Lo que el usuario
+    // ve en el hilo sigue siendo el nombre que eligió.
+    await Future.wait([
+      ProjectsService.instance.notifier.ready,
+      WorkspaceRootsService.instance.notifier.ready,
+    ]);
+    final explicitContext = await ChatReferenceService.promptContext(
+      const GlobalReferenceScope(),
+      trimmed,
+    );
+
     final promptForModel = [
       if (pendingUserEdit != null) _describeManualEdit(pendingUserEdit),
       if (trimmed.isNotEmpty) trimmed,
+      if (explicitContext.isNotEmpty) explicitContext,
       if (imagePaths.isNotEmpty) _describeAttachments(imagePaths),
     ].join('\n\n');
 
@@ -494,6 +512,15 @@ class AgentsViewModel extends ViewModel<AgentsState> {
         : jsonEncode({'mcpServers': mcpServers});
 
     // The codex adapter has no tools/MCP/effort surface — see F6 doc.
+    // La sección PROYECTOS CONOCIDOS del prompt lee dos catálogos que este
+    // turno puede ser el primero en tocar. Sin esperarlos, el agente sale
+    // creyendo que el usuario no tiene ningún proyecto — que es exactamente
+    // el problema que esa sección viene a resolver.
+    await Future.wait([
+      ProjectsService.instance.notifier.ready,
+      WorkspaceRootsService.instance.notifier.ready,
+    ]);
+
     // Los guardarraíles del turno. Se resuelven ACÁ, con el catálogo y los
     // secrets a mano, y lo que llega al CLI son archivos ya escritos.
     final turnHooks = await _resolveTurnHooks(target);
@@ -969,10 +996,47 @@ class AgentsViewModel extends ViewModel<AgentsState> {
         if (buffer.isNotEmpty) buffer.writeln();
         buffer.writeln(saber);
       }
+
+      // Dónde están los proyectos, con ruta absoluta. Un agente 1:1 corre
+      // en `$HOME` y sin esto no tiene forma de saber que el proyecto del
+      // usuario vive en otro disco.
+      final rootsSection = _knownRootsSection();
+      if (rootsSection.isNotEmpty) {
+        if (buffer.isNotEmpty) buffer.writeln();
+        buffer.writeln(rootsSection);
+      }
+
+      // Misma regla que en un proyecto: teniendo el MCP de GitHub asignado,
+      // GitHub se toca por ahí y no por `gh`. Acá no hay sección de ENTREGA
+      // que corregir — un chat 1:1 no entrega pull requests.
+      final usesGithubMcp = _resolveProfileMcpServers(
+        profile.id,
+      ).any(isGithubMcpServer);
+      if (usesGithubMcp) {
+        if (buffer.isNotEmpty) buffer.writeln();
+        buffer.writeln(kGithubMcpPrompt);
+      }
     }
 
     final combined = buffer.toString().trim();
     return combined.isEmpty ? null : combined;
+  }
+
+  /// Las rutas reales de esta máquina, para el prompt de un agente sin
+  /// proyecto: los proyectos registrados y las demás carpetas conocidas.
+  String _knownRootsSection() {
+    final projects = ProjectsService.instance.notifier.data.projects;
+    final registered = [
+      for (final project in projects)
+        if (project.workingDirectory.trim().isNotEmpty)
+          (name: project.name, path: project.workingDirectory.trim()),
+    ];
+    final taken = {for (final project in registered) project.path};
+    final others = [
+      for (final root in WorkspaceRootsService.instance.notifier.recentPaths)
+        if (!taken.contains(root)) root,
+    ];
+    return knownRootsPrompt(projects: registered, otherRoots: others);
   }
 
   /// How attached images reach the model: as PATHS it reads on demand with

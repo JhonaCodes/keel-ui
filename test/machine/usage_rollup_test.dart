@@ -11,6 +11,7 @@ UsageEntry entry({
   int input = 100,
   int output = 20,
   int cacheRead = 0,
+  bool tokensReported = true,
 }) => UsageEntry(
   id: '$at-$model-$input',
   at: at,
@@ -25,6 +26,7 @@ UsageEntry entry({
   cacheCreationTokens: 0,
   durationMs: 1000,
   costUsd: 0.01,
+  tokensReported: tokensReported,
 );
 
 void main() {
@@ -117,6 +119,28 @@ void main() {
       final engines = rollupByEngine([entry(at: hoy)]);
 
       expect(engines.single.unmeasured, isFalse);
+    });
+
+    test('los turnos sin medición se cuentan aparte del total', () {
+      // Un turno parado o caído gastó y no informó nada. Sumado en silencio
+      // baja el promedio por turno sin explicar por qué; contado aparte, se
+      // puede leer "3 turnos, 2 sin medición".
+      final engines = rollupByEngine([
+        entry(at: hoy, input: 100),
+        entry(at: hoy, input: 0, output: 0, tokensReported: false),
+        entry(at: hoy, input: 0, output: 0, tokensReported: false),
+      ]);
+
+      expect(engines.single.turns, 3);
+      expect(engines.single.unmeasuredTurns, 2);
+      // El motor SÍ informó en un turno, así que no está ciego del todo.
+      expect(engines.single.unmeasured, isFalse);
+    });
+
+    test('sin turnos sin medición el contador queda en cero', () {
+      final engines = rollupByEngine([entry(at: hoy)]);
+
+      expect(engines.single.unmeasuredTurns, 0);
     });
   });
 

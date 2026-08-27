@@ -50,6 +50,13 @@ class EngineUsage {
   final int cacheReadTokens;
   final double costUsd;
 
+  /// Cuántos de esos turnos no informaron un solo contador.
+  ///
+  /// Contarlos aparte es lo que evita el peor de los dos errores posibles:
+  /// omitirlos dice que el turno no existió, y sumarlos en silencio baja el
+  /// promedio por turno sin que se sepa por qué.
+  final int unmeasuredTurns;
+
   const EngineUsage({
     required this.provider,
     required this.turns,
@@ -57,6 +64,7 @@ class EngineUsage {
     required this.outputTokens,
     required this.cacheReadTokens,
     required this.costUsd,
+    this.unmeasuredTurns = 0,
   });
 
   /// Un motor que corrió turnos y no informó un solo token. Es distinto de
@@ -84,6 +92,7 @@ List<EngineUsage> rollupByEngine(List<UsageEntry> entries) {
           outputTokens: mine.fold(0, (sum, e) => sum + e.outputTokens),
           cacheReadTokens: mine.fold(0, (sum, e) => sum + e.cacheReadTokens),
           costUsd: mine.fold(0.0, (sum, e) => sum + e.costUsd),
+          unmeasuredTurns: mine.where((e) => !e.tokensReported).length,
         );
       }(),
   ];

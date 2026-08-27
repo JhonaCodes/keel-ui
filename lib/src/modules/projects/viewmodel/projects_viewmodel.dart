@@ -3148,6 +3148,12 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     final maxSubagents =
         _workflowRunning(project, sessionId)?.policy.maxSubagents ?? 0;
     var subagentLimitExceeded = false;
+    // Ver la fila sin medición más abajo: [turnMeasured] evita anotar dos
+    // veces y [providerEngaged] evita anotar un turno que murió antes de
+    // gastar un token.
+    var turnMeasured = false;
+    var providerEngaged = false;
+    final turnStartedAt = DateTime.now();
 
     await for (final event in run.events) {
       if (_stoppedSessionIds.contains(sessionId)) break;
@@ -3163,6 +3169,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
 
         case TaskSessionStarted(sessionId: final id):
           sessionConfirmed = true;
+          providerEngaged = true;
           _updateSession(projectId, sessionId, (session) {
             final sessions = Map<String, String>.from(
               session.cliSessionsByExecutionId,
@@ -3172,6 +3179,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
           });
 
         case TaskAssistantText(text: final chunk):
+          providerEngaged = true;
           answer.write(chunk);
           _appendStreamingAssistantMessage(
             projectId,
@@ -3332,6 +3340,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
           );
 
         case final TaskTurnCompleted turn:
+          turnMeasured = true;
           final isError = turn.isError;
           final costUsd = turn.costUsd;
           final durationMs = turn.durationMs;
@@ -3479,6 +3488,32 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
       }
     }
     if (livePid != 0) RunningProcesses.unregister(livePid);
+
+    // Un turno parado, caído o con la sesión muerta no llega al evento
+    // `result`: sin esta fila, el intento que igual gastó no existe para la
+    // app. Importa sobre todo acá, donde el reintento de sesión muerta corre
+    // el turno DE NUEVO: el primero se cobraba y era invisible, así que el
+    // costo del reintento parecía el costo de un turno solo.
+    if (providerEngaged && !turnMeasured) {
+      unawaited(
+        UsageLedgerService.instance.notifier.record(
+          provider: engine.provider.alias,
+          model: engine.model,
+          profileId: member.id,
+          projectId: projectId,
+          sessionId: sessionId,
+          inputTokens: 0,
+          outputTokens: 0,
+          cacheReadTokens: 0,
+          cacheCreationTokens: 0,
+          tokensReported: false,
+          durationMs: DateTime.now().difference(turnStartedAt).inMilliseconds,
+          costUsd: 0,
+          costReported: false,
+          workNodeId: workNodeId ?? '',
+        ),
+      );
+    }
 
     // Una sesión persistida que el CLI ya no conoce rompía al miembro para
     // siempre en esta sesión: cada turno futuro reintentaba el mismo --resume

@@ -30,6 +30,10 @@ import 'package:keel_ui/src/integrations/hook_delivery/hook_delivery.dart';
 import 'package:keel_ui/src/integrations/chat_references/chat_references.dart';
 import 'package:keel_ui/src/integrations/system_prompt/system_prompt.dart';
 import 'package:keel_ui/src/integrations/workspace_roots/workspace_roots.dart';
+// keel-debt: `composeTurnSystemPrompt` vive bajo `modules/projects/` y lo
+// usan los dos caminos de turno. Su lugar natural es
+// `integrations/system_prompt/`; se mueve cuando nadie más lo esté editando.
+import 'package:keel_ui/src/modules/projects/service/turn_prompt.dart';
 import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
 import 'package:keel_ui/src/modules/hooks/model/hook_event.dart';
 import 'package:keel_ui/src/modules/hooks/viewmodel/hooks_viewmodel.dart';
@@ -694,6 +698,12 @@ class AgentsViewModel extends ViewModel<AgentsState> {
     _runningTurns[agentId] = run;
 
     var wasStopped = false;
+    // Si el turno llegó a dejar su fila en el ledger, y si el proveedor
+    // alcanzó a hablar. Los dos hacen falta para la fila sin medición del
+    // `finally`: sin la primera se anotaría dos veces, y sin la segunda se
+    // anotaría un turno que murió antes de gastar un solo token.
+    var turnMeasured = false;
+    var providerEngaged = false;
     final streamTimestamp = DateTime.now();
     // `finally`, porque un turno que revienta igual tiene que devolver el
     // chat. Sin esto, un error del stream dejaba `isStreaming` en true para
@@ -715,12 +725,14 @@ class AgentsViewModel extends ViewModel<AgentsState> {
             RunningProcesses.register(pid, 'chat con @${target.name}');
 
           case TaskSessionStarted(sessionId: final sessionId):
+            providerEngaged = true;
             _updateAgent(
               agentId,
               (agent) => agent.copyWith(sessionId: sessionId),
             );
 
           case TaskAssistantText(text: final chunk):
+            providerEngaged = true;
             _setCurrentActivity(agentId, null);
             assistantTextBuffer.writeln(chunk);
             _appendStreamingAssistantMessage(
@@ -800,6 +812,7 @@ class AgentsViewModel extends ViewModel<AgentsState> {
             );
 
           case final TaskTurnCompleted turn:
+            turnMeasured = true;
             final costUsd = turn.costUsd;
             final durationMs = turn.durationMs;
             unawaited(
@@ -867,6 +880,32 @@ class AgentsViewModel extends ViewModel<AgentsState> {
       // Se consume acá, donde el turno termina de verdad, tome el camino que
       // tome.
       if (_stoppedAgentIds.remove(agentId)) wasStopped = true;
+
+      // Un turno PARADO o que revienta nunca llega al evento `result`, así
+      // que no dejaba fila: los tokens ya se gastaron y para la app el turno
+      // no existió. Se anota igual, sin medición —el mismo criterio con el
+      // que ya se anota codex—, porque «12 turnos, sin medición» es un dato
+      // y una ausencia no es nada.
+      if (providerEngaged && !turnMeasured) {
+        unawaited(
+          UsageLedgerService.instance.notifier.record(
+            provider: target.provider.alias,
+            model: target.model,
+            profileId: target.profileId ?? '',
+            sessionId: agentId,
+            inputTokens: 0,
+            outputTokens: 0,
+            cacheReadTokens: 0,
+            cacheCreationTokens: 0,
+            tokensReported: false,
+            durationMs: DateTime.now()
+                .difference(streamTimestamp)
+                .inMilliseconds,
+            costUsd: 0,
+            costReported: false,
+          ),
+        );
+      }
 
       _runningTurns.remove(agentId);
       final finishedPid = _runningPids.remove(agentId);
@@ -1239,16 +1278,6 @@ class AgentsViewModel extends ViewModel<AgentsState> {
         buffer.writeln(rule.content);
       }
 
-      // El caso oráculo: en 1:1 no hay proyecto que aporte bases, así que
-      // las únicas que llegan son las del propio perfil.
-      final saber = KnowledgeService.instance.notifier.briefFor(
-        profile.knowledgeBaseNames,
-      );
-      if (saber.isNotEmpty) {
-        if (buffer.isNotEmpty) buffer.writeln();
-        buffer.writeln(saber);
-      }
-
       // Dónde están los proyectos, con ruta absoluta. Un agente 1:1 corre
       // en `$HOME` y sin esto no tiene forma de saber que el proyecto del
       // usuario vive en otro disco.
@@ -1270,7 +1299,25 @@ class AgentsViewModel extends ViewModel<AgentsState> {
       }
     }
 
-    final combined = buffer.toString().trim();
+    // El SABER va al final, después de todo lo estable.
+    //
+    // Su texto lleva el conteo de documentos y la portada de cada base, así
+    // que cambia en cuanto un agente escribe ahí —que es justo lo que hace
+    // Keel AI todo el día—. Antes estaba en el medio, y cada cambio del
+    // índice invalidaba el prefijo cacheado desde ese punto hasta el final.
+    // En este chat eso son decenas de miles de tokens que se vuelven a
+    // cobrar a precio de escritura en vez de leerse al 10%.
+    //
+    // El caso oráculo: en 1:1 no hay proyecto que aporte bases, así que las
+    // únicas que llegan son las del propio perfil.
+    final combined = composeTurnSystemPrompt(
+      stablePrompt: buffer.toString(),
+      knowledge: profile == null
+          ? ''
+          : KnowledgeService.instance.notifier.briefFor(
+              profile.knowledgeBaseNames,
+            ),
+    );
     return combined.isEmpty ? null : combined;
   }
 

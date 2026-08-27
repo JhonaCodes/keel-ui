@@ -186,7 +186,15 @@ class _EngineTable extends StatelessWidget {
               ),
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 7),
-                child: Text('${engine.turns}', style: cell),
+                // Los turnos parados o caídos gastaron y no informaron nada.
+                // Sumados en silencio bajarían el promedio por turno sin
+                // explicar por qué, así que se dicen al lado del total.
+                child: Text(
+                  engine.unmeasured || engine.unmeasuredTurns == 0
+                      ? '${engine.turns}'
+                      : '${engine.turns}  (${engine.unmeasuredTurns} s/m)',
+                  style: cell,
+                ),
               ),
               if (engine.unmeasured)
                 // Una sola celda con la verdad, en vez de tres ceros. Un cero

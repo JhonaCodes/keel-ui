@@ -93,17 +93,11 @@ class AppUpdateViewModel extends ViewModel<AppUpdateState> {
   KeelUpdatePlan get plan => KeelUpdatePlan(
     source: data.source,
     version: data.version,
-    running: _runningSessions(),
+    running: totalRunningWork(
+      projects: ProjectsService.instance.notifier.data.projects,
+      agents: const [],
+    ),
   );
-
-  static int _runningSessions() => ProjectsService
-      .instance
-      .notifier
-      .data
-      .projects
-      .expand((project) => project.sessions)
-      .where((session) => session.isRunning)
-      .length;
 
   /// Mira si hay algo nuevo. Sin [force] respeta [_kCheckTtl].
   Future<void> check({bool force = false}) async {

@@ -98,9 +98,7 @@ class WorktreeViewModel extends ViewModel<WorktreeState> {
     updateState(data.copyWith(busy: true, clearPlan: true, clearReport: true));
     try {
       final place = await ensure(project.workingDirectory, force: true);
-      final running = project.sessions
-          .where((session) => session.isRunning)
-          .length;
+      final running = runningSessionsOf(project);
       final plan = await planUnify(place, running: running);
       updateState(data.copyWith(busy: false, plan: plan));
     } catch (error) {

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:keel_ui/src/core/ui/inline_rename_field.dart';
+import 'package:keel_ui/src/core/ui/running_dot.dart';
 import 'package:keel_ui/src/core/ui/sidebar_section_row.dart';
 import 'package:keel_ui/src/modules/sidebar_layout/model/sidebar_layout.dart';
 
@@ -27,6 +28,7 @@ class SidebarGroupRow extends StatefulWidget {
     required this.onRename,
     required this.onUngroup,
     this.containsSelection = false,
+    this.runningCount = 0,
   });
 
   final SidebarGroupSlot group;
@@ -40,6 +42,13 @@ class SidebarGroupRow extends StatefulWidget {
   /// «esto es lo abierto» y se pinta con fondo lleno y barra izquierda; el
   /// grupo dice «lo abierto está acá adentro», que es otra cosa.
   final bool containsSelection;
+
+  /// Cuántos trabajos hay corriendo adentro del grupo.
+  ///
+  /// Se muestra sobre todo cuando está PLEGADO, que es cuando el grupo es lo
+  /// único que se ve: sin esto, un agente trabajando adentro de un grupo
+  /// cerrado no existía para la pantalla.
+  final int runningCount;
 
   @override
   State<SidebarGroupRow> createState() => _SidebarGroupRowState();
@@ -130,6 +139,10 @@ class _SidebarGroupRowState extends State<SidebarGroupRow> {
                 ),
               ),
             ),
+            if (widget.runningCount > 0) ...[
+              const SizedBox(width: 6),
+              RunningDot(count: widget.runningCount),
+            ],
             const SizedBox(width: 6),
             SidebarCount(
               widget.group.memberIds.length,

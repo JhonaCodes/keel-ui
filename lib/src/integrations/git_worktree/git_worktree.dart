@@ -30,6 +30,7 @@ import 'package:keel_ui/src/core/ui/form_panel.dart';
 import 'package:keel_ui/src/modules/app_status/viewmodel/app_status_viewmodel.dart';
 import 'package:keel_ui/src/modules/projects/model/project.dart';
 import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
+import 'package:keel_ui/src/modules/workspace/model/running_work.dart';
 
 part 'src/worktree_place.dart';
 part 'src/worktree_probe.dart';

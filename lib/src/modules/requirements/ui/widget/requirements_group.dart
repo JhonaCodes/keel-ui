@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
 
+import 'package:keel_ui/src/core/ui/running_dot.dart';
 import 'package:keel_ui/src/modules/requirements/model/internal_requirement.dart';
 import 'package:keel_ui/src/modules/sidebar_layout/model/sidebar_layout.dart';
 import 'package:keel_ui/src/modules/sidebar_layout/ui/widget/sidebar_section_list.dart';
@@ -111,10 +112,15 @@ class RequirementsGroup extends StatelessWidget {
               idOf: (requirement) => requirement.id,
               labelOf: (requirement) => requirement.code,
               selectedId: selectedRequirementId,
+              runningIds: {
+                for (final requirement in abiertos)
+                  if (viewmodel.isThinking(requirement.id)) requirement.id,
+              },
               rowBuilder: (requirement) => _RequirementRow(
                 requirement: requirement,
                 selectedProjectId: selectedProjectId,
                 selected: selectedRequirementId == requirement.id,
+                thinking: viewmodel.isThinking(requirement.id),
                 onTap: () => onSelect(requirement.id),
               ),
             ),
@@ -130,12 +136,17 @@ class _RequirementRow extends StatelessWidget {
     required this.requirement,
     required this.selectedProjectId,
     required this.selected,
+    required this.thinking,
     required this.onTap,
   });
 
   final InternalRequirement requirement;
   final String? selectedProjectId;
   final bool selected;
+
+  /// Un agente está redactando su respuesta en este hilo.
+  final bool thinking;
+
   final VoidCallback onTap;
 
   @override
@@ -200,6 +211,13 @@ class _RequirementRow extends StatelessWidget {
                 ),
               ),
             ),
+            if (thinking) ...[
+              const SizedBox(width: 6),
+              const Tooltip(
+                message: 'Un agente está contestando en el hilo',
+                child: RunningDot(),
+              ),
+            ],
           ],
         ),
       ),

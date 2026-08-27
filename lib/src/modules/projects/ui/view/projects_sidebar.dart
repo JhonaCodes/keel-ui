@@ -21,6 +21,8 @@ import 'package:keel_ui/src/modules/projects/model/project.dart';
 import 'package:keel_ui/src/modules/projects/model/session.dart';
 import 'package:keel_ui/src/modules/projects/ui/widget/session_plan_list.dart';
 import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
+import 'package:keel_ui/src/core/ui/running_dot.dart';
+import 'package:keel_ui/src/modules/workspace/model/running_work.dart';
 import 'package:keel_ui/src/modules/sidebar_layout/model/sidebar_layout.dart';
 import 'package:keel_ui/src/modules/sidebar_layout/ui/widget/sidebar_section_list.dart';
 import 'package:keel_ui/src/modules/sidebar_layout/viewmodel/sidebar_layout_viewmodel.dart';
@@ -132,6 +134,7 @@ class _SidebarListState extends State<_SidebarList> {
             selectedId: workspace.isProjectScoped
                 ? state.selectedProjectId
                 : null,
+            runningIds: runningProjectIds(state.projects),
             rowBuilder: (project) => _ProjectRow(
               project: project,
               selected:
@@ -221,6 +224,7 @@ class _SidebarListState extends State<_SidebarList> {
                       selectedId: workspace.lens == WorkspaceLens.agent
                           ? agentsState.selectedAgentId
                           : null,
+                      runningIds: runningAgentIds(agents),
                       rowBuilder: (agent) => _LooseAgentRow(
                         agent: agent,
                         selected:
@@ -276,9 +280,18 @@ class _SessionsSection extends StatelessWidget {
           onTap: () => active == null
               ? navigator.openNewSession(project.id)
               : navigator.openSession(project.id, active),
-          trailing: SidebarCount(
-            project.sessions.length,
-            highlight: onSessions,
+          // Plegada, la cabecera es lo único que queda de las sesiones: si
+          // alguna trabaja, tiene que decirlo acá.
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (runningSessionsOf(project) case final running
+                  when running > 0) ...[
+                RunningDot(count: running),
+                const SizedBox(width: 6),
+              ],
+              SidebarCount(project.sessions.length, highlight: onSessions),
+            ],
           ),
         ),
         if (expanded) ...[
@@ -479,6 +492,9 @@ class _ProjectRow extends StatefulWidget {
   final bool selected;
   final VoidCallback onTap;
 
+  /// Cuántas de sus sesiones están corriendo un turno.
+  int get running => runningSessionsOf(project);
+
   @override
   State<_ProjectRow> createState() => _ProjectRowState();
 }
@@ -550,6 +566,18 @@ class _ProjectRowState extends State<_ProjectRow> {
                   size: 12,
                   color: scheme.outline,
                 ),
+              ),
+            ],
+            // Con las secciones plegadas —que ahora es el default— esta fila
+            // es lo único que puede decir que adentro hay un agente
+            // trabajando.
+            if (widget.running > 0) ...[
+              const SizedBox(width: 6),
+              Tooltip(
+                message: widget.running == 1
+                    ? 'Una sesión trabajando'
+                    : '${widget.running} sesiones trabajando',
+                child: RunningDot(count: widget.running),
               ),
             ],
           ],
@@ -627,12 +655,20 @@ class _SessionRowState extends State<_SessionRow> {
         size: 13,
         color: scheme.error,
       ),
+      // Ojo con el nombre: `SessionStatus.running` significa ABIERTA, no
+      // «ejecutando». Toda sesión abierta caía acá y mostraba lo mismo,
+      // corriera o no — así que la única fila que hablaba de ejecución
+      // decía siempre lo mismo. Quien ejecuta es `isRunning`.
+      SessionStatus.running when session.isRunning => const Tooltip(
+        message: 'Trabajando ahora',
+        child: RunningDot(),
+      ),
       SessionStatus.running => Text(
         session.resolutionCase?.status.name ?? '···',
         style: TextStyle(
           fontFamily: 'monospace',
           fontSize: 10,
-          color: scheme.primary,
+          color: scheme.outline,
         ),
       ),
     };

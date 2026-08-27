@@ -22,6 +22,7 @@ class SidebarSectionList<T> extends StatelessWidget {
     required this.rowBuilder,
     this.belowBuilder,
     this.selectedId,
+    this.runningIds = const {},
   });
 
   final SidebarSectionKind kind;
@@ -44,6 +45,10 @@ class SidebarSectionList<T> extends StatelessWidget {
   /// construir a sus miembros y lo abierto desaparecía de la barra sin dejar
   /// rastro, así que no había forma de saber en qué grupo estabas parado.
   final String? selectedId;
+
+  /// Los ítems que están trabajando ahora. El encabezado de un grupo suma
+  /// los suyos: plegado, es lo único que queda para decirlo.
+  final Set<String> runningIds;
 
   @override
   Widget build(BuildContext context) {
@@ -117,6 +122,9 @@ class SidebarSectionList<T> extends StatelessWidget {
                         onUngroup: () =>
                             layout.ungroup(kind, slot.id, presentIds: present),
                         containsSelection: slot.memberIds.contains(selectedId),
+                        runningCount: slot.memberIds
+                            .where(runningIds.contains)
+                            .length,
                       ),
                     ),
                     // Plegado, se sigue mostrando lo que está abierto —y solo

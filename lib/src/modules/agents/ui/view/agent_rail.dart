@@ -6,7 +6,14 @@ import 'package:keel_ui/src/modules/assistant/service/assistant_window_bridge.da
 import 'package:keel_ui/src/integrations/app_update/app_update.dart';
 import 'package:keel_ui/src/integrations/fault_journal/fault_journal.dart';
 import 'package:keel_ui/src/integrations/system_vault/system_vault.dart';
+import 'package:keel_ui/src/modules/agents/model/agent.dart';
+import 'package:keel_ui/src/modules/agents/viewmodel/agents_viewmodel.dart';
+import 'package:keel_ui/src/modules/projects/model/project.dart';
+import 'package:keel_ui/src/modules/requirements/model/internal_requirement.dart';
+import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
+import 'package:keel_ui/src/modules/requirements/viewmodel/requirements_viewmodel.dart';
 import 'package:keel_ui/src/modules/settings/ui/widget/settings_panel.dart';
+import 'package:keel_ui/src/modules/workspace/model/running_work.dart';
 
 /// Ancho de la columna. Sale del texto más largo que tiene que entrar con
 /// [_railLabelStyle], no al revés: el rail es lo más angosto que puede ser sin
@@ -435,11 +442,17 @@ class _FaultsRailButton extends StatelessWidget {
   }
 }
 
-/// La máquina, con un punto cuando hay una versión nueva de Keel.
+/// La máquina, con un punto cuando hay una versión nueva de Keel y la
+/// barrita encendida mientras haya algo trabajando.
 ///
-/// El aviso vive acá y no en un cartel aparte porque la respuesta también:
-/// la sección Keel de esa pantalla es la que trae los commits y la que
-/// reconstruye.
+/// El aviso de versión vive acá y no en un cartel aparte porque la respuesta
+/// también: la sección Keel de esa pantalla es la que trae los commits y la
+/// que reconstruye.
+///
+/// Lo que corre va en ESTE botón porque es el que lleva a la lista completa
+/// de procesos. Y va en la barrita de `busy` y no en un segundo punto: ya hay
+/// uno arriba a la derecha para la versión, y dos puntos en la misma esquina
+/// son dos avisos que se tapan.
 class _MachineRailButton extends StatelessWidget {
   const _MachineRailButton({required this.onPressed, this.selected = false});
 
@@ -448,6 +461,39 @@ class _MachineRailButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Cuatro escuchas para un botón parece mucho, y es lo que cuesta que la
+    // barrita sea VERDAD: si no escuchara a los tres dueños del trabajo, se
+    // encendería tarde o se quedaría encendida.
+    return ReactiveViewModelBuilder<ProjectsViewModel, ProjectsState>(
+      viewmodel: ProjectsService.instance.notifier,
+      build: (projectsState, projectsVm, keepProjects) =>
+          ReactiveViewModelBuilder<AgentsViewModel, AgentsState>(
+            viewmodel: AgentsService.instance.notifier,
+            build: (agentsState, agentsVm, keepAgents) =>
+                ReactiveViewModelBuilder<
+                  RequirementsViewModel,
+                  RequirementsState
+                >(
+                  viewmodel: RequirementsService.instance.notifier,
+                  build: (requirementsState, requirements, keepReqs) => _button(
+                    context,
+                    running: totalRunningWork(
+                      projects: projectsState.projects,
+                      agents: agentsState.agents,
+                      thinkingRequirements: requirementsState.requirements
+                          .where(
+                            (requirement) =>
+                                requirements.isThinking(requirement.id),
+                          )
+                          .length,
+                    ),
+                  ),
+                ),
+          ),
+    );
+  }
+
+  Widget _button(BuildContext context, {required int running}) {
     return ReactiveViewModelBuilder<AppUpdateViewModel, AppUpdateState>(
       viewmodel: AppUpdateService.instance.notifier,
       build: (state, viewmodel, keep) {
@@ -457,9 +503,15 @@ class _MachineRailButton extends StatelessWidget {
             _RailButton(
               label: 'Máquina',
               icon: Icons.memory_outlined,
-              tooltip: state.pending
-                  ? 'Hay una versión nueva de Keel'
-                  : 'Servicios, consumo y estado de la máquina',
+              busy: running > 0,
+              tooltip: switch (running) {
+                0 =>
+                  state.pending
+                      ? 'Hay una versión nueva de Keel'
+                      : 'Servicios, consumo y estado de la máquina',
+                1 => 'Hay 1 trabajo en curso',
+                _ => 'Hay $running trabajos en curso',
+              },
               onPressed: onPressed,
               selected: selected,
             ),

@@ -35,6 +35,7 @@ import 'package:keel_ui/src/core/services/external_link_service.dart';
 import 'package:keel_ui/src/integrations/app_update/release_version.dart';
 import 'package:keel_ui/src/modules/app_status/viewmodel/app_status_viewmodel.dart';
 import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
+import 'package:keel_ui/src/modules/workspace/model/running_work.dart';
 
 export 'release_version.dart';
 

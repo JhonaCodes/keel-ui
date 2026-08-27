@@ -35,9 +35,19 @@ int usedContextOf(TurnUsage usage) =>
     usage.inputTokens + usage.cacheReadTokens + usage.cacheCreationTokens;
 
 /// Lee el evento `result` del stream del CLI.
-TurnUsage readTurnUsage(Map<String, dynamic> event) {
+///
+/// [turnModel] es el modelo con el que arrancó el turno, tal como lo informa
+/// el evento `system/init`. Importa para el TECHO de contexto: `modelUsage`
+/// trae una entrada por modelo que participó —incluidos los submodelos de un
+/// subagente— y elegir por volumen de tokens puede quedarse con la ventana
+/// del chico. Una traza real de este repo tenía `haiku@200k` junto a
+/// `sonnet@1M`: tomar la de 200k hace que el anillo se sature con la quinta
+/// parte del contexto.
+TurnUsage readTurnUsage(Map<String, dynamic> event, {String turnModel = ''}) {
   final usage = event['usage'] as Map<String, dynamic>?;
-  final main = _mainModelUsage(event['modelUsage'] as Map<String, dynamic>?);
+  final modelUsage = event['modelUsage'] as Map<String, dynamic>?;
+  final main =
+      _namedModelUsage(modelUsage, turnModel) ?? _mainModelUsage(modelUsage);
 
   return (
     costUsd: (event['total_cost_usd'] as num?)?.toDouble() ?? 0,
@@ -52,6 +62,26 @@ TurnUsage readTurnUsage(Map<String, dynamic> event) {
 }
 
 int _int(Object? value) => (value as num? ?? 0).toInt();
+
+/// La entrada de `modelUsage` que corresponde al modelo del turno.
+///
+/// El CLI nombra las claves con el id completo, que no siempre es igual al
+/// alias con el que se pidió el turno, así que se acepta que una contenga a
+/// la otra en cualquier dirección.
+({String model, Map<String, dynamic> entry})? _namedModelUsage(
+  Map<String, dynamic>? modelUsage,
+  String turnModel,
+) {
+  if (modelUsage == null || turnModel.isEmpty) return null;
+  for (final pair in modelUsage.entries) {
+    if (pair.key == turnModel ||
+        pair.key.contains(turnModel) ||
+        turnModel.contains(pair.key)) {
+      return (model: pair.key, entry: pair.value as Map<String, dynamic>);
+    }
+  }
+  return null;
+}
 
 /// La entrada de `modelUsage` con más uso: ese es el modelo que condujo el
 /// turno, y no las llamadas internas chiquitas (un haiku de fondo, por

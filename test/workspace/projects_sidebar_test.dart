@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
@@ -31,6 +32,19 @@ String _project(String name) {
     knowledgeBaseNames: const [],
   );
   return projects.data.projects.firstWhere((entry) => entry.name == name).id;
+}
+
+/// Abre una sección del proyecto (Tableros / Sesiones), que ahora arrancan
+/// plegadas: entrar a un proyecto no es pedir que se despliegue todo.
+Future<void> _abrirSeccion(WidgetTester tester, String label) async {
+  final fila = find.ancestor(
+    of: find.text(label),
+    matching: find.byType(SidebarSectionRow),
+  );
+  await tester.tap(
+    find.descendant(of: fila, matching: find.byIcon(Icons.arrow_right)),
+  );
+  await tester.pumpAndSettle();
 }
 
 void _board(String projectId, String name) {
@@ -134,8 +148,66 @@ void main() {
       await tester.pumpWidget(_app());
       await tester.pump();
 
+      await _abrirSeccion(tester, 'Tableros');
+
       expect(find.textContaining('Pedíselo a un agente'), findsNothing);
       expect(find.text('Nuevo tablero'), findsOneWidget);
+    });
+  });
+
+  group('las secciones del proyecto arrancan plegadas', () {
+    testWidgets('abrir un proyecto no despliega Tableros ni Sesiones', (
+      tester,
+    ) async {
+      // Antes el estado arrancaba en `true` y no se guardaba, así que entrar
+      // a un proyecto abría las dos secciones solo.
+      final projectId = _project('portal');
+      WorkspaceService.instance.notifier.openNewSession(projectId);
+      _board(projectId, 'Lanzar oferta');
+
+      await tester.pumpWidget(_app());
+      await tester.pumpAndSettle();
+
+      expect(find.text('Lanzar oferta'), findsNothing);
+      expect(find.text('Sesión nueva'), findsNothing);
+    });
+
+    testWidgets('lo que abriste queda abierto', (tester) async {
+      final projectId = _project('portal');
+      WorkspaceService.instance.notifier.openProject(projectId);
+      _board(projectId, 'Lanzar oferta');
+
+      await tester.pumpWidget(_app());
+      await tester.pumpAndSettle();
+      await _abrirSeccion(tester, 'Tableros');
+
+      expect(
+        SidebarLayoutService.instance.notifier.isSectionOpen(
+          'boards:$projectId',
+        ),
+        isTrue,
+      );
+      expect(find.text('Lanzar oferta'), findsOneWidget);
+    });
+
+    testWidgets('y es de cada proyecto, no de la barra entera', (tester) async {
+      // Antes los dos flags eran uno solo para todo el sidebar: abrir
+      // Tableros en un proyecto los abría en todos.
+      final portal = _project('portal');
+      final tienda = _project('tienda');
+      _board(portal, 'Lanzar oferta');
+      _board(tienda, 'Otro tablero');
+      WorkspaceService.instance.notifier.openProject(portal);
+
+      await tester.pumpWidget(_app());
+      await tester.pumpAndSettle();
+      await _abrirSeccion(tester, 'Tableros');
+      expect(find.text('Lanzar oferta'), findsOneWidget);
+
+      WorkspaceService.instance.notifier.openProject(tienda);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Otro tablero'), findsNothing);
     });
   });
 
@@ -148,6 +220,8 @@ void main() {
 
       await tester.pumpWidget(_app());
       await tester.pump();
+      await _abrirSeccion(tester, 'Tableros');
+      await _abrirSeccion(tester, 'Sesiones');
 
       await tester.tap(find.text('Lanzar oferta'));
       await tester.pump();
@@ -202,6 +276,7 @@ void main() {
 
       await tester.pumpWidget(_app());
       await tester.pump();
+      await _abrirSeccion(tester, 'Tableros');
       expect(find.text('Lanzar oferta'), findsOneWidget);
 
       final tableros = find.ancestor(
@@ -229,6 +304,7 @@ void main() {
 
       await tester.pumpWidget(_app());
       await tester.pump();
+      await _abrirSeccion(tester, 'Tableros');
 
       await tester.tap(find.byTooltip('Eliminar tablero'));
       await tester.pumpAndSettle();
@@ -319,11 +395,51 @@ void main() {
       await plegar(tester);
 
       expect(find.text('alfa'), findsNothing);
-      expect(find.text('beta'), findsNothing);
       expect(find.byType(SidebarGroupRow), findsOneWidget);
 
       await plegar(tester);
       expect(find.text('alfa'), findsOneWidget);
+    });
+
+    testWidgets('plegado, lo que está abierto se sigue viendo', (tester) async {
+      // Al estilo Slack: plegar es dejar de mirar el resto, no perder de
+      // vista dónde estás parado. Sin esto, la fila abierta desaparecía de
+      // la barra y no había forma de saber en qué grupo buscarla.
+      final alfa = _project('alfa');
+      _project('beta');
+      WorkspaceService.instance.notifier.openProject(alfa);
+      await tester.pumpWidget(_app());
+      await tester.pumpAndSettle();
+      await arrastrarSobre(tester, desde: 'beta', hasta: 'alfa');
+
+      await plegar(tester);
+
+      expect(find.text('alfa'), findsOneWidget, reason: 'es el abierto');
+      expect(find.text('beta'), findsNothing);
+    });
+
+    testWidgets('el click derecho abre un menú y no borra el grupo', (
+      tester,
+    ) async {
+      // Antes deshacía el grupo en el acto, sin preguntar y sin deshacer: la
+      // fila desaparecía y los miembros quedaban sueltos.
+      _project('alfa');
+      _project('beta');
+      await tester.pumpWidget(_app());
+      await tester.pumpAndSettle();
+      await arrastrarSobre(tester, desde: 'beta', hasta: 'alfa');
+
+      final centro = tester.getCenter(find.byType(SidebarGroupRow));
+      final gesto = await tester.startGesture(
+        centro,
+        buttons: kSecondaryButton,
+      );
+      await gesto.up();
+      await tester.pumpAndSettle();
+
+      expect(find.text('Deshacer el grupo'), findsOneWidget);
+      expect(find.text('Renombrar'), findsOneWidget);
+      expect(find.byType(SidebarGroupRow), findsOneWidget);
     });
 
     testWidgets('el doble click renombra el grupo', (tester) async {

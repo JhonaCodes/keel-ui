@@ -18,6 +18,23 @@ import 'package:keel_ui/src/core/services/turn_usage.dart';
 class ClaudeStreamReader {
   final Set<String> _subagentToolUseIds = {};
 
+  /// Cuánto contexto ocupaba la ÚLTIMA llamada del hilo principal.
+  ///
+  /// No es lo mismo que la suma del turno, y confundirlos es lo que tenía al
+  /// anillo clavado en rojo. El bloque `usage` del evento `result` es el
+  /// agregado de TODAS las llamadas del turno, y como cada paso de
+  /// herramienta reenvía la conversación entera, el mismo contexto se cuenta
+  /// una vez por paso. Medido sobre una traza real: 58.638 tokens de contexto
+  /// verdadero contra 347.037 sumados, casi seis veces más.
+  ///
+  /// Lo que llena la ventana es lo que entró en la última llamada, y eso está
+  /// en el `usage` de cada evento `assistant`.
+  int _latestContextTokens = 0;
+
+  /// El modelo con el que arrancó el turno, para elegir el techo de contexto
+  /// correcto entre las entradas de `modelUsage`.
+  String _turnModel = '';
+
   List<Map<String, dynamic>> read(Map<String, dynamic> event) {
     // Un subagente habla con el id del `Task` que lo abrió. Sin esta rama su
     // texto y su pensamiento entran al buffer del padre y quedan firmados por
@@ -32,9 +49,12 @@ class ClaudeStreamReader {
         return switch (event['subtype']) {
           'init' => switch (event['session_id'] as String?) {
             null => const <Map<String, dynamic>>[],
-            final sessionId => [
-              {'type': 'sessionStarted', 'sessionId': sessionId},
-            ],
+            final sessionId => () {
+              _turnModel = event['model'] as String? ?? '';
+              return [
+                {'type': 'sessionStarted', 'sessionId': sessionId},
+              ];
+            }(),
           },
           'permission_denied' => [
             {
@@ -53,6 +73,7 @@ class ClaudeStreamReader {
         return [..._hookBlock(event), ..._subagentResult(event)];
 
       case 'assistant':
+        _rememberContextOf(event);
         final content = _messageContentBlocks(event);
         if (content.isEmpty) return const [];
 
@@ -83,7 +104,13 @@ class ClaudeStreamReader {
         return events;
 
       case 'result':
-        final usage = readTurnUsage(event);
+        final usage = readTurnUsage(event, turnModel: _turnModel);
+        // Si el turno no dejó ninguna llamada del hilo principal, no hay
+        // «última»: se cae al agregado, que es lo único que hay.
+        final contextTokens = _latestContextTokens > 0
+            ? _latestContextTokens
+            : usedContextOf(usage);
+        _latestContextTokens = 0;
         return [
           {
             'type': 'turnCompleted',
@@ -98,13 +125,13 @@ class ClaudeStreamReader {
             'cacheCreationTokens': usage.cacheCreationTokens,
             'tokensReported': event['usage'] is Map,
             'usageIsCumulative': false,
-            'contextUsedTokens': usedContextOf(usage),
+            'contextUsedTokens': contextTokens,
             'contextWindowTokens': usage.contextWindowTokens,
           },
           if (usage.contextWindowTokens > 0)
             {
               'type': 'contextUsage',
-              'usedTokens': usedContextOf(usage),
+              'usedTokens': contextTokens,
               'contextWindowTokens': usage.contextWindowTokens,
             },
         ];
@@ -232,6 +259,25 @@ class ClaudeStreamReader {
   /// control, incluido `/compact`, pueden emitir el mensaje de confirmación
   /// como un [String] directo. La frontera del protocolo absorbe esa diferencia
   /// para que ningún consumidor tenga que hacer casts sobre datos del CLI.
+  /// Anota el contexto de esta llamada del hilo principal.
+  ///
+  /// Solo llega acá lo que NO es de un subagente: los eventos con
+  /// `parent_tool_use_id` se desvían antes, en [read]. Un subagente tiene su
+  /// propia conversación, y su tamaño no dice nada del contexto de esta.
+  void _rememberContextOf(Map<String, dynamic> event) {
+    final message = event['message'];
+    if (message is! Map) return;
+    final usage = message['usage'];
+    if (usage is! Map) return;
+
+    int read(String key) => (usage[key] as num? ?? 0).toInt();
+    final total =
+        read('input_tokens') +
+        read('cache_read_input_tokens') +
+        read('cache_creation_input_tokens');
+    if (total > 0) _latestContextTokens = total;
+  }
+
   static List<Map<String, dynamic>> _messageContentBlocks(
     Map<String, dynamic> event,
   ) {

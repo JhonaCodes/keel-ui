@@ -36,9 +36,11 @@ class SidebarLayoutViewModel extends ViewModel<SidebarLayoutState> {
   Future<void> _load() async {
     try {
       final layouts = await _repository.load();
+      final open = await _repository.loadOpenSections();
       updateState(
         data.copyWith(
           layouts: {for (final layout in layouts) layout.kind: layout},
+          openSections: open,
         ),
       );
     } catch (error) {
@@ -297,6 +299,25 @@ class SidebarLayoutViewModel extends ViewModel<SidebarLayoutState> {
       }
     }
     slots.add(dragged);
+  }
+
+  /// ¿Está abierta la sección [key]?
+  ///
+  /// Plegada es el default. Antes esto era un `bool` en el `State` del widget
+  /// que arrancaba en `true` y no se guardaba: Tableros y Sesiones se abrían
+  /// solos al entrar a un proyecto, y encima era uno solo para toda la barra,
+  /// así que cambiar de proyecto te arrastraba el del anterior.
+  bool isSectionOpen(String key) => data.openSections.contains(key);
+
+  Future<void> toggleSection(String key) async {
+    final open = {...data.openSections};
+    if (!open.remove(key)) open.add(key);
+    updateState(data.copyWith(openSections: open));
+    try {
+      await _repository.saveOpenSections(open);
+    } catch (error) {
+      Log.e('No pude guardar qué secciones quedaron abiertas', error: error);
+    }
   }
 
   Future<void> _store(SidebarSectionKind kind, List<SidebarSlot> slots) async {

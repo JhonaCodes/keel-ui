@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'package:keel_ui/src/core/ui/confirm_card.dart';
@@ -21,6 +23,7 @@ import 'package:keel_ui/src/modules/projects/ui/widget/session_plan_list.dart';
 import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
 import 'package:keel_ui/src/modules/sidebar_layout/model/sidebar_layout.dart';
 import 'package:keel_ui/src/modules/sidebar_layout/ui/widget/sidebar_section_list.dart';
+import 'package:keel_ui/src/modules/sidebar_layout/viewmodel/sidebar_layout_viewmodel.dart';
 import 'package:keel_ui/src/modules/workflows/model/workflow.dart';
 import 'package:keel_ui/src/modules/workflows/viewmodel/workflows_viewmodel.dart';
 import 'package:keel_ui/src/modules/workspace/model/workspace_lens.dart';
@@ -87,12 +90,7 @@ class _SidebarList extends StatefulWidget {
 }
 
 class _SidebarListState extends State<_SidebarList> {
-  /// Si las listas de cada sección están abiertas. Vive acá y no en el
-  /// ViewModel porque es de esta ventana: cuánto menú querés ver no es un
-  /// dato del sistema. Una sola por sección y no una por proyecto —hay un
-  /// solo proyecto abierto a la vez.
-  bool _boardsOpen = true;
-  bool _sessionsOpen = true;
+  SidebarLayoutViewModel get layout => SidebarLayoutService.instance.notifier;
 
   ProjectsState get state => widget.state;
   WorkspaceState get workspace => widget.workspace;
@@ -131,6 +129,9 @@ class _SidebarListState extends State<_SidebarList> {
             items: state.projects,
             idOf: (project) => project.id,
             labelOf: (project) => '#${project.name}',
+            selectedId: workspace.isProjectScoped
+                ? state.selectedProjectId
+                : null,
             rowBuilder: (project) => _ProjectRow(
               project: project,
               selected:
@@ -151,19 +152,26 @@ class _SidebarListState extends State<_SidebarList> {
                         selected: workspace.lens == WorkspaceLens.projectState,
                         onTap: () => navigator.openProjectState(project.id),
                       ),
+                      // Plegadas salvo que las hayas abierto vos, y cada
+                      // proyecto recuerda las suyas: entrar a un proyecto no
+                      // es pedir que se despliegue todo lo que tiene.
                       BoardsSection(
                         projectId: project.id,
                         workspace: workspace,
-                        expanded: _boardsOpen,
-                        onToggle: () =>
-                            setState(() => _boardsOpen = !_boardsOpen),
+                        expanded: layout.isSectionOpen('boards:${project.id}'),
+                        onToggle: () => unawaited(
+                          layout.toggleSection('boards:${project.id}'),
+                        ),
                       ),
                       _SessionsSection(
                         project: project,
                         workspace: workspace,
-                        expanded: _sessionsOpen,
-                        onToggle: () =>
-                            setState(() => _sessionsOpen = !_sessionsOpen),
+                        expanded: layout.isSectionOpen(
+                          'sessions:${project.id}',
+                        ),
+                        onToggle: () => unawaited(
+                          layout.toggleSection('sessions:${project.id}'),
+                        ),
                       ),
                     ],
                   ),
@@ -210,6 +218,9 @@ class _SidebarListState extends State<_SidebarList> {
                       items: agents,
                       idOf: (agent) => agent.id,
                       labelOf: (agent) => agent.name,
+                      selectedId: workspace.lens == WorkspaceLens.agent
+                          ? agentsState.selectedAgentId
+                          : null,
                       rowBuilder: (agent) => _LooseAgentRow(
                         agent: agent,
                         selected:

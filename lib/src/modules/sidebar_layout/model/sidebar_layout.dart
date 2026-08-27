@@ -158,22 +158,38 @@ class SidebarLayout {
 }
 
 class SidebarLayoutState {
-  const SidebarLayoutState({this.layouts = const {}});
+  const SidebarLayoutState({
+    this.layouts = const {},
+    this.openSections = const {},
+  });
 
   final Map<SidebarSectionKind, SidebarLayout> layouts;
+
+  /// Las secciones que el usuario dejó abiertas (`boards:<projectId>`, …).
+  /// Lo que no está acá está plegado, que es el default.
+  final Set<String> openSections;
 
   SidebarLayout layoutOf(SidebarSectionKind kind) =>
       layouts[kind] ?? SidebarLayout(kind: kind);
 
   SidebarLayoutState copyWith({
     Map<SidebarSectionKind, SidebarLayout>? layouts,
-  }) => SidebarLayoutState(layouts: layouts ?? this.layouts);
+    Set<String>? openSections,
+  }) => SidebarLayoutState(
+    layouts: layouts ?? this.layouts,
+    openSections: openSections ?? this.openSections,
+  );
 
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      other is SidebarLayoutState && mapEquals(layouts, other.layouts);
+      other is SidebarLayoutState &&
+          mapEquals(layouts, other.layouts) &&
+          setEquals(openSections, other.openSections);
 
   @override
-  int get hashCode => Object.hashAll(layouts.entries.map((e) => e.value));
+  int get hashCode => Object.hash(
+    Object.hashAll(layouts.entries.map((e) => e.value)),
+    Object.hashAllUnordered(openSections),
+  );
 }

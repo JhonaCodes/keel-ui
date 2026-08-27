@@ -56,7 +56,7 @@ class AssistantWindowBridge {
   }
 
   Future<void> _open() async {
-    _activeAgentId = _agents.resolveKeelAiSession() ?? _activeAgentId;
+    _activeAgentId = _liveActiveAgentId();
     _ensureListening();
 
     // El nudge es SOLO para una ventana que ya existía: su engine no se
@@ -85,6 +85,57 @@ class AssistantWindowBridge {
     unawaited(_agents.sendMessage(agentId, request));
   }
 
+  /// Qué chat tiene que mostrar la ventana, respetando el que elegiste.
+  ///
+  /// Esto era `_activeAgentId = resolveKeelAiSession()` a secas, y
+  /// `resolveKeelAiSession` devuelve **el más reciente**. Como `_open()`
+  /// corre en cada apertura —y el botón de Keel AI del rail abre aunque la
+  /// ventana ya esté abierta—, tocarlo mientras leías una conversación vieja
+  /// te tiraba de golpe a la última: la ventana cambiaba de chat sola.
+  ///
+  /// Solo se vuelve a resolver cuando no hay ninguno elegido, o cuando el que
+  /// había ya no existe —lo borraste desde la app principal— y quedarse con
+  /// él sería mostrar una ventana vacía para siempre.
+  String? _liveActiveAgentId() =>
+      _resolveActiveAgent()?.id ?? _agents.resolveKeelAiSession();
+
+  /// Las conversaciones de Keel AI, de la más nueva a la más vieja.
+  List<Agent> _keelAiSessions() {
+    final keelAiProfileId = AgentProfilesService.instance.notifier.data.profiles
+        .where((profile) => profile.name == kKeelAiHandle)
+        .firstOrNull
+        ?.id;
+    return _agents.data.agents
+        .where((agent) => agent.profileId == keelAiProfileId)
+        .toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+  }
+
+  /// El chat que la ventana muestra, resuelto en UN solo lugar.
+  ///
+  /// La huella y el contenido lo calculaban por separado: la huella buscaba
+  /// entre TODOS los agentes por id, y el contenido solo entre las sesiones
+  /// de Keel AI, con un «si no lo encuentro, mostrá la más reciente»
+  /// silencioso. Cuando los dos no coincidían, la ventana terminaba mostrando
+  /// una conversación mientras el puente creía que mostraba otra — y como la
+  /// huella miraba la equivocada, un cambio real podía no empujarse nunca.
+  ///
+  /// La caída a la más reciente se conserva (mostrar algo es mejor que
+  /// mostrar un hueco) pero **se anota**: si la ventana cambió de chat, el
+  /// puente tiene que saberlo, porque es lo que usa para mandar un pedido
+  /// desde afuera.
+  Agent? _resolveActiveAgent() {
+    final sessions = _keelAiSessions();
+    final chosen = sessions
+        .where((agent) => agent.id == _activeAgentId)
+        .firstOrNull;
+    if (chosen != null) return chosen;
+
+    final fallback = sessions.firstOrNull;
+    _activeAgentId = fallback?.id;
+    return fallback;
+  }
+
   /// Dispatches one `assistant.<method>` bridge call. Returns a JSON-encoded
   /// [AssistantWindowState] for the methods whose UI needs the answer
   /// immediately (attach + session changes), null for fire-and-forget ones.
@@ -97,7 +148,7 @@ class AssistantWindowBridge {
     switch (method) {
       case 'attach':
         _ensureListening();
-        _activeAgentId ??= _agents.resolveKeelAiSession();
+        _activeAgentId = _liveActiveAgentId();
         return _encodeWireState();
 
       case 'sendMessage':
@@ -303,9 +354,7 @@ class AssistantWindowBridge {
   /// escribe; el resto son los cambios que se ven de golpe.
   String _fingerprint() {
     final agents = _agents.data.agents;
-    final active = agents
-        .where((agent) => agent.id == _activeAgentId)
-        .firstOrNull;
+    final active = _resolveActiveAgent();
     final last = active?.messages.lastOrNull;
     return [
       agents.length,
@@ -359,21 +408,8 @@ class AssistantWindowBridge {
 
   /// Current window content with seq 0 — comparable across ticks.
   AssistantWindowState _buildContent() {
-    final keelAiProfileId = AgentProfilesService.instance.notifier.data.profiles
-        .where((profile) => profile.name == kKeelAiHandle)
-        .firstOrNull
-        ?.id;
-
-    final sessions =
-        _agents.data.agents
-            .where((agent) => agent.profileId == keelAiProfileId)
-            .toList()
-          ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-
-    Agent? active = sessions
-        .where((agent) => agent.id == _activeAgentId)
-        .firstOrNull;
-    active ??= sessions.firstOrNull;
+    final sessions = _keelAiSessions();
+    final active = _resolveActiveAgent();
 
     return AssistantWindowState(
       activeAgentId: active?.id,

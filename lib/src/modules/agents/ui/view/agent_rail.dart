@@ -28,7 +28,7 @@ const _railLabelStyle = TextStyle(
 /// vive en el sidebar, y estuvo un tiempo también acá: dos columnas pegadas
 /// mostrando los mismos agentes, con dos formas distintas de seleccionarlos.
 /// Acá quedó lo que se abre como panel y vuelve a cerrarse.
-class AgentRail extends StatelessWidget {
+class AgentRail extends StatefulWidget {
   const AgentRail({
     super.key,
     required this.onOpenProfiles,
@@ -44,21 +44,48 @@ class AgentRail extends StatelessWidget {
     required this.onOpenMachine,
   });
 
-  final VoidCallback onOpenProfiles;
-  final VoidCallback onOpenSkills;
-  final VoidCallback onOpenRules;
-  final VoidCallback onOpenHooks;
-  final VoidCallback onOpenTools;
-  final VoidCallback onOpenSecrets;
-  final VoidCallback onOpenMcpServers;
-  final VoidCallback onOpenKnowledge;
-  final VoidCallback onOpenWorkflows;
-  final VoidCallback onOpenBoards;
-  final VoidCallback onOpenMachine;
+  /// Devuelven un `Future` porque el rail necesita saber CUÁNDO se cierra el
+  /// panel: mientras está abierto, su botón queda marcado.
+  final Future<void> Function() onOpenProfiles;
+  final Future<void> Function() onOpenSkills;
+  final Future<void> Function() onOpenRules;
+  final Future<void> Function() onOpenHooks;
+  final Future<void> Function() onOpenTools;
+  final Future<void> Function() onOpenSecrets;
+  final Future<void> Function() onOpenMcpServers;
+  final Future<void> Function() onOpenKnowledge;
+  final Future<void> Function() onOpenWorkflows;
+  final Future<void> Function() onOpenBoards;
+  final Future<void> Function() onOpenMachine;
+
+  @override
+  State<AgentRail> createState() => _AgentRailState();
+}
+
+class _AgentRailState extends State<AgentRail> {
+  /// Qué panel está abierto ahora mismo, si es que alguno.
+  ///
+  /// El rail NO es una barra de secciones: cada botón abre un panel modal y
+  /// lo cierra. Marcarlo para siempre mentiría —diría «estás en Agentes»
+  /// mientras mirás un chat—, así que el botón queda marcado solo mientras
+  /// su panel está en pantalla.
+  String? _openPanel;
+
+  Future<void> _open(String label, Future<void> Function() show) async {
+    setState(() => _openPanel = label);
+    try {
+      await show();
+    } finally {
+      if (mounted) setState(() => _openPanel = null);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return ColoredBox(
+    // `Material` y no `ColoredBox`: el `Material` del `Scaffold` pinta las
+    // ondas ANTES que a su hijo, así que una capa opaca del rail las tapaba.
+    // El splash y el resaltado del hover se dibujaban y no se veían nunca.
+    return Material(
       color: Theme.of(context).colorScheme.surface,
       child: SizedBox(
         width: _railWidth,
@@ -92,57 +119,68 @@ class AgentRail extends StatelessWidget {
                       label: 'Agentes',
                       icon: Icons.badge_outlined,
                       tooltip: 'Agentes registrados',
-                      onPressed: onOpenProfiles,
+                      onPressed: () => _open('Agentes', widget.onOpenProfiles),
+                      selected: _openPanel == 'Agentes',
                     ),
                     _RailButton(
                       label: 'Skills',
                       icon: Icons.extension_outlined,
-                      onPressed: onOpenSkills,
+                      onPressed: () => _open('Skills', widget.onOpenSkills),
+                      selected: _openPanel == 'Skills',
                     ),
                     _RailButton(
                       label: 'Workflows',
                       icon: Icons.account_tree_outlined,
-                      onPressed: onOpenWorkflows,
+                      onPressed: () =>
+                          _open('Workflows', widget.onOpenWorkflows),
+                      selected: _openPanel == 'Workflows',
                     ),
                     _RailButton(
                       label: 'Reglas',
                       icon: Icons.rule_outlined,
-                      onPressed: onOpenRules,
+                      onPressed: () => _open('Reglas', widget.onOpenRules),
+                      selected: _openPanel == 'Reglas',
                     ),
                     const SizedBox(height: 12),
                     _RailButton(
                       label: 'Hooks',
                       icon: Icons.gpp_maybe_outlined,
                       tooltip: 'Guardarraíles que corren solos',
-                      onPressed: onOpenHooks,
+                      onPressed: () => _open('Hooks', widget.onOpenHooks),
+                      selected: _openPanel == 'Hooks',
                     ),
                     _RailButton(
                       label: 'Tools',
                       icon: Icons.terminal_outlined,
-                      onPressed: onOpenTools,
+                      onPressed: () => _open('Tools', widget.onOpenTools),
+                      selected: _openPanel == 'Tools',
                     ),
                     _RailButton(
                       label: 'Banco',
                       icon: Icons.tune,
                       tooltip: 'Tableros de prueba',
-                      onPressed: onOpenBoards,
+                      onPressed: () => _open('Banco', widget.onOpenBoards),
+                      selected: _openPanel == 'Banco',
                     ),
                     _RailButton(
                       label: 'MCP',
                       icon: Icons.hub_outlined,
                       tooltip: 'Integraciones MCP',
-                      onPressed: onOpenMcpServers,
+                      onPressed: () => _open('MCP', widget.onOpenMcpServers),
+                      selected: _openPanel == 'MCP',
                     ),
                     _RailButton(
                       label: 'Saber',
                       icon: Icons.menu_book_outlined,
                       tooltip: 'Conocimiento',
-                      onPressed: onOpenKnowledge,
+                      onPressed: () => _open('Saber', widget.onOpenKnowledge),
+                      selected: _openPanel == 'Saber',
                     ),
                     _RailButton(
                       label: 'Secrets',
                       icon: Icons.key_outlined,
-                      onPressed: onOpenSecrets,
+                      onPressed: () => _open('Secrets', widget.onOpenSecrets),
+                      selected: _openPanel == 'Secrets',
                     ),
                     const SizedBox(height: 10),
                   ],
@@ -161,13 +199,21 @@ class AgentRail extends StatelessWidget {
             // canal de reportes, que es donde alguien puede hacer algo con
             // ellas. Ver `reportToDiscord`.
             if (kDebugMode) const _FaultsRailButton(),
-            _MachineRailButton(onPressed: onOpenMachine),
-            _VaultRailButton(onPressed: () => openSettingsPanel(context)),
+            _MachineRailButton(
+              onPressed: () => _open('Máquina', widget.onOpenMachine),
+              selected: _openPanel == 'Máquina',
+            ),
+            _VaultRailButton(
+              onPressed: () => _open('Respaldo', () => openVaultPanel(context)),
+              selected: _openPanel == 'Respaldo',
+            ),
             _RailButton(
               label: 'Ajustes',
               icon: Icons.settings_outlined,
               tooltip: 'Configuración',
-              onPressed: () => openSettingsPanel(context),
+              onPressed: () =>
+                  _open('Ajustes', () => openSettingsPanel(context)),
+              selected: _openPanel == 'Ajustes',
             ),
             const _InstalledVersionRailButton(),
             const SizedBox(height: 10),
@@ -265,7 +311,11 @@ class _RailButton extends StatelessWidget {
     required this.onPressed,
     this.tooltip,
     this.busy = false,
+    this.selected = false,
   });
+
+  /// Su panel está abierto ahora mismo.
+  final bool selected;
 
   final String label;
   final IconData icon;
@@ -279,14 +329,25 @@ class _RailButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final foreground = busy ? scheme.primary : scheme.onSurfaceVariant;
+    final foreground = busy || selected
+        ? scheme.primary
+        : scheme.onSurfaceVariant;
 
     return Tooltip(
       message: tooltip ?? label,
       waitDuration: const Duration(milliseconds: 600),
       child: InkWell(
         onTap: onPressed,
-        child: Padding(
+        // Sin radio la onda sale cuadrada y desbordada; con él queda
+        // contenida en el botón, que es lo que se apretó.
+        borderRadius: BorderRadius.circular(8),
+        child: Ink(
+          decoration: BoxDecoration(
+            color: selected
+                ? scheme.primary.withValues(alpha: 0.10)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+          ),
           padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 2),
           child: Column(
             children: [
@@ -380,9 +441,10 @@ class _FaultsRailButton extends StatelessWidget {
 /// la sección Keel de esa pantalla es la que trae los commits y la que
 /// reconstruye.
 class _MachineRailButton extends StatelessWidget {
-  const _MachineRailButton({required this.onPressed});
+  const _MachineRailButton({required this.onPressed, this.selected = false});
 
   final VoidCallback onPressed;
+  final bool selected;
 
   @override
   Widget build(BuildContext context) {
@@ -399,6 +461,7 @@ class _MachineRailButton extends StatelessWidget {
                   ? 'Hay una versión nueva de Keel'
                   : 'Servicios, consumo y estado de la máquina',
               onPressed: onPressed,
+              selected: selected,
             ),
             if (state.pending)
               Positioned(
@@ -435,9 +498,10 @@ class _Dot extends StatelessWidget {
 /// está guardado" y "está guardado en un lugar que sobrevive a esta
 /// máquina" se ven exactamente igual. El punto naranja es la diferencia.
 class _VaultRailButton extends StatelessWidget {
-  const _VaultRailButton({required this.onPressed});
+  const _VaultRailButton({required this.onPressed, this.selected = false});
 
   final VoidCallback onPressed;
+  final bool selected;
 
   @override
   Widget build(BuildContext context) {
@@ -456,6 +520,7 @@ class _VaultRailButton extends StatelessWidget {
                   ? 'Escribiendo el respaldo, sin frenarte'
                   : (warning ?? 'Respaldo al día y subido al remoto'),
               onPressed: onPressed,
+              selected: selected,
             ),
             // Mientras corre no se muestra: el aviso habla del estado
             // ANTERIOR y todavía no se recalculó.

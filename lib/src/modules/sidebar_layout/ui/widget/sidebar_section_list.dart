@@ -21,6 +21,7 @@ class SidebarSectionList<T> extends StatelessWidget {
     required this.labelOf,
     required this.rowBuilder,
     this.belowBuilder,
+    this.selectedId,
   });
 
   final SidebarSectionKind kind;
@@ -36,6 +37,13 @@ class SidebarSectionList<T> extends StatelessWidget {
   /// proyecto abierto. Va afuera de la zona de soltado, porque soltar sobre
   /// «Sesiones» no significa nada.
   final Widget Function(T item)? belowBuilder;
+
+  /// Qué ítem está abierto ahora mismo, si es que alguno.
+  ///
+  /// La lista lo necesita para no esconderlo: un grupo plegado dejaba de
+  /// construir a sus miembros y lo abierto desaparecía de la barra sin dejar
+  /// rastro, así que no había forma de saber en qué grupo estabas parado.
+  final String? selectedId;
 
   @override
   Widget build(BuildContext context) {
@@ -108,8 +116,16 @@ class SidebarSectionList<T> extends StatelessWidget {
                         ),
                         onUngroup: () =>
                             layout.ungroup(kind, slot.id, presentIds: present),
+                        containsSelection: slot.memberIds.contains(selectedId),
                       ),
                     ),
+                    // Plegado, se sigue mostrando lo que está abierto —y solo
+                    // eso—, como hace Slack: plegar es dejar de mirar el
+                    // resto, no perder de vista dónde estás.
+                    if (slot.collapsed)
+                      for (final memberId in slot.memberIds)
+                        if (memberId == selectedId)
+                          itemRow(memberId, indented: true),
                     if (!slot.collapsed)
                       for (final memberId in slot.memberIds)
                         itemRow(memberId, indented: true),

@@ -110,6 +110,7 @@ class RequirementsGroup extends StatelessWidget {
               items: abiertos,
               idOf: (requirement) => requirement.id,
               labelOf: (requirement) => requirement.code,
+              selectedId: selectedRequirementId,
               rowBuilder: (requirement) => _RequirementRow(
                 requirement: requirement,
                 selectedProjectId: selectedProjectId,

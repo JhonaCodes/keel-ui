@@ -62,6 +62,21 @@ El formato del `.md` es mínimo a propósito —un frontmatter de pares
 pueda escribir a mano, se revise a ojo en un PR, y se parsee sin sumar una
 dependencia de YAML. La plantilla está en `docs/plantillas/TASKS/`.
 
+### El orden y la prioridad no son lo mismo
+
+El `NN-` del archivo dice **en qué orden** tomar las cosas. `prioridad:`
+contesta otra pregunta: **qué pasa si esto no se hace**. Una tarea puede ir
+tercera en la fila y ser lo más urgente que hay —porque hay otro proyecto
+frenado esperándola— y eso no se puede leer de su posición.
+
+Tres valores: `alta` (hay alguien esperando), `media` (el trabajo normal) y
+`baja` (mejora algo que ya funciona). Si todo es `alta`, nada es `alta`.
+
+Es **opcional**, y no por tibieza: el chequeo de formato mira nueve cosas, y
+hacerla obligatoria invalidaría de golpe todas las carpetas que ya existen.
+Sin declararla vale `media` — y el lector distingue «media porque lo dice» de
+«media porque no dijo nada», igual que ya hacía con `estado:`.
+
 ## Nadie puede cruzar proyectos
 
 El alcance **no es un argumento que manda el modelo**: sale de la URL con la

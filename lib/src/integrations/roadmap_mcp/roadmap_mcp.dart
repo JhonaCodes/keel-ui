@@ -32,6 +32,7 @@ import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
 import 'package:keel_ui/src/integrations/system_prompt/system_prompt.dart';
 
 part 'src/roadmap_reader.dart';
+part 'src/roadmap_writer.dart';
 part 'src/roadmap_gitignore.dart';
 part 'src/roadmap_format_check.dart';
 part 'src/roadmap_mcp_server.dart';

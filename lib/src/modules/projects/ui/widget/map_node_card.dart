@@ -469,7 +469,8 @@ class _Resolution extends StatelessWidget {
     // («le pidió») muestra la cola de lo que está razonando AHORA, como el
     // `think-peek` del mockup. «devolvió» y «cortó» no lo llevan.
     final reasoning = node.reasoning.trim();
-    final liveSubagent = node.kind == MapNodeKind.subagent &&
+    final liveSubagent =
+        node.kind == MapNodeKind.subagent &&
         node.state != MapNodeState.done &&
         node.state != MapNodeState.failed;
     final reasoningPeek = liveSubagent

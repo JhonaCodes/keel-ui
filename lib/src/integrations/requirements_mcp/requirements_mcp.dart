@@ -20,6 +20,7 @@ import 'package:keel_ui/src/modules/projects/model/project.dart';
 import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
 import 'package:keel_ui/src/modules/requirements/model/internal_requirement.dart';
 import 'package:keel_ui/src/modules/requirements/viewmodel/requirements_viewmodel.dart';
+import 'package:keel_ui/src/integrations/roadmap_mcp/roadmap_mcp.dart';
 import 'package:keel_ui/src/integrations/system_prompt/system_prompt.dart';
 
 part 'src/requirement_render.dart';

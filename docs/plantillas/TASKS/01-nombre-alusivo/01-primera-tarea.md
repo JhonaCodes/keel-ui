@@ -1,5 +1,6 @@
 ---
 estado: libre
+prioridad: media
 titulo: Capa de dispositivo
 ---
 

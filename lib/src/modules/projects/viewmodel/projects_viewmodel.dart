@@ -16,6 +16,7 @@ import 'package:keel_ui/src/integrations/session_plan_mcp/session_plan_mcp_serve
 import 'package:keel_ui/src/integrations/user_tools_mcp/user_tools_mcp_server.dart';
 import 'package:keel_ui/src/integrations/hook_delivery/hook_delivery.dart';
 import 'package:keel_ui/src/integrations/project_radar/project_radar.dart';
+import 'package:keel_ui/src/modules/requirements/model/internal_requirement.dart';
 import 'package:keel_ui/src/modules/requirements/viewmodel/requirements_viewmodel.dart';
 import 'package:keel_ui/src/modules/roadmap/viewmodel/task_claims_viewmodel.dart';
 import 'package:keel_ui/src/integrations/requirements_mcp/requirements_mcp.dart';
@@ -1131,6 +1132,146 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     return answer.isEmpty
         ? 'El proyecto "${target.name}" no devolvió nada.'
         : answer;
+  }
+
+  /// Trae a [member] a contestar dentro del hilo de un requerimiento.
+  ///
+  /// Es el escalón que faltaba entre «el hilo es un documento» y «tomar y
+  /// evaluar». Antes de esto, preguntarle al otro lado si algo aplica exigía
+  /// abrirle una sesión de trabajo entera; ahora se lo nombra con `@` y
+  /// contesta ahí mismo.
+  ///
+  /// **Corre sin sesión**, igual que [askProject] y por la misma razón: una
+  /// sesión es donde se trabaja, y acá todavía no se decidió trabajar. Sin
+  /// sesión no hay hilo de origen que se pueda filtrar, que es justo lo que
+  /// la frontera prohíbe.
+  ///
+  /// **Sin un solo MCP y sin tools que escriban.** No es una promesa del
+  /// prompt: sin el servidor de requerimientos enchufado, este turno no
+  /// puede tomar, ni dictaminar, ni convertir aunque quiera. Lee su propio
+  /// repo con las tools de lectura que todo turno tiene, y contesta.
+  ///
+  /// Lo único que cruza sigue siendo [renderRequirementForTurn].
+  Future<void> answerInRequirementThread({
+    required InternalRequirement requirement,
+    required AgentProfile member,
+    required Project memberProject,
+    required bool asTarget,
+    required String question,
+  }) async {
+    final requirements = RequirementsService.instance.notifier;
+    if (memberProject.workingDirectory.trim().isEmpty) {
+      requirements.reply(
+        requirement.id,
+        side: RequirementSide.usuario,
+        kind: RequirementEntryKind.correccion,
+        text:
+            'No pude preguntarle a @${member.name}: el proyecto '
+            '"${memberProject.name}" no tiene carpeta de trabajo elegida.',
+      );
+      return;
+    }
+
+    final from = _projectById(requirement.fromProjectId);
+    final to = _projectById(requirement.toProjectId);
+    final engine = memberProject.tuned(member);
+
+    requirements.markThinking(requirement.id, true);
+    try {
+      final run = await TaskRunner.run(
+        TaskRunSpec(
+          prompt: [
+            renderRequirementForTurn(
+              requirement,
+              fromProject: from?.name ?? 'un proyecto que ya no existe',
+              toProject: to?.name ?? 'un proyecto que ya no existe',
+              purpose: RequirementTurnPurpose.consultar,
+            ),
+            'TE PREGUNTAN ESTO:\n$question',
+          ].join('\n\n'),
+          workingDirectory: memberProject.workingDirectory,
+          model: engine.model,
+          fullFileSystemAccess: false,
+          effort: engine.effort,
+          extraAllowedTools: const [],
+          additionalSystemPrompt: _requirementConsultPrompt(
+            member: member,
+            project: memberProject,
+            asTarget: asTarget,
+          ),
+          provider: engine.provider.alias,
+          providerApiKey: await SecretsService.instance.notifier.resolveValue(
+            engine.provider.secretName,
+          ),
+        ),
+      );
+
+      final buffer = StringBuffer();
+      var failure = '';
+      await for (final event in run.events) {
+        if (event is TaskAssistantText) buffer.write(event.text);
+        if (event is TaskFailure) failure = event.message;
+      }
+      final answer = buffer.toString().trim();
+
+      if (answer.isEmpty) {
+        requirements.reply(
+          requirement.id,
+          side: RequirementSide.usuario,
+          kind: RequirementEntryKind.correccion,
+          text: failure.isEmpty
+              ? '@${member.name} no devolvió nada.'
+              : 'La consulta a @${member.name} falló: $failure',
+        );
+        return;
+      }
+
+      requirements.reply(
+        requirement.id,
+        side: asTarget ? RequirementSide.destino : RequirementSide.origen,
+        kind: asTarget
+            ? RequirementEntryKind.avance
+            : RequirementEntryKind.respuesta,
+        text: answer,
+        handle: member.name,
+      );
+    } finally {
+      requirements.markThinking(requirement.id, false);
+    }
+  }
+
+  /// Quién sos y qué podés hacer, para una consulta dentro de un hilo.
+  ///
+  /// Va el `systemPrompt` del perfil y NO su stack de skills y reglas: eso es
+  /// la doctrina de cómo trabaja, y acá no se le pide que trabaje sino que
+  /// diga si algo aplica. Es la misma decisión que ya tomó [askProject].
+  String _requirementConsultPrompt({
+    required AgentProfile member,
+    required Project project,
+    required bool asTarget,
+  }) {
+    final buffer = StringBuffer();
+    if (member.systemPrompt.trim().isNotEmpty) {
+      buffer
+        ..writeln(member.systemPrompt.trim())
+        ..writeln();
+    }
+    buffer.writeln(
+      'SOS @${member.name} (${member.role}), del proyecto "${project.name}", '
+      'y te están preguntando algo DENTRO DEL HILO de un requerimiento. '
+      '${asTarget ? 'Sos el lado al que se lo piden.' : 'Sos el lado que lo pidió.'} '
+      'Estás parado en tu propio repo y sos de SOLO LECTURA en este turno: '
+      'leé lo que haga falta —tu código, tu roadmap— y contestá en texto, '
+      'concreto y corto. No cambies nada.\n'
+      'Esto es una conversación, no el trabajo: no tenés las tools del '
+      'requerimiento acá, así que no podés tomarlo, dictaminarlo ni '
+      'convertirlo en tarea, y no hace falta que lo anuncies. Cuando haya '
+      'acuerdo, eso pasa en otro lado.\n'
+      'Lo que contestes lo leen los dos proyectos. Si algo no lo sabés o no '
+      'lo podés verificar desde acá, decilo en vez de suponer: del otro lado '
+      'no tienen cómo comprobarte.',
+    );
+    return buffer.toString().trim();
   }
 
   void createSession(String projectId, {String? workflowId}) {

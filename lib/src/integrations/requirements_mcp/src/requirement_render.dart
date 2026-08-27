@@ -44,6 +44,21 @@ Map<String, dynamic> renderRequirement(
     ],
 };
 
+/// Para qué se le manda el requerimiento a un turno.
+///
+/// El bloque es el mismo —la frontera no cambia— pero lo que se le pide al
+/// final no: a quien va a trabajar se le pide un veredicto, y a quien está
+/// contestando una pregunta en el hilo, no. Mandarle «dejá el veredicto con
+/// record_verdict» a un turno que ni siquiera tiene esa tool es pedirle algo
+/// imposible y después leer una disculpa.
+enum RequirementTurnPurpose {
+  /// Va a evaluarlo contra su roadmap y decidir.
+  evaluar,
+
+  /// Le preguntaron algo en el hilo y contesta.
+  consultar,
+}
+
 /// El requerimiento tal como entra al PEDIDO de un turno.
 ///
 /// Va como texto y no como estado compartido: el turno del destino no abre la
@@ -52,6 +67,7 @@ String renderRequirementForTurn(
   InternalRequirement requirement, {
   required String fromProject,
   required String toProject,
+  RequirementTurnPurpose purpose = RequirementTurnPurpose.evaluar,
 }) {
   final buffer = StringBuffer()
     ..writeln('REQUERIMIENTO ${requirement.code} — ${requirement.title}')
@@ -70,13 +86,27 @@ String renderRequirementForTurn(
       '${entry.text}',
     );
   }
+  buffer.writeln();
+  if (purpose == RequirementTurnPurpose.consultar) {
+    buffer.writeln(
+      'Esto es el estado del requerimiento y su hilo, para que contestes con '
+      'el contexto completo. No es un pedido de trabajo: no evalúes contra tu '
+      'roadmap ni dictamines nada todavía.',
+    );
+    return buffer.toString();
+  }
   buffer
-    ..writeln()
     ..writeln(
       'ANTES DE TRABAJAR, evaluá contra TU propio roadmap y dejá el veredicto '
       'con record_verdict: viable, bloqueado (nombrando qué va primero), no '
       'viable, o ya-resuelto si esto ya existe de otra forma. No contestes en '
       'el hilo del que pidió: no lo tenés y no lo vas a tener.',
+    )
+    ..writeln(
+      'Si el veredicto es viable, convertilo con convert_to_task: elegí en '
+      'qué grupo de TU roadmap va y con qué prioridad, y queda anotado como '
+      'trabajo real. Un requerimiento aceptado que no se convierte es un sí '
+      'que nadie va a poder tomar después.',
     );
   return buffer.toString();
 }

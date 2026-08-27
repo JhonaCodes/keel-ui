@@ -24,6 +24,35 @@ enum RoadmapState {
   }
 }
 
+/// Cuánto apura una tarea.
+///
+/// El `NN-` del archivo ya dice en qué ORDEN tomar las cosas. Esto es otra
+/// pregunta: qué pasa si no se hace. Una tarea puede ir tercera en la fila y
+/// ser lo más urgente que hay —porque hay alguien esperándola del otro lado—
+/// y eso no se puede leer de su posición.
+///
+/// Opcional en el frontmatter, y por eso hay [RoadmapTask.declaresPriority]:
+/// una carpeta escrita antes de que esto existiera sigue siendo válida.
+enum RoadmapPriority {
+  alta('alta', 'Alta'),
+  media('media', 'Media'),
+  baja('baja', 'Baja');
+
+  const RoadmapPriority(this.alias, this.label);
+
+  final String alias;
+  final String label;
+
+  /// Lo que no se entiende es [media]: una prioridad mal escrita no puede
+  /// hacer que una tarea desaparezca de la lista.
+  static RoadmapPriority fromAlias(String value) {
+    for (final priority in values) {
+      if (priority.alias == value.trim().toLowerCase()) return priority;
+    }
+    return RoadmapPriority.media;
+  }
+}
+
 /// Contra qué resolvió la referencia de un bloqueante.
 enum BlockerTarget {
   /// Apunta a una tarea que existe.
@@ -94,6 +123,7 @@ class RoadmapTask {
   final String folder;
   final String title;
   final RoadmapState state;
+  final RoadmapPriority priority;
   final List<RoadmapBlocker> blockers;
 
   /// Un borrador todavía sin numerar: salida cruda de una investigación,
@@ -108,6 +138,14 @@ class RoadmapTask {
   /// separarlas: la segunda es un archivo a medio escribir.
   final bool declaresState;
 
+  /// Si el archivo declara `prioridad:`.
+  ///
+  /// Misma distinción que [declaresState], por la misma razón: «media porque
+  /// lo dice» y «media porque no dijo nada» no son lo mismo. Acá además
+  /// importa que la mayoría de las tareas que ya existen no lo declaran, y
+  /// eso está bien: el campo es opcional.
+  final bool declaresPriority;
+
   const RoadmapTask({
     required this.path,
     required this.folder,
@@ -115,8 +153,29 @@ class RoadmapTask {
     required this.state,
     required this.blockers,
     required this.isDraft,
+    this.priority = RoadmapPriority.media,
     this.declaresState = true,
+    this.declaresPriority = false,
   });
+
+  /// La misma tarea con otros bloqueantes.
+  ///
+  /// Existe por la segunda pasada de [readRoadmap], que reconstruye cada
+  /// tarea con sus referencias ya resueltas. Rearmarla campo por campo hacía
+  /// que cada campo nuevo se perdiera ahí en silencio — le pasó a
+  /// `prioridad:`, y el único síntoma era una prioridad que volvía a `media`
+  /// al leer la carpeta.
+  RoadmapTask withBlockers(List<RoadmapBlocker> resolved) => RoadmapTask(
+    path: path,
+    folder: folder,
+    title: title,
+    state: state,
+    priority: priority,
+    blockers: resolved,
+    isDraft: isDraft,
+    declaresState: declaresState,
+    declaresPriority: declaresPriority,
+  );
 
   /// Si le falta que alguien resuelva algo antes.
   bool get hasOpenBlockers =>
@@ -205,18 +264,10 @@ List<RoadmapTask> _resolveBlockerTargets(List<RoadmapTask> tasks) {
 
   return [
     for (final task in tasks)
-      RoadmapTask(
-        path: task.path,
-        folder: task.folder,
-        title: task.title,
-        state: task.state,
-        isDraft: task.isDraft,
-        declaresState: task.declaresState,
-        blockers: [
-          for (final blocker in task.blockers)
-            _resolveBlocker(blocker, byPath, byName),
-        ],
-      ),
+      task.withBlockers([
+        for (final blocker in task.blockers)
+          _resolveBlocker(blocker, byPath, byName),
+      ]),
   ];
 }
 
@@ -281,12 +332,14 @@ RoadmapTask parseRoadmapTask(String relativePath, String content) {
     folder: folder,
     title: title,
     state: RoadmapState.fromAlias(fields['estado'] ?? ''),
+    priority: RoadmapPriority.fromAlias(fields['prioridad'] ?? ''),
     blockers: _parseBlockers(body),
     // Un borrador se declara, o se deduce de vivir en `_borradores/`.
     isDraft:
         (fields['estado'] ?? '').trim().toLowerCase() == 'borrador' ||
         folder.startsWith('_'),
     declaresState: (fields['estado'] ?? '').trim().isNotEmpty,
+    declaresPriority: (fields['prioridad'] ?? '').trim().isNotEmpty,
   );
 }
 

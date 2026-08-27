@@ -214,6 +214,7 @@ class InternalRequirement {
     this.thread = const [],
     this.takenByHandle,
     this.takenInSessionId,
+    this.taskPath,
   });
 
   final String id;
@@ -247,6 +248,14 @@ class InternalRequirement {
   final RequirementVerdict? verdict;
   final List<RequirementEntry> thread;
 
+  /// En qué tarea del roadmap del destino terminó, si terminó en alguna.
+  ///
+  /// Ruta relativa a `TASKS/`, como la escribe `convert_to_task`. Sin esto un
+  /// requerimiento aceptado moría en un veredicto de texto: quedaba dicho que
+  /// sí y no quedaba dónde. Es del destino y solo del destino — el origen ve
+  /// el nombre, no la carpeta.
+  final String? taskPath;
+
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -260,6 +269,7 @@ class InternalRequirement {
     List<RequirementEntry>? thread,
     String? takenByHandle,
     String? takenInSessionId,
+    String? taskPath,
     DateTime? updatedAt,
   }) => InternalRequirement(
     id: id,
@@ -274,6 +284,7 @@ class InternalRequirement {
     openedInSessionId: openedInSessionId,
     takenByHandle: takenByHandle ?? this.takenByHandle,
     takenInSessionId: takenInSessionId ?? this.takenInSessionId,
+    taskPath: taskPath ?? this.taskPath,
     status: status ?? this.status,
     verdict: verdict ?? this.verdict,
     thread: thread ?? this.thread,
@@ -294,6 +305,7 @@ class InternalRequirement {
     'openedInSessionId': openedInSessionId,
     'takenByHandle': takenByHandle,
     'takenInSessionId': takenInSessionId,
+    'taskPath': taskPath,
     'status': status.alias,
     'verdict': verdict?.toJson(),
     'thread': thread.map((entry) => entry.toJson()).toList(),
@@ -316,6 +328,7 @@ class InternalRequirement {
     openedInSessionId: json['openedInSessionId'] as String? ?? '',
     takenByHandle: json['takenByHandle'] as String?,
     takenInSessionId: json['takenInSessionId'] as String?,
+    taskPath: json['taskPath'] as String?,
     status: RequirementStatus.fromAlias(json['status'] as String? ?? ''),
     verdict: json['verdict'] == null
         ? null
@@ -350,6 +363,7 @@ class InternalRequirement {
           openedInSessionId == other.openedInSessionId &&
           takenByHandle == other.takenByHandle &&
           takenInSessionId == other.takenInSessionId &&
+          taskPath == other.taskPath &&
           status == other.status &&
           verdict == other.verdict &&
           listEquals(thread, other.thread) &&
@@ -366,6 +380,7 @@ class InternalRequirement {
     need,
     context,
     blocking,
+    taskPath,
     status,
     verdict,
     Object.hashAll(thread),

@@ -299,6 +299,51 @@ class RequirementsViewModel extends ViewModel<RequirementsState> {
 
   // ── el hilo, que es lo único compartido ─────────────────────────────
 
+  /// Los requerimientos donde un agente está redactando su respuesta.
+  ///
+  /// Es un dato de pantalla y no del requerimiento: no se persiste, porque
+  /// un turno no sobrevive a cerrar la app. Vive acá y no en el ViewModel de
+  /// proyectos para que el hilo lo pueda leer sin conocerlo.
+  final Set<String> _thinking = {};
+
+  bool isThinking(String id) => _thinking.contains(id);
+
+  void markThinking(String id, bool thinking) {
+    final changed = thinking ? _thinking.add(id) : _thinking.remove(id);
+    // `updateState` con el MISMO estado no notifica: el set es aparte y hay
+    // que empujar el redibujo a mano.
+    if (changed) updateState(data.copyWith());
+  }
+
+  /// Anota en qué tarea del roadmap del destino terminó.
+  ///
+  /// El archivo ya está escrito cuando esto corre: acá solo queda el vínculo,
+  /// para que el requerimiento sepa en qué terminó y el hilo lo pueda mostrar.
+  String? linkTask(String id, {required String taskPath, String? handle}) {
+    final requirement = byId(id);
+    if (requirement == null) return 'No encontré ese requerimiento.';
+    if (!requirement.status.isOpen) {
+      return 'Ese requerimiento ya está ${requirement.status.label.toLowerCase()}.';
+    }
+    _update(
+      requirement.copyWith(
+        taskPath: taskPath,
+        thread: [
+          ...requirement.thread,
+          RequirementEntry(
+            id: generateUuidV4(),
+            side: RequirementSide.destino,
+            kind: RequirementEntryKind.avance,
+            text: 'Quedó como tarea en el roadmap: `$taskPath`.',
+            createdAt: DateTime.now(),
+            authorHandle: handle,
+          ),
+        ],
+      ),
+    );
+    return null;
+  }
+
   String? reply(
     String id, {
     required RequirementSide side,

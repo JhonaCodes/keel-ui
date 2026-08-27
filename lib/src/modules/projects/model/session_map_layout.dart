@@ -236,9 +236,7 @@ class MapLayout {
     // arista: `from`/`to` se invierten según el tipo de borde.
     final top = from.top <= to.top ? from : to;
     final bottom = from.top <= to.top ? to : from;
-    return reversed
-        ? _ascentCurve(top, bottom)
-        : _descentCurve(top, bottom);
+    return reversed ? _ascentCurve(top, bottom) : _descentCurve(top, bottom);
   }
 
   /// Ida: del pie del padre, barriendo al montante, hasta el costado del hijo.

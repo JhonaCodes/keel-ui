@@ -83,6 +83,49 @@ Tu entrada en el hilo **la ven los dos lados**, y es la única que no escribe
 un agente. Es el *"no, mirá, esto se hace así"* cuando los dos están
 mirándose de reojo con la razón a medias.
 
+## Llamar a un lado a hablar
+
+Durante un tiempo el hilo fue un documento: escribías «¿esto aplica?» y no
+pasaba nada, porque nadie lo estaba leyendo. Para que alguien contestara había
+que apretar «Tomar y evaluar», que no es contestar — es abrir una sesión de
+trabajo entera para una pregunta de dos líneas.
+
+Faltaba el escalón del medio. Ahora **el `@` trae a un lado a hablar**: lista
+a los miembros de los dos proyectos, nombrás a uno, y contesta ahí mismo. El
+destino dice si aplica; el origen aclara qué quiso decir. Los dos, en el mismo
+hilo, sin abrir nada.
+
+Sin mención no corre nada. Escribir sigue siendo escribir: una nota que ven
+los dos, sin gastar un turno en algo que anotaste para vos.
+
+**Ese turno solo lee.** Corre sin sesión —igual que `ask_project`, y por la
+misma razón: una sesión es donde se trabaja, y todavía no se decidió
+trabajar— parado en el repo de quien contesta, sin un solo servidor MCP
+enchufado. Eso último no es una promesa del prompt: sin las tools del
+requerimiento, ese turno **no puede** tomarlo, dictaminarlo ni convertirlo
+aunque quiera. Lee su código y su roadmap, y contesta.
+
+Lo que cruza sigue siendo lo mismo de siempre: `renderRequirementForTurn`, con
+el hilo adentro. Un agente consultado ve el pedido y la conversación; no ve la
+sesión del otro, ni su plan, ni su carpeta.
+
+## En qué termina
+
+Un requerimiento aceptado moría en un veredicto de texto: quedaba dicho que sí
+y no quedaba **dónde**. `convert_to_task` lo cierra: el destino elige en qué
+grupo de su roadmap va y con qué prioridad, y Keel escribe el `.md`.
+
+Lo escribe Keel y no el agente, y es la única tarea del roadmap que no sale de
+un file tool. Tres cosas que un programa hace bien y un agente hace mal: el
+número —el siguiente libre de la carpeta, sin pisar ni dejar huecos—, el
+nombre —un slug sin acentos ni espacios— y el formato exacto que el lector
+espera. Lo que sí es del agente es el juicio: **en qué grupo va**. Si el grupo
+no existe, la tool falla y lo dice; crearlo sería crear un grupo sin
+`README.md`, que rompe el chequeo de formato en el mismo movimiento.
+
+El requerimiento guarda en qué tarea terminó, y el hilo lo muestra. De un lado
+del muro queda una conversación cerrada; del otro, trabajo en la fila.
+
 ## Trabajan en paralelo, no se contestan
 
 Tomar un requerimiento abre una sesión **nueva** en el proyecto destino,
@@ -143,6 +186,7 @@ carpeta. Es la diferencia entre preguntar y mudarse.
 | `reply_requirement` | los dos | Escribe en el hilo compartido |
 | `request_closure` | destino | PIDE el cierre, con justificación |
 | `close_requirement` | **solo origen** | Lo cierra |
+| `convert_to_task` | destino | Lo convierte en una tarea de SU roadmap |
 | `ask_project` | cualquiera | Pregunta sin pedir trabajo |
 
 ## Qué pasa si borrás un proyecto
@@ -175,3 +219,9 @@ de un respaldo.
    acceso a esa carpeta.
 7. Respaldar y restaurar en limpio devuelve los requerimientos con su hilo;
    restaurar sobre uno que siguió conversando no lo pisa.
+8. `@` en el hilo lista a los miembros de los dos proyectos y a nadie más;
+   nombrar a uno del destino lo hace contestar de su lado, y a uno del origen
+   del suyo. Escribir sin nombrar a nadie no corre ningún turno.
+9. El destino convierte: aparece el `.md` en su `TASKS/` con su `prioridad:`,
+   `check_roadmap_format` sigue pasando, y el hilo muestra en qué terminó.
+   Convertir dos veces se rechaza.

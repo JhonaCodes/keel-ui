@@ -12,6 +12,7 @@ const kRequirementsMcpToolNames = [
   '${kRequirementsMcpToolPrefix}reply_requirement',
   '${kRequirementsMcpToolPrefix}request_closure',
   '${kRequirementsMcpToolPrefix}close_requirement',
+  '${kRequirementsMcpToolPrefix}convert_to_task',
   '${kRequirementsMcpToolPrefix}ask_project',
 ];
 
@@ -181,6 +182,7 @@ final class _RequirementsMcpServer extends mcp.MCPServer with mcp.ToolsSupport {
     registerTool(_replyTool, _reply);
     registerTool(_requestClosureTool, _requestClosure);
     registerTool(_closeTool, _close);
+    registerTool(_convertTool, _convert);
     registerTool(_askTool, _ask);
     if (!willInitialize) {
       registerRequestHandler(mcp.ListToolsRequest.methodName, listTools);
@@ -329,6 +331,104 @@ final class _RequirementsMcpServer extends mcp.MCPServer with mcp.ToolsSupport {
       required: ['codigo'],
     ),
   );
+
+  static final _convertTool = mcp.Tool(
+    name: 'convert_to_task',
+    description:
+        'Convierte un requerimiento que te pidieron a VOS en una tarea de tu '
+        'roadmap. Es el final del camino cuando el veredicto es viable y ya '
+        'hay acuerdo: deja de ser una conversación y pasa a ser trabajo '
+        'anotado en TASKS/, con su número y su prioridad. Keel escribe el '
+        'archivo con el formato exacto — vos elegís en qué grupo va y cuánto '
+        'apura. El grupo tiene que existir: si ninguno encaja, creá el grupo '
+        'con su README.md primero.',
+    inputSchema: mcp.ObjectSchema(
+      properties: {
+        'codigo': mcp.Schema.string(description: 'REQ-0007, o 7.'),
+        'carpeta': mcp.Schema.string(
+          description:
+              'El grupo donde va, tal como se llama en TASKS/ '
+              '(`02-matriculas`). Miralo con list_roadmap_tasks.',
+        ),
+        'titulo': mcp.Schema.string(
+          description: 'Corto y en tus términos, no los de quien pidió.',
+        ),
+        'prioridad': mcp.Schema.string(
+          description:
+              'alta, media o baja. No es el orden —eso lo dice el número— '
+              'sino qué pasa si no se hace. Si hay alguien frenado esperando, '
+              'es alta. Ante la duda, media.',
+        ),
+        'detalle': mcp.Schema.string(
+          description:
+              'Qué hay que hacer, escrito para alguien que no estuvo en esta '
+              'conversación. Del otro lado del tiempo, nadie recuerda el hilo.',
+        ),
+        'bloqueantes': mcp.Schema.list(
+          items: mcp.Schema.string(),
+          description:
+              'Opcional. Cada uno `<ruta de la tarea> — <por qué bloquea>`.',
+        ),
+      },
+      required: ['codigo', 'carpeta', 'titulo', 'prioridad', 'detalle'],
+    ),
+  );
+
+  mcp.CallToolResult _convert(mcp.CallToolRequest request) {
+    final requirement = _byCode(request);
+    if (requirement == null) return _text('No encontré ese requerimiento.');
+    // Misma comprobación que take: el lado sale de la URL, no de lo que diga
+    // el modelo. Convertir es anotar trabajo en TU roadmap, y el roadmap del
+    // destino no es del origen.
+    if (requirement.toProjectId != projectId) {
+      return _text(
+        'Ese requerimiento no te lo pidieron a vos: es de '
+        '"${_nameOf(requirement.toProjectId)}". Solo el destino lo convierte '
+        'en tarea, porque la tarea va en SU roadmap.',
+      );
+    }
+    if (requirement.taskPath != null) {
+      return _text(
+        '${requirement.code} ya se convirtió en `${requirement.taskPath}`. '
+        'Si hace falta más trabajo, es otra tarea.',
+      );
+    }
+    final project = _project;
+    if (project == null || project.workingDirectory.trim().isEmpty) {
+      return _text('Este proyecto no tiene carpeta de trabajo asignada.');
+    }
+
+    final arguments = request.arguments ?? const <String, Object?>{};
+    final written = writeRoadmapTask(
+      projectPath: project.workingDirectory,
+      folder: arguments['carpeta'] as String? ?? '',
+      title: arguments['titulo'] as String? ?? '',
+      priority: RoadmapPriority.fromAlias(
+        arguments['prioridad'] as String? ?? '',
+      ),
+      detail: arguments['detalle'] as String? ?? '',
+      blockers: [
+        for (final blocker in (arguments['bloqueantes'] as List?) ?? const [])
+          '$blocker',
+      ],
+      origin:
+          'el requerimiento ${requirement.code} de '
+          '"${_nameOf(requirement.fromProjectId)}"',
+    );
+    if (written.error != null) return _text('No la escribí: ${written.error}');
+
+    final error = _requirements.linkTask(
+      requirement.id,
+      taskPath: written.path!,
+      handle: _handle,
+    );
+    if (error != null) return _text(error);
+    return _text(
+      '${requirement.code} quedó como `${written.path}` en tu roadmap. Quien '
+      'lo pidió ve que se convirtió, y la tarea entra en la fila como '
+      'cualquier otra: tomala con claim_task cuando le toque.',
+    );
+  }
 
   static final _askTool = mcp.Tool(
     name: 'ask_project',

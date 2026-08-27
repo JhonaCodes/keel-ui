@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 
 import 'package:keel_ui/src/integrations/requirements_mcp/requirements_mcp.dart';
@@ -50,6 +51,11 @@ class _RequirementThreadViewState extends State<RequirementThreadView> {
       .where((project) => project.id == id)
       .firstOrNull;
 
+  RequirementReferenceScope get _scope => RequirementReferenceScope(
+    from: _project(requirement.fromProjectId),
+    to: _project(requirement.toProjectId),
+  );
+
   void _send() {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
@@ -57,13 +63,35 @@ class _RequirementThreadViewState extends State<RequirementThreadView> {
     // es un documento que cruza de proyecto y viaja en el respaldo, donde
     // las rutas de esta máquina se sacan a propósito: nombrar la carpeta
     // sirve, guardar su ruta absoluta no.
+    final visible = ChatReferenceService.visibleText(text);
     RequirementsService.instance.notifier.reply(
       requirement.id,
       side: RequirementSide.usuario,
       kind: RequirementEntryKind.correccion,
-      text: ChatReferenceService.visibleText(text),
+      text: visible,
     );
     _controller.clear();
+
+    // Nombrar a alguien es llamarlo. Sin mención esto queda como estaba: una
+    // nota en el hilo, sin gastar un turno en algo que escribiste para vos.
+    final scope = _scope;
+    final member = ChatReferenceService.explicitlyMentionedMember(
+      visible,
+      scope.agents,
+    );
+    if (member == null) return;
+    final side = scope.sideOf(member.name);
+    if (side == null) return;
+
+    unawaited(
+      ProjectsService.instance.notifier.answerInRequirementThread(
+        requirement: requirement,
+        member: member,
+        memberProject: side.project,
+        asTarget: side.isTarget,
+        question: visible,
+      ),
+    );
   }
 
   @override
@@ -96,6 +124,8 @@ class _RequirementThreadViewState extends State<RequirementThreadView> {
                     _TakenNote(requirement: requirement),
                   if (requirement.verdict != null)
                     _VerdictBox(verdict: requirement.verdict!),
+                  if (requirement.taskPath case final path?)
+                    _TaskNote(taskPath: path),
                   for (final entry in requirement.thread)
                     if (entry.kind != RequirementEntryKind.evaluacion)
                       _Band(
@@ -114,7 +144,14 @@ class _RequirementThreadViewState extends State<RequirementThreadView> {
             ),
           ),
         ),
-        _Composer(controller: _controller, onSend: _send),
+        _Composer(
+          controller: _controller,
+          onSend: _send,
+          scope: _scope,
+          thinking: RequirementsService.instance.notifier.isThinking(
+            requirement.id,
+          ),
+        ),
         _ClosureBar(requirement: requirement),
       ],
     );
@@ -370,8 +407,40 @@ class _TakenNote extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(13, 6, 0, 6),
       child: Text(
-        'Lo tomó @${requirement.takenByHandle}',
+        // Sin handle lo tomaste vos con el botón, no un agente. «Lo tomó @»
+        // con la arroba colgando es lo que salía antes.
+        (requirement.takenByHandle ?? '').isEmpty
+            ? 'Lo tomaste vos'
+            : 'Lo tomó @${requirement.takenByHandle}',
         style: TextStyle(fontSize: 11.5, color: scheme.outline),
+      ),
+    );
+  }
+}
+
+/// En qué tarea terminó. El final que al requerimiento le faltaba: aceptar
+/// dejaba un veredicto de texto y nada más.
+class _TaskNote extends StatelessWidget {
+  const _TaskNote({required this.taskPath});
+
+  final String taskPath;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(13, 6, 0, 6),
+      child: Row(
+        children: [
+          Icon(Icons.task_alt, size: 14, color: scheme.tertiary),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              'Quedó como tarea: $taskPath',
+              style: TextStyle(fontSize: 11.5, color: scheme.tertiary),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -454,10 +523,19 @@ class _VerdictBox extends StatelessWidget {
 }
 
 class _Composer extends StatelessWidget {
-  const _Composer({required this.controller, required this.onSend});
+  const _Composer({
+    required this.controller,
+    required this.onSend,
+    required this.scope,
+    required this.thinking,
+  });
 
   final TextEditingController controller;
   final VoidCallback onSend;
+  final RequirementReferenceScope scope;
+
+  /// Si hay un agente redactando su respuesta ahora mismo.
+  final bool thinking;
 
   @override
   Widget build(BuildContext context) {
@@ -473,21 +551,30 @@ class _Composer extends StatelessWidget {
                 borderRadius: BorderRadius.circular(16),
               ),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-              // El mismo compositor del resto de la app: acá también se
-              // nombra una carpeta, una skill o una base — este hilo lo lee
-              // el agente del otro proyecto, que no sabe dónde está nada.
+              // El `@` lista a los miembros de los dos proyectos: nombrar a
+              // uno lo trae a contestar acá mismo. Sin mención, esto sigue
+              // siendo lo que era — una nota que ven los dos lados.
               child: ChatReferenceComposerField(
                 controller: controller,
-                scope: const GlobalReferenceScope(),
+                scope: scope,
                 onSend: onSend,
-                hintText: 'Escribí acá — lo ven los dos lados',
+                enabled: !thinking,
+                hintText: thinking
+                    ? 'Está contestando…'
+                    : 'Escribí acá — @ para preguntarle a un agente',
               ),
             ),
           ),
           const SizedBox(width: 8),
           IconButton.filled(
-            onPressed: onSend,
-            icon: const Icon(Icons.send, size: 16),
+            onPressed: thinking ? null : onSend,
+            icon: thinking
+                ? const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.send, size: 16),
             constraints: const BoxConstraints.tightFor(width: 34, height: 34),
             padding: EdgeInsets.zero,
           ),
@@ -639,6 +726,16 @@ class _ClosureBar extends StatelessWidget {
       workflowId: workflowId,
     );
     if (sessionId == null) return;
+    // Tomarlo es de este botón y no del agente. Antes esto abría la sesión y
+    // dejaba el requerimiento en `abierto` hasta que el agente se acordara de
+    // llamar `take_requirement`: en el medio, el botón seguía ofreciendo
+    // tomarlo —invitando a abrir una segunda sesión sobre lo mismo— y «Ir a
+    // la sesión» no aparecía, porque depende de `takenInSessionId`.
+    RequirementsService.instance.notifier.take(
+      requirement.id,
+      handle: '',
+      sessionId: sessionId,
+    );
     // Un botón que apretaste SÍ navega. La regla de que crear no es ir vale
     // para lo que arranca solo —una tool, la API— no para esto: apretar
     // «tomar» y quedarte mirando el requerimiento es quedarte mirando el

@@ -44,6 +44,7 @@ sealed class TaskEvent {
       'turnCompleted' => TaskTurnCompleted(
         isError: message['isError'] as bool,
         hasReportedFailure: message['hasReportedFailure'] as bool? ?? false,
+        stopReason: message['stopReason'] as String? ?? '',
         costUsd: (message['costUsd'] as num).toDouble(),
         costReported: message['costReported'] as bool? ?? false,
         durationMs: message['durationMs'] as int,
@@ -108,6 +109,10 @@ class TaskPermissionDenied extends TaskEvent {
 class TaskTurnCompleted extends TaskEvent {
   final bool isError;
   final bool hasReportedFailure;
+
+  /// Lo que el proveedor dijo sobre por qué paró. Vacío si no dijo nada.
+  /// Hoy el único valor que se interpreta es `error_max_turns`.
+  final String stopReason;
   final double costUsd;
   final bool costReported;
   final int durationMs;
@@ -124,9 +129,15 @@ class TaskTurnCompleted extends TaskEvent {
   final int contextUsedTokens;
   final int contextWindowTokens;
 
+  /// El turno se cortó por el tope de turnos agénticos de la capacidad, no
+  /// porque algo fallara. Distinto para quien lo muestra: no hay nada que
+  /// arreglar, hay un número que subir.
+  bool get hitTurnCap => stopReason == 'error_max_turns';
+
   const TaskTurnCompleted({
     required this.isError,
     this.hasReportedFailure = false,
+    this.stopReason = '',
     required this.costUsd,
     this.costReported = false,
     required this.durationMs,

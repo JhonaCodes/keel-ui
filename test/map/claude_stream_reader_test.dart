@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:keel_ui/src/core/services/claude_stream_events.dart';
+import 'package:keel_ui/src/integrations/task_runner/task_runner.dart';
 
 Map<String, dynamic> _assistant(
   List<Map<String, dynamic>> content, {
@@ -311,6 +312,42 @@ void main() {
         'usedTokens': 45,
         'contextWindowTokens': 200000,
       });
+    });
+
+    test(
+      'el tope de turnos llega como motivo, no como un error cualquiera',
+      () {
+        final events = ClaudeStreamReader().read({
+          'type': 'result',
+          'subtype': 'error_max_turns',
+          'is_error': true,
+          'total_cost_usd': 0.1,
+          'duration_ms': 900,
+          'num_turns': 2,
+        });
+
+        final turn = events.first;
+        expect(turn['type'], 'turnCompleted');
+        expect(turn['isError'], isTrue);
+        // Lo que hace la diferencia: sin esto el chat solo puede decir "falló",
+        // y la causa —un número configurable— queda invisible.
+        expect(turn['stopReason'], 'error_max_turns');
+        final crossed = TaskEvent.fromMessage(turn) as TaskTurnCompleted;
+        expect(crossed.hitTurnCap, isTrue);
+      },
+    );
+
+    test('un turno que terminó bien no reporta motivo de corte', () {
+      final events = ClaudeStreamReader().read({
+        'type': 'result',
+        'subtype': 'success',
+        'is_error': false,
+        'total_cost_usd': 0.1,
+        'duration_ms': 900,
+      });
+
+      final turn = TaskEvent.fromMessage(events.first) as TaskTurnCompleted;
+      expect(turn.hitTurnCap, isFalse);
     });
   });
 

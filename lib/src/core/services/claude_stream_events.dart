@@ -115,6 +115,11 @@ class ClaudeStreamReader {
           {
             'type': 'turnCompleted',
             'isError': event['is_error'] as bool,
+            // Por qué paró, cuando el CLI lo dice. `error_max_turns` es el
+            // tope de turnos agénticos: el trabajo quedó a mitad de camino y
+            // sin esto llega al chat como un fallo cualquiera, así que nadie
+            // se enteraría de que la causa es un número configurable.
+            'stopReason': event['subtype'] as String? ?? '',
             'costUsd': usage.costUsd,
             'costReported': event['total_cost_usd'] is num,
             'durationMs': usage.durationMs,

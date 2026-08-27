@@ -637,11 +637,16 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     final session = project == null ? null : _sessionById(project, sessionId);
     final workflow = session == null ? null : workflowOf(session);
     final resolution = session?.resolutionCase;
-    if (project == null || session == null || workflow == null || resolution == null) {
+    if (project == null ||
+        session == null ||
+        workflow == null ||
+        resolution == null) {
       return 'No hay un workflow esperando aprobación.';
     }
     final capability = _capabilityFor(workflow, capabilityId);
-    final node = resolution.nodes.where((entry) => entry.id == capabilityId).firstOrNull;
+    final node = resolution.nodes
+        .where((entry) => entry.id == capabilityId)
+        .firstOrNull;
     if (capability.executor != WorkflowExecutor.manualApproval ||
         node?.status != WorkNodeStatus.paused) {
       return 'Este paso no está esperando aprobación manual.';
@@ -1592,18 +1597,15 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
             preflight.owner!;
         final capability = _capabilityFor(workflow, node.id);
         if (capability.executor == WorkflowExecutor.manualApproval) {
-          resolution = _replaceNode(
-            resolution,
-            node.id,
-            WorkNodeStatus.paused,
-          );
+          resolution = _replaceNode(resolution, node.id, WorkNodeStatus.paused);
           _storeResolution(projectId, sessionId, resolution);
           _appendMessage(
             projectId,
             sessionId,
             ChatMessage(
               role: ChatRole.system,
-              text: 'El workflow está listo para publicar. Aprobá el paso '
+              text:
+                  'El workflow está listo para publicar. Aprobá el paso '
                   '"${node.title}" para continuar.',
               timestamp: DateTime.now(),
               workNodeId: node.id,
@@ -1614,14 +1616,17 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
 
         if (capability.executor == WorkflowExecutor.providerSubagent) {
           if (resolution.reviewCycleCount >= workflow.policy.maxReviewCycles) {
-            resolution = resolution.copyWith(status: ResolutionCaseStatus.blocked);
+            resolution = resolution.copyWith(
+              status: ResolutionCaseStatus.blocked,
+            );
             _storeResolution(projectId, sessionId, resolution);
             _appendMessage(
               projectId,
               sessionId,
               ChatMessage(
                 role: ChatRole.error,
-                text: 'Se alcanzó el máximo de ${workflow.policy.maxReviewCycles} '
+                text:
+                    'Se alcanzó el máximo de ${workflow.policy.maxReviewCycles} '
                     'ciclos de auditoría; revisá el caso manualmente.',
                 timestamp: DateTime.now(),
                 workNodeId: node.id,
@@ -1813,13 +1818,15 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
         );
         final parentEngine = project.tuned(parentOwner);
         if (parentEngine.provider == AgentProvider.claude) {
-          final before = _sessionById(project, sessionId)?.subagents.length ?? 0;
+          final before =
+              _sessionById(project, sessionId)?.subagents.length ?? 0;
           final native = await _runTurn(
             projectId: projectId,
             sessionId: sessionId,
             member: parentOwner,
             workNodeId: node.id,
-            instruction: '$packet\n\nAbrí exactamente un subagente nativo '
+            instruction:
+                '$packet\n\nAbrí exactamente un subagente nativo '
                 'Task para esta auditoría. No escribas archivos; sintetizá su '
                 'informe completo al finalizar.',
             consultOfProfileId: null,
@@ -1836,7 +1843,8 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
             sessionId,
             ChatMessage(
               role: ChatRole.system,
-              text: 'Claude no abrió el subagente solicitado; se usa la '
+              text:
+                  'Claude no abrió el subagente solicitado; se usa la '
                   'sesión externa de @${nodeOwner.name}.',
               timestamp: DateTime.now(),
               workNodeId: node.id,
@@ -1902,14 +1910,16 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
         .where((rule) => target.rules.contains(rule.name))
         .map((rule) => 'REGLA ${rule.name}:\n${rule.content}')
         .join('\n\n');
-    final changed = _sessionById(project, sessionId)?.messages
+    final changed =
+        _sessionById(project, sessionId)?.messages
             .where((message) => message.fileEdits.isNotEmpty)
             .expand((message) => message.fileEdits)
             .map((edit) => edit.path)
             .toSet()
             .join(', ') ??
         '';
-    final packet = 'AUDITOR DESTINO: @${target.name} (${target.role})\n'
+    final packet =
+        'AUDITOR DESTINO: @${target.name} (${target.role})\n'
         'Modo: solo lectura. No edites archivos.\n'
         'Contrato de salida: veredicto, todos los hallazgos, evidencia, '
         'archivo/línea y acción sugerida.\n'
@@ -3381,14 +3391,26 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
           );
           if (isError) {
             turnFailed = true;
+            // El tope de turnos no es una falla del agente: es un número que
+            // se quedó corto y dejó el trabajo a mitad de camino. Decirlo
+            // con el número puesto es la diferencia entre poder subirlo y
+            // volver a mandar el mismo pedido esperando otro resultado.
+            // Solo el tope escribe `failureMessage`: el reintento de sesión
+            // muerta lo lee por substring, y llenarlo en el camino genérico
+            // cambiaría cuándo se reintenta un turno entero.
+            final errorText = turn.hitTurnCap
+                ? 'El paso se detuvo al llegar al tope de $maxTurns turnos '
+                      'agénticos de esta capacidad. El trabajo quedó a mitad: '
+                      'subí el tope del paso en el workflow o partí el paso '
+                      'en dos.'
+                : engine.provider.turnFailureMessage(memberName: member.name);
+            if (turn.hitTurnCap) failureMessage = errorText;
             _appendMessage(
               projectId,
               sessionId,
               ChatMessage(
                 role: ChatRole.error,
-                text: engine.provider.turnFailureMessage(
-                  memberName: member.name,
-                ),
+                text: errorText,
                 timestamp: DateTime.now(),
                 workNodeId: workNodeId,
               ),

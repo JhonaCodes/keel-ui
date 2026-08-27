@@ -1,5 +1,29 @@
 import 'package:keel_ui/src/core/services/cli_turn_workspace.dart';
 
+/// Cómo terminó un pedido de permiso sobre un elemento bloqueado.
+///
+/// Son cuatro finales y no un `bool` porque al que espera del otro lado le
+/// cambian la conducta: con un **no** insistir es desobedecer; con un turno
+/// **cancelado** el pedido nunca se miró; y **ocupado** es «volvé a
+/// intentar», no «te dijeron que no».
+///
+/// Antes esto era un `bool` más un `Set` al costado que recordaba si había
+/// contestado una persona. Un dato de UN pedido guardado en el ViewModel es
+/// justo lo que se desincroniza: acá viaja con la respuesta.
+///
+/// No hay «venció»: un permiso no caduca — ver
+/// `AgentsViewModel.requestCatalogChangePermission`.
+enum CatalogPermissionOutcome {
+  approved,
+  denied,
+
+  /// El turno que lo pidió se terminó antes de que contestaras.
+  cancelled,
+
+  /// Ya había otro permiso esperando en ese mismo chat.
+  busy,
+}
+
 class PermissionRequest {
   final String toolName;
   final String message;

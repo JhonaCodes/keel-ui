@@ -37,6 +37,19 @@ class Agent {
   /// conversation that has moved on.
   final List<QueuedMessage> queuedMessages;
 
+  /// Los turnos de este agente solo planifican: proponen cómo harían el
+  /// trabajo y no lo hacen. Se persiste porque es una decisión del usuario
+  /// sobre la conversación, no un estado del turno — si prendiste el modo
+  /// plan, la app tiene que seguir en modo plan mañana.
+  final bool planMode;
+
+  /// Terminó un turno de planificación y falta decidir si se implementa.
+  ///
+  /// Transitorio a propósito, como [pendingPermission]: es una tarjeta en
+  /// pantalla, no un hecho del agente. Al reabrir la app nadie quiere una
+  /// pregunta pendiente de hace tres días sobre un plan que ya no recuerda.
+  final bool planAwaitingDecision;
+
   const Agent({
     required this.id,
     required this.name,
@@ -57,6 +70,8 @@ class Agent {
     this.pendingUserEdit,
     this.profileId,
     this.queuedMessages = const [],
+    this.planMode = false,
+    this.planAwaitingDecision = false,
   });
 
   double? get contextUsageRatio {
@@ -87,6 +102,8 @@ class Agent {
     bool clearPendingUserEdit = false,
     String? profileId,
     List<QueuedMessage>? queuedMessages,
+    bool? planMode,
+    bool? planAwaitingDecision,
   }) {
     return Agent(
       id: id,
@@ -116,6 +133,8 @@ class Agent {
           : (pendingUserEdit ?? this.pendingUserEdit),
       profileId: profileId ?? this.profileId,
       queuedMessages: queuedMessages ?? this.queuedMessages,
+      planMode: planMode ?? this.planMode,
+      planAwaitingDecision: planAwaitingDecision ?? this.planAwaitingDecision,
     );
   }
 
@@ -133,6 +152,7 @@ class Agent {
     'contextUsedTokens': contextUsedTokens,
     'contextWindowTokens': contextWindowTokens,
     'profileId': profileId,
+    'planMode': planMode,
   };
 
   factory Agent.fromJson(Map<String, dynamic> json) {
@@ -156,6 +176,7 @@ class Agent {
       contextUsedTokens: json['contextUsedTokens'] as int?,
       contextWindowTokens: json['contextWindowTokens'] as int?,
       profileId: json['profileId'] as String?,
+      planMode: json['planMode'] as bool? ?? false,
     );
   }
 

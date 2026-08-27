@@ -18,4 +18,33 @@ void main() {
 
     expect(restored.providerApiKey, 'secret-del-turno');
   });
+
+  group('modo plan', () {
+    test('sobrevive el viaje al isolate', () {
+      const spec = TaskRunSpec(
+        prompt: 'Planificá',
+        workingDirectory: '/tmp',
+        model: 'sonnet',
+        fullFileSystemAccess: false,
+        effort: 'medium',
+        planMode: true,
+      );
+
+      expect(TaskRunSpec.fromMessage(spec.toMessage()).planMode, isTrue);
+    });
+
+    test('un mensaje sin la clave se lee como apagado', () {
+      // Un turno armado antes de que el modo plan existiera no trae la
+      // clave, y eso no es un turno roto.
+      final spec = TaskRunSpec.fromMessage(const {
+        'prompt': 'Hola',
+        'workingDirectory': '/tmp',
+        'model': 'sonnet',
+        'fullFileSystemAccess': false,
+        'effort': 'medium',
+      });
+
+      expect(spec.planMode, isFalse);
+    });
+  });
 }

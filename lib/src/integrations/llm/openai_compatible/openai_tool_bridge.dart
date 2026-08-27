@@ -288,8 +288,22 @@ class DefaultOpenAiToolBridge implements OpenAiToolBridge {
     );
   }
 
-  bool _allowed(LlmTurnSpec spec, String name) =>
-      spec.extraAllowedTools.contains(name);
+  /// Las tools que cambian algo. En modo plan no se ofrecen: acá el freno no
+  /// puede ser una instrucción, porque un proveedor por API no tiene sandbox
+  /// ni modo plan propio. Una tool que no está en el catálogo no se puede
+  /// llamar; un pedido de no usarla, sí se puede ignorar.
+  static const _writeTools = {
+    'Write',
+    'Edit',
+    'MultiEdit',
+    'NotebookEdit',
+    'Bash',
+  };
+
+  bool _allowed(LlmTurnSpec spec, String name) {
+    if (spec.planMode && _writeTools.contains(name)) return false;
+    return spec.extraAllowedTools.contains(name);
+  }
 
   _ToolBinding _workspaceTool({
     required String name,

@@ -65,6 +65,11 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
 
+  # Reloj falso: lo que hay que poder afirmar de un debounce es que NO pasa
+  # nada antes de tiempo, y esperar de verdad haría los tests lentos y
+  # escamosos.
+  fake_async: ^1.3.1
+
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
   # activated in the `analysis_options.yaml` file located at the root of your

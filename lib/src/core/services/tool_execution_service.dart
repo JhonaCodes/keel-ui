@@ -79,10 +79,7 @@ class ToolExecutionService {
           // Process.start merges when includeParentEnvironment stays true.
           // El PATH del usuario va debajo para que el script pueda invocar
           // otros binarios suyos; un secret que se llame PATH sigue ganando.
-          environment: {
-            ...await UserShellPath.environment(),
-            ...environment,
-          },
+          environment: {...await UserShellPath.environment(), ...environment},
         );
       } catch (error) {
         Log.e('Failed to start tool "${tool.name}"', error: error);

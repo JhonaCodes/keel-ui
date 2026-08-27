@@ -41,8 +41,30 @@ class BridgeChatActions extends ChatActions {
       _invoke('sendQueued', {'agentId': agentId});
 
   @override
-  void removeQueuedMessage(String agentId, int index) =>
-      _invoke('removeQueued', {'agentId': agentId, 'index': index});
+  void removeQueuedMessage(String agentId, String messageId) =>
+      _invoke('removeQueued', {'agentId': agentId, 'messageId': messageId});
+
+  @override
+  void editQueuedMessage(String agentId, String messageId, String text) =>
+      _invoke('editQueued', {
+        'agentId': agentId,
+        'messageId': messageId,
+        'text': text,
+      });
+
+  @override
+  void holdQueuedMessage(String agentId, String messageId) =>
+      _invoke('holdQueued', {'agentId': agentId, 'messageId': messageId});
+
+  @override
+  void sendQueuedMessageAfterTurn(String agentId, String messageId) => _invoke(
+    'sendQueuedAfterTurn',
+    {'agentId': agentId, 'messageId': messageId},
+  );
+
+  @override
+  void sendQueuedMessageNow(String agentId, String messageId) =>
+      _invoke('sendQueuedNow', {'agentId': agentId, 'messageId': messageId});
 
   @override
   void stopAgent(String agentId) => _invoke('stop', {'agentId': agentId});
@@ -83,6 +105,18 @@ class BridgeChatActions extends ChatActions {
     'setFullFileSystemAccess',
     {'agentId': agentId, 'enabled': enabled},
   );
+
+  @override
+  void setAgentPlanMode(String agentId, bool enabled) =>
+      _invoke('setPlanMode', {'agentId': agentId, 'enabled': enabled});
+
+  @override
+  void implementPlan(String agentId) =>
+      _invoke('implementPlan', {'agentId': agentId});
+
+  @override
+  void keepPlanning(String agentId) =>
+      _invoke('keepPlanning', {'agentId': agentId});
 
   @override
   Future<void> askAboutLine(

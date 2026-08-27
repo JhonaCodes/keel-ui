@@ -57,6 +57,18 @@ class Session {
 
   final bool isRunning;
 
+  /// Los turnos de esta sesión solo planifican: proponen y no tocan nada.
+  /// Se persiste porque es una decisión del usuario sobre la sesión.
+  ///
+  /// No confundir con [plan], que es el plan de trabajo acordado entre los
+  /// miembros: esto es el MODO en que corre un turno.
+  final bool planMode;
+
+  /// Terminó un turno de planificación y falta decidir si se implementa.
+  /// Transitorio como [liveTurn]: es una tarjeta en pantalla, no un hecho de
+  /// la sesión.
+  final bool planAwaitingDecision;
+
   /// The adaptive case that owns work, findings, and validation. It replaces
   /// the positional workflow cursor; work advances by satisfied dependencies.
   final ResolutionCase? resolutionCase;
@@ -110,6 +122,8 @@ class Session {
     this.request = '',
     this.workflowId = '',
     this.isRunning = false,
+    this.planMode = false,
+    this.planAwaitingDecision = false,
     this.resolutionCase,
     this.usage = const SessionUsage(),
     this.pendingPermission,
@@ -136,6 +150,8 @@ class Session {
     String? request,
     String? workflowId,
     bool? isRunning,
+    bool? planMode,
+    bool? planAwaitingDecision,
     ResolutionCase? resolutionCase,
     bool clearResolutionCase = false,
     SessionUsage? usage,
@@ -159,6 +175,8 @@ class Session {
       request: request ?? this.request,
       workflowId: workflowId ?? this.workflowId,
       isRunning: isRunning ?? this.isRunning,
+      planMode: planMode ?? this.planMode,
+      planAwaitingDecision: planAwaitingDecision ?? this.planAwaitingDecision,
       resolutionCase: clearResolutionCase
           ? null
           : (resolutionCase ?? this.resolutionCase),
@@ -184,6 +202,7 @@ class Session {
     'request': request,
     'workflowId': workflowId,
     'isRunning': isRunning,
+    'planMode': planMode,
     'resolutionCase': resolutionCase?.toJson(),
     'usage': usage.toJson(),
     'subagents': [for (final subagent in subagents) subagent.toJson()],
@@ -219,6 +238,7 @@ class Session {
               ? kSessionFormatMigrationMark
               : ''),
       isRunning: json['isRunning'] as bool? ?? false,
+      planMode: json['planMode'] as bool? ?? false,
       resolutionCase: json['resolutionCase'] is Map
           ? ResolutionCase.fromJson(
               (json['resolutionCase'] as Map).cast<String, dynamic>(),
@@ -252,6 +272,8 @@ class Session {
           request == other.request &&
           workflowId == other.workflowId &&
           isRunning == other.isRunning &&
+          planMode == other.planMode &&
+          planAwaitingDecision == other.planAwaitingDecision &&
           usage == other.usage &&
           pendingPermission == other.pendingPermission &&
           liveTurn == other.liveTurn &&
@@ -273,6 +295,8 @@ class Session {
     request,
     workflowId,
     isRunning,
+    planMode,
+    planAwaitingDecision,
     usage,
     pendingPermission,
     liveTurn,

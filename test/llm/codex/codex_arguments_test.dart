@@ -11,6 +11,7 @@ void main() {
         prompt: 'Revisá este PR',
         sessionId: null,
         additionalSystemPrompt: 'Sos el auditor de código.',
+        planMode: false,
       );
 
       expect(
@@ -27,6 +28,7 @@ void main() {
         prompt: 'Seguí con lo anterior',
         sessionId: 'thread-123',
         additionalSystemPrompt: 'Sos el auditor de código.',
+        planMode: false,
       );
 
       expect(prompt, 'Seguí con lo anterior');
@@ -37,6 +39,7 @@ void main() {
         prompt: 'Hola',
         sessionId: null,
         additionalSystemPrompt: null,
+        planMode: false,
       );
 
       expect(prompt, 'Hola');
@@ -47,9 +50,83 @@ void main() {
         prompt: 'Hola',
         sessionId: null,
         additionalSystemPrompt: '',
+        planMode: false,
       );
 
       expect(prompt, 'Hola');
+    });
+  });
+
+  group('modo plan en codex', () {
+    test('el sandbox pasa a read-only', () {
+      final args = buildCodexArguments(
+        prompt: 'Planificá',
+        sessionId: null,
+        model: 'gpt-5-codex',
+        fullFileSystemAccess: false,
+        codexProfileName: null,
+        planMode: true,
+      );
+
+      expect(args, containsAllInOrder(['-s', 'read-only']));
+    });
+
+    test('le gana al acceso total al disco', () {
+      // Si el turno solo planifica, no hay lectura que justifique dejarlo
+      // escribir en todo el disco.
+      final args = buildCodexArguments(
+        prompt: 'Planificá',
+        sessionId: null,
+        model: 'gpt-5-codex',
+        fullFileSystemAccess: true,
+        codexProfileName: null,
+        planMode: true,
+      );
+
+      expect(args, containsAllInOrder(['-s', 'read-only']));
+      expect(args.contains('danger-full-access'), isFalse);
+    });
+
+    test('al reanudar no hay sandbox que aplicar', () {
+      // `exec resume` no acepta `-s`. El turno queda con el freno del texto
+      // nomás, y por eso el runner emite un aviso.
+      final args = buildCodexArguments(
+        prompt: 'Planificá',
+        sessionId: 'thread-1',
+        model: 'gpt-5-codex',
+        fullFileSystemAccess: false,
+        codexProfileName: null,
+        planMode: true,
+      );
+
+      expect(args.contains('-s'), isFalse);
+    });
+
+    test('el texto del modo plan viaja adentro del prompt', () {
+      // Adentro del prompt y no en el preámbulo, porque el preámbulo se
+      // descarta al reanudar: es lo único que llega en los dos casos.
+      for (final sessionId in [null, 'thread-1']) {
+        final prompt = buildCodexPrompt(
+          prompt: 'Agregá manejo de errores',
+          sessionId: sessionId,
+          additionalSystemPrompt: 'Sos el auditor.',
+          planMode: true,
+        );
+
+        expect(prompt, contains('PLAN MODE'));
+        expect(prompt, contains('Agregá manejo de errores'));
+      }
+    });
+
+    test('apagado no mete el texto en el prompt', () {
+      final prompt = buildCodexPrompt(
+        prompt: 'Agregá manejo de errores',
+        sessionId: null,
+        additionalSystemPrompt: null,
+        planMode: false,
+      );
+
+      expect(prompt, 'Agregá manejo de errores');
     });
   });
 
@@ -61,6 +138,7 @@ void main() {
         model: '',
         fullFileSystemAccess: false,
         codexProfileName: null,
+        planMode: false,
       );
 
       expect(args, [
@@ -82,6 +160,7 @@ void main() {
         model: '',
         fullFileSystemAccess: false,
         codexProfileName: null,
+        planMode: false,
       );
 
       expect(args, [
@@ -101,6 +180,7 @@ void main() {
         model: 'sonnet',
         fullFileSystemAccess: false,
         codexProfileName: null,
+        planMode: false,
       );
 
       expect(args.contains('-m'), isFalse);
@@ -113,6 +193,7 @@ void main() {
         model: 'gpt-5-codex',
         fullFileSystemAccess: false,
         codexProfileName: null,
+        planMode: false,
       );
 
       final index = args.indexOf('-m');
@@ -127,6 +208,7 @@ void main() {
         model: '',
         fullFileSystemAccess: true,
         codexProfileName: null,
+        planMode: false,
       );
 
       expect(args[args.indexOf('-s') + 1], 'danger-full-access');
@@ -139,6 +221,7 @@ void main() {
         model: '',
         fullFileSystemAccess: false,
         codexProfileName: 'keel-turn123',
+        planMode: false,
       );
 
       final index = args.indexOf('-p');
@@ -153,34 +236,39 @@ void main() {
         model: 'gpt-5-codex',
         fullFileSystemAccess: true,
         codexProfileName: 'keel-turn1',
+        planMode: false,
       );
 
       expect(args.last, 'Este es el prompt');
     });
   });
 
-  test('el argv de resume coincide con la ayuda del binario instalado', () async {
-    final lookup = await Process.run('/bin/sh', ['-c', 'command -v codex']);
-    if (lookup.exitCode != 0) return;
-    final help = await Process.run('codex', ['exec', 'resume', '--help']);
-    expect(help.exitCode, 0);
-    final output = '${help.stdout}\n${help.stderr}';
-    expect(output, contains('--model'));
-    expect(output, contains('--json'));
-    expect(output, contains('--skip-git-repo-check'));
-    expect(output, isNot(contains('--sandbox')));
-    expect(output, isNot(contains('--profile')));
-    expect(output, isNot(contains('--color')));
+  test(
+    'el argv de resume coincide con la ayuda del binario instalado',
+    () async {
+      final lookup = await Process.run('/bin/sh', ['-c', 'command -v codex']);
+      if (lookup.exitCode != 0) return;
+      final help = await Process.run('codex', ['exec', 'resume', '--help']);
+      expect(help.exitCode, 0);
+      final output = '${help.stdout}\n${help.stderr}';
+      expect(output, contains('--model'));
+      expect(output, contains('--json'));
+      expect(output, contains('--skip-git-repo-check'));
+      expect(output, isNot(contains('--sandbox')));
+      expect(output, isNot(contains('--profile')));
+      expect(output, isNot(contains('--color')));
 
-    final argv = buildCodexArguments(
-      prompt: 'seguí',
-      sessionId: 'thread-real-help',
-      model: 'gpt-5.5',
-      fullFileSystemAccess: true,
-      codexProfileName: 'keel',
-    );
-    expect(argv, isNot(contains('-s')));
-    expect(argv, isNot(contains('-p')));
-    expect(argv, isNot(contains('--color')));
-  });
+      final argv = buildCodexArguments(
+        prompt: 'seguí',
+        sessionId: 'thread-real-help',
+        model: 'gpt-5.5',
+        fullFileSystemAccess: true,
+        codexProfileName: 'keel',
+        planMode: false,
+      );
+      expect(argv, isNot(contains('-s')));
+      expect(argv, isNot(contains('-p')));
+      expect(argv, isNot(contains('--color')));
+    },
+  );
 }

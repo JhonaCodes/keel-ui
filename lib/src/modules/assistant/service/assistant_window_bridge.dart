@@ -38,7 +38,10 @@ class AssistantWindowBridge {
 
   String? _activeAgentId;
   int _seq = 0;
-  AssistantWindowState? _lastContent;
+
+  /// La huella del último estado empujado. Barata a propósito: comparar los
+  /// snapshots enteros era recorrer todo el transcripto en cada tecla.
+  String? _lastFingerprint;
   Timer? _debounce;
   bool _listening = false;
   Future<void>? _opening;
@@ -123,7 +126,37 @@ class AssistantWindowBridge {
         return null;
 
       case 'removeQueued':
-        _agents.removeQueuedMessage(agentId!, payload['index'] as int);
+        _agents.removeQueuedMessage(agentId!, payload['messageId'] as String);
+        return null;
+
+      case 'editQueued':
+        _agents.editQueuedMessage(
+          agentId!,
+          payload['messageId'] as String,
+          payload['text'] as String,
+        );
+        return null;
+
+      case 'holdQueued':
+        _agents.holdQueuedMessage(agentId!, payload['messageId'] as String);
+        return null;
+
+      case 'sendQueuedAfterTurn':
+        unawaited(
+          _agents.sendQueuedMessageAfterTurn(
+            agentId!,
+            payload['messageId'] as String,
+          ),
+        );
+        return null;
+
+      case 'sendQueuedNow':
+        unawaited(
+          _agents.sendQueuedMessageNow(
+            agentId!,
+            payload['messageId'] as String,
+          ),
+        );
         return null;
 
       case 'stop':
@@ -168,6 +201,18 @@ class AssistantWindowBridge {
           agentId!,
           payload['enabled'] as bool,
         );
+        return null;
+
+      case 'setPlanMode':
+        _agents.setAgentPlanMode(agentId!, payload['enabled'] as bool);
+        return null;
+
+      case 'implementPlan':
+        _agents.implementPlan(agentId!);
+        return null;
+
+      case 'keepPlanning':
+        _agents.keepPlanning(agentId!);
         return null;
 
       case 'deleteAgent':
@@ -225,18 +270,68 @@ class AssistantWindowBridge {
     _listening = false;
     _debounce?.cancel();
     _debounce = null;
-    _lastContent = null;
+    _lastFingerprint = null;
     _agents.removeListener(_onAgentsChanged);
   }
 
+  /// Llega en CADA cambio de estado del chat, incluido cada pedazo de texto
+  /// que el agente va escribiendo. O sea: decenas de veces por segundo.
+  ///
+  /// Por eso acá no se arma nada. Antes esta función construía el snapshot
+  /// entero y lo comparaba con el anterior —una comparación que recorre
+  /// mensaje por mensaje y texto por texto— y recién después programaba el
+  /// timer. El debounce demoraba el envío, que es lo barato, mientras lo
+  /// caro se pagaba igual en cada cambio: la ventana quedaba pastosa
+  /// mientras el agente escribía, y aprobar un permiso —que dispara varios
+  /// cambios seguidos— congelaba la app unos segundos.
+  ///
+  /// Lo único que se mira acá es una huella barata: cuántos mensajes hay,
+  /// cuánto mide el último y si cambió lo que se ve alrededor. Dos estados
+  /// distintos con la misma huella son, para esta ventana, el mismo estado.
   void _onAgentsChanged() {
-    final content = _buildContent();
-    if (content == _lastContent) return;
-    _debounce?.cancel();
+    final fingerprint = _fingerprint();
+    if (fingerprint == _lastFingerprint) return;
+    _lastFingerprint = fingerprint;
+    // Ya hay un envío programado: este cambio viaja en ese.
+    if (_debounce?.isActive ?? false) return;
     _debounce = Timer(_pushDebounce, () => unawaited(_pushNow()));
   }
 
+  /// Lo que hace distinto a un estado de otro, sin serializar nada.
+  ///
+  /// El largo del último mensaje es lo que se mueve mientras el agente
+  /// escribe; el resto son los cambios que se ven de golpe.
+  String _fingerprint() {
+    final agents = _agents.data.agents;
+    final active = agents
+        .where((agent) => agent.id == _activeAgentId)
+        .firstOrNull;
+    final last = active?.messages.lastOrNull;
+    return [
+      agents.length,
+      _activeAgentId ?? '',
+      active?.messages.length ?? 0,
+      last?.text.length ?? 0,
+      last?.reasoning?.length ?? 0,
+      active?.isStreaming ?? false,
+      active?.liveReasoning?.length ?? 0,
+      active?.currentActivity?.label ?? '',
+      active?.pendingPermission?.message ?? '',
+      active?.model ?? '',
+      active?.provider.alias ?? '',
+      active?.effort ?? '',
+      active?.fullFileSystemAccess ?? false,
+      // Sin estos dos, el modo plan se prende en la app principal y esta
+      // ventana no se entera nunca: el empuje se descarta por huella igual.
+      active?.planMode ?? false,
+      active?.planAwaitingDecision ?? false,
+      SettingsService.instance.notifier.data.chatFontScale,
+      SettingsService.instance.notifier.data.language,
+    ].join('|');
+  }
+
   Future<void> _pushNow() async {
+    // Se arma y se serializa UNA sola vez, acá, del lado barato del timer.
     final json = _encodeWireState();
     final delivered = await invokeOnWindow(
       AssistantWindowArguments.id,
@@ -248,11 +343,9 @@ class AssistantWindowBridge {
     if (!delivered) _detach();
   }
 
-  /// Stamps the next seq onto the current content and encodes it. Also
-  /// records the content so the listener can skip no-op pushes.
+  /// Stamps the next seq onto the current content and encodes it.
   String _encodeWireState() {
     final content = _buildContent();
-    _lastContent = content;
     final wire = AssistantWindowState(
       seq: ++_seq,
       activeAgentId: content.activeAgentId,
@@ -295,11 +388,39 @@ class AssistantWindowBridge {
     );
   }
 
+  /// Cuánto va a pesar el snapshot en el cable, sin armarlo.
+  ///
+  /// Solo suma lo que crece sin techo —el texto, el razonamiento y las
+  /// ediciones de archivo de cada mensaje—; los campos fijos son ruido al
+  /// lado de un hilo largo. El margen por mensaje cubre las claves del JSON.
+  ///
+  /// Las ediciones se cuentan aunque ya vengan acotadas por el snapshot: doce
+  /// diffs de 64 KB son 768 KB, más que de sobra para pasarse del techo del
+  /// cable. Sin sumarlas, el recorte de historial creería que hay lugar.
+  int _estimatedChars(AssistantAgentSnapshot snapshot) {
+    var total = 0;
+    for (final message in snapshot.messages) {
+      total += message.text.length + (message.reasoning?.length ?? 0) + 120;
+      for (final edit in message.fileEdits) {
+        total +=
+            (edit.beforeContent?.length ?? 0) + edit.afterContent.length + 60;
+      }
+    }
+    return total;
+  }
+
   /// Snapshot with the oldest messages dropped if the encoded form is huge.
   /// The real thread in main is untouched — this only bounds the wire.
+  ///
+  /// El tamaño se ESTIMA sumando los largos de texto, no serializando. La
+  /// condición de este `while` llamaba a `jsonEncode` sobre el transcripto
+  /// entero, así que se pagaba un encode completo siempre —incluso cuando el
+  /// hilo era corto y no había nada que recortar— solo para medirlo. Estimar
+  /// se equivoca en el margen; serializar para medir se equivocaba en el
+  /// costo, que es lo que se notaba.
   AssistantAgentSnapshot _boundedSnapshot(Agent agent) {
     var snapshot = AssistantAgentSnapshot.fromAgent(agent);
-    while (jsonEncode(snapshot.toJson()).length > _maxWireChars &&
+    while (_estimatedChars(snapshot) > _maxWireChars &&
         snapshot.messages.length > 20) {
       final kept = snapshot.messages.sublist(snapshot.messages.length ~/ 2);
       snapshot = AssistantAgentSnapshot(
@@ -309,6 +430,8 @@ class AssistantWindowBridge {
         provider: snapshot.provider,
         effort: snapshot.effort,
         fullFileSystemAccess: snapshot.fullFileSystemAccess,
+        planMode: snapshot.planMode,
+        planAwaitingDecision: snapshot.planAwaitingDecision,
         isStreaming: snapshot.isStreaming,
         iconColor: snapshot.iconColor,
         messages: [

@@ -70,6 +70,7 @@ Future<void> _runInIsolate({
     hooksConfig: spec.hooksConfig,
     hookFiles: spec.hookFiles,
     conversationHistory: spec.conversationHistory,
+    planMode: spec.planMode,
   );
 
   final events =

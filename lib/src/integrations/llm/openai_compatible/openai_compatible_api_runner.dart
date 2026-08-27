@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:logger_rs/logger_rs.dart';
 
 import 'package:keel_ui/src/integrations/llm/llm.dart';
+import 'package:keel_ui/src/integrations/system_prompt/system_prompt.dart';
 import 'package:keel_ui/src/integrations/llm/openai_compatible/openai_tool_bridge.dart';
 import 'package:keel_ui/src/modules/secrets/viewmodel/secrets_viewmodel.dart';
 
@@ -85,6 +86,10 @@ class OpenAiCompatibleApiRunner implements LlmRunner {
       // el de la cabecera. Se entregan como turno del usuario, marcados,
       // para que el agente los lea igual sin pelearse con el proveedor.
       final messages = <Map<String, dynamic>>[
+        // Primero el modo plan, cuando corresponde: explica por qué faltan
+        // las tools de escritura. Sin la explicación el agente se pelea con
+        // la herramienta que no está en vez de planificar.
+        if (spec.planMode) {'role': 'system', 'content': kPlanModePrompt},
         if (spec.additionalSystemPrompt case final prompt?
             when prompt.isNotEmpty)
           {'role': 'system', 'content': prompt},

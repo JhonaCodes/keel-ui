@@ -10,6 +10,7 @@ List<String> buildClaudeArguments({
   required String? claudeSettingsPath,
   required bool fullFileSystemAccess,
   required String? sessionId,
+  required bool planMode,
 }) {
   return [
     '-p',
@@ -25,11 +26,21 @@ List<String> buildClaudeArguments({
     model,
     '--effort',
     effort,
+    // El modo plan del propio CLI: trae su system prompt de planificación y
+    // frena las escrituras aunque las tools estén permitidas. Por eso
+    // `--allowedTools` NO se recorta acá — la superficie de tools tiene que
+    // ser la misma que en el turno que después implementa, o el `--resume`
+    // cambiaría de herramientas a mitad de conversación.
+    if (planMode) ...['--permission-mode', 'plan'],
     '--allowedTools',
     allowedTools.join(','),
     '--append-system-prompt',
     systemPrompt,
-    if (mcpConfigPath != null) ...['--mcp-config', mcpConfigPath, '--strict-mcp-config'],
+    if (mcpConfigPath != null) ...[
+      '--mcp-config',
+      mcpConfigPath,
+      '--strict-mcp-config',
+    ],
     if (claudeSettingsPath != null) ...['--settings', claudeSettingsPath],
     if (fullFileSystemAccess) ...['--add-dir', '/'],
     if (sessionId != null) ...['--resume', sessionId],

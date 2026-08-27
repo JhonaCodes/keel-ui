@@ -6,6 +6,7 @@ import 'package:keel_ui/src/modules/agents/model/agent_icon_colors.dart';
 import 'package:keel_ui/src/modules/agents/model/agent_provider.dart';
 import 'package:keel_ui/src/modules/agents/model/agent_tool_activity.dart';
 import 'package:keel_ui/src/modules/agents/model/chat_message.dart';
+import 'package:keel_ui/src/modules/agents/model/file_edit.dart';
 import 'package:keel_ui/src/modules/agents/model/permission_request.dart';
 import 'package:keel_ui/src/modules/agents/model/queued_message.dart';
 import 'package:keel_ui/src/modules/settings/model/app_settings.dart';
@@ -15,10 +16,19 @@ import 'package:keel_ui/src/modules/settings/model/app_settings.dart';
 /// exactly why this is not [Agent.toJson] (that's the persistence format and
 /// deliberately omits streaming/activity/permission state).
 ///
-/// `fileEdits` are stripped from every message on purpose: they're the one
-/// unbounded field (full before/after file contents), and Keel AI acts
-/// through its MCP tools, not through file edits, so the window loses
-/// nothing by not rendering them.
+/// Los `fileEdits` viajan ACOTADOS, no completos.
+///
+/// Antes se borraban de todos los mensajes, con el argumento de que Keel AI
+/// actúa por sus tools MCP y no editando archivos. Eso dejó de ser cierto:
+/// un Keel AI con tools de escritura sí toca archivos, y en la ventana se
+/// veía que los había tocado sin poder abrirlos ni preguntar sobre una
+/// línea — `askAboutLine` y `recordManualEdit` estaban cableados y muertos.
+///
+/// Pero son el único campo sin techo (el contenido entero del archivo antes
+/// y después), así que se acotan por dos lados: solo los últimos
+/// [_fileEditWindow] mensajes —donde de verdad vas a abrir un editor— y solo
+/// las ediciones que caben en [_maxEditChars]. Un diff gigante se cae del
+/// cable en vez de tumbar el empuje entero.
 class AssistantAgentSnapshot {
   final String id;
   final String name;
@@ -26,6 +36,8 @@ class AssistantAgentSnapshot {
   final AgentProvider provider;
   final String effort;
   final bool fullFileSystemAccess;
+  final bool planMode;
+  final bool planAwaitingDecision;
   final bool isStreaming;
   final Color iconColor;
   final List<ChatMessage> messages;
@@ -47,6 +59,8 @@ class AssistantAgentSnapshot {
     required this.provider,
     required this.effort,
     required this.fullFileSystemAccess,
+    this.planMode = false,
+    this.planAwaitingDecision = false,
     required this.isStreaming,
     required this.iconColor,
     required this.messages,
@@ -66,12 +80,11 @@ class AssistantAgentSnapshot {
       provider: agent.provider,
       effort: agent.effort,
       fullFileSystemAccess: agent.fullFileSystemAccess,
+      planMode: agent.planMode,
+      planAwaitingDecision: agent.planAwaitingDecision,
       isStreaming: agent.isStreaming,
       iconColor: agent.iconColor,
-      messages: [
-        for (final message in agent.messages)
-          message.fileEdits.isEmpty ? message : _withoutFileEdits(message),
-      ],
+      messages: _withBoundedFileEdits(agent.messages),
       liveReasoning: agent.liveReasoning,
       currentActivity: agent.currentActivity,
       pendingPermission: agent.pendingPermission,
@@ -96,6 +109,8 @@ class AssistantAgentSnapshot {
       messages: messages,
       isStreaming: isStreaming,
       fullFileSystemAccess: fullFileSystemAccess,
+      planMode: planMode,
+      planAwaitingDecision: planAwaitingDecision,
       currentActivity: currentActivity,
       pendingPermission: pendingPermission,
       liveReasoning: liveReasoning,
@@ -105,7 +120,40 @@ class AssistantAgentSnapshot {
     );
   }
 
-  static ChatMessage _withoutFileEdits(ChatMessage message) {
+  /// Cuántos mensajes del final conservan sus ediciones. Más atrás nadie
+  /// abre un editor: se scrollea para leer, no para tocar.
+  static const _fileEditWindow = 12;
+
+  /// Techo por edición. Un archivo más grande que esto viaja como si no
+  /// tuviera edición — es preferible perder UN botón que perder el empuje.
+  static const _maxEditChars = 64 * 1024;
+
+  static List<ChatMessage> _withBoundedFileEdits(List<ChatMessage> messages) {
+    final firstKept = messages.length - _fileEditWindow;
+    return [
+      for (final (index, message) in messages.indexed)
+        if (message.fileEdits.isEmpty)
+          message
+        else
+          _withFileEdits(
+            message,
+            index < firstKept
+                ? const []
+                : [
+                    for (final edit in message.fileEdits)
+                      if (_editChars(edit) <= _maxEditChars) edit,
+                  ],
+          ),
+    ];
+  }
+
+  static int _editChars(FileEdit edit) =>
+      (edit.beforeContent?.length ?? 0) + edit.afterContent.length;
+
+  static ChatMessage _withFileEdits(
+    ChatMessage message,
+    List<FileEdit> fileEdits,
+  ) {
     return ChatMessage(
       role: message.role,
       text: message.text,
@@ -113,6 +161,7 @@ class AssistantAgentSnapshot {
       costUsd: message.costUsd,
       durationMs: message.durationMs,
       reasoning: message.reasoning,
+      fileEdits: fileEdits,
       authorProfileId: message.authorProfileId,
       workNodeId: message.workNodeId,
       consultOfProfileId: message.consultOfProfileId,
@@ -126,6 +175,8 @@ class AssistantAgentSnapshot {
     'provider': provider.alias,
     'effort': effort,
     'fullFileSystemAccess': fullFileSystemAccess,
+    'planMode': planMode,
+    'planAwaitingDecision': planAwaitingDecision,
     'isStreaming': isStreaming,
     'iconColor': iconColor.toARGB32(),
     'messages': messages.map((message) => message.toJson()).toList(),
@@ -147,6 +198,10 @@ class AssistantAgentSnapshot {
           : AgentProvider.fromAlias(json['provider'] as String),
       effort: json['effort'] as String,
       fullFileSystemAccess: json['fullFileSystemAccess'] as bool,
+      // Tolerante: una ventana vieja contra un main nuevo (o al revés, en un
+      // hot reload) no trae estas claves, y eso no puede reventar el decode.
+      planMode: json['planMode'] as bool? ?? false,
+      planAwaitingDecision: json['planAwaitingDecision'] as bool? ?? false,
       isStreaming: json['isStreaming'] as bool,
       iconColor: json['iconColor'] == null
           ? kAgentIconColorPalette.first
@@ -189,6 +244,8 @@ class AssistantAgentSnapshot {
           provider == other.provider &&
           effort == other.effort &&
           fullFileSystemAccess == other.fullFileSystemAccess &&
+          planMode == other.planMode &&
+          planAwaitingDecision == other.planAwaitingDecision &&
           isStreaming == other.isStreaming &&
           iconColor == other.iconColor &&
           listEquals(messages, other.messages) &&
@@ -207,6 +264,8 @@ class AssistantAgentSnapshot {
     provider,
     effort,
     fullFileSystemAccess,
+    planMode,
+    planAwaitingDecision,
     isStreaming,
     iconColor,
     Object.hashAll(messages),

@@ -9,6 +9,7 @@ void main() {
       String? claudeSettingsPath,
       bool fullFileSystemAccess = false,
       String? sessionId,
+      bool planMode = false,
     }) => buildClaudeArguments(
       prompt: 'Hola',
       model: 'sonnet',
@@ -19,6 +20,7 @@ void main() {
       claudeSettingsPath: claudeSettingsPath,
       fullFileSystemAccess: fullFileSystemAccess,
       sessionId: sessionId,
+      planMode: planMode,
     );
 
     test('turno mínimo: sin mcp, sin hooks, sin resume', () {
@@ -80,6 +82,41 @@ void main() {
 
     test('sin sessionId no agrega --resume', () {
       expect(minimal().contains('--resume'), isFalse);
+    });
+
+    group('modo plan', () {
+      test('agrega --permission-mode plan', () {
+        expect(
+          minimal(planMode: true),
+          containsAllInOrder(['--permission-mode', 'plan']),
+        );
+      });
+
+      test('apagado no nombra el flag en ningún lado', () {
+        expect(minimal().contains('--permission-mode'), isFalse);
+      });
+
+      test('NO recorta las tools permitidas', () {
+        // El modo plan frena las escrituras por su cuenta. Sacar `Write` de
+        // la lista además de eso dejaría al turno que implementa —el mismo
+        // `--resume`— con otra superficie de tools que la del turno que
+        // planificó.
+        final planning = minimal(planMode: true);
+        final writing = minimal();
+
+        expect(
+          planning[planning.indexOf('--allowedTools') + 1],
+          writing[writing.indexOf('--allowedTools') + 1],
+        );
+      });
+
+      test('convive con el acceso total al disco', () {
+        // Probado contra el CLI real: el modo plan le gana a `--add-dir /`.
+        final args = minimal(planMode: true, fullFileSystemAccess: true);
+
+        expect(args, containsAllInOrder(['--permission-mode', 'plan']));
+        expect(args, containsAllInOrder(['--add-dir', '/']));
+      });
     });
 
     test('el prompt siempre va justo después de -p', () {

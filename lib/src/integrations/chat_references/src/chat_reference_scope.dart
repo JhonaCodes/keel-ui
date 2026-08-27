@@ -162,7 +162,9 @@ class RequirementReferenceScope extends ChatReferenceScope {
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      other is RequirementReferenceScope && from == other.from && to == other.to;
+      other is RequirementReferenceScope &&
+          from == other.from &&
+          to == other.to;
 
   @override
   int get hashCode => Object.hash(from, to);

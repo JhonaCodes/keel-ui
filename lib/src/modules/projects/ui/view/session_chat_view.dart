@@ -13,7 +13,10 @@ import 'package:keel_ui/src/modules/agents/model/chat_message.dart';
 import 'package:keel_ui/src/modules/agents/service/chat_attachment_store.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/chat_attachment_strip.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/fade_in_entrance.dart';
+import 'package:keel_ui/src/modules/agents/model/agent_provider.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/permission_request_banner.dart';
+import 'package:keel_ui/src/modules/agents/ui/widget/plan_mode_toggle.dart';
+import 'package:keel_ui/src/modules/agents/ui/widget/plan_ready_banner.dart';
 import 'package:keel_ui/src/modules/projects/model/member_color.dart';
 import 'package:keel_ui/src/modules/projects/model/project.dart';
 import 'package:keel_ui/src/modules/projects/model/session.dart';
@@ -24,7 +27,8 @@ import 'package:keel_ui/src/modules/projects/ui/view/session_map_view.dart';
 import 'package:keel_ui/src/modules/projects/ui/widget/session_agent_picker.dart';
 import 'package:keel_ui/src/modules/projects/ui/widget/session_live_turn_strip.dart';
 import 'package:keel_ui/src/modules/projects/ui/widget/session_message_bubble.dart';
-import 'package:keel_ui/src/modules/projects/ui/widget/session_queued_messages_panel.dart';
+import 'package:keel_ui/src/modules/agents/ui/widget/queued_message_editor_dialog.dart';
+import 'package:keel_ui/src/modules/agents/ui/widget/queued_messages_panel.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/chat_reference_composer_field.dart';
 import 'package:keel_ui/src/modules/projects/ui/widget/workflow_progress_panel.dart';
 import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
@@ -161,6 +165,18 @@ class _ProjectChannel extends StatelessWidget {
                         session.id,
                         grant: grant,
                       ),
+                ),
+              // Una tarjeta a la vez: el permiso es un turno suspendido
+              // esperándote, así que le gana a la decisión sobre un plan.
+              if (tab == SessionTab.chat &&
+                  session != null &&
+                  pendingPermission == null &&
+                  session.planAwaitingDecision)
+                PlanReadyBanner(
+                  onImplement: () => ProjectsService.instance.notifier
+                      .implementSessionPlan(project.id, session.id),
+                  onKeepPlanning: () => ProjectsService.instance.notifier
+                      .keepPlanningSession(project.id, session.id),
                 ),
               // A finding remains visible at the point where the user can
               // provide a decision or missing context to the case owner.
@@ -397,7 +413,7 @@ class _ComposerState extends State<_Composer> {
   Future<void> _editQueuedMessage(SessionQueuedMessage message) async {
     final edited = await showDialog<String>(
       context: context,
-      builder: (_) => _QueuedMessageEditorDialog(message: message),
+      builder: (_) => QueuedMessageEditorDialog(message: message),
     );
     final session = widget.session;
     if (edited == null || session == null) return;
@@ -495,7 +511,7 @@ class _ComposerState extends State<_Composer> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SessionQueuedMessagesPanel(
+            QueuedMessagesPanel(
               messages: session?.queuedMessages ?? const [],
               isRunning: running,
               onEdit: (message) => unawaited(_editQueuedMessage(message)),
@@ -511,6 +527,16 @@ class _ComposerState extends State<_Composer> {
             ),
             Row(
               children: [
+                if (session != null)
+                  PlanModeToggle(
+                    enabled: session.planMode,
+                    // La sesión corre con el motor de cada miembro, así que
+                    // acá no hay un proveedor único: se explica el caso
+                    // general y no se promete el modo nativo de Claude.
+                    provider: AgentProvider.codex,
+                    onChanged: (enabled) => ProjectsService.instance.notifier
+                        .setSessionPlanMode(project.id, session.id, enabled),
+                  ),
                 IconButton(
                   tooltip: 'Adjuntar imagen',
                   icon: Icon(
@@ -525,7 +551,9 @@ class _ComposerState extends State<_Composer> {
                     decoration: ShapeDecoration(
                       shape: 16.smoothBorder(
                         side: BorderSide(
-                          color: Theme.of(context).colorScheme.outline,
+                          color: session?.planMode ?? false
+                              ? Theme.of(context).colorScheme.primary
+                              : Theme.of(context).colorScheme.outline,
                         ),
                       ),
                     ),
@@ -539,6 +567,7 @@ class _ComposerState extends State<_Composer> {
                       enabled: session != null,
                       hintText: switch (session) {
                         null => 'Creá una sesión para empezar',
+                        _ when session.planMode => 'Pedí un plan…',
                         _ when !started =>
                           'Qué necesitás en esta sesión de #${project.name}',
                         _ => 'Mensaje a #${project.name}',
@@ -590,73 +619,6 @@ class _ComposerState extends State<_Composer> {
           ],
         ),
       ),
-    );
-  }
-}
-
-class _QueuedMessageEditorDialog extends StatefulWidget {
-  const _QueuedMessageEditorDialog({required this.message});
-
-  final SessionQueuedMessage message;
-
-  @override
-  State<_QueuedMessageEditorDialog> createState() =>
-      _QueuedMessageEditorDialogState();
-}
-
-class _QueuedMessageEditorDialogState
-    extends State<_QueuedMessageEditorDialog> {
-  late final TextEditingController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = TextEditingController(
-      text: ChatReferenceService.visibleText(widget.message.text),
-    );
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _save() {
-    final text = _controller.text.trim();
-    if (text.isEmpty && widget.message.imagePaths.isEmpty) return;
-    Navigator.of(context).pop(
-      ChatReferenceService.restoreReferencesAfterEdit(
-        widget.message.text,
-        text,
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Editar mensaje en espera'),
-      content: SizedBox(
-        width: 480,
-        child: TextField(
-          controller: _controller,
-          autofocus: true,
-          minLines: 3,
-          maxLines: 8,
-          decoration: const InputDecoration(
-            hintText: 'Mensaje que se enviará en el próximo turno',
-          ),
-          onSubmitted: (_) => _save(),
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancelar'),
-        ),
-        FilledButton(onPressed: _save, child: const Text('Guardar')),
-      ],
     );
   }
 }

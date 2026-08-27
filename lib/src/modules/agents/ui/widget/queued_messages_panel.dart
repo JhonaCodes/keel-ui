@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 
-import 'package:keel_ui/src/modules/projects/model/session_queued_message.dart';
+import 'package:keel_ui/src/modules/agents/model/queued_message.dart';
 import 'package:keel_ui/src/integrations/chat_references/chat_references.dart';
 
-/// Mensajes que el usuario dejó preparados mientras el workflow trabaja.
+/// Mensajes que el usuario dejó preparados mientras el agente trabaja.
 ///
 /// Permanecen visibles y bajo control explícito: se pueden editar, borrar,
 /// mandar al terminar o usar para interrumpir el turno actual.
-class SessionQueuedMessagesPanel extends StatelessWidget {
-  const SessionQueuedMessagesPanel({
+class QueuedMessagesPanel extends StatelessWidget {
+  const QueuedMessagesPanel({
     super.key,
     required this.messages,
     required this.isRunning,
@@ -19,13 +19,13 @@ class SessionQueuedMessagesPanel extends StatelessWidget {
     required this.onHold,
   });
 
-  final List<SessionQueuedMessage> messages;
+  final List<QueuedMessage> messages;
   final bool isRunning;
-  final ValueChanged<SessionQueuedMessage> onEdit;
-  final ValueChanged<SessionQueuedMessage> onDelete;
-  final ValueChanged<SessionQueuedMessage> onSendNow;
-  final ValueChanged<SessionQueuedMessage> onSendAfterTurn;
-  final ValueChanged<SessionQueuedMessage> onHold;
+  final ValueChanged<QueuedMessage> onEdit;
+  final ValueChanged<QueuedMessage> onDelete;
+  final ValueChanged<QueuedMessage> onSendNow;
+  final ValueChanged<QueuedMessage> onSendAfterTurn;
+  final ValueChanged<QueuedMessage> onHold;
 
   @override
   Widget build(BuildContext context) {
@@ -60,7 +60,7 @@ class SessionQueuedMessagesPanel extends StatelessWidget {
               separatorBuilder: (_, _) => const SizedBox(height: 4),
               itemBuilder: (context, index) {
                 final message = messages[index];
-                return _QueuedSessionMessageRow(
+                return _QueuedMessageRow(
                   key: ValueKey(message.id),
                   message: message,
                   isRunning: isRunning,
@@ -79,8 +79,8 @@ class SessionQueuedMessagesPanel extends StatelessWidget {
   }
 }
 
-class _QueuedSessionMessageRow extends StatelessWidget {
-  const _QueuedSessionMessageRow({
+class _QueuedMessageRow extends StatelessWidget {
+  const _QueuedMessageRow({
     super.key,
     required this.message,
     required this.isRunning,
@@ -91,7 +91,7 @@ class _QueuedSessionMessageRow extends StatelessWidget {
     required this.onHold,
   });
 
-  final SessionQueuedMessage message;
+  final QueuedMessage message;
   final bool isRunning;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
@@ -100,9 +100,9 @@ class _QueuedSessionMessageRow extends StatelessWidget {
   final VoidCallback onHold;
 
   String get _stateLabel => switch (message.delivery) {
-    SessionQueuedDelivery.standby => 'En espera',
-    SessionQueuedDelivery.afterCurrentTurn => 'Se enviará al terminar',
-    SessionQueuedDelivery.interrupting => 'Interrumpiendo…',
+    QueuedDelivery.standby => 'En espera',
+    QueuedDelivery.afterCurrentTurn => 'Se enviará al terminar',
+    QueuedDelivery.interrupting => 'Interrumpiendo…',
   };
 
   @override
@@ -137,8 +137,7 @@ class _QueuedSessionMessageRow extends StatelessWidget {
                       Text(
                         _stateLabel,
                         style: TextStyle(
-                          color:
-                              message.delivery == SessionQueuedDelivery.standby
+                          color: message.delivery == QueuedDelivery.standby
                               ? scheme.onSurfaceVariant
                               : scheme.primary,
                           fontSize: 11,
@@ -169,7 +168,7 @@ class _QueuedSessionMessageRow extends StatelessWidget {
               onPressed: onEdit,
               icon: const Icon(Icons.edit_outlined),
             ),
-            if (message.delivery != SessionQueuedDelivery.interrupting)
+            if (message.delivery != QueuedDelivery.interrupting)
               IconButton(
                 tooltip: 'Enviar ahora',
                 visualDensity: VisualDensity.compact,
@@ -178,8 +177,8 @@ class _QueuedSessionMessageRow extends StatelessWidget {
                 icon: const Icon(Icons.send_outlined),
               ),
             if (isRunning &&
-                message.delivery != SessionQueuedDelivery.afterCurrentTurn &&
-                message.delivery != SessionQueuedDelivery.interrupting)
+                message.delivery != QueuedDelivery.afterCurrentTurn &&
+                message.delivery != QueuedDelivery.interrupting)
               IconButton(
                 tooltip: 'Enviar al terminar',
                 visualDensity: VisualDensity.compact,
@@ -187,7 +186,7 @@ class _QueuedSessionMessageRow extends StatelessWidget {
                 onPressed: onSendAfterTurn,
                 icon: const Icon(Icons.next_plan_outlined),
               ),
-            if (message.delivery != SessionQueuedDelivery.standby)
+            if (message.delivery != QueuedDelivery.standby)
               IconButton(
                 tooltip: 'Mantener en espera',
                 visualDensity: VisualDensity.compact,

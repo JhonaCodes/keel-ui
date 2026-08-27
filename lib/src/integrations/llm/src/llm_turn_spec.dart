@@ -26,6 +26,13 @@ class LlmTurnSpec {
   /// instruction remains [prompt] and is deliberately not repeated here.
   final List<LlmConversationMessage> conversationHistory;
 
+  /// Este turno solo planifica: propone cómo haría el trabajo y no lo hace.
+  ///
+  /// Cada runner lo traduce a lo que su CLI entienda —Claude tiene un modo
+  /// propio, los demás lo aproximan— porque no hay una forma común de decir
+  /// «podés leer todo y no podés tocar nada».
+  final bool planMode;
+
   const LlmTurnSpec({
     required this.prompt,
     required this.workingDirectory,
@@ -40,5 +47,6 @@ class LlmTurnSpec {
     this.hooksConfig,
     this.hookFiles = const {},
     this.conversationHistory = const [],
+    this.planMode = false,
   });
 }

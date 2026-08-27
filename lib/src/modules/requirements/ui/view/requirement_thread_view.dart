@@ -35,6 +35,11 @@ class RequirementThreadView extends StatefulWidget {
 class _RequirementThreadViewState extends State<RequirementThreadView> {
   final _controller = TextEditingController();
 
+  /// Vale para el próximo llamado y no se guarda: el hilo no tiene sesión
+  /// que reanudar ni nada que implementar, así que persistirlo sería guardar
+  /// un modo que no cambia nada entre una visita y la siguiente.
+  bool _planMode = false;
+
   InternalRequirement get requirement => widget.requirement;
 
   @override
@@ -90,6 +95,7 @@ class _RequirementThreadViewState extends State<RequirementThreadView> {
         memberProject: side.project,
         asTarget: side.isTarget,
         question: visible,
+        planMode: _planMode,
       ),
     );
   }
@@ -151,6 +157,8 @@ class _RequirementThreadViewState extends State<RequirementThreadView> {
           thinking: RequirementsService.instance.notifier.isThinking(
             requirement.id,
           ),
+          planMode: _planMode,
+          onPlanModeChanged: (enabled) => setState(() => _planMode = enabled),
         ),
         _ClosureBar(requirement: requirement),
       ],
@@ -528,6 +536,8 @@ class _Composer extends StatelessWidget {
     required this.onSend,
     required this.scope,
     required this.thinking,
+    required this.planMode,
+    required this.onPlanModeChanged,
   });
 
   final TextEditingController controller;
@@ -537,6 +547,13 @@ class _Composer extends StatelessWidget {
   /// Si hay un agente redactando su respuesta ahora mismo.
   final bool thinking;
 
+  /// El agente que llames propone en vez de afirmar. Acá NO hay tarjeta de
+  /// «Implementar»: este turno ya es de solo lectura y el hilo nunca
+  /// implementa nada — eso lo hace «Tomar y evaluar», que abre una sesión de
+  /// proyecto. Por eso tampoco se persiste: vale para el próximo llamado.
+  final bool planMode;
+  final ValueChanged<bool> onPlanModeChanged;
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -544,10 +561,27 @@ class _Composer extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
       child: Row(
         children: [
+          IconButton(
+            tooltip: planMode
+                ? 'Modo plan activo: propone en vez de afirmar'
+                : 'Modo plan: que proponga cómo lo haría. Para implementarlo '
+                      'de verdad, «Tomar y evaluar» abre una sesión',
+            icon: Icon(
+              planMode ? Icons.architecture : Icons.architecture_outlined,
+              size: 18,
+              color: planMode ? scheme.primary : null,
+            ),
+            constraints: const BoxConstraints.tightFor(width: 34, height: 34),
+            padding: EdgeInsets.zero,
+            onPressed: () => onPlanModeChanged(!planMode),
+          ),
+          const SizedBox(width: 4),
           Expanded(
             child: Container(
               decoration: BoxDecoration(
-                border: Border.all(color: scheme.outline),
+                border: Border.all(
+                  color: planMode ? scheme.primary : scheme.outline,
+                ),
                 borderRadius: BorderRadius.circular(16),
               ),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
@@ -561,6 +595,8 @@ class _Composer extends StatelessWidget {
                 enabled: !thinking,
                 hintText: thinking
                     ? 'Está contestando…'
+                    : planMode
+                    ? 'Pedí un plan — @ para llamar a un agente'
                     : 'Escribí acá — @ para preguntarle a un agente',
               ),
             ),

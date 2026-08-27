@@ -27,8 +27,20 @@ abstract class ChatActions {
   /// the escape hatch after stopping an agent mid-turn.
   void sendQueuedMessages(String agentId);
 
-  /// Drops the queued message at [index] before it goes out.
-  void removeQueuedMessage(String agentId, int index);
+  /// Saca de la cola el mensaje [messageId] antes de que salga.
+  void removeQueuedMessage(String agentId, String messageId);
+
+  /// Reescribe un mensaje que todavía no salió.
+  void editQueuedMessage(String agentId, String messageId, String text);
+
+  /// Lo devuelve a la espera: sale cuando el usuario diga.
+  void holdQueuedMessage(String agentId, String messageId);
+
+  /// Que salga solo apenas el turno en curso entregue el control.
+  void sendQueuedMessageAfterTurn(String agentId, String messageId);
+
+  /// Interrumpe el turno en curso para que este mensaje salga ya.
+  void sendQueuedMessageNow(String agentId, String messageId);
 
   void stopAgent(String agentId);
   void deleteAgent(String agentId);
@@ -39,6 +51,13 @@ abstract class ChatActions {
   void requestCompact(String agentId);
   void respondToPermissionRequest(String agentId, {required bool grant});
   void setAgentFullFileSystemAccess(String agentId, bool enabled);
+  void setAgentPlanMode(String agentId, bool enabled);
+
+  /// El plan quedó aprobado: sale del modo plan y arranca a implementarlo.
+  void implementPlan(String agentId);
+
+  /// Baja la tarjeta y deja el modo plan prendido.
+  void keepPlanning(String agentId);
   Future<void> askAboutLine(
     String agentId, {
     required String filePath,
@@ -80,8 +99,24 @@ class LocalChatActions extends ChatActions {
       unawaited(_agents.sendQueuedMessages(agentId));
 
   @override
-  void removeQueuedMessage(String agentId, int index) =>
-      _agents.removeQueuedMessage(agentId, index);
+  void removeQueuedMessage(String agentId, String messageId) =>
+      _agents.removeQueuedMessage(agentId, messageId);
+
+  @override
+  void editQueuedMessage(String agentId, String messageId, String text) =>
+      _agents.editQueuedMessage(agentId, messageId, text);
+
+  @override
+  void holdQueuedMessage(String agentId, String messageId) =>
+      _agents.holdQueuedMessage(agentId, messageId);
+
+  @override
+  void sendQueuedMessageAfterTurn(String agentId, String messageId) =>
+      unawaited(_agents.sendQueuedMessageAfterTurn(agentId, messageId));
+
+  @override
+  void sendQueuedMessageNow(String agentId, String messageId) =>
+      unawaited(_agents.sendQueuedMessageNow(agentId, messageId));
 
   @override
   void stopAgent(String agentId) => _agents.stopAgent(agentId);
@@ -115,6 +150,16 @@ class LocalChatActions extends ChatActions {
   @override
   void setAgentFullFileSystemAccess(String agentId, bool enabled) =>
       _agents.setAgentFullFileSystemAccess(agentId, enabled);
+
+  @override
+  void setAgentPlanMode(String agentId, bool enabled) =>
+      _agents.setAgentPlanMode(agentId, enabled);
+
+  @override
+  void implementPlan(String agentId) => _agents.implementPlan(agentId);
+
+  @override
+  void keepPlanning(String agentId) => _agents.keepPlanning(agentId);
 
   @override
   Future<void> askAboutLine(

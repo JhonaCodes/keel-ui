@@ -12,6 +12,20 @@
 /// arma —`claude_cli_runner.dart`— ya vive del otro lado.
 library;
 
+/// Cuánto puede tardar una tool MCP antes de que el CLI la dé por perdida,
+/// en milisegundos.
+///
+/// Se fija explícito porque uno de nuestros servidores MCP **espera a una
+/// persona**: un cambio sobre un elemento bloqueado suspende la tool hasta
+/// que el usuario aprueba o rechaza, y eso no tiene plazo. Sin esta variable
+/// manda el default del CLI, que es del orden de un minuto — o sea que
+/// sacarle el corte a nuestro servidor sin poner este habría movido el
+/// problema de lugar en vez de arreglarlo.
+///
+/// Seis horas: lo bastante para que nadie lo toque yendo a almorzar, y lo
+/// bastante finito para que un cuelgue de verdad no quede vivo para siempre.
+const kMcpToolTimeoutMillis = 21600000;
+
 /// Tools every agent gets, no setting required. They are all read-only or
 /// network reads: an agent that cannot open a file is blind, and the whole
 /// point of a project is that its agents look at the real code before they

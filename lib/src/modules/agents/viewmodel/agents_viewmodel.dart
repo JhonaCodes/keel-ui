@@ -23,6 +23,7 @@ import 'package:keel_ui/src/modules/agents/service/remote_conversation_history.d
 import 'package:keel_ui/src/modules/agents/model/file_edit.dart';
 import 'package:keel_ui/src/modules/agents/model/line_diff.dart';
 import 'package:keel_ui/src/modules/agents/model/permission_request.dart';
+import 'package:keel_ui/src/modules/agents/model/plan_decision.dart';
 import 'package:keel_ui/src/modules/agents/model/queued_message.dart';
 import 'package:keel_ui/src/modules/agents/repository/agents_repository.dart';
 import 'package:keel_ui/src/integrations/hook_delivery/hook_delivery.dart';
@@ -60,11 +61,26 @@ class AgentsViewModel extends ViewModel<AgentsState> {
   /// es lo que saca del hilo de la interfaz el parseo de cada línea del
   /// stream —el trabajo que ponía la app pastosa mientras se conversaba.
   final Map<String, TaskRun> _runningTurns = {};
-  final Map<String, Completer<bool>> _catalogChangePermissions = {};
+  final Map<String, Completer<CatalogPermissionOutcome>>
+  _catalogChangePermissions = {};
 
-  /// Los agentes cuyo último pedido de permiso contestó una persona. Lo que
-  /// distingue un «no» de un «nadie miró».
-  final Set<String> _answeredPermissions = {};
+  /// Guardar de a un agente y de a ráfagas.
+  ///
+  /// Casi todo lo que pasa acá cambia UN agente: llega un pedazo de texto, se
+  /// marca el modelo, se contesta un permiso. Hacerlo con [_persist]
+  /// reescribía la lista entera —cada agente con todos sus mensajes, y cada
+  /// mensaje con el contenido completo de los archivos que tocó— con una
+  /// llamada FFI bloqueante por registro, sobre el hilo de la interfaz.
+  late final _writes = CoalescedWrites(
+    window: const Duration(milliseconds: 400),
+    write: (agentId) async {
+      final agent = data.agents
+          .where((agent) => agent.id == agentId)
+          .firstOrNull;
+      // Borrado mientras esperaba: `deleteAgent` ya reescribió el conjunto.
+      if (agent != null) await _repository.saveOne(agent);
+    },
+  );
 
   /// Pid → agente, para poder despublicarlo de la pantalla de Máquina.
   final Map<String, int> _runningPids = {};
@@ -108,7 +124,9 @@ class AgentsViewModel extends ViewModel<AgentsState> {
     );
     final agents = [...data.agents, agent];
     updateState(data.copyWith(agents: agents, selectedAgentId: agent.id));
-    unawaited(_repository.save(agents));
+    // Una clave nueva: no hay nada viejo que sacar, así que no hace falta
+    // reescribir la lista entera.
+    unawaited(_repository.saveOne(agent));
   }
 
   /// Same as [createAgent], but leaves [AgentsState.selectedAgentId] alone.
@@ -134,7 +152,7 @@ class AgentsViewModel extends ViewModel<AgentsState> {
     );
     final agents = [...data.agents, agent];
     updateState(data.copyWith(agents: agents));
-    unawaited(_repository.save(agents));
+    unawaited(_repository.saveOne(agent));
     return agent.id;
   }
 
@@ -221,7 +239,7 @@ class AgentsViewModel extends ViewModel<AgentsState> {
     if (index == -1 || data.agents[index].model == model) return;
 
     _updateAgent(agentId, (agent) => agent.copyWith(model: model));
-    unawaited(_persist());
+    _writes.schedule(agentId);
   }
 
   void setAgentProvider(String agentId, AgentProvider provider) {
@@ -233,7 +251,7 @@ class AgentsViewModel extends ViewModel<AgentsState> {
       (agent) =>
           agent.copyWith(provider: provider, model: defaultModelFor(provider)),
     );
-    unawaited(_persist());
+    _writes.schedule(agentId);
   }
 
   void setAgentEffort(String agentId, String effort) {
@@ -241,7 +259,7 @@ class AgentsViewModel extends ViewModel<AgentsState> {
     if (index == -1 || data.agents[index].effort == effort) return;
 
     _updateAgent(agentId, (agent) => agent.copyWith(effort: effort));
-    unawaited(_persist());
+    _writes.schedule(agentId);
   }
 
   void setAgentFullFileSystemAccess(String agentId, bool enabled) {
@@ -249,7 +267,63 @@ class AgentsViewModel extends ViewModel<AgentsState> {
       agentId,
       (agent) => agent.copyWith(fullFileSystemAccess: enabled),
     );
-    unawaited(_persist());
+    _writes.schedule(agentId);
+  }
+
+  /// Prende o apaga el modo plan de esta conversación.
+  ///
+  /// Cambiarlo también baja la tarjeta pendiente: si estabas decidiendo si
+  /// implementar un plan y tocaste el modo, ya decidiste otra cosa.
+  void setAgentPlanMode(String agentId, bool enabled) {
+    final index = data.agents.indexWhere((agent) => agent.id == agentId);
+    if (index == -1 || data.agents[index].planMode == enabled) return;
+
+    _updateAgent(
+      agentId,
+      (agent) => agent.copyWith(planMode: enabled, planAwaitingDecision: false),
+    );
+    _writes.schedule(agentId);
+  }
+
+  /// El plan quedó aprobado: sale del modo plan y arranca a implementarlo.
+  ///
+  /// El pedido entra al hilo como mensaje del usuario porque eso es: la
+  /// decisión la tomó una persona, y el hilo tiene que mostrar quién pidió
+  /// qué. Y lleva el plan escrito adentro, no solo la confianza en el
+  /// `--resume`: si la sesión del CLI se cayó y hay que reintentar sin
+  /// resume, un agente que lee «implementá lo acordado» sin saber qué se
+  /// acordó implementa cualquier cosa, en silencio.
+  void implementPlan(String agentId) {
+    final target = data.agents
+        .where((agent) => agent.id == agentId)
+        .firstOrNull;
+    if (target == null || !target.planAwaitingDecision) return;
+
+    final plan = target.messages
+        .where((message) => message.role == ChatRole.assistant)
+        .lastOrNull
+        ?.text
+        .trim();
+
+    _updateAgent(
+      agentId,
+      (agent) => agent.copyWith(planMode: false, planAwaitingDecision: false),
+    );
+    _writes.schedule(agentId);
+
+    unawaited(sendMessage(agentId, planApprovalRequest(plan)));
+  }
+
+  /// Baja la tarjeta y deja el modo plan prendido: seguir planificando es
+  /// quedarse donde estabas, no volver atrás.
+  void keepPlanning(String agentId) {
+    final index = data.agents.indexWhere((agent) => agent.id == agentId);
+    if (index == -1 || !data.agents[index].planAwaitingDecision) return;
+
+    _updateAgent(
+      agentId,
+      (agent) => agent.copyWith(planAwaitingDecision: false),
+    );
   }
 
   void respondToPermissionRequest(String agentId, {required bool grant}) {
@@ -268,8 +342,11 @@ class AgentsViewModel extends ViewModel<AgentsState> {
     if (request.isCatalogChange) {
       final pending = _catalogChangePermissions.remove(agentId);
       if (pending != null && !pending.isCompleted) {
-        _answeredPermissions.add(agentId);
-        pending.complete(grant);
+        pending.complete(
+          grant
+              ? CatalogPermissionOutcome.approved
+              : CatalogPermissionOutcome.denied,
+        );
       }
       return;
     }
@@ -292,25 +369,19 @@ class AgentsViewModel extends ViewModel<AgentsState> {
     );
   }
 
-  /// Suspends an MCP mutation until the person controlling this conversation
-  /// approves it. The timeout is deliberately local: an unanswered request
-  /// never lets a stale tool call write later.
-  /// Cuánto se espera una respuesta antes de dar el pedido por caído.
+  /// Suspende una escritura del catálogo hasta que la persona conteste.
   ///
-  /// Eran dos minutos, que es menos de lo que tarda alguien en volver del
-  /// café. Y el pedido se lee: dice qué elemento, qué se le cambia y por
-  /// qué. Diez minutos es el tiempo de leerlo y decidir sin que el turno se
-  /// caiga solo; más que eso ya es un agente esperando a nadie.
-  static const _kPermissionPatience = Duration(minutes: 10);
-
-  /// Si la última respuesta a [agentId] la dio una persona, y no el reloj.
+  /// **No tiene plazo, y eso es el punto.** Antes esperaba diez minutos y
+  /// después daba el pedido por caído; abajo de eso, el servidor MCP cortaba
+  /// la respuesta HTTP a los treinta segundos. O sea que el reloj que
+  /// mandaba era uno que nadie veía: te demorabas un minuto en leer qué te
+  /// estaban pidiendo, el modelo ya había recibido «la tool falló», y tu
+  /// aprobación llegaba a un teléfono descolgado — la escritura se hacía,
+  /// pero del otro lado nadie la escuchaba.
   ///
-  /// Se consume al leerla: es el dato de UN pedido, no un estado que quede
-  /// colgado para el siguiente.
-  bool lastPermissionWasAnswered(String agentId) =>
-      _answeredPermissions.remove(agentId);
-
-  Future<bool> requestCatalogChangePermission({
+  /// Un permiso no caduca. Lo terminan dos cosas: que contestes, o que el
+  /// turno que lo pidió deje de existir ([stopAgent]).
+  Future<CatalogPermissionOutcome> requestCatalogChangePermission({
     required String agentId,
     required String kind,
     required String name,
@@ -320,10 +391,15 @@ class AgentsViewModel extends ViewModel<AgentsState> {
     final target = data.agents
         .where((agent) => agent.id == agentId)
         .firstOrNull;
-    if (target == null || target.pendingPermission != null) return false;
-    // Un pedido nuevo arranca sin la respuesta del anterior encima.
-    _answeredPermissions.remove(agentId);
-    final completer = Completer<bool>();
+    if (target == null) return CatalogPermissionOutcome.cancelled;
+    // Dos tarjetas a la vez no se pueden mostrar, así que el segundo pedido
+    // no se puede atender. Decirlo como «pendiente» y no como «rechazado»
+    // importa: rechazado significa que alguien lo miró y dijo que no.
+    if (target.pendingPermission != null) {
+      return CatalogPermissionOutcome.busy;
+    }
+
+    final completer = Completer<CatalogPermissionOutcome>();
     _catalogChangePermissions[agentId] = completer;
     _updateAgent(
       agentId,
@@ -340,10 +416,7 @@ class AgentsViewModel extends ViewModel<AgentsState> {
       ),
     );
     try {
-      return await Future.any([
-        completer.future,
-        Future<bool>.delayed(_kPermissionPatience, () => false),
-      ]);
+      return await completer.future;
     } finally {
       if (_catalogChangePermissions[agentId] == completer) {
         _catalogChangePermissions.remove(agentId);
@@ -355,13 +428,26 @@ class AgentsViewModel extends ViewModel<AgentsState> {
     }
   }
 
+  /// Corta un permiso pendiente porque el turno que lo pidió se terminó.
+  ///
+  /// Es la contracara de no tener plazo: sin esto, sacar el reloj cambiaría
+  /// «expira solo» por «queda colgado para siempre».
+  void _cancelPendingPermission(String agentId) {
+    final pending = _catalogChangePermissions.remove(agentId);
+    if (pending != null && !pending.isCompleted) {
+      pending.complete(CatalogPermissionOutcome.cancelled);
+    }
+  }
+
   void deleteAgent(String id) {
     final agents = data.agents.where((agent) => agent.id != id).toList();
     final selectedAgentId = data.selectedAgentId == id
         ? null
         : data.selectedAgentId;
     updateState(AgentsState(agents: agents, selectedAgentId: selectedAgentId));
-    unawaited(_repository.save(agents));
+    // Borrar sí necesita reescribir todo: es lo único que saca una clave de
+    // la base, y de paso cancela lo que quedara en la cola de escritura.
+    unawaited(_persist());
   }
 
   void deleteMessage(String agentId, DateTime timestamp) {
@@ -373,7 +459,7 @@ class AgentsViewModel extends ViewModel<AgentsState> {
             .toList(),
       ),
     );
-    unawaited(_persist());
+    _writes.schedule(agentId);
   }
 
   void requestCompact(String agentId) {
@@ -388,6 +474,9 @@ class AgentsViewModel extends ViewModel<AgentsState> {
 
     _stoppedAgentIds.add(agentId);
     run.cancel();
+    // El turno que pedía el permiso ya no existe: aprobarlo no escribiría
+    // nada, así que la tarjeta se va y quien esperaba recibe «cancelado».
+    _cancelPendingPermission(agentId);
 
     _setCurrentActivity(agentId, null);
     _updateAgent(agentId, (agent) => agent.copyWith(clearLiveReasoning: true));
@@ -400,7 +489,7 @@ class AgentsViewModel extends ViewModel<AgentsState> {
       ),
     );
     _setStreaming(agentId, false);
-    unawaited(_persist());
+    _writes.schedule(agentId);
   }
 
   void recordManualEdit(String agentId, FileEdit edit) {
@@ -489,8 +578,14 @@ class AgentsViewModel extends ViewModel<AgentsState> {
     );
     // Zero-token recurrence detector — never in the send critical path.
     unawaited(PromptInsightsService.instance.notifier.record(trimmed));
+    // Mandar algo reemplaza la decisión anterior: si había una tarjeta de
+    // «¿implementamos?» flotando, el mensaje nuevo es la respuesta.
+    _updateAgent(
+      agentId,
+      (agent) => agent.copyWith(planAwaitingDecision: false),
+    );
     _setStreaming(agentId, true);
-    await _persist();
+    _writes.schedule(agentId);
 
     final workingDirectory = looseAgentWorkingDirectory;
     // El mismo colector que usa un proyecto: resuelve contra el directorio
@@ -593,194 +688,240 @@ class AgentsViewModel extends ViewModel<AgentsState> {
         hooksConfig: turnHooks.codexConfig,
         hookFiles: turnHooks.files,
         conversationHistory: remoteConversationHistory(target.messages),
+        planMode: target.planMode,
       ),
     );
     _runningTurns[agentId] = run;
 
     var wasStopped = false;
     final streamTimestamp = DateTime.now();
-    await for (final event in run.events) {
-      if (_stoppedAgentIds.remove(agentId)) {
-        wasStopped = true;
-        break;
-      }
-      switch (event) {
-        // El proceso vive en el otro isolate; de acá solo se ve su pid, que
-        // es lo único que la pantalla de Máquina necesita para decir de
-        // parte de quién corre.
-        case TaskProcessStarted(pid: final pid):
-          _runningPids[agentId] = pid;
-          RunningProcesses.register(pid, 'chat con @${target.name}');
-
-        case TaskSessionStarted(sessionId: final sessionId):
-          _updateAgent(
-            agentId,
-            (agent) => agent.copyWith(sessionId: sessionId),
-          );
-
-        case TaskAssistantText(text: final chunk):
-          _setCurrentActivity(agentId, null);
-          assistantTextBuffer.writeln(chunk);
-          _appendStreamingAssistantMessage(
-            agentId,
-            ChatMessage(
-              role: ChatRole.assistant,
-              text: chunk,
-              timestamp: streamTimestamp,
-              reasoning: _consumeLiveReasoning(agentId),
-              fileEdits: await fileEdits.collect(),
-            ),
-          );
-
-        case TaskToolUse(name: final name, input: final input):
-          _setCurrentActivity(
-            agentId,
-            AgentToolActivity.fromToolUse(name, input),
-          );
-          final filePath = FileEditCollector.filePathFor(name, input);
-          if (filePath != null) await fileEdits.noteBeforeEdit(filePath);
-
-        // El chat 1:1 no tiene mapa donde poner un subagente, pero sí puede
-        // decir qué está haciendo: la tira pasa a hablar de ÉL en vez de
-        // quedarse en «delegando» hasta que vuelva.
-        case TaskSubagentStarted(agentType: final type, ask: final ask):
-          _setCurrentActivity(
-            agentId,
-            AgentToolActivity(
-              kind: AgentToolKind.task,
-              label: ask.isEmpty ? type : '$type · $ask',
-            ),
-          );
-
-        case TaskSubagentToolUse(name: final name, input: final input):
-          _setCurrentActivity(
-            agentId,
-            AgentToolActivity.fromToolUse(name, input),
-          );
-
-        case TaskSubagentFinished():
-          _setCurrentActivity(agentId, null);
-
-        // Lo que un subagente escribe y piensa NO entra al mensaje del padre.
-        // Mezclarlos era el error que la bandera vino a arreglar; acá todavía
-        // no hay dónde mostrarlos firmados bien, así que no se muestran.
-        case TaskSubagentText() || TaskSubagentReasoning():
+    // `finally`, porque un turno que revienta igual tiene que devolver el
+    // chat. Sin esto, un error del stream dejaba `isStreaming` en true para
+    // siempre: todo lo que escribieras después se encolaba en silencio y la
+    // única salida era reiniciar. Es la misma razón que ya documenta
+    // `_runMemberTurn` del lado de proyectos.
+    try {
+      await for (final event in run.events) {
+        if (_stoppedAgentIds.remove(agentId)) {
+          wasStopped = true;
           break;
+        }
+        switch (event) {
+          // El proceso vive en el otro isolate; de acá solo se ve su pid, que
+          // es lo único que la pantalla de Máquina necesita para decir de
+          // parte de quién corre.
+          case TaskProcessStarted(pid: final pid):
+            _runningPids[agentId] = pid;
+            RunningProcesses.register(pid, 'chat con @${target.name}');
 
-        case TaskReasoningChunk(text: final chunk):
-          _appendLiveReasoning(agentId, chunk);
+          case TaskSessionStarted(sessionId: final sessionId):
+            _updateAgent(
+              agentId,
+              (agent) => agent.copyWith(sessionId: sessionId),
+            );
 
-        case TaskContextUsage(
-          usedTokens: final usedTokens,
-          contextWindowTokens: final contextWindowTokens,
-        ):
-          _updateAgent(
-            agentId,
-            (agent) => agent.copyWith(
-              contextUsedTokens: usedTokens,
-              contextWindowTokens: contextWindowTokens,
-            ),
-          );
-
-        case TaskPermissionDenied(
-          toolName: final toolName,
-          message: final message,
-        ):
-          _setCurrentActivity(agentId, null);
-          _updateAgent(
-            agentId,
-            (agent) => agent.copyWith(
-              pendingPermission: PermissionRequest(
-                toolName: toolName,
-                message: message,
-              ),
-            ),
-          );
-
-        case final TaskTurnCompleted turn:
-          final isError = turn.isError;
-          final costUsd = turn.costUsd;
-          final durationMs = turn.durationMs;
-          if (!isError) {
-            unawaited(
-              UsageLedgerService.instance.notifier.record(
-                provider: target.provider.alias,
-                model: turn.model,
-                profileId: target.profileId ?? '',
-                sessionId: agentId,
-                inputTokens: turn.inputTokens,
-                outputTokens: turn.outputTokens,
-                cacheReadTokens: turn.cacheReadTokens,
-                cacheCreationTokens: turn.cacheCreationTokens,
-                tokensReported: turn.tokensReported,
-                durationMs: durationMs,
-                costUsd: costUsd,
-                costReported: turn.costReported,
-                contextUsedTokens: turn.contextUsedTokens,
-                contextWindowTokens: turn.contextWindowTokens,
+          case TaskAssistantText(text: final chunk):
+            _setCurrentActivity(agentId, null);
+            assistantTextBuffer.writeln(chunk);
+            _appendStreamingAssistantMessage(
+              agentId,
+              ChatMessage(
+                role: ChatRole.assistant,
+                text: chunk,
+                timestamp: streamTimestamp,
+                reasoning: _consumeLiveReasoning(agentId),
+                fileEdits: await fileEdits.collect(),
               ),
             );
-          }
-          if (turn.needsProviderFailureFallback) {
+
+          case TaskToolUse(name: final name, input: final input):
+            _setCurrentActivity(
+              agentId,
+              AgentToolActivity.fromToolUse(name, input),
+            );
+            final filePath = FileEditCollector.filePathFor(name, input);
+            if (filePath != null) await fileEdits.noteBeforeEdit(filePath);
+
+          // El chat 1:1 no tiene mapa donde poner un subagente, pero sí puede
+          // decir qué está haciendo: la tira pasa a hablar de ÉL en vez de
+          // quedarse en «delegando» hasta que vuelva.
+          case TaskSubagentStarted(agentType: final type, ask: final ask):
+            _setCurrentActivity(
+              agentId,
+              AgentToolActivity(
+                kind: AgentToolKind.task,
+                label: ask.isEmpty ? type : '$type · $ask',
+              ),
+            );
+
+          case TaskSubagentToolUse(name: final name, input: final input):
+            _setCurrentActivity(
+              agentId,
+              AgentToolActivity.fromToolUse(name, input),
+            );
+
+          case TaskSubagentFinished():
+            _setCurrentActivity(agentId, null);
+
+          // Lo que un subagente escribe y piensa NO entra al mensaje del padre.
+          // Mezclarlos era el error que la bandera vino a arreglar; acá todavía
+          // no hay dónde mostrarlos firmados bien, así que no se muestran.
+          case TaskSubagentText() || TaskSubagentReasoning():
+            break;
+
+          case TaskReasoningChunk(text: final chunk):
+            _appendLiveReasoning(agentId, chunk);
+
+          case TaskContextUsage(
+            usedTokens: final usedTokens,
+            contextWindowTokens: final contextWindowTokens,
+          ):
+            _updateAgent(
+              agentId,
+              (agent) => agent.copyWith(
+                contextUsedTokens: usedTokens,
+                contextWindowTokens: contextWindowTokens,
+              ),
+            );
+
+          case TaskPermissionDenied(
+            toolName: final toolName,
+            message: final message,
+          ):
+            _setCurrentActivity(agentId, null);
+            _updateAgent(
+              agentId,
+              (agent) => agent.copyWith(
+                pendingPermission: PermissionRequest(
+                  toolName: toolName,
+                  message: message,
+                ),
+              ),
+            );
+
+          case final TaskTurnCompleted turn:
+            final isError = turn.isError;
+            final costUsd = turn.costUsd;
+            final durationMs = turn.durationMs;
+            if (!isError) {
+              unawaited(
+                UsageLedgerService.instance.notifier.record(
+                  provider: target.provider.alias,
+                  model: turn.model,
+                  profileId: target.profileId ?? '',
+                  sessionId: agentId,
+                  inputTokens: turn.inputTokens,
+                  outputTokens: turn.outputTokens,
+                  cacheReadTokens: turn.cacheReadTokens,
+                  cacheCreationTokens: turn.cacheCreationTokens,
+                  tokensReported: turn.tokensReported,
+                  durationMs: durationMs,
+                  costUsd: costUsd,
+                  costReported: turn.costReported,
+                  contextUsedTokens: turn.contextUsedTokens,
+                  contextWindowTokens: turn.contextWindowTokens,
+                ),
+              );
+            }
+            if (turn.needsProviderFailureFallback) {
+              _appendMessage(
+                agentId,
+                ChatMessage(
+                  role: ChatRole.error,
+                  text: target.provider.turnFailureMessage(),
+                  timestamp: DateTime.now(),
+                ),
+              );
+            } else {
+              _annotateLastAssistantMessage(
+                agentId,
+                costUsd: costUsd,
+                durationMs: durationMs,
+              );
+            }
+
+          case TaskNotice(message: final message):
+            _appendMessage(
+              agentId,
+              ChatMessage(
+                role: ChatRole.system,
+                text: message,
+                timestamp: DateTime.now(),
+              ),
+            );
+
+          case TaskFailure(message: final message):
             _appendMessage(
               agentId,
               ChatMessage(
                 role: ChatRole.error,
-                text: target.provider.turnFailureMessage(),
+                text: message,
                 timestamp: DateTime.now(),
               ),
             );
-          } else {
-            _annotateLastAssistantMessage(
-              agentId,
-              costUsd: costUsd,
-              durationMs: durationMs,
-            );
-          }
-
-        case TaskNotice(message: final message):
-          _appendMessage(
-            agentId,
-            ChatMessage(
-              role: ChatRole.system,
-              text: message,
-              timestamp: DateTime.now(),
-            ),
-          );
-
-        case TaskFailure(message: final message):
-          _appendMessage(
-            agentId,
-            ChatMessage(
-              role: ChatRole.error,
-              text: message,
-              timestamp: DateTime.now(),
-            ),
-          );
+        }
       }
-    }
+    } finally {
+      // Parar mata el proceso, así que lo más común es que el stream se
+      // cierre SIN un evento más — y la marca de «detenido» solo se consumía
+      // adentro del bucle, con el evento siguiente. Quedaba puesta, y se la
+      // comía el TURNO SIGUIENTE: moría en su primer evento y el chat no
+      // hacía nada, hasta que mandabas el mismo mensaje una segunda vez.
+      // Se consume acá, donde el turno termina de verdad, tome el camino que
+      // tome.
+      if (_stoppedAgentIds.remove(agentId)) wasStopped = true;
 
-    _runningTurns.remove(agentId);
-    final finishedPid = _runningPids.remove(agentId);
-    if (finishedPid != null) RunningProcesses.unregister(finishedPid);
-    _setCurrentActivity(agentId, null);
-    _updateAgent(agentId, (agent) => agent.copyWith(clearLiveReasoning: true));
-    _setStreaming(agentId, false);
-
-    if (isKeelAi) {
-      await _runAssistantActions(
+      _runningTurns.remove(agentId);
+      final finishedPid = _runningPids.remove(agentId);
+      if (finishedPid != null) RunningProcesses.unregister(finishedPid);
+      _setCurrentActivity(agentId, null);
+      _updateAgent(
         agentId,
-        assistantText: assistantTextBuffer.toString(),
+        (agent) => agent.copyWith(clearLiveReasoning: true),
       );
+      _setStreaming(agentId, false);
+
+      if (isKeelAi) {
+        await _runAssistantActions(
+          agentId,
+          assistantText: assistantTextBuffer.toString(),
+        );
+      }
+
+      // El turno terminó: esto sí se baja ya, sin esperar el debounce.
+      await _writes.flush(agentId);
+
+      // El turno planificó y llegó al final solo: hay algo que decidir.
+      //
+      // Se pide la decisión solo si NO hay nada encolado. Un mensaje escrito
+      // mientras el agente planificaba ya es la decisión del usuario —siguió
+      // por otro lado—, y levantar la tarjeta ahí la dejaría flotando sobre un
+      // agente que en un instante arranca otro turno.
+      final planned = shouldAskToImplement(
+        planMode: target.planMode,
+        stopped: wasStopped,
+        hasAnswer: assistantTextBuffer.toString().trim().isNotEmpty,
+        hasQueuedMessages:
+            data.agents
+                .where((agent) => agent.id == agentId)
+                .firstOrNull
+                ?.queuedMessages
+                .isNotEmpty ??
+            false,
+      );
+      if (planned) {
+        _updateAgent(
+          agentId,
+          (agent) => agent.copyWith(planAwaitingDecision: true),
+        );
+      }
+
+      // Whatever the user typed during the turn goes out now — unless they
+      // STOPPED the agent, which is a deliberate "take control": firing a new
+      // turn right after would be the opposite of what the stop button means.
+      // Those messages stay queued with an explicit "Enviar ahora".
+      if (!wasStopped) unawaited(sendQueuedMessages(agentId));
     }
-
-    await _persist();
-
-    // Whatever the user typed during the turn goes out now — unless they
-    // STOPPED the agent, which is a deliberate "take control": firing a new
-    // turn right after would be the opposite of what the stop button means.
-    // Those messages stay queued with an explicit "Enviar ahora".
-    if (!wasStopped) unawaited(sendQueuedMessages(agentId));
   }
 
   /// Sends everything queued during the last turn as ONE next turn: the
@@ -806,14 +947,100 @@ class AgentsViewModel extends ViewModel<AgentsState> {
     );
   }
 
-  /// Drops one queued message before it is sent — the user changed their
-  /// mind about the correction they typed mid-turn.
-  void removeQueuedMessage(String agentId, int index) {
+  /// Reescribe un mensaje que todavía no salió.
+  ///
+  /// Se direcciona por id y no por índice: mientras la tarjeta está abierta
+  /// puede terminar un turno y sacar mensajes de la cola, y editar «el
+  /// segundo» sería editar otro.
+  void editQueuedMessage(String agentId, String messageId, String text) {
+    final trimmed = text.trim();
+    _replaceQueuedMessage(
+      agentId,
+      messageId,
+      (message) => trimmed.isEmpty && message.imagePaths.isEmpty
+          ? message
+          : message.copyWith(text: trimmed),
+    );
+  }
+
+  /// Lo devuelve a la espera: sale cuando vos digas.
+  void holdQueuedMessage(String agentId, String messageId) {
+    _setQueuedDelivery(agentId, messageId, QueuedDelivery.standby);
+  }
+
+  /// Que salga solo apenas el turno en curso entregue el control.
+  Future<void> sendQueuedMessageAfterTurn(
+    String agentId,
+    String messageId,
+  ) async {
+    _setQueuedDelivery(agentId, messageId, QueuedDelivery.afterCurrentTurn);
+    final target = data.agents
+        .where((agent) => agent.id == agentId)
+        .firstOrNull;
+    if (!(target?.isStreaming ?? false)) await sendQueuedMessages(agentId);
+  }
+
+  /// Interrumpe el turno en curso para que este mensaje salga ya.
+  ///
+  /// Parar es asíncrono: el turno detenido cierra su propio final y ahí
+  /// despacha lo que quedó en cola. Si lo mandáramos también desde acá,
+  /// saldrían dos turnos por el mismo mensaje.
+  Future<void> sendQueuedMessageNow(String agentId, String messageId) async {
+    _setQueuedDelivery(agentId, messageId, QueuedDelivery.interrupting);
+
+    final target = data.agents
+        .where((agent) => agent.id == agentId)
+        .firstOrNull;
+    if (target == null) return;
+    if (target.isStreaming) {
+      stopAgent(agentId);
+      // `stopAgent` no dispara la cola —parar es tomar el control—, así que
+      // el envío lo pide explícitamente quien lo interrumpió.
+      await sendQueuedMessages(agentId);
+      return;
+    }
+    await sendQueuedMessages(agentId);
+  }
+
+  void _replaceQueuedMessage(
+    String agentId,
+    String messageId,
+    QueuedMessage Function(QueuedMessage) change,
+  ) {
     _updateAgent(agentId, (agent) {
-      if (index < 0 || index >= agent.queuedMessages.length) return agent;
-      final queued = [...agent.queuedMessages]..removeAt(index);
-      return agent.copyWith(queuedMessages: queued);
+      return agent.copyWith(
+        queuedMessages: [
+          for (final message in agent.queuedMessages)
+            if (message.id == messageId) change(message) else message,
+        ],
+      );
     });
+  }
+
+  void _setQueuedDelivery(
+    String agentId,
+    String messageId,
+    QueuedDelivery delivery,
+  ) {
+    _replaceQueuedMessage(
+      agentId,
+      messageId,
+      (message) => message.copyWith(delivery: delivery),
+    );
+  }
+
+  /// Saca un mensaje de la cola antes de que salga — cambiaste de idea
+  /// sobre la corrección que escribiste a mitad de turno.
+  void removeQueuedMessage(String agentId, String messageId) {
+    _updateAgent(
+      agentId,
+      (agent) => agent.copyWith(
+        queuedMessages: [
+          for (final message in agent.queuedMessages)
+            if (message.id != messageId) message,
+        ],
+      ),
+    );
   }
 
   /// Appends a system-authored trace line to [agentId]'s thread. Used by
@@ -1213,7 +1440,12 @@ class AgentsViewModel extends ViewModel<AgentsState> {
     updateState(data.copyWith(agents: agents));
   }
 
-  Future<void> _persist() => _repository.save(data.agents);
+  /// Reescribe la lista completa. Queda para lo que de verdad la necesita:
+  /// borrar un agente, que además tiene que sacar su clave de la base.
+  Future<void> _persist() {
+    _writes.cancelPending();
+    return _repository.save(data.agents);
+  }
 }
 
 mixin AgentsService {

@@ -134,8 +134,13 @@ class RequirementsMcpServer {
     );
     controller.local.sink.add(jsonEncode(message));
 
+    // Generoso a propósito, misma razón que en `user_tools_mcp`: acá adentro
+    // vive `ask_project`, que corre un TURNO ENTERO de un agente en otro
+    // repo. Eso no entra en treinta segundos casi nunca, así que el corte
+    // viejo no protegía de nada — mataba la consulta justo cuando estaba
+    // por contestar.
     final reply = await replyCompleter.future.timeout(
-      const Duration(seconds: 30),
+      const Duration(minutes: 15),
       onTimeout: () => jsonEncode({
         'jsonrpc': '2.0',
         'id': id,

@@ -45,6 +45,7 @@ class CodexCliRunner implements LlmRunner {
         prompt: spec.prompt,
         sessionId: spec.sessionId,
         additionalSystemPrompt: spec.additionalSystemPrompt,
+        planMode: spec.planMode,
       );
       final arguments = buildCodexArguments(
         prompt: prompt,
@@ -52,7 +53,22 @@ class CodexCliRunner implements LlmRunner {
         model: spec.model,
         fullFileSystemAccess: spec.fullFileSystemAccess,
         codexProfileName: workspace.codexProfileName,
+        planMode: spec.planMode,
       );
+      if (spec.planMode && spec.sessionId != null) {
+        // Honestidad, no disculpa: al reanudar, `exec resume` no acepta
+        // `-s`, así que el sandbox de solo lectura no se puede aplicar. Lo
+        // único que frena a este turno es el texto del modo plan que viaja
+        // adentro del prompt — y un pedido se puede ignorar, una tool que no
+        // está no.
+        yield {
+          'type': 'notice',
+          'message':
+              'Codex no puede planificar con freno sobre una sesión ya '
+              'empezada: se le pidió que solo planifique, pero el sandbox de '
+              'solo lectura no se aplica al reanudar.',
+        };
+      }
       if (spec.sessionId != null &&
           (spec.fullFileSystemAccess || workspace.codexProfileName != null)) {
         yield {

@@ -127,9 +127,11 @@ Future<(bool, String)?> _guardLockedCatalogMutation(
     ].join(' y ');
     return (false, 'No escribí: falta declarar $missing.');
   }
-  // Esta llamada NO vuelve hasta que la persona conteste: la tool queda
-  // suspendida a propósito, así el agente no sigue como si hubiera escrito.
-  final approved = await AgentsService.instance.notifier
+  // Esta llamada NO vuelve hasta que la persona conteste, y no tiene plazo:
+  // la tool queda suspendida a propósito, así el agente no sigue como si
+  // hubiera escrito. Lo único que la termina sin respuesta es que se detenga
+  // el turno.
+  final outcome = await AgentsService.instance.notifier
       .requestCatalogChangePermission(
         agentId: agentId,
         kind: target.kind.alias,
@@ -137,27 +139,30 @@ Future<(bool, String)?> _guardLockedCatalogMutation(
         intent: intent,
         reason: reason,
       );
-  if (approved) return null;
 
-  // Rechazado y expirado no son lo mismo para quien lo lee: con un rechazo,
-  // insistir es desobedecer; con un vencimiento, el pedido nunca se miró y
-  // volver a intentarlo es correcto. Decirlo junto —«rechazado o expiró»—
-  // dejaba al agente eligiendo mal en los dos casos.
-  final answered = AgentsService.instance.notifier.lastPermissionWasAnswered(
-    agentId,
-  );
-  return answered
-      ? (
-          false,
-          'No escribí: rechazaste el cambio sobre ese elemento bloqueado. '
-              'No lo reintentes: si creés que hace falta, decilo y esperá.',
-        )
-      : (
-          false,
-          'No escribí: nadie contestó el pedido a tiempo y venció. El '
-              'elemento sigue bloqueado y sin tocar. Contá que quedó '
-              'pendiente; se puede volver a pedir cuando te contesten.',
-        );
+  // Cada final le pide otra cosa a quien lo lee, y por eso son mensajes
+  // distintos: con un «no», insistir es desobedecer; con un turno cancelado
+  // el pedido nunca se miró; y con otro permiso en cola hay que esperar y
+  // volver. Decirlos juntos dejaba al agente eligiendo mal en los tres casos.
+  return switch (outcome) {
+    CatalogPermissionOutcome.approved => null,
+    CatalogPermissionOutcome.denied => (
+      false,
+      'No escribí: rechazaste el cambio sobre ese elemento bloqueado. No lo '
+          'reintentes: si creés que hace falta, decilo y esperá.',
+    ),
+    CatalogPermissionOutcome.cancelled => (
+      false,
+      'No escribí: se detuvo el turno antes de que contestaras. El elemento '
+          'sigue bloqueado y sin tocar.',
+    ),
+    CatalogPermissionOutcome.busy => (
+      false,
+      'No escribí: ya hay otro permiso esperando respuesta en este chat. '
+          'Solo se puede atender uno a la vez — esperá a que se resuelva y '
+          'volvé a pedirlo.',
+    ),
+  };
 }
 
 _LockedTarget? _lockedTargetOf(CallToolRequest request) {

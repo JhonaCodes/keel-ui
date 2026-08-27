@@ -10,14 +10,21 @@ String buildCodexPrompt({
   required String prompt,
   required String? sessionId,
   required String? additionalSystemPrompt,
+  required bool planMode,
 }) {
+  // El modo plan viaja adentro del prompt del usuario y no en el preámbulo,
+  // justamente porque el preámbulo se descarta al reanudar. Es la única
+  // forma de que un turno con `resume` —donde tampoco se puede cambiar el
+  // sandbox— sepa que tiene que planificar y no ejecutar.
+  final userPrompt = planMode ? '$kPlanModePrompt\n\n$prompt' : prompt;
+
   if (sessionId != null ||
       additionalSystemPrompt == null ||
       additionalSystemPrompt.isEmpty) {
-    return prompt;
+    return userPrompt;
   }
   return codexRoleWrappedPrompt(
-    prompt: prompt,
+    prompt: userPrompt,
     systemPrompt: additionalSystemPrompt,
   );
 }
@@ -30,6 +37,7 @@ List<String> buildCodexArguments({
   required String model,
   required bool fullFileSystemAccess,
   required String? codexProfileName,
+  required bool planMode,
 }) {
   // Misma regla que CodexCliService: solo un modelo de codex llega a `-m`.
   // Un member con alias de Claude (todo agente codex creado antes de que
@@ -49,7 +57,12 @@ List<String> buildCodexArguments({
     // no equivalent for preserving those process-level options on resume.
     if (!isResume) ...[
       '-s',
-      fullFileSystemAccess ? 'danger-full-access' : 'workspace-write',
+      // El modo plan le gana al acceso total: si el turno solo planifica, no
+      // hay lectura que justifique dejarlo escribir.
+      if (planMode)
+        'read-only'
+      else
+        fullFileSystemAccess ? 'danger-full-access' : 'workspace-write',
       if (codexProfileName != null) ...['-p', codexProfileName],
       '--color',
       'never',

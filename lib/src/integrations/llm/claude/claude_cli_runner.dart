@@ -62,6 +62,7 @@ class ClaudeCliRunner implements LlmRunner {
         mcpConfigPath: workspace.mcpConfigPath,
         claudeSettingsPath: workspace.claudeSettingsPath,
         fullFileSystemAccess: spec.fullFileSystemAccess,
+        planMode: spec.planMode,
         sessionId: spec.sessionId,
       );
 
@@ -72,8 +73,14 @@ class ClaudeCliRunner implements LlmRunner {
           arguments,
           workingDirectory: spec.workingDirectory,
           // El PATH va explícito porque el heredado es el de `launchd`, no
-          // el de la terminal.
-          environment: {'PATH': userPath},
+          // el de la terminal. Y el plazo de tools MCP también: uno de los
+          // nuestros espera a que la persona apruebe un cambio bloqueado, y
+          // con el default del CLI eso se cae solo — ver
+          // [kMcpToolTimeoutMillis].
+          environment: {
+            'PATH': userPath,
+            'MCP_TOOL_TIMEOUT': '$kMcpToolTimeoutMillis',
+          },
           runInShell: true,
         );
       } catch (error) {

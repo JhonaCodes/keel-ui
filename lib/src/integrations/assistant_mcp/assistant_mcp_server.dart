@@ -21,6 +21,7 @@ import 'package:keel_ui/src/integrations/system_vault/system_vault.dart';
 import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
 import 'package:keel_ui/src/modules/boards/viewmodel/boards_viewmodel.dart';
 import 'package:keel_ui/src/modules/agents/model/agent_provider.dart';
+import 'package:keel_ui/src/modules/agents/model/permission_request.dart';
 import 'package:keel_ui/src/modules/knowledge/model/knowledge_base.dart';
 import 'package:keel_ui/src/modules/knowledge/viewmodel/knowledge_viewmodel.dart';
 import 'package:keel_ui/src/modules/agent_profiles/viewmodel/agent_profiles_viewmodel.dart';
@@ -239,14 +240,34 @@ class AssistantMcpServer {
     );
     controller.local.sink.add(jsonEncode(message));
 
-    final reply = await replyCompleter.future.timeout(
-      const Duration(seconds: 30),
-      onTimeout: () => jsonEncode({
-        'jsonrpc': '2.0',
-        'id': id,
-        'error': {'code': -32000, 'message': 'Keel AI MCP server timed out'},
-      }),
-    );
+    // `tools/call` NO tiene plazo, y es a propósito: adentro puede estar
+    // esperándote a vos. Un permiso sobre un elemento bloqueado suspende la
+    // tool hasta que contestás, y cortar acá a los treinta segundos era lo
+    // que rompía el flujo entero — el modelo recibía «la tool falló»
+    // mientras la tarjeta seguía en pantalla, y tu aprobación llegaba a un
+    // teléfono descolgado: la escritura se hacía y nadie la escuchaba.
+    //
+    // Lo que termina esta espera no es un reloj sino el turno: al detenerlo,
+    // el permiso se cancela y el completer se resuelve. Ver
+    // `AgentsViewModel.requestCatalogChangePermission`.
+    //
+    // El resto de los métodos sí tiene corte: `initialize` y `tools/list`
+    // contestan con lo que ya está en memoria, y uno que no vuelve en diez
+    // segundos está roto, no ocupado.
+    final isToolCall = method == CallToolRequest.methodName;
+    final reply = isToolCall
+        ? await replyCompleter.future
+        : await replyCompleter.future.timeout(
+            const Duration(seconds: 10),
+            onTimeout: () => jsonEncode({
+              'jsonrpc': '2.0',
+              'id': id,
+              'error': {
+                'code': -32000,
+                'message': 'Keel AI MCP server timed out',
+              },
+            }),
+          );
     await controller.local.sink.close();
 
     request.response.headers.contentType = ContentType.json;

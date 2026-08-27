@@ -41,6 +41,10 @@ class TaskRunSpec {
   final Map<String, String> hookFiles;
   final List<LlmConversationMessage> conversationHistory;
 
+  /// Este turno solo planifica: propone y no toca nada. Espejo de
+  /// `LlmTurnSpec.planMode`; cada runner lo traduce a su CLI.
+  final bool planMode;
+
   const TaskRunSpec({
     required this.prompt,
     required this.workingDirectory,
@@ -55,6 +59,7 @@ class TaskRunSpec {
     this.hooksConfig,
     this.hookFiles = const {},
     this.conversationHistory = const [],
+    this.planMode = false,
     this.provider = 'claude',
     this.providerApiKey,
   });
@@ -75,6 +80,7 @@ class TaskRunSpec {
     'conversationHistory': conversationHistory
         .map((message) => message.toJson())
         .toList(),
+    'planMode': planMode,
     'provider': provider,
     'providerApiKey': providerApiKey,
   };
@@ -102,6 +108,9 @@ class TaskRunSpec {
             ),
           )
           .toList(),
+      // Tolerante a propósito: un mensaje armado antes de que el modo plan
+      // existiera no trae la clave, y eso no es un turno roto.
+      planMode: message['planMode'] as bool? ?? false,
       provider: message['provider'] as String? ?? 'claude',
       providerApiKey: message['providerApiKey'] as String?,
     );

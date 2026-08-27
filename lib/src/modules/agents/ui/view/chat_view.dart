@@ -16,13 +16,17 @@ import 'package:keel_ui/src/core/ui/confirm_card.dart';
 import 'package:keel_ui/src/integrations/chat_references/chat_references.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/chat_reference_composer_field.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/chat_message_bubble.dart';
-import 'package:keel_ui/src/modules/agents/ui/widget/queued_messages_strip.dart';
+import 'package:keel_ui/src/modules/agents/model/queued_message.dart';
+import 'package:keel_ui/src/modules/agents/ui/widget/queued_message_editor_dialog.dart';
+import 'package:keel_ui/src/modules/agents/ui/widget/queued_messages_panel.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/agent_activity_indicator.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/agent_status_icon.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/context_usage_ring.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/effort_level_selector.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/fade_in_entrance.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/permission_request_banner.dart';
+import 'package:keel_ui/src/modules/agents/ui/widget/plan_mode_toggle.dart';
+import 'package:keel_ui/src/modules/agents/ui/widget/plan_ready_banner.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/reasoning_panel.dart';
 import 'package:keel_ui/src/shared/shared.dart';
 
@@ -140,6 +144,24 @@ class _ChatViewState extends State<ChatView> {
     setState(_attachments.clear);
   }
 
+  Future<void> _editQueuedMessage(QueuedMessage message) async {
+    final edited = await showDialog<String>(
+      context: context,
+      builder: (_) => QueuedMessageEditorDialog(message: message),
+    );
+    if (edited == null || !mounted) return;
+    widget.actions.editQueuedMessage(widget.agent.id, message.id, edited);
+  }
+
+  Future<void> _deleteQueuedMessage(QueuedMessage message) async {
+    widget.actions.removeQueuedMessage(widget.agent.id, message.id);
+    // Los adjuntos se van con el mensaje que los traía: si no, quedan
+    // ocupando disco sin nada que los nombre.
+    for (final imagePath in message.imagePaths) {
+      await ChatAttachmentStore.discard(imagePath);
+    }
+  }
+
   Future<void> _pickImages() async {
     final files = await openFiles(
       acceptedTypeGroups: [
@@ -233,6 +255,26 @@ class _ChatViewState extends State<ChatView> {
   /// El hilo: las burbujas, o el cartel de bienvenida cuando todavía no hay
   /// ninguna. Sale del `build` para que el pedido de permiso pueda flotar
   /// encima suyo sin anidar tres Stacks en la misma expresión.
+  /// Lo que flota sobre la conversación, si hay algo. Nunca las dos cosas:
+  /// un permiso es un turno suspendido esperando respuesta, así que le gana
+  /// a la decisión sobre un plan, que ya terminó y puede esperar.
+  Widget? _floatingCard(Agent agent) {
+    if (agent.pendingPermission case final request?) {
+      return PermissionRequestBanner(
+        request: request,
+        onRespond: (grant) =>
+            widget.actions.respondToPermissionRequest(agent.id, grant: grant),
+      );
+    }
+    if (agent.planAwaitingDecision) {
+      return PlanReadyBanner(
+        onImplement: () => widget.actions.implementPlan(agent.id),
+        onKeepPlanning: () => widget.actions.keepPlanning(agent.id),
+      );
+    }
+    return null;
+  }
+
   Widget _conversation(Agent agent) {
     return agent.messages.isEmpty
         ? widget.emptyState ??
@@ -411,7 +453,10 @@ class _ChatViewState extends State<ChatView> {
                     // altura, así que se cortaba justo donde empiezan las
                     // burbujas —los botones quedaban del otro lado del
                     // corte— y se leía como si el chat lo tapara.
-                    if (agent.pendingPermission case final request?)
+                    // Una tarjeta a la vez: un permiso es un turno
+                    // suspendido esperándote, así que le gana a la decisión
+                    // sobre un plan, que puede esperar.
+                    if (_floatingCard(agent) case final card?)
                       Positioned(
                         left: 0,
                         right: 0,
@@ -432,14 +477,7 @@ class _ChatViewState extends State<ChatView> {
                                 },
                                 child: Padding(
                                   padding: const EdgeInsets.only(bottom: 10),
-                                  child: PermissionRequestBanner(
-                                    request: request,
-                                    onRespond: (grant) => widget.actions
-                                        .respondToPermissionRequest(
-                                          agent.id,
-                                          grant: grant,
-                                        ),
-                                  ),
+                                  child: card,
                                 ),
                               ),
                             ),
@@ -496,13 +534,19 @@ class _ChatViewState extends State<ChatView> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    QueuedMessagesStrip(
+                    QueuedMessagesPanel(
                       messages: agent.queuedMessages,
-                      isStreaming: agent.isStreaming,
-                      onRemove: (index) =>
-                          widget.actions.removeQueuedMessage(agent.id, index),
-                      onSendNow: () =>
-                          widget.actions.sendQueuedMessages(agent.id),
+                      isRunning: agent.isStreaming,
+                      onEdit: _editQueuedMessage,
+                      onDelete: _deleteQueuedMessage,
+                      onSendNow: (message) => widget.actions
+                          .sendQueuedMessageNow(agent.id, message.id),
+                      onSendAfterTurn: (message) => widget.actions
+                          .sendQueuedMessageAfterTurn(agent.id, message.id),
+                      onHold: (message) => widget.actions.holdQueuedMessage(
+                        agent.id,
+                        message.id,
+                      ),
                     ),
                     ChatAttachmentStrip(
                       paths: _attachments,
@@ -510,6 +554,12 @@ class _ChatViewState extends State<ChatView> {
                     ),
                     Row(
                       children: [
+                        PlanModeToggle(
+                          enabled: agent.planMode,
+                          provider: agent.provider,
+                          onChanged: (enabled) => widget.actions
+                              .setAgentPlanMode(agent.id, enabled),
+                        ),
                         IconButton(
                           tooltip: 'Adjuntar imagen',
                           icon: const Icon(Icons.image_outlined),
@@ -520,7 +570,12 @@ class _ChatViewState extends State<ChatView> {
                             decoration: ShapeDecoration(
                               shape: 16.smoothBorder(
                                 side: BorderSide(
-                                  color: Theme.of(context).colorScheme.outline,
+                                  // El modo plan cambia lo que va a pasar
+                                  // con lo que estás escribiendo: el borde
+                                  // lo dice sin que haya que mirar el botón.
+                                  color: agent.planMode
+                                      ? Theme.of(context).colorScheme.primary
+                                      : Theme.of(context).colorScheme.outline,
                                 ),
                               ),
                             ),
@@ -535,6 +590,8 @@ class _ChatViewState extends State<ChatView> {
                               onSend: _send,
                               hintText: agent.isStreaming
                                   ? 'Escribí y se envía cuando termine…'
+                                  : agent.planMode
+                                  ? 'Pedí un plan…'
                                   : 'Escribe un mensaje…',
                             ),
                           ),

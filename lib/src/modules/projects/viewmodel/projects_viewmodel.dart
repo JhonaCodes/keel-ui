@@ -27,6 +27,7 @@ import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
 import 'package:keel_ui/src/modules/agent_profiles/viewmodel/agent_profiles_viewmodel.dart';
 import 'package:keel_ui/src/modules/agents/model/agent_tool_activity.dart';
 import 'package:keel_ui/src/modules/agents/model/chat_message.dart';
+import 'package:keel_ui/src/modules/agents/model/plan_decision.dart';
 import 'package:keel_ui/src/modules/agents/service/remote_conversation_history.dart';
 import 'package:keel_ui/src/modules/agents/model/agent_provider.dart';
 import 'package:keel_ui/src/integrations/boards_mcp/boards_mcp.dart';
@@ -1158,6 +1159,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     required Project memberProject,
     required bool asTarget,
     required String question,
+    bool planMode = false,
   }) async {
     final requirements = RequirementsService.instance.notifier;
     if (memberProject.workingDirectory.trim().isEmpty) {
@@ -1199,6 +1201,9 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
             project: memberProject,
             asTarget: asTarget,
           ),
+          // El turno del hilo ya es de solo lectura; el modo plan acá cambia
+          // CÓMO contesta —propone en vez de afirmar— y no qué puede tocar.
+          planMode: planMode,
           provider: engine.provider.alias,
           providerApiKey: await SecretsService.instance.notifier.resolveValue(
             engine.provider.secretName,
@@ -1762,6 +1767,56 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     );
   }
 
+  /// Prende o apaga el modo plan de una sesión: sus turnos proponen y no
+  /// tocan nada. Aplica al turno de un miembro, no al ciclo de workflow —
+  /// un workflow entero planificado igual llegaría a cerrar la sesión.
+  void setSessionPlanMode(String projectId, String sessionId, bool enabled) {
+    _updateSession(
+      projectId,
+      sessionId,
+      (session) =>
+          session.copyWith(planMode: enabled, planAwaitingDecision: false),
+    );
+    unawaited(_persist());
+  }
+
+  /// El plan quedó aprobado: sale del modo plan y manda a implementarlo.
+  ///
+  /// El plan viaja escrito adentro del mensaje y no solo en el `--resume`:
+  /// si la sesión del CLI murió y hay que reintentar sin ella, un agente que
+  /// lee «implementá lo acordado» sin saber qué se acordó implementa
+  /// cualquier cosa, en silencio.
+  Future<void> implementSessionPlan(String projectId, String sessionId) async {
+    final project = _projectById(projectId);
+    final session = project == null ? null : _sessionById(project, sessionId);
+    if (session == null || !session.planAwaitingDecision) return;
+
+    final plan = session.messages
+        .where((message) => message.role == ChatRole.assistant)
+        .lastOrNull
+        ?.text
+        .trim();
+
+    _updateSession(
+      projectId,
+      sessionId,
+      (session) =>
+          session.copyWith(planMode: false, planAwaitingDecision: false),
+    );
+    await _persist();
+
+    await _sendToSession(projectId, sessionId, planApprovalRequest(plan));
+  }
+
+  /// Baja la tarjeta y deja el modo plan prendido.
+  void keepPlanningSession(String projectId, String sessionId) {
+    _updateSession(
+      projectId,
+      sessionId,
+      (session) => session.copyWith(planAwaitingDecision: false),
+    );
+  }
+
   /// What the composer calls. Everything it does happens **inside the session
   /// that is already open** — it never creates one. The first message of a
   /// session kicks off the workflow; every message after that is a follow-up to
@@ -2277,12 +2332,22 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     required String? workNodeId,
     required String instruction,
   }) async {
+    // El modo de la sesión se lee ANTES de arrancar: es el modo con el que
+    // este turno corre, y decide si al final hay algo que preguntar.
+    final startProject = _projectById(projectId);
+    final planMode = startProject == null
+        ? false
+        : _sessionById(startProject, sessionId)?.planMode ?? false;
+
     _activeSessionRuns.add(sessionId);
     _stoppedSessionIds.remove(sessionId);
     _updateSession(
       projectId,
       sessionId,
-      (session) => session.copyWith(isRunning: true),
+      // Mandar algo reemplaza la decisión anterior: si había una tarjeta de
+      // «¿implementamos?», el mensaje nuevo es la respuesta.
+      (session) =>
+          session.copyWith(isRunning: true, planAwaitingDecision: false),
     );
     await _persist();
 
@@ -2299,24 +2364,49 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
         consultOfProfileId: null,
         turnId: generateUuidV4(),
         depth: 0,
+        planMode: planMode,
       );
     } finally {
-      await _settleSessionRunAndDispatch(projectId, sessionId);
+      await _settleSessionRunAndDispatch(
+        projectId,
+        sessionId,
+        planned: planMode,
+      );
     }
   }
 
   Future<void> _settleSessionRunAndDispatch(
     String projectId,
-    String sessionId,
-  ) async {
+    String sessionId, {
+    bool planned = false,
+  }) async {
+    final stopped = _stoppedSessionIds.contains(sessionId);
     _runningSessions.remove(sessionId);
     _stoppedSessionIds.remove(sessionId);
     _activeSessionRuns.remove(sessionId);
     _purgeConsultLedgerIfIdle();
+    // El turno planificó y llegó al final solo: hay algo que decidir. Si lo
+    // frenaron a mano, no: parar es tomar el control, no pedir permiso.
+    final settleProject = _projectById(projectId);
+    final awaiting = shouldAskToImplement(
+      planMode: planned,
+      stopped: stopped,
+      // Llegar acá con el turno terminado ya es haber contestado: el hilo de
+      // la sesión guarda la respuesta antes de que el turno se asiente.
+      hasAnswer: true,
+      hasQueuedMessages:
+          settleProject == null ||
+          (_sessionById(settleProject, sessionId)?.queuedMessages.isNotEmpty ??
+              true),
+    );
     _updateSession(
       projectId,
       sessionId,
-      (session) => session.copyWith(isRunning: false, clearLiveTurn: true),
+      (session) => session.copyWith(
+        isRunning: false,
+        clearLiveTurn: true,
+        planAwaitingDecision: awaiting,
+      ),
     );
     await _persist();
     await _dispatchNextQueuedMessage(projectId, sessionId);
@@ -2422,6 +2512,12 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     required int depth,
     bool allowConsults = true,
     bool retriedWithoutSession = false,
+
+    /// Apagado por defecto A PROPÓSITO: solo el turno de un miembro lo
+    /// prende. Un ciclo de workflow entero corrido en modo plan llegaría
+    /// igual a `_finishSession` y sellaría la sesión como terminada sin
+    /// haber escrito una línea.
+    bool planMode = false,
   }) async {
     final project = _projectById(projectId);
     if (project == null) return (ok: false, answer: '');
@@ -2663,6 +2759,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
         hooksConfig: turnHooks.codexConfig,
         hookFiles: turnHooks.files,
         conversationHistory: conversationHistory,
+        planMode: planMode,
         provider: engine.provider.alias,
         providerApiKey: providerApiKey,
       ),
@@ -3014,6 +3111,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
         turnId: turnId,
         depth: depth,
         allowConsults: allowConsults,
+        planMode: planMode,
         retriedWithoutSession: true,
       );
     }

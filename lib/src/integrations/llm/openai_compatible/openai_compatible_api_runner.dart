@@ -11,6 +11,8 @@ import 'package:keel_ui/src/modules/secrets/viewmodel/secrets_viewmodel.dart';
 
 typedef LlmSecretResolver = Future<String?> Function(String secretRef);
 
+const kDefaultOpenAiCompatibleMaxToolRounds = 40;
+
 /// Runner for providers implementing OpenAI-compatible Chat Completions.
 ///
 /// Tools are never executed directly from model output: [OpenAiToolBridge]
@@ -32,7 +34,7 @@ class OpenAiCompatibleApiRunner implements LlmRunner {
     http.Client? client,
     LlmSecretResolver? resolveSecret,
     OpenAiToolBridge? toolBridge,
-    this.maxToolRounds = 500,
+    this.maxToolRounds = kDefaultOpenAiCompatibleMaxToolRounds,
   }) : // Public constructor names keep infrastructure injectable in tests.
        // ignore: prefer_initializing_formals
        _apiKey = apiKey,

@@ -180,7 +180,15 @@ class ResolutionEngine {
   }
 }
 
+/// Cómo se llamaba antes cada capacidad que se renombró.
+///
+/// Un caso guardado en disco tiene sus nodos con el id de ENTONCES: el nodo
+/// no se vuelve a crear, así que el renombre de la plantilla no lo alcanza.
+/// Quien busca un nodo por el id nuevo tiene que poder encontrar al viejo.
+const kLegacyCapabilityIds = <String, String>{'planner': 'triage'};
+
 WorkNodeKind _kindFor(String capabilityId) => switch (capabilityId) {
+  'planner' => WorkNodeKind.triage,
   'triage' => WorkNodeKind.triage,
   'impact' => WorkNodeKind.impact,
   'implementation' => WorkNodeKind.implementation,

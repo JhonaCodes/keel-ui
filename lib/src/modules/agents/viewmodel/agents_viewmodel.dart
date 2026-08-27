@@ -800,29 +800,26 @@ class AgentsViewModel extends ViewModel<AgentsState> {
             );
 
           case final TaskTurnCompleted turn:
-            final isError = turn.isError;
             final costUsd = turn.costUsd;
             final durationMs = turn.durationMs;
-            if (!isError) {
-              unawaited(
-                UsageLedgerService.instance.notifier.record(
-                  provider: target.provider.alias,
-                  model: turn.model,
-                  profileId: target.profileId ?? '',
-                  sessionId: agentId,
-                  inputTokens: turn.inputTokens,
-                  outputTokens: turn.outputTokens,
-                  cacheReadTokens: turn.cacheReadTokens,
-                  cacheCreationTokens: turn.cacheCreationTokens,
-                  tokensReported: turn.tokensReported,
-                  durationMs: durationMs,
-                  costUsd: costUsd,
-                  costReported: turn.costReported,
-                  contextUsedTokens: turn.contextUsedTokens,
-                  contextWindowTokens: turn.contextWindowTokens,
-                ),
-              );
-            }
+            unawaited(
+              UsageLedgerService.instance.notifier.record(
+                provider: target.provider.alias,
+                model: turn.model.isEmpty ? target.model : turn.model,
+                profileId: target.profileId ?? '',
+                sessionId: agentId,
+                inputTokens: turn.inputTokens,
+                outputTokens: turn.outputTokens,
+                cacheReadTokens: turn.cacheReadTokens,
+                cacheCreationTokens: turn.cacheCreationTokens,
+                tokensReported: turn.tokensReported,
+                durationMs: durationMs,
+                costUsd: costUsd,
+                costReported: turn.costReported,
+                contextUsedTokens: turn.contextUsedTokens,
+                contextWindowTokens: turn.contextWindowTokens,
+              ),
+            );
             if (turn.needsProviderFailureFallback) {
               _appendMessage(
                 agentId,

@@ -37,7 +37,11 @@ class Session {
   final DateTime createdAt;
   final SessionStatus status;
   final List<ChatMessage> messages;
-  final Map<String, String> cliSessionsByProfileId;
+
+  /// CLI conversations keyed by execution slot, not profile. One profile can
+  /// therefore own a fresh planning session and a separate implementation
+  /// session in the same Keel thread.
+  final Map<String, String> cliSessionsByExecutionId;
 
   /// Members added ONLY to this session ("traé un auditor para esta sesión").
   /// The project's own roster is untouched — other sessions never see them.
@@ -116,7 +120,7 @@ class Session {
     required this.createdAt,
     this.status = SessionStatus.running,
     this.messages = const [],
-    this.cliSessionsByProfileId = const {},
+    this.cliSessionsByExecutionId = const {},
     this.extraProfileIds = const [],
     this.plan = const [],
     this.request = '',
@@ -144,7 +148,7 @@ class Session {
     String? title,
     SessionStatus? status,
     List<ChatMessage>? messages,
-    Map<String, String>? cliSessionsByProfileId,
+    Map<String, String>? cliSessionsByExecutionId,
     List<String>? extraProfileIds,
     List<SessionPlanItem>? plan,
     String? request,
@@ -168,8 +172,8 @@ class Session {
       createdAt: createdAt,
       status: status ?? this.status,
       messages: messages ?? this.messages,
-      cliSessionsByProfileId:
-          cliSessionsByProfileId ?? this.cliSessionsByProfileId,
+      cliSessionsByExecutionId:
+          cliSessionsByExecutionId ?? this.cliSessionsByExecutionId,
       extraProfileIds: extraProfileIds ?? this.extraProfileIds,
       plan: plan ?? this.plan,
       request: request ?? this.request,
@@ -196,7 +200,7 @@ class Session {
     'createdAt': createdAt.toIso8601String(),
     'status': status.name,
     'messages': messages.map((message) => message.toJson()).toList(),
-    'sessionsByProfileId': cliSessionsByProfileId,
+    'sessionsByExecutionId': cliSessionsByExecutionId,
     'extraProfileIds': extraProfileIds,
     'plan': plan.map((item) => item.toJson()).toList(),
     'request': request,
@@ -218,9 +222,16 @@ class Session {
       messages: (json['messages'] as List? ?? const [])
           .map((entry) => ChatMessage.fromJson(entry as Map<String, dynamic>))
           .toList(),
-      cliSessionsByProfileId:
-          (json['sessionsByProfileId'] as Map?)?.cast<String, String>() ??
-          const {},
+      cliSessionsByExecutionId:
+          (json['sessionsByExecutionId'] as Map?)?.cast<String, String>() ??
+          {
+            // Lo de antes guardaba una conversación por PERFIL. Se traduce a
+            // la ranura de ejecución del miembro, que es el mismo hilo con
+            // otro nombre — así una sesión vieja no pierde su `--resume`.
+            for (final entry
+                in ((json['sessionsByProfileId'] as Map?) ?? const {}).entries)
+              'member:${entry.key}': entry.value as String,
+          },
       extraProfileIds:
           (json['extraProfileIds'] as List?)?.cast<String>() ?? const [],
       plan: (json['plan'] as List? ?? const [])
@@ -266,7 +277,7 @@ class Session {
           createdAt == other.createdAt &&
           status == other.status &&
           listEquals(messages, other.messages) &&
-          mapEquals(cliSessionsByProfileId, other.cliSessionsByProfileId) &&
+          mapEquals(cliSessionsByExecutionId, other.cliSessionsByExecutionId) &&
           listEquals(extraProfileIds, other.extraProfileIds) &&
           listEquals(plan, other.plan) &&
           request == other.request &&
@@ -288,7 +299,7 @@ class Session {
     status,
     Object.hashAll(messages),
     Object.hashAll(
-      cliSessionsByProfileId.entries.map((e) => '${e.key}:${e.value}'),
+      cliSessionsByExecutionId.entries.map((e) => '${e.key}:${e.value}'),
     ),
     Object.hashAll(extraProfileIds),
     Object.hashAll(plan),

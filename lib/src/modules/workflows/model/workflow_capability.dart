@@ -2,6 +2,14 @@ import 'package:flutter/foundation.dart';
 
 enum WorkflowCapabilityActivation { required, optional }
 
+/// The explicit execution route for a workflow capability.
+enum WorkflowExecutor {
+  newSession,
+  resumeParent,
+  providerSubagent,
+  manualApproval,
+}
+
 String? validateWorkflowCapabilities(List<WorkflowCapability> capabilities) {
   if (capabilities.isEmpty) return 'El workflow necesita una capacidad.';
   final ids = <String>{};
@@ -14,6 +22,9 @@ String? validateWorkflowCapabilities(List<WorkflowCapability> capabilities) {
         capability.role.trim().isEmpty) {
       return 'Título, instrucción y rol son obligatorios en cada capacidad.';
     }
+    if (capability.maxAgenticTurns < 0 || capability.maxAgenticTurns > 20) {
+      return 'La capacidad ${capability.id} debe limitar sus turnos entre 0 y 20.';
+    }
   }
   for (final capability in capabilities) {
     if (capability.requiresIndependentOwner &&
@@ -23,6 +34,22 @@ String? validateWorkflowCapabilities(List<WorkflowCapability> capabilities) {
     }
     if (capability.dependencyIds.any((id) => !ids.contains(id))) {
       return 'La capacidad ${capability.id} referencia una dependencia inexistente.';
+    }
+    final parent = capability.parentCapabilityId.trim();
+    if ((capability.executor == WorkflowExecutor.resumeParent ||
+            capability.executor == WorkflowExecutor.providerSubagent) &&
+        parent.isEmpty) {
+      return 'La capacidad ${capability.id} necesita un paso padre.';
+    }
+    if (capability.executor == WorkflowExecutor.newSession &&
+        parent.isNotEmpty) {
+      return 'La capacidad ${capability.id} abre una sesión nueva y no puede tener padre.';
+    }
+    if (parent.isNotEmpty && !ids.contains(parent)) {
+      return 'La capacidad ${capability.id} referencia un padre inexistente.';
+    }
+    if (parent == capability.id) {
+      return 'La capacidad ${capability.id} no puede ser su propio padre.';
     }
   }
   final visiting = <String>{};
@@ -53,6 +80,11 @@ class WorkflowCapability {
   final String role;
   final List<String> dependencyIds;
   final WorkflowCapabilityActivation activation;
+  final WorkflowExecutor executor;
+  final String parentCapabilityId;
+  final int maxAgenticTurns;
+  final bool readOnly;
+  final String outputContract;
 
   /// Whether the evidence must be produced by a profile different from the
   /// profiles that produced this capability's dependencies. This is a
@@ -66,6 +98,11 @@ class WorkflowCapability {
     required this.role,
     this.dependencyIds = const [],
     this.activation = WorkflowCapabilityActivation.required,
+    this.executor = WorkflowExecutor.newSession,
+    this.parentCapabilityId = '',
+    this.maxAgenticTurns = 0,
+    this.readOnly = false,
+    this.outputContract = '',
     this.requiresIndependentOwner = false,
   });
 
@@ -75,6 +112,11 @@ class WorkflowCapability {
     String? role,
     List<String>? dependencyIds,
     WorkflowCapabilityActivation? activation,
+    WorkflowExecutor? executor,
+    String? parentCapabilityId,
+    int? maxAgenticTurns,
+    bool? readOnly,
+    String? outputContract,
     bool? requiresIndependentOwner,
   }) => WorkflowCapability(
     id: id,
@@ -83,6 +125,11 @@ class WorkflowCapability {
     role: role ?? this.role,
     dependencyIds: dependencyIds ?? this.dependencyIds,
     activation: activation ?? this.activation,
+    executor: executor ?? this.executor,
+    parentCapabilityId: parentCapabilityId ?? this.parentCapabilityId,
+    maxAgenticTurns: maxAgenticTurns ?? this.maxAgenticTurns,
+    readOnly: readOnly ?? this.readOnly,
+    outputContract: outputContract ?? this.outputContract,
     requiresIndependentOwner:
         requiresIndependentOwner ?? this.requiresIndependentOwner,
   );
@@ -94,6 +141,11 @@ class WorkflowCapability {
     'role': role,
     'dependencyIds': dependencyIds,
     'activation': activation.name,
+    'executor': executor.name,
+    'parentCapabilityId': parentCapabilityId,
+    'maxAgenticTurns': maxAgenticTurns,
+    'readOnly': readOnly,
+    'outputContract': outputContract,
     'requiresIndependentOwner': requiresIndependentOwner,
   };
 
@@ -109,6 +161,14 @@ class WorkflowCapability {
           (value) => value.name == json['activation'],
           orElse: () => WorkflowCapabilityActivation.required,
         ),
+        executor: WorkflowExecutor.values.firstWhere(
+          (value) => value.name == json['executor'],
+          orElse: () => WorkflowExecutor.newSession,
+        ),
+        parentCapabilityId: json['parentCapabilityId'] as String? ?? '',
+        maxAgenticTurns: (json['maxAgenticTurns'] as int? ?? 0).clamp(0, 20),
+        readOnly: json['readOnly'] as bool? ?? false,
+        outputContract: json['outputContract'] as String? ?? '',
         requiresIndependentOwner:
             json['requiresIndependentOwner'] as bool? ?? false,
       );
@@ -123,6 +183,11 @@ class WorkflowCapability {
           role == other.role &&
           listEquals(dependencyIds, other.dependencyIds) &&
           activation == other.activation &&
+          executor == other.executor &&
+          parentCapabilityId == other.parentCapabilityId &&
+          maxAgenticTurns == other.maxAgenticTurns &&
+          readOnly == other.readOnly &&
+          outputContract == other.outputContract &&
           requiresIndependentOwner == other.requiresIndependentOwner;
 
   @override
@@ -133,6 +198,11 @@ class WorkflowCapability {
     role,
     Object.hashAll(dependencyIds),
     activation,
+    executor,
+    parentCapabilityId,
+    maxAgenticTurns,
+    readOnly,
+    outputContract,
     requiresIndependentOwner,
   );
 }

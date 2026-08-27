@@ -18,6 +18,7 @@ class WorkflowPolicy {
   final List<WorkflowQualityGate> qualityGates;
   final int maxReplans;
   final int maxSubagents;
+  final int maxReviewCycles;
 
   const WorkflowPolicy({
     this.resolutionRole = '',
@@ -29,7 +30,8 @@ class WorkflowPolicy {
       WorkflowQualityGate.focusedTests,
     ],
     this.maxReplans = 2,
-    this.maxSubagents = 2,
+    this.maxSubagents = 1,
+    this.maxReviewCycles = 4,
   });
 
   WorkflowPolicy copyWith({
@@ -40,6 +42,7 @@ class WorkflowPolicy {
     List<WorkflowQualityGate>? qualityGates,
     int? maxReplans,
     int? maxSubagents,
+    int? maxReviewCycles,
   }) => WorkflowPolicy(
     resolutionRole: resolutionRole ?? this.resolutionRole,
     requiredSkillNames: requiredSkillNames ?? this.requiredSkillNames,
@@ -49,6 +52,7 @@ class WorkflowPolicy {
     qualityGates: qualityGates ?? this.qualityGates,
     maxReplans: maxReplans ?? this.maxReplans,
     maxSubagents: maxSubagents ?? this.maxSubagents,
+    maxReviewCycles: maxReviewCycles ?? this.maxReviewCycles,
   );
 
   Map<String, dynamic> toJson() => {
@@ -59,6 +63,7 @@ class WorkflowPolicy {
     'qualityGates': qualityGates.map((gate) => gate.name).toList(),
     'maxReplans': maxReplans,
     'maxSubagents': maxSubagents,
+    'maxReviewCycles': maxReviewCycles,
   };
 
   factory WorkflowPolicy.fromJson(Map<String, dynamic>? json) {
@@ -77,7 +82,8 @@ class WorkflowPolicy {
           .whereType<WorkflowQualityGate>()
           .toList(),
       maxReplans: (data['maxReplans'] as int? ?? 2).clamp(0, 2),
-      maxSubagents: (data['maxSubagents'] as int? ?? 2).clamp(0, 2),
+      maxSubagents: (data['maxSubagents'] as int? ?? 1).clamp(0, 1),
+      maxReviewCycles: (data['maxReviewCycles'] as int? ?? 4).clamp(1, 4),
     );
   }
 
@@ -95,7 +101,8 @@ class WorkflowPolicy {
           ) &&
           listEquals(qualityGates, other.qualityGates) &&
           maxReplans == other.maxReplans &&
-          maxSubagents == other.maxSubagents;
+          maxSubagents == other.maxSubagents &&
+          maxReviewCycles == other.maxReviewCycles;
 
   @override
   int get hashCode => Object.hash(
@@ -106,6 +113,7 @@ class WorkflowPolicy {
     Object.hashAll(qualityGates),
     maxReplans,
     maxSubagents,
+    maxReviewCycles,
   );
 }
 
@@ -294,12 +302,12 @@ List<WorkflowCapability> defaultWorkflowCapabilities(
   }
   return [
     WorkflowCapability(
-      id: 'triage',
-      title: kind == WorkflowKind.migration
-          ? 'Mapa de dependencias'
-          : 'Diagnóstico y contrato',
-      instruction: 'Delimitar causa, alcance y evidencia de entrada.',
+      id: 'planner',
+      title: 'Planificar y delimitar',
+      instruction: 'Definir alcance, riesgos y criterios de aceptación.',
       role: fallback,
+      readOnly: true,
+      maxAgenticTurns: 4,
     ),
     if (kind == WorkflowKind.migration)
       WorkflowCapability(
@@ -307,14 +315,15 @@ List<WorkflowCapability> defaultWorkflowCapabilities(
         title: 'Diseño del punto único de entrada',
         instruction: 'Inventariar impacto end-to-end y compatibilidad.',
         role: fallback,
-        dependencyIds: const ['triage'],
+        dependencyIds: const ['planner'],
       ),
     WorkflowCapability(
       id: 'implementation',
       title: 'Implementar con evidencia',
       instruction: 'Aplicar la corrección mínima integrada y verificable.',
       role: fallback,
-      dependencyIds: [kind == WorkflowKind.migration ? 'impact' : 'triage'],
+      dependencyIds: [kind == WorkflowKind.migration ? 'impact' : 'planner'],
+      maxAgenticTurns: 12,
     ),
     WorkflowCapability(
       id: 'code-audit',
@@ -322,24 +331,62 @@ List<WorkflowCapability> defaultWorkflowCapabilities(
       instruction: 'Revisar calidad, invariantes y riesgos del cambio.',
       role: 'auditor',
       dependencyIds: const ['implementation'],
-      activation: WorkflowCapabilityActivation.optional,
+      executor: WorkflowExecutor.providerSubagent,
+      parentCapabilityId: 'implementation',
+      maxAgenticTurns: 3,
+      readOnly: true,
+      outputContract: 'audit-feedback',
       requiresIndependentOwner: true,
+    ),
+    WorkflowCapability(
+      id: 'code-correction',
+      title: 'Corregir hallazgos de código',
+      instruction: 'Resolver los hallazgos válidos de la auditoría de código.',
+      role: fallback,
+      dependencyIds: const ['code-audit'],
+      executor: WorkflowExecutor.resumeParent,
+      parentCapabilityId: 'implementation',
+      maxAgenticTurns: 8,
+    ),
+    WorkflowCapability(
+      id: 'tests',
+      title: 'Crear y ajustar pruebas',
+      instruction: 'Crear o ajustar pruebas de la implementación.',
+      role: fallback,
+      dependencyIds: const ['code-correction'],
+      executor: WorkflowExecutor.resumeParent,
+      parentCapabilityId: 'implementation',
+      maxAgenticTurns: 8,
     ),
     WorkflowCapability(
       id: 'test-audit',
       title: 'Auditar tests',
       instruction: 'Comprobar cobertura y valor contrafactual de las pruebas.',
       role: 'test-auditor',
-      dependencyIds: const ['implementation'],
-      activation: WorkflowCapabilityActivation.optional,
+      dependencyIds: const ['tests'],
+      executor: WorkflowExecutor.providerSubagent,
+      parentCapabilityId: 'implementation',
+      maxAgenticTurns: 3,
+      readOnly: true,
+      outputContract: 'audit-feedback',
       requiresIndependentOwner: true,
+    ),
+    WorkflowCapability(
+      id: 'test-correction',
+      title: 'Corregir hallazgos de tests',
+      instruction: 'Resolver los hallazgos válidos de la auditoría de pruebas.',
+      role: fallback,
+      dependencyIds: const ['test-audit'],
+      executor: WorkflowExecutor.resumeParent,
+      parentCapabilityId: 'implementation',
+      maxAgenticTurns: 8,
     ),
     WorkflowCapability(
       id: 'device-e2e',
       title: 'Verificación end-to-end en dispositivo',
       instruction: 'Validar el comportamiento completo en el entorno real.',
       role: 'verifier',
-      dependencyIds: const ['implementation'],
+      dependencyIds: const ['test-correction'],
       activation: WorkflowCapabilityActivation.optional,
       requiresIndependentOwner: true,
     ),
@@ -348,7 +395,29 @@ List<WorkflowCapability> defaultWorkflowCapabilities(
       title: 'Verificación de cierre',
       instruction: 'Ejecutar gates y cerrar solo con evidencia suficiente.',
       role: fallback,
-      dependencyIds: const ['implementation'],
+      dependencyIds: const ['test-correction'],
+      executor: WorkflowExecutor.resumeParent,
+      parentCapabilityId: 'implementation',
+      maxAgenticTurns: 6,
+    ),
+    WorkflowCapability(
+      id: 'publish-approval',
+      title: 'Aprobar publicación',
+      instruction: 'Esperar aprobación explícita antes de publicar.',
+      role: fallback,
+      dependencyIds: const ['verification'],
+      executor: WorkflowExecutor.manualApproval,
+      readOnly: true,
+    ),
+    WorkflowCapability(
+      id: 'publish',
+      title: 'Publicar',
+      instruction: 'Publicar únicamente después de aprobación explícita.',
+      role: fallback,
+      dependencyIds: const ['publish-approval'],
+      executor: WorkflowExecutor.resumeParent,
+      parentCapabilityId: 'implementation',
+      maxAgenticTurns: 4,
     ),
   ];
 }

@@ -26,14 +26,28 @@ void main() {
     );
 
     expect(resolution.status, ResolutionCaseStatus.active);
-    expect(resolution.nodes.map((node) => node.kind), [
-      WorkNodeKind.triage,
-      WorkNodeKind.impact,
-      WorkNodeKind.implementation,
-      WorkNodeKind.verification,
-    ]);
-    expect(resolution.nodes[2].dependencyIds, ['impact']);
-    expect(resolution.nodes[3].dependencyIds, ['implementation']);
+    expect(
+      resolution.nodes.map((node) => node.id),
+      containsAllInOrder([
+        'planner',
+        'impact',
+        'implementation',
+        'code-audit',
+        'code-correction',
+        'tests',
+        'test-audit',
+        'test-correction',
+        'verification',
+      ]),
+    );
+    expect(
+      resolution.nodes.firstWhere((node) => node.id == 'implementation').dependencyIds,
+      ['impact'],
+    );
+    expect(
+      resolution.nodes.firstWhere((node) => node.id == 'verification').dependencyIds,
+      ['test-correction'],
+    );
     expect(resolution.coverage, hasLength(MigrationCoverageArea.values.length));
   });
 

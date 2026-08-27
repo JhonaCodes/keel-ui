@@ -18,6 +18,7 @@ import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
 import 'package:keel_ui/src/modules/rules/ui/screen/rule_form_screen.dart';
 import 'package:keel_ui/src/modules/rules/viewmodel/rules_viewmodel.dart';
 import 'package:keel_ui/src/modules/secrets/ui/widget/provider_credential_card.dart';
+import 'package:keel_ui/src/modules/projects/service/resolution_engine.dart';
 import 'package:keel_ui/src/modules/workflows/model/workflow.dart';
 import 'package:keel_ui/src/modules/workflows/viewmodel/workflows_viewmodel.dart';
 
@@ -54,9 +55,17 @@ class WorkflowProgressPanel extends StatelessWidget {
         : flow.capabilities;
   }
 
-  WorkNode? _nodeOf(String capabilityId) => session?.resolutionCase?.nodes
-      .where((node) => node.id == capabilityId)
-      .firstOrNull;
+  WorkNode? _nodeOf(String capabilityId) {
+    final nodes = session?.resolutionCase?.nodes ?? const <WorkNode>[];
+    final direct = nodes.where((node) => node.id == capabilityId).firstOrNull;
+    if (direct != null) return direct;
+    // Una sesión guardada ANTES del renombre tiene el nodo con el id viejo.
+    // Sin este puente su nodo en curso no aparece en ningún lado y la
+    // capacidad nueva se dibuja como pendiente, con el trabajo corriendo.
+    final legacy = kLegacyCapabilityIds[capabilityId];
+    if (legacy == null) return null;
+    return nodes.where((node) => node.id == legacy).firstOrNull;
+  }
 
   AgentProfile? _ownerOf(WorkflowCapability capability) {
     final node = _nodeOf(capability.id);
@@ -235,7 +244,7 @@ class WorkflowProgressPanel extends StatelessWidget {
     return [
       for (final gate in gates)
         if ((gate == WorkflowQualityGate.analysis &&
-                capabilityId == 'triage') ||
+                (capabilityId == 'planner' || capabilityId == 'triage')) ||
             (gate != WorkflowQualityGate.analysis &&
                 capabilityId == 'verification'))
           gate.name,
@@ -260,6 +269,21 @@ class WorkflowProgressPanel extends StatelessWidget {
     if (open == null) return;
     final error = await ProjectsService.instance.notifier
         .activateWorkflowCapability(project.id, open.id, capability.id);
+    if (error != null && context.mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error)));
+    }
+  }
+
+  Future<void> _approveCapability(
+    BuildContext context,
+    WorkflowCapability capability,
+  ) async {
+    final open = session;
+    if (open == null) return;
+    final error = await ProjectsService.instance.notifier
+        .approveWorkflowCapability(project.id, open.id, capability.id);
     if (error != null && context.mounted) {
       ScaffoldMessenger.of(
         context,
@@ -381,6 +405,17 @@ class WorkflowProgressPanel extends StatelessWidget {
               ],
             ),
           ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 12, 8),
+            child: Text(
+              'auditorías ${resolution?.reviewCycleCount ?? 0}/${flow.policy.maxReviewCycles}',
+              style: TextStyle(
+                fontFamily: 'monospace',
+                fontSize: 9.5,
+                color: Theme.of(context).colorScheme.outline,
+              ),
+            ),
+          ),
           if (preflight != null && preflight.performed && !preflight.ready)
             _PanelNote('Preflight bloqueado: ${preflight.errorSummary}'),
           for (var index = 0; index < _capabilities.length; index++)
@@ -408,6 +443,13 @@ class WorkflowProgressPanel extends StatelessWidget {
               onTuneEngine: () => _tuneEngine(context, _capabilities[index]),
               onActivate: () =>
                   _activateCapability(context, _capabilities[index]),
+              onApprove:
+                  _capabilities[index].executor ==
+                          WorkflowExecutor.manualApproval &&
+                      _nodeOf(_capabilities[index].id)?.status ==
+                          WorkNodeStatus.paused
+                  ? () => _approveCapability(context, _capabilities[index])
+                  : null,
             ),
         ],
         if (requiredSkills.isNotEmpty) ...[
@@ -514,6 +556,7 @@ class _CapabilityRow extends StatelessWidget {
     required this.onSharedRole,
     required this.onTuneEngine,
     required this.onActivate,
+    this.onApprove,
   });
 
   final WorkflowCapability capability;
@@ -532,6 +575,7 @@ class _CapabilityRow extends StatelessWidget {
   final VoidCallback onSharedRole;
   final VoidCallback onTuneEngine;
   final VoidCallback onActivate;
+  final VoidCallback? onApprove;
 
   @override
   Widget build(BuildContext context) {
@@ -671,6 +715,20 @@ class _CapabilityRow extends StatelessWidget {
                           isTuned: isTuned,
                           onTap: canEdit ? onTuneEngine : null,
                         ),
+                      Text(
+                        _executorLabel(capability.executor),
+                        style: TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: 9.5,
+                          color: scheme.outline,
+                        ),
+                      ),
+                      if (onApprove != null)
+                        TextButton.icon(
+                          onPressed: onApprove,
+                          icon: const Icon(Icons.verified_outlined, size: 15),
+                          label: const Text('Aprobar y continuar'),
+                        ),
                       if (consulted != null)
                         Text(
                           consulted!,
@@ -722,6 +780,13 @@ String _stateLabel(_CapabilityState state) => switch (state) {
   _CapabilityState.blocked => 'bloqueado',
   _CapabilityState.available => 'disponible',
   _CapabilityState.notRequired => 'no requerido',
+};
+
+String _executorLabel(WorkflowExecutor executor) => switch (executor) {
+  WorkflowExecutor.newSession => 'sesión nueva',
+  WorkflowExecutor.resumeParent => 'reanuda sesión padre',
+  WorkflowExecutor.providerSubagent => 'subagente / fallback externo',
+  WorkflowExecutor.manualApproval => 'requiere aprobación manual',
 };
 
 class _EngineLine extends StatelessWidget {

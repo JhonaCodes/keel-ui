@@ -33,6 +33,10 @@ class LlmTurnSpec {
   /// «podés leer todo y no podés tocar nada».
   final bool planMode;
 
+  /// Zero keeps the provider default. CLI runners apply a positive value when
+  /// their provider exposes a real agentic-turn limit.
+  final int maxTurns;
+
   const LlmTurnSpec({
     required this.prompt,
     required this.workingDirectory,
@@ -48,5 +52,6 @@ class LlmTurnSpec {
     this.hookFiles = const {},
     this.conversationHistory = const [],
     this.planMode = false,
+    this.maxTurns = 0,
   });
 }

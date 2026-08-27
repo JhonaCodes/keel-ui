@@ -60,6 +60,8 @@ import 'package:keel_ui/src/modules/projects/model/work_node.dart';
 import 'package:keel_ui/src/modules/projects/repository/projects_repository.dart';
 import 'package:keel_ui/src/integrations/chat_references/chat_references.dart';
 import 'package:keel_ui/src/modules/projects/service/resolution_engine.dart';
+import 'package:keel_ui/src/modules/projects/service/subagent_budget.dart';
+import 'package:keel_ui/src/modules/projects/service/turn_prompt.dart';
 import 'package:keel_ui/src/modules/tools/model/tool.dart';
 import 'package:keel_ui/src/modules/tools/viewmodel/tools_viewmodel.dart';
 import 'package:keel_ui/src/modules/workflows/model/workflow.dart';
@@ -147,6 +149,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
   /// other again. Keying it per step instead blocked every later consult for
   /// the rest of that step.
   final Set<String> _consultedPairs = {};
+  final SubagentBudget _subagentBudget = SubagentBudget();
 
   static const _maxConsultDepth = 3;
 
@@ -160,7 +163,10 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
   /// purge it grows for the app's whole lifetime. Cleared whenever no session
   /// is running: no in-flight turn can still need its pairs then.
   void _purgeConsultLedgerIfIdle() {
-    if (_runningSessions.isEmpty) _consultedPairs.clear();
+    if (_runningSessions.isEmpty) {
+      _consultedPairs.clear();
+      _subagentBudget.clear();
+    }
   }
 
   /// Resolves once the persisted projects have loaded — same guarded-ready
@@ -616,6 +622,38 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
       ),
     );
     await _persist();
+    return null;
+  }
+
+  /// Continues a workflow that intentionally stopped at a manual publication
+  /// gate. This is separate from tool permissions: it never widens a sandbox
+  /// or changes a global setting.
+  Future<String?> approveWorkflowCapability(
+    String projectId,
+    String sessionId,
+    String capabilityId,
+  ) async {
+    final project = _projectById(projectId);
+    final session = project == null ? null : _sessionById(project, sessionId);
+    final workflow = session == null ? null : workflowOf(session);
+    final resolution = session?.resolutionCase;
+    if (project == null || session == null || workflow == null || resolution == null) {
+      return 'No hay un workflow esperando aprobación.';
+    }
+    final capability = _capabilityFor(workflow, capabilityId);
+    final node = resolution.nodes.where((entry) => entry.id == capabilityId).firstOrNull;
+    if (capability.executor != WorkflowExecutor.manualApproval ||
+        node?.status != WorkNodeStatus.paused) {
+      return 'Este paso no está esperando aprobación manual.';
+    }
+    final approved = _replaceNode(
+      resolution.copyWith(status: ResolutionCaseStatus.active),
+      capabilityId,
+      WorkNodeStatus.done,
+    );
+    _storeResolution(projectId, sessionId, approved);
+    await _persist();
+    await _runWorkflow(projectId, sessionId, session.request);
     return null;
   }
 
@@ -1102,14 +1140,17 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
 
     final member = membersOf(target).firstOrNull;
     final engine = member == null ? null : target.tuned(member);
+    final provider = engine?.provider ?? AgentProvider.claude;
+    final model = engine?.model ?? kDefaultClaudeModelAlias;
+    final effort = engine?.effort ?? kDefaultEffortAlias;
 
     final run = await TaskRunner.run(
       TaskRunSpec(
         prompt: question,
         workingDirectory: target.workingDirectory,
-        model: engine?.model ?? kDefaultClaudeModelAlias,
+        model: model,
         fullFileSystemAccess: false,
-        effort: engine?.effort ?? kDefaultEffortAlias,
+        effort: effort,
         // SIN tools que escriban y sin un solo MCP: esto lee y contesta.
         extraAllowedTools: const [],
         additionalSystemPrompt:
@@ -1118,16 +1159,50 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
             'falta y contestá la pregunta en texto, concreto y corto. No '
             'cambies nada. Si lo que preguntan no está o no se entiende, '
             'decilo en vez de suponer — del otro lado no pueden verificarte.',
-        provider: AgentProvider.claude.alias,
+        provider: provider.alias,
+        providerApiKey: engine == null
+            ? null
+            : await SecretsService.instance.notifier.resolveValue(
+                provider.secretName,
+              ),
       ),
     );
 
     final buffer = StringBuffer();
+    var failure = '';
     await for (final event in run.events) {
       if (event is TaskAssistantText) buffer.write(event.text);
-      if (event is TaskFailure) {
-        return 'La consulta a "${target.name}" falló: ${event.message}';
+      if (event case final TaskTurnCompleted turn) {
+        unawaited(
+          UsageLedgerService.instance.notifier.record(
+            provider: provider.alias,
+            model: turn.model.isEmpty ? model : turn.model,
+            profileId: member?.id ?? '',
+            projectId: target.id,
+            sessionId: '',
+            workNodeId: '',
+            inputTokens: turn.inputTokens,
+            outputTokens: turn.outputTokens,
+            cacheReadTokens: turn.cacheReadTokens,
+            cacheCreationTokens: turn.cacheCreationTokens,
+            tokensReported: turn.tokensReported,
+            durationMs: turn.durationMs,
+            costUsd: turn.costUsd,
+            costReported: turn.costReported,
+            contextUsedTokens: turn.contextUsedTokens,
+            contextWindowTokens: turn.contextWindowTokens,
+          ),
+        );
+        if (turn.isError && failure.isEmpty) {
+          failure = provider.turnFailureMessage();
+        }
       }
+      if (event case TaskFailure(:final message)) {
+        failure = message;
+      }
+    }
+    if (failure.isNotEmpty) {
+      return 'La consulta a "${target.name}" falló: $failure';
     }
     final answer = buffer.toString().trim();
     return answer.isEmpty
@@ -1215,11 +1290,38 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
       var failure = '';
       await for (final event in run.events) {
         if (event is TaskAssistantText) buffer.write(event.text);
-        if (event is TaskFailure) failure = event.message;
+        if (event case final TaskTurnCompleted turn) {
+          unawaited(
+            UsageLedgerService.instance.notifier.record(
+              provider: engine.provider.alias,
+              model: turn.model.isEmpty ? engine.model : turn.model,
+              profileId: member.id,
+              projectId: memberProject.id,
+              sessionId: '',
+              workNodeId: '',
+              inputTokens: turn.inputTokens,
+              outputTokens: turn.outputTokens,
+              cacheReadTokens: turn.cacheReadTokens,
+              cacheCreationTokens: turn.cacheCreationTokens,
+              tokensReported: turn.tokensReported,
+              durationMs: turn.durationMs,
+              costUsd: turn.costUsd,
+              costReported: turn.costReported,
+              contextUsedTokens: turn.contextUsedTokens,
+              contextWindowTokens: turn.contextWindowTokens,
+            ),
+          );
+          if (turn.isError && failure.isEmpty) {
+            failure = engine.provider.turnFailureMessage(
+              memberName: member.name,
+            );
+          }
+        }
+        if (event case TaskFailure(:final message)) failure = message;
       }
       final answer = buffer.toString().trim();
 
-      if (answer.isEmpty) {
+      if (failure.isNotEmpty || answer.isEmpty) {
         requirements.reply(
           requirement.id,
           side: RequirementSide.usuario,
@@ -1450,6 +1552,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
       ),
     );
 
+    final workflowTurnId = generateUuidV4();
     try {
       while (!_stoppedSessionIds.contains(sessionId)) {
         final node = _nextReadyNode(resolution);
@@ -1487,20 +1590,68 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
               session: session,
             ).where((member) => member.id == node.ownerProfileId).firstOrNull ??
             preflight.owner!;
-        final outcome = await _runTurn(
+        final capability = _capabilityFor(workflow, node.id);
+        if (capability.executor == WorkflowExecutor.manualApproval) {
+          resolution = _replaceNode(
+            resolution,
+            node.id,
+            WorkNodeStatus.paused,
+          );
+          _storeResolution(projectId, sessionId, resolution);
+          _appendMessage(
+            projectId,
+            sessionId,
+            ChatMessage(
+              role: ChatRole.system,
+              text: 'El workflow está listo para publicar. Aprobá el paso '
+                  '"${node.title}" para continuar.',
+              timestamp: DateTime.now(),
+              workNodeId: node.id,
+            ),
+          );
+          return;
+        }
+
+        if (capability.executor == WorkflowExecutor.providerSubagent) {
+          if (resolution.reviewCycleCount >= workflow.policy.maxReviewCycles) {
+            resolution = resolution.copyWith(status: ResolutionCaseStatus.blocked);
+            _storeResolution(projectId, sessionId, resolution);
+            _appendMessage(
+              projectId,
+              sessionId,
+              ChatMessage(
+                role: ChatRole.error,
+                text: 'Se alcanzó el máximo de ${workflow.policy.maxReviewCycles} '
+                    'ciclos de auditoría; revisá el caso manualmente.',
+                timestamp: DateTime.now(),
+                workNodeId: node.id,
+              ),
+            );
+            return;
+          }
+          resolution = resolution.copyWith(
+            reviewCycleCount: resolution.reviewCycleCount + 1,
+          );
+          _storeResolution(projectId, sessionId, resolution);
+        }
+
+        final baseInstruction = adaptiveNodePrompt(
+          request: _sessionById(project, sessionId)?.request ?? request,
+          workflow: workflow,
+          resolution: resolution,
+          node: node,
+        );
+        final outcome = await _runWorkflowCapability(
           projectId: projectId,
           sessionId: sessionId,
-          member: nodeOwner,
-          workNodeId: node.id,
-          instruction: adaptiveNodePrompt(
-            request: _sessionById(project, sessionId)?.request ?? request,
-            workflow: workflow,
-            resolution: resolution,
-            node: node,
-          ),
-          consultOfProfileId: null,
-          turnId: generateUuidV4(),
-          depth: 0,
+          workflow: workflow,
+          capability: capability,
+          resolution: resolution,
+          node: node,
+          nodeOwner: nodeOwner,
+          instruction: baseInstruction,
+          turnId: workflowTurnId,
+          preflight: preflight,
         );
         // A turn may have registered migration coverage while it ran. Reload
         // the graph so a stale local snapshot cannot overwrite that evidence.
@@ -1568,6 +1719,204 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     } finally {
       await _settleSessionRunAndDispatch(projectId, sessionId);
     }
+  }
+
+  WorkflowCapability _capabilityFor(Workflow workflow, String nodeId) {
+    final capabilities = workflow.capabilities.isEmpty
+        ? defaultWorkflowCapabilities(
+            workflow.kind,
+            workflow.policy.resolutionRole,
+          )
+        : workflow.capabilities;
+    return capabilities.firstWhere((capability) => capability.id == nodeId);
+  }
+
+  String _workflowExecutionId(String sessionId, String capabilityId) =>
+      'workflow:$sessionId:$capabilityId';
+
+  Future<TurnOutcome> _runWorkflowCapability({
+    required String projectId,
+    required String sessionId,
+    required Workflow workflow,
+    required WorkflowCapability capability,
+    required ResolutionCase resolution,
+    required WorkNode node,
+    required AgentProfile nodeOwner,
+    required String instruction,
+    required String turnId,
+    required _AdaptivePreflightResult preflight,
+  }) async {
+    final project = _projectById(projectId);
+    if (project == null) return (ok: false, answer: 'Proyecto no disponible.');
+
+    final parentId = capability.parentCapabilityId.trim();
+    final parentNode = parentId.isEmpty
+        ? null
+        : resolution.nodes.where((entry) => entry.id == parentId).firstOrNull;
+    final parentOwner = parentNode == null
+        ? null
+        : preflight.nodeOwners[parentId] ??
+              membersOf(project, session: _sessionById(project, sessionId))
+                  .where((member) => member.id == parentNode.ownerProfileId)
+                  .firstOrNull;
+    final reports = _auditReportsFor(
+      project,
+      sessionId,
+      node.dependencyIds,
+      workflow,
+    );
+    final effectiveInstruction = reports.isEmpty
+        ? instruction
+        : '$instruction\n\nINFORMES DE AUDITORÍA A RESOLVER:\n$reports';
+
+    switch (capability.executor) {
+      case WorkflowExecutor.newSession:
+        return _runTurn(
+          projectId: projectId,
+          sessionId: sessionId,
+          member: nodeOwner,
+          workNodeId: node.id,
+          instruction: effectiveInstruction,
+          consultOfProfileId: null,
+          turnId: turnId,
+          depth: 0,
+          executionId: _workflowExecutionId(sessionId, capability.id),
+          maxTurns: capability.maxAgenticTurns,
+          planMode: capability.readOnly,
+        );
+      case WorkflowExecutor.resumeParent:
+        if (parentOwner == null) {
+          return (ok: false, answer: 'No se encontró la sesión padre.');
+        }
+        return _runTurn(
+          projectId: projectId,
+          sessionId: sessionId,
+          member: parentOwner,
+          workNodeId: node.id,
+          instruction: effectiveInstruction,
+          consultOfProfileId: null,
+          turnId: turnId,
+          depth: 0,
+          executionId: _workflowExecutionId(sessionId, parentId),
+          maxTurns: capability.maxAgenticTurns,
+        );
+      case WorkflowExecutor.providerSubagent:
+        if (parentOwner == null) {
+          return (ok: false, answer: 'No se encontró el padre del auditor.');
+        }
+        final packet = _subagentPacket(
+          project: project,
+          sessionId: sessionId,
+          node: node,
+          target: nodeOwner,
+          instruction: effectiveInstruction,
+        );
+        final parentEngine = project.tuned(parentOwner);
+        if (parentEngine.provider == AgentProvider.claude) {
+          final before = _sessionById(project, sessionId)?.subagents.length ?? 0;
+          final native = await _runTurn(
+            projectId: projectId,
+            sessionId: sessionId,
+            member: parentOwner,
+            workNodeId: node.id,
+            instruction: '$packet\n\nAbrí exactamente un subagente nativo '
+                'Task para esta auditoría. No escribas archivos; sintetizá su '
+                'informe completo al finalizar.',
+            consultOfProfileId: null,
+            turnId: turnId,
+            depth: 0,
+            allowConsults: false,
+            executionId: _workflowExecutionId(sessionId, parentId),
+            maxTurns: capability.maxAgenticTurns,
+          );
+          final after = _sessionById(project, sessionId)?.subagents.length ?? 0;
+          if (after > before) return native;
+          _appendMessage(
+            projectId,
+            sessionId,
+            ChatMessage(
+              role: ChatRole.system,
+              text: 'Claude no abrió el subagente solicitado; se usa la '
+                  'sesión externa de @${nodeOwner.name}.',
+              timestamp: DateTime.now(),
+              workNodeId: node.id,
+            ),
+          );
+        }
+        return _runTurn(
+          projectId: projectId,
+          sessionId: sessionId,
+          member: nodeOwner,
+          workNodeId: node.id,
+          instruction: packet,
+          consultOfProfileId: parentOwner.id,
+          turnId: turnId,
+          depth: 0,
+          allowConsults: false,
+          executionId: _workflowExecutionId(sessionId, capability.id),
+          maxTurns: capability.maxAgenticTurns,
+          planMode: true,
+        );
+      case WorkflowExecutor.manualApproval:
+        return (ok: false, answer: 'El paso requiere aprobación manual.');
+    }
+  }
+
+  String _auditReportsFor(
+    Project project,
+    String sessionId,
+    List<String> dependencyIds,
+    Workflow workflow,
+  ) {
+    final auditIds = {
+      for (final dependency in dependencyIds)
+        if (_capabilityFor(workflow, dependency).outputContract ==
+            'audit-feedback')
+          dependency,
+    };
+    if (auditIds.isEmpty) return '';
+    final messages = _sessionById(project, sessionId)?.messages ?? const [];
+    return messages
+        .where(
+          (message) =>
+              message.role == ChatRole.assistant &&
+              auditIds.contains(message.workNodeId),
+        )
+        .map((message) => message.text.trim())
+        .where((text) => text.isNotEmpty)
+        .join('\n\n');
+  }
+
+  String _subagentPacket({
+    required Project project,
+    required String sessionId,
+    required WorkNode node,
+    required AgentProfile target,
+    required String instruction,
+  }) {
+    final skillText = SkillsService.instance.notifier.data.skills
+        .where((skill) => target.skills.contains(skill.name))
+        .map((skill) => 'SKILL ${skill.name}:\n${skill.content}')
+        .join('\n\n');
+    final ruleText = RulesService.instance.notifier.data.rules
+        .where((rule) => target.rules.contains(rule.name))
+        .map((rule) => 'REGLA ${rule.name}:\n${rule.content}')
+        .join('\n\n');
+    final changed = _sessionById(project, sessionId)?.messages
+            .where((message) => message.fileEdits.isNotEmpty)
+            .expand((message) => message.fileEdits)
+            .map((edit) => edit.path)
+            .toSet()
+            .join(', ') ??
+        '';
+    final packet = 'AUDITOR DESTINO: @${target.name} (${target.role})\n'
+        'Modo: solo lectura. No edites archivos.\n'
+        'Contrato de salida: veredicto, todos los hallazgos, evidencia, '
+        'archivo/línea y acción sugerida.\n'
+        'Archivos modificados conocidos: ${changed.isEmpty ? 'no disponibles' : changed}.\n\n'
+        '$instruction\n\nIDENTIDAD DEL AUDITOR:\n${target.systemPrompt}\n\n'
+        '$skillText\n\n$ruleText';
+    return packet.length <= 12000 ? packet : '${packet.substring(0, 12000)}…';
   }
 
   Future<void> _abandonRun(
@@ -2510,6 +2859,8 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     required String? consultOfProfileId,
     required String turnId,
     required int depth,
+    String? executionId,
+    int maxTurns = 0,
     bool allowConsults = true,
     bool retriedWithoutSession = false,
 
@@ -2550,10 +2901,11 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
           ?.name,
     );
 
+    final effectiveExecutionId = executionId ?? 'member:${member.id}';
     final cliSessionId = _sessionById(
       project,
       sessionId,
-    )?.cliSessionsByProfileId[member.id];
+    )?.cliSessionsByExecutionId[effectiveExecutionId];
     final collector = FileEditCollector(
       workingDirectory: project.workingDirectory,
     );
@@ -2760,6 +3112,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
         hookFiles: turnHooks.files,
         conversationHistory: conversationHistory,
         planMode: planMode,
+        maxTurns: maxTurns,
         provider: engine.provider.alias,
         providerApiKey: providerApiKey,
       ),
@@ -2782,6 +3135,9 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     // terminar: una lista que no se limpia es una lista que miente.
     var livePid = 0;
     final streamTimestamp = DateTime.now();
+    final maxSubagents =
+        _workflowRunning(project, sessionId)?.policy.maxSubagents ?? 0;
+    var subagentLimitExceeded = false;
 
     await for (final event in run.events) {
       if (_stoppedSessionIds.contains(sessionId)) break;
@@ -2799,10 +3155,10 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
           sessionConfirmed = true;
           _updateSession(projectId, sessionId, (session) {
             final sessions = Map<String, String>.from(
-              session.cliSessionsByProfileId,
+              session.cliSessionsByExecutionId,
             );
-            sessions[member.id] = id;
-            return session.copyWith(cliSessionsByProfileId: sessions);
+            sessions[effectiveExecutionId] = id;
+            return session.copyWith(cliSessionsByExecutionId: sessions);
           });
 
         case TaskAssistantText(text: final chunk):
@@ -2850,6 +3206,29 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
           ask: final ask,
           prompt: final prompt,
         ):
+          if (subagentLimitExceeded) continue;
+          if (!_subagentBudget.tryReserve(
+            turnId: turnId,
+            maxSubagents: maxSubagents,
+          )) {
+            subagentLimitExceeded = true;
+            turnFailed = true;
+            failureMessage =
+                'Se alcanzó el máximo de $maxSubagents subagente(s) para '
+                'este turno; no se continuará delegando.';
+            run.cancel();
+            _appendMessage(
+              projectId,
+              sessionId,
+              ChatMessage(
+                role: ChatRole.error,
+                text: failureMessage,
+                timestamp: DateTime.now(),
+                workNodeId: workNodeId,
+              ),
+            );
+            continue;
+          }
           _updateSession(
             projectId,
             sessionId,
@@ -2980,28 +3359,26 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
             sessionId,
             (session) => session.copyWith(usage: usage),
           );
-          if (!isError || turn.tokensReported || turn.costReported) {
-            unawaited(
-              UsageLedgerService.instance.notifier.record(
-                provider: engine.provider.alias,
-                model: turn.model.isEmpty ? engine.model : turn.model,
-                profileId: member.id,
-                projectId: projectId,
-                sessionId: sessionId,
-                inputTokens: turnTokens.inputTokens,
-                outputTokens: turnTokens.outputTokens,
-                cacheReadTokens: turnTokens.cacheReadTokens,
-                cacheCreationTokens: turnTokens.cacheCreationTokens,
-                tokensReported: turn.tokensReported,
-                durationMs: durationMs,
-                costUsd: costUsd,
-                costReported: turn.costReported,
-                workNodeId: workNodeId ?? '',
-                contextUsedTokens: turn.contextUsedTokens,
-                contextWindowTokens: turn.contextWindowTokens,
-              ),
-            );
-          }
+          unawaited(
+            UsageLedgerService.instance.notifier.record(
+              provider: engine.provider.alias,
+              model: turn.model.isEmpty ? engine.model : turn.model,
+              profileId: member.id,
+              projectId: projectId,
+              sessionId: sessionId,
+              inputTokens: turnTokens.inputTokens,
+              outputTokens: turnTokens.outputTokens,
+              cacheReadTokens: turnTokens.cacheReadTokens,
+              cacheCreationTokens: turnTokens.cacheCreationTokens,
+              tokensReported: turn.tokensReported,
+              durationMs: durationMs,
+              costUsd: costUsd,
+              costReported: turn.costReported,
+              workNodeId: workNodeId ?? '',
+              contextUsedTokens: turn.contextUsedTokens,
+              contextWindowTokens: turn.contextWindowTokens,
+            ),
+          );
           if (isError) {
             turnFailed = true;
             _appendMessage(
@@ -3097,9 +3474,9 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
         !_stoppedSessionIds.contains(sessionId)) {
       _updateSession(projectId, sessionId, (session) {
         final sessions = Map<String, String>.from(
-          session.cliSessionsByProfileId,
-        )..remove(member.id);
-        return session.copyWith(cliSessionsByProfileId: sessions);
+          session.cliSessionsByExecutionId,
+        )..remove(effectiveExecutionId);
+        return session.copyWith(cliSessionsByExecutionId: sessions);
       });
       return _runTurn(
         projectId: projectId,
@@ -3112,6 +3489,8 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
         depth: depth,
         allowConsults: allowConsults,
         planMode: planMode,
+        executionId: effectiveExecutionId,
+        maxTurns: maxTurns,
         retriedWithoutSession: true,
       );
     }
@@ -3156,7 +3535,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
       answer: answer.toString(),
     );
 
-    if (allowConsults && depth < _maxConsultDepth) {
+    if (!turnFailed && allowConsults && depth < _maxConsultDepth) {
       await _resolveConsultations(
         projectId: projectId,
         sessionId: sessionId,
@@ -3604,10 +3983,10 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
   /// documents, and who else it can consult.
   ///
   /// El orden es contrato: skills globales → prompt del perfil → skills →
-  /// reglas → saber → IDENTIDAD (siempre) → COMPAÑEROS (si hay) → GITHUB
-  /// POR MCP (si lo tiene) → MODO DE TRABAJO → PLAN → ENTREGA (si hay git y
-  /// no es consulta) → REGLA DEL CANAL. Cada regla vive en UNA sección; las
-  /// demás, si la necesitan, apuntan a ella.
+  /// reglas → IDENTIDAD → solo lectura → COMPAÑEROS → GITHUB POR MCP → MODO
+  /// DE TRABAJO → ENTREGA → REGLA DE SUBAGENTES → saber → plan. Las dos
+  /// últimas secciones cambian durante un workflow y quedan al final para
+  /// conservar el prefijo estable del prompt.
   ///
   /// El texto de cada sección vive en `integrations/system_prompt/`. Acá se
   /// decide el ORDEN y qué secciones entran, que es lo que depende del
@@ -3642,14 +4021,14 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
       ...?workflowForTurn?.skillNames,
       ...?workflowForTurn?.policy.requiredSkillNames,
     };
+    final assignedSkills = assignedNonGlobalSkills(skills, skillNames);
     for (final name in skillNames) {
       final skill = skills.where((s) => s.name == name).firstOrNull;
       if (skill == null || skill.content.isEmpty) {
         Log.w('Skill "$name" referenced by ${member.name} not found or empty');
-        continue;
       }
-      // Globals already went in above — never inject the same skill twice.
-      if (skill.isGlobal) continue;
+    }
+    for (final skill in assignedSkills) {
       buffer.writeln();
       buffer.writeln(skill.content);
     }
@@ -3680,10 +4059,6 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
         ...?requiredPolicy?.requiredKnowledgeBaseNames,
       }.toList(),
     );
-    if (saber.isNotEmpty) {
-      buffer.writeln();
-      buffer.writeln(saber);
-    }
 
     final companions = membersOf(
       project,
@@ -3702,20 +4077,6 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
         projectPurpose: project.purpose,
       ),
     );
-
-    // Las skills del WORKFLOW, no las del agente: las del agente son quién
-    // es y viajan a todos lados; estas son qué está haciendo ahora. El mismo
-    // agente formateando la carpeta necesita saber el formato, y resolviendo
-    // un ticket no.
-    for (final name
-        in session == null
-            ? const <String>[]
-            : (workflowOf(session)?.skillNames ?? const <String>[])) {
-      final extra = skills.where((skill) => skill.name == name).firstOrNull;
-      if (extra == null) continue;
-      buffer.writeln();
-      buffer.writeln(extra.content);
-    }
 
     if (!project.maintained) {
       buffer.writeln();
@@ -3738,16 +4099,6 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
 
     buffer.writeln();
     buffer.writeln(kAskVsWorkPrompt);
-
-    final plan = planSectionPrompt(
-      session,
-      isConsult: isConsult,
-      hasPlanTools: hasPlanTools,
-    );
-    if (plan.isNotEmpty) {
-      buffer.writeln();
-      buffer.writeln(plan);
-    }
 
     // La entrega es del que trabaja, no del que responde una consulta; y
     // solo tiene sentido donde hay git.
@@ -3773,8 +4124,16 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
       ),
     );
 
-    final combined = buffer.toString().trim();
-    return combined;
+    final plan = planSectionPrompt(
+      session,
+      isConsult: isConsult,
+      hasPlanTools: hasPlanTools,
+    );
+    return composeTurnSystemPrompt(
+      stablePrompt: buffer.toString(),
+      knowledge: saber,
+      plan: plan,
+    );
   }
 
   // ── helpers de estado ───────────────────────────────────────────────

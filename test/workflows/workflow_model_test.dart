@@ -59,6 +59,11 @@ void main() {
           'role': 'diagnosticador',
           'dependencyIds': <String>[],
           'activation': 'required',
+          'executor': 'newSession',
+          'parentCapabilityId': '',
+          'maxAgenticTurns': 0,
+          'readOnly': false,
+          'outputContract': '',
           'requiresIndependentOwner': false,
         },
         {
@@ -68,6 +73,11 @@ void main() {
           'role': 'mcp-e2e-tester',
           'dependencyIds': ['implementation'],
           'activation': 'optional',
+          'executor': 'newSession',
+          'parentCapabilityId': '',
+          'maxAgenticTurns': 0,
+          'readOnly': false,
+          'outputContract': '',
           'requiresIndependentOwner': true,
         },
       ]);

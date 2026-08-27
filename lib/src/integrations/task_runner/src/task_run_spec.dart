@@ -44,6 +44,7 @@ class TaskRunSpec {
   /// Este turno solo planifica: propone y no toca nada. Espejo de
   /// `LlmTurnSpec.planMode`; cada runner lo traduce a su CLI.
   final bool planMode;
+  final int maxTurns;
 
   const TaskRunSpec({
     required this.prompt,
@@ -60,6 +61,7 @@ class TaskRunSpec {
     this.hookFiles = const {},
     this.conversationHistory = const [],
     this.planMode = false,
+    this.maxTurns = 0,
     this.provider = 'claude',
     this.providerApiKey,
   });
@@ -81,6 +83,7 @@ class TaskRunSpec {
         .map((message) => message.toJson())
         .toList(),
     'planMode': planMode,
+    'maxTurns': maxTurns,
     'provider': provider,
     'providerApiKey': providerApiKey,
   };
@@ -111,6 +114,7 @@ class TaskRunSpec {
       // Tolerante a propósito: un mensaje armado antes de que el modo plan
       // existiera no trae la clave, y eso no es un turno roto.
       planMode: message['planMode'] as bool? ?? false,
+      maxTurns: message['maxTurns'] as int? ?? 0,
       provider: message['provider'] as String? ?? 'claude',
       providerApiKey: message['providerApiKey'] as String?,
     );

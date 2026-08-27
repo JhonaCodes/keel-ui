@@ -21,6 +21,47 @@ const _spec = LlmTurnSpec(
 
 void main() {
   group('OpenAiCompatibleApiRunner', () {
+    test('usa un máximo predeterminado seguro de 40 rondas de tools', () {
+      final runner = OpenAiCompatibleApiRunner(
+        baseUrl: 'https://api.deepseek.com',
+        secretRef: 'DEEPSEEK_API_KEY',
+        resolveSecret: (_) async => 'test-token-deepseek',
+      );
+
+      expect(runner.maxToolRounds, 40);
+    });
+
+    test('el default corta una cadena de tools en la request 41', () async {
+      var requests = 0;
+      final runner = OpenAiCompatibleApiRunner(
+        baseUrl: 'https://api.deepseek.com',
+        secretRef: 'DEEPSEEK_API_KEY',
+        resolveSecret: (_) async => 'test-token-deepseek',
+        toolBridge: _FakeToolBridge(),
+        client: MockClient((request) async {
+          requests++;
+          return http.Response(
+            [
+              'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_$requests","type":"function","function":{"name":"Read","arguments":"{\\"path\\":\\"file-$requests.md\\"}"}}]},"finish_reason":"tool_calls"}]}',
+              'data: [DONE]',
+              '',
+            ].join('\n'),
+            200,
+          );
+        }),
+      );
+
+      final events = await runner
+          .run(_spec, userPath: '', cancel: const Stream<void>.empty())
+          .toList();
+
+      expect(requests, 41);
+      expect(
+        events.where((event) => event['type'] == 'failure').single['message'],
+        contains('límite seguro de 40 rondas'),
+      );
+    });
+
     test('entrega el historial aislado antes del mensaje actual', () async {
       late http.Request seen;
       final runner = OpenAiCompatibleApiRunner(

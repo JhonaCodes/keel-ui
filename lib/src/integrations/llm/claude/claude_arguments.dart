@@ -11,6 +11,7 @@ List<String> buildClaudeArguments({
   required bool fullFileSystemAccess,
   required String? sessionId,
   required bool planMode,
+  required int maxTurns,
 }) {
   return [
     '-p',
@@ -26,6 +27,7 @@ List<String> buildClaudeArguments({
     model,
     '--effort',
     effort,
+    if (maxTurns > 0) ...['--max-turns', '$maxTurns'],
     // El modo plan del propio CLI: trae su system prompt de planificación y
     // frena las escrituras aunque las tools estén permitidas. Por eso
     // `--allowedTools` NO se recorta acá — la superficie de tools tiene que

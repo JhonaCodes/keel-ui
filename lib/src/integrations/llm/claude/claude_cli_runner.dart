@@ -63,6 +63,7 @@ class ClaudeCliRunner implements LlmRunner {
         claudeSettingsPath: workspace.claudeSettingsPath,
         fullFileSystemAccess: spec.fullFileSystemAccess,
         planMode: spec.planMode,
+        maxTurns: spec.maxTurns,
         sessionId: spec.sessionId,
       );
 

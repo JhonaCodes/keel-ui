@@ -36,7 +36,8 @@ class _WorkflowFormScreenState extends State<WorkflowFormScreen> {
   late WorkflowKind _kind = widget.initial?.kind ?? WorkflowKind.bug;
   late String _ownerRole = widget.initial?.policy.resolutionRole ?? '';
   late int _maxReplans = widget.initial?.policy.maxReplans ?? 2;
-  late int _maxSubagents = widget.initial?.policy.maxSubagents ?? 2;
+  late int _maxSubagents = widget.initial?.policy.maxSubagents ?? 1;
+  late int _maxReviewCycles = widget.initial?.policy.maxReviewCycles ?? 4;
   late List<String> _skills = [...?widget.initial?.policy.requiredSkillNames];
   late List<WorkflowCapability> _capabilities = [
     ...(widget.initial?.capabilities.isNotEmpty == true
@@ -87,6 +88,7 @@ class _WorkflowFormScreenState extends State<WorkflowFormScreen> {
             ],
       maxReplans: _maxReplans,
       maxSubagents: _maxSubagents,
+      maxReviewCycles: _maxReviewCycles,
     );
     final workflows = WorkflowsService.instance.notifier;
     final initial = widget.initial;
@@ -212,8 +214,8 @@ class _WorkflowFormScreenState extends State<WorkflowFormScreen> {
           Slider(
             value: _maxReplans.toDouble(),
             min: 0,
-            max: 2,
-            divisions: 2,
+            max: 1,
+            divisions: 1,
             label: '$_maxReplans',
             onChanged: (value) => setState(() => _maxReplans = value.round()),
           ),
@@ -225,6 +227,16 @@ class _WorkflowFormScreenState extends State<WorkflowFormScreen> {
             divisions: 2,
             label: '$_maxSubagents',
             onChanged: (value) => setState(() => _maxSubagents = value.round()),
+          ),
+          Text('Ciclos compartidos de auditoría: $_maxReviewCycles'),
+          Slider(
+            value: _maxReviewCycles.toDouble(),
+            min: 1,
+            max: 4,
+            divisions: 3,
+            label: '$_maxReviewCycles',
+            onChanged: (value) =>
+                setState(() => _maxReviewCycles = value.round()),
           ),
           if (_error != null) ...[
             const SizedBox(height: 12),
@@ -352,6 +364,17 @@ class _CapabilityEditorTileState extends State<_CapabilityEditorTile> {
   late final TextEditingController _dependencies = TextEditingController(
     text: widget.capability.dependencyIds.join(', '),
   );
+  late final TextEditingController _parent = TextEditingController(
+    text: widget.capability.parentCapabilityId,
+  );
+  late final TextEditingController _maxTurns = TextEditingController(
+    text: widget.capability.maxAgenticTurns == 0
+        ? ''
+        : '${widget.capability.maxAgenticTurns}',
+  );
+  late final TextEditingController _outputContract = TextEditingController(
+    text: widget.capability.outputContract,
+  );
 
   @override
   void dispose() {
@@ -359,11 +382,16 @@ class _CapabilityEditorTileState extends State<_CapabilityEditorTile> {
     _instruction.dispose();
     _role.dispose();
     _dependencies.dispose();
+    _parent.dispose();
+    _maxTurns.dispose();
+    _outputContract.dispose();
     super.dispose();
   }
 
   void _emit({
     WorkflowCapabilityActivation? activation,
+    WorkflowExecutor? executor,
+    bool? readOnly,
     bool? requiresIndependentOwner,
   }) {
     final dependencies = _dependencies.text
@@ -384,6 +412,11 @@ class _CapabilityEditorTileState extends State<_CapabilityEditorTile> {
         role: _role.text.trim().isEmpty ? '*' : _role.text.trim(),
         dependencyIds: dependencies,
         activation: activation,
+        executor: executor,
+        parentCapabilityId: _parent.text.trim(),
+        maxAgenticTurns: int.tryParse(_maxTurns.text.trim()) ?? 0,
+        readOnly: readOnly,
+        outputContract: _outputContract.text.trim(),
         requiresIndependentOwner: requiresIndependentOwner,
       ),
     );
@@ -424,7 +457,9 @@ class _CapabilityEditorTileState extends State<_CapabilityEditorTile> {
           TextField(
             controller: _role,
             onChanged: (_) => _emit(),
-            decoration: const InputDecoration(labelText: 'Rol por defecto'),
+            decoration: const InputDecoration(
+              labelText: 'Rol o perfil destino (@auditor)',
+            ),
           ),
           TextField(
             controller: _dependencies,
@@ -449,6 +484,64 @@ class _CapabilityEditorTileState extends State<_CapabilityEditorTile> {
               ),
             ],
             onChanged: (value) => _emit(activation: value),
+          ),
+          const SizedBox(height: 8),
+          DropdownButtonFormField<WorkflowExecutor>(
+            initialValue: widget.capability.executor,
+            decoration: const InputDecoration(labelText: 'Ejecución'),
+            items: const [
+              DropdownMenuItem(
+                value: WorkflowExecutor.newSession,
+                child: Text('Nueva sesión'),
+              ),
+              DropdownMenuItem(
+                value: WorkflowExecutor.resumeParent,
+                child: Text('Reanudar sesión padre'),
+              ),
+              DropdownMenuItem(
+                value: WorkflowExecutor.providerSubagent,
+                child: Text('Subagente del proveedor'),
+              ),
+              DropdownMenuItem(
+                value: WorkflowExecutor.manualApproval,
+                child: Text('Aprobación manual'),
+              ),
+            ],
+            onChanged: (value) => _emit(executor: value),
+          ),
+          if (widget.capability.executor == WorkflowExecutor.resumeParent ||
+              widget.capability.executor == WorkflowExecutor.providerSubagent)
+            TextField(
+              controller: _parent,
+              onChanged: (_) => _emit(),
+              decoration: const InputDecoration(
+                labelText: 'ID del paso padre',
+                helperText: 'La sesión del padre se conserva y se reanuda.',
+              ),
+            ),
+          TextField(
+            controller: _maxTurns,
+            keyboardType: TextInputType.number,
+            onChanged: (_) => _emit(),
+            decoration: const InputDecoration(
+              labelText: 'Máximo de turnos agentic',
+              helperText: 'Vacío o 0 usa el límite del proveedor.',
+            ),
+          ),
+          TextField(
+            controller: _outputContract,
+            onChanged: (_) => _emit(),
+            decoration: const InputDecoration(
+              labelText: 'Contrato de salida',
+              helperText: 'Ejemplo: audit-feedback.',
+            ),
+          ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Solo lectura'),
+            subtitle: const Text('Planificadores y auditores no escriben.'),
+            value: widget.capability.readOnly,
+            onChanged: (value) => _emit(readOnly: value),
           ),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,

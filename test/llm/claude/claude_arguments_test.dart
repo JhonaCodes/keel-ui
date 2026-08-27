@@ -10,6 +10,7 @@ void main() {
       bool fullFileSystemAccess = false,
       String? sessionId,
       bool planMode = false,
+      int maxTurns = 0,
     }) => buildClaudeArguments(
       prompt: 'Hola',
       model: 'sonnet',
@@ -21,6 +22,7 @@ void main() {
       fullFileSystemAccess: fullFileSystemAccess,
       sessionId: sessionId,
       planMode: planMode,
+      maxTurns: maxTurns,
     );
 
     test('turno mínimo: sin mcp, sin hooks, sin resume', () {
@@ -82,6 +84,17 @@ void main() {
 
     test('sin sessionId no agrega --resume', () {
       expect(minimal().contains('--resume'), isFalse);
+    });
+
+    test('limita los turnos agentic cuando el workflow lo pide', () {
+      expect(
+        minimal(maxTurns: 4),
+        containsAllInOrder(['--max-turns', '4']),
+      );
+    });
+
+    test('cero conserva el límite por defecto del CLI', () {
+      expect(minimal().contains('--max-turns'), isFalse);
     });
 
     group('modo plan', () {

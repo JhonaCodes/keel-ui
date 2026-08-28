@@ -8,7 +8,6 @@ import 'package:keel_ui/src/modules/agents/model/file_edit.dart';
 import 'package:keel_ui/src/modules/agents/service/chat_actions.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/bubble_width.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/chat_message_body.dart';
-import 'package:keel_ui/src/modules/agents/ui/widget/inline_file_editor.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/reasoning_panel.dart';
 import 'package:keel_ui/src/modules/agents/viewmodel/agents_viewmodel.dart';
 import 'package:keel_ui/src/modules/settings/model/app_settings.dart';
@@ -184,42 +183,38 @@ class _ChatMessageBubbleContent extends StatelessWidget {
                     message: message,
                     foreground: foreground,
                     fontScale: fontScale,
+                    workingDirectory: AgentsService
+                        .instance
+                        .notifier
+                        .looseAgentWorkingDirectory,
+                    windowAgentId: agentId,
+                    onAskAboutLine:
+                        ({
+                          required filePath,
+                          required lineNumber,
+                          required lineContent,
+                          required question,
+                        }) => actions.askAboutLine(
+                          agentId,
+                          filePath: filePath,
+                          lineNumber: lineNumber,
+                          lineContent: lineContent,
+                          question: question,
+                        ),
+                    onManualEditSaved:
+                        ({
+                          required filePath,
+                          required beforeContent,
+                          required afterContent,
+                        }) async => actions.recordManualEdit(
+                          agentId,
+                          FileEdit(
+                            path: filePath,
+                            beforeContent: beforeContent,
+                            afterContent: afterContent,
+                          ),
+                        ),
                   ),
-                  for (final fileEdit in message.fileEdits)
-                    InlineFileEditor(
-                      editAsReported: fileEdit,
-                      workingDirectory: AgentsService
-                          .instance
-                          .notifier
-                          .looseAgentWorkingDirectory,
-                      windowAgentId: agentId,
-                      onAskAboutLine:
-                          ({
-                            required filePath,
-                            required lineNumber,
-                            required lineContent,
-                            required question,
-                          }) => actions.askAboutLine(
-                            agentId,
-                            filePath: filePath,
-                            lineNumber: lineNumber,
-                            lineContent: lineContent,
-                            question: question,
-                          ),
-                      onManualEditSaved:
-                          ({
-                            required filePath,
-                            required beforeContent,
-                            required afterContent,
-                          }) async => actions.recordManualEdit(
-                            agentId,
-                            FileEdit(
-                              path: filePath,
-                              beforeContent: beforeContent,
-                              afterContent: afterContent,
-                            ),
-                          ),
-                    ),
                 ],
               ),
             ),

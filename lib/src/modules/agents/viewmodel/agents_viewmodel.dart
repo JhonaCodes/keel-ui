@@ -1420,14 +1420,11 @@ class AgentsViewModel extends ViewModel<AgentsState> {
       final last = agent.messages[lastIndex];
       if (last.role != ChatRole.assistant) return agent;
 
-      final annotated = ChatMessage(
-        role: last.role,
-        text: last.text,
-        timestamp: last.timestamp,
+      // `copyWith`, no reconstruir: rearmarlo desde `text` + `fileEdits`
+      // aplanaba la secuencia de bloques justo al cerrar el turno.
+      final annotated = last.copyWith(
         costUsd: costUsd,
         durationMs: durationMs,
-        reasoning: last.reasoning,
-        fileEdits: last.fileEdits,
       );
       final messages = [...agent.messages];
       messages[lastIndex] = annotated;
@@ -1445,6 +1442,10 @@ class AgentsViewModel extends ViewModel<AgentsState> {
   /// A streamed answer is one message whose contents grow, never one bubble
   /// per token chunk. Besides preserving the transcript this keeps a reader
   /// anchored on the code they are inspecting instead of rebuilding the list.
+  ///
+  /// Grow means APPEND. `fileEdits: chunk.fileEdits` used to overwrite: the
+  /// collector drains on every read, so the chunk after an edit carried an
+  /// empty list and wiped the editor card the user was about to review.
   void _appendStreamingAssistantMessage(String agentId, ChatMessage chunk) {
     _updateAgent(agentId, (agent) {
       final messages = [...agent.messages];
@@ -1456,17 +1457,10 @@ class AgentsViewModel extends ViewModel<AgentsState> {
       if (index == -1) {
         messages.add(chunk);
       } else {
-        final previous = messages[index];
-        messages[index] = ChatMessage(
-          role: ChatRole.assistant,
-          text: previous.text + chunk.text,
-          timestamp: previous.timestamp,
-          reasoning: chunk.reasoning ?? previous.reasoning,
+        messages[index] = messages[index].appendingChunk(
+          text: chunk.text,
           fileEdits: chunk.fileEdits,
-          imagePaths: previous.imagePaths,
-          authorProfileId: previous.authorProfileId,
-          workNodeId: previous.workNodeId,
-          consultOfProfileId: previous.consultOfProfileId,
+          reasoning: chunk.reasoning,
         );
       }
       return agent.copyWith(messages: messages);

@@ -7,7 +7,6 @@ import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
 import 'package:keel_ui/src/modules/agents/model/chat_message.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/bubble_width.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/chat_message_body.dart';
-import 'package:keel_ui/src/modules/agents/ui/widget/inline_file_editor.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/reasoning_panel.dart';
 import 'package:keel_ui/src/modules/settings/model/app_settings.dart';
 import 'package:keel_ui/src/modules/settings/viewmodel/settings_viewmodel.dart';
@@ -119,37 +118,33 @@ class _Content extends StatelessWidget {
                 message: message,
                 foreground: foreground,
                 fontScale: fontScale,
+                workingDirectory: ProjectsService.instance.notifier
+                    .workingDirectoryOf(bubble.projectId),
+                onAskAboutLine:
+                    ({
+                      required filePath,
+                      required lineNumber,
+                      required lineContent,
+                      required question,
+                    }) => ProjectsService.instance.notifier.askAboutLine(
+                      bubble.projectId,
+                      profileId: bubble.author?.id ?? '',
+                      filePath: filePath,
+                      lineNumber: lineNumber,
+                      lineContent: lineContent,
+                      question: question,
+                    ),
+                onManualEditSaved:
+                    ({
+                      required filePath,
+                      required beforeContent,
+                      required afterContent,
+                    }) => ProjectsService.instance.notifier.recordManualEdit(
+                      bubble.projectId,
+                      profileId: bubble.author?.id ?? '',
+                      filePath: filePath,
+                    ),
               ),
-              for (final fileEdit in message.fileEdits)
-                InlineFileEditor(
-                  editAsReported: fileEdit,
-                  workingDirectory: ProjectsService.instance.notifier
-                      .workingDirectoryOf(bubble.projectId),
-                  onAskAboutLine:
-                      ({
-                        required filePath,
-                        required lineNumber,
-                        required lineContent,
-                        required question,
-                      }) => ProjectsService.instance.notifier.askAboutLine(
-                        bubble.projectId,
-                        profileId: bubble.author?.id ?? '',
-                        filePath: filePath,
-                        lineNumber: lineNumber,
-                        lineContent: lineContent,
-                        question: question,
-                      ),
-                  onManualEditSaved:
-                      ({
-                        required filePath,
-                        required beforeContent,
-                        required afterContent,
-                      }) => ProjectsService.instance.notifier.recordManualEdit(
-                        bubble.projectId,
-                        profileId: bubble.author?.id ?? '',
-                        filePath: filePath,
-                      ),
-                ),
             ],
           ),
         );

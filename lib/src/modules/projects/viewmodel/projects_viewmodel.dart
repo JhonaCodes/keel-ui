@@ -4479,17 +4479,13 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
       if (index == -1) {
         messages.add(chunk);
       } else {
-        final previous = messages[index];
-        messages[index] = ChatMessage(
-          role: ChatRole.assistant,
-          text: previous.text + chunk.text,
-          timestamp: previous.timestamp,
-          reasoning: chunk.reasoning ?? previous.reasoning,
+        // Append, nunca reemplazar: el colector se vacía en cada lectura, así
+        // que el chunk siguiente a una edición trae la lista vacía y borraba
+        // la tarjeta del diff. Mismo defecto que el chat 1:1.
+        messages[index] = messages[index].appendingChunk(
+          text: chunk.text,
           fileEdits: chunk.fileEdits,
-          imagePaths: previous.imagePaths,
-          authorProfileId: previous.authorProfileId,
-          workNodeId: previous.workNodeId,
-          consultOfProfileId: previous.consultOfProfileId,
+          reasoning: chunk.reasoning,
         );
       }
       return session.copyWith(messages: messages);
@@ -4506,18 +4502,11 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
       final messages = [...session.messages];
       for (var i = messages.length - 1; i >= 0; i--) {
         if (messages[i].role != ChatRole.assistant) continue;
-        final message = messages[i];
-        messages[i] = ChatMessage(
-          role: message.role,
-          text: message.text,
-          timestamp: message.timestamp,
+        // `copyWith`, no reconstruir: rearmarlo desde `text` + `fileEdits`
+        // aplanaba la secuencia de bloques justo al cerrar el turno.
+        messages[i] = messages[i].copyWith(
           costUsd: costUsd,
           durationMs: durationMs,
-          reasoning: message.reasoning,
-          fileEdits: message.fileEdits,
-          authorProfileId: message.authorProfileId,
-          workNodeId: message.workNodeId,
-          consultOfProfileId: message.consultOfProfileId,
         );
         break;
       }

@@ -7,6 +7,7 @@ import 'package:keel_ui/src/modules/agents/model/agent_provider.dart';
 import 'package:keel_ui/src/modules/agents/model/agent_tool_activity.dart';
 import 'package:keel_ui/src/modules/agents/model/chat_message.dart';
 import 'package:keel_ui/src/modules/agents/model/file_edit.dart';
+import 'package:keel_ui/src/modules/agents/model/message_block.dart';
 import 'package:keel_ui/src/modules/agents/model/permission_request.dart';
 import 'package:keel_ui/src/modules/agents/model/queued_message.dart';
 import 'package:keel_ui/src/modules/settings/model/app_settings.dart';
@@ -128,6 +129,8 @@ class AssistantAgentSnapshot {
   /// tuviera edición — es preferible perder UN botón que perder el empuje.
   static const _maxEditChars = 64 * 1024;
 
+  /// Se FILTRAN los bloques, no se rearma el mensaje: sacar una edición no
+  /// puede reordenar la prosa que la rodea.
   static List<ChatMessage> _withBoundedFileEdits(List<ChatMessage> messages) {
     final firstKept = messages.length - _fileEditWindow;
     return [
@@ -135,38 +138,22 @@ class AssistantAgentSnapshot {
         if (message.fileEdits.isEmpty)
           message
         else
-          _withFileEdits(
-            message,
-            index < firstKept
-                ? const []
-                : [
-                    for (final edit in message.fileEdits)
-                      if (_editChars(edit) <= _maxEditChars) edit,
-                  ],
+          message.copyWith(
+            blocks: [
+              for (final block in message.blocks)
+                if (switch (block) {
+                  MessageTextBlock() => true,
+                  MessageFileEditBlock(edit: final edit) =>
+                    index >= firstKept && _editChars(edit) <= _maxEditChars,
+                })
+                  block,
+            ],
           ),
     ];
   }
 
   static int _editChars(FileEdit edit) =>
       (edit.beforeContent?.length ?? 0) + edit.afterContent.length;
-
-  static ChatMessage _withFileEdits(
-    ChatMessage message,
-    List<FileEdit> fileEdits,
-  ) {
-    return ChatMessage(
-      role: message.role,
-      text: message.text,
-      timestamp: message.timestamp,
-      costUsd: message.costUsd,
-      durationMs: message.durationMs,
-      reasoning: message.reasoning,
-      fileEdits: fileEdits,
-      authorProfileId: message.authorProfileId,
-      workNodeId: message.workNodeId,
-      consultOfProfileId: message.consultOfProfileId,
-    );
-  }
 
   Map<String, dynamic> toJson() => {
     'id': id,

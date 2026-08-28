@@ -165,6 +165,8 @@ class _ProjectChannel extends StatelessWidget {
                         session.id,
                         grant: grant,
                       ),
+                  onDismiss: () => ProjectsService.instance.notifier
+                      .dismissSessionPermission(project.id, session.id),
                 ),
               // Una tarjeta a la vez: el permiso es un turno suspendido
               // esperándote, así que le gana a la decisión sobre un plan.

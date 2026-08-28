@@ -1434,8 +1434,14 @@ List<String> _without(List<String> current, List<String> removed) {
               entry.name == workflowName && workflowIds.contains(entry.id),
         )
         .firstOrNull;
+    // Un handle vacío BORRA, y un borrado no necesita que el nodo exista:
+    // se borra JUSTAMENTE porque ya no existe. Exigirlo también acá dejaba
+    // la fila huérfana sin forma de limpiarse. El workflow sí sigue
+    // haciendo falta: es la clave del mapa de asignaciones.
+    final isRemoval = handle.isEmpty;
     if (workflow == null ||
-        !workflow.capabilities.any((entry) => entry.id == nodeId)) {
+        (!isRemoval &&
+            !workflow.capabilities.any((entry) => entry.id == nodeId))) {
       warnings.add('asignación inválida $workflowName/$nodeId');
       continue;
     }

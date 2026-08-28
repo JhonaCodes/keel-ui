@@ -489,6 +489,12 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
 
   /// Overrides the concrete agent for one adaptive capability in one project.
   /// A running or completed node keeps its persisted owner for traceability.
+  ///
+  /// Un [profileId] vacío es un BORRADO, y el bloqueo no lo alcanza: sacar un
+  /// override no le cambia el dueño a un caso en curso —el nodo conserva el
+  /// suyo, que es de lo que hablaba la traza—, solo deja de imponer uno para
+  /// el próximo. Bloquearlo también dejaba sin forma de limpiar una fila que
+  /// ya no gobierna a nadie.
   bool setWorkflowNodeAssignment(
     String projectId,
     String workflowId,
@@ -497,13 +503,15 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
   ) {
     final project = _projectById(projectId);
     if (project == null) return false;
+    final isRemoval = profileId == null || profileId.isEmpty;
     final activeSession = project.activeSession;
     final activeNode = activeSession?.workflowId == workflowId
         ? activeSession?.resolutionCase?.nodes
               .where((node) => node.id == nodeId)
               .firstOrNull
         : null;
-    if (activeNode != null &&
+    if (!isRemoval &&
+        activeNode != null &&
         (activeNode.status == WorkNodeStatus.running ||
             activeNode.status == WorkNodeStatus.done)) {
       return false;
@@ -2612,6 +2620,22 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
       instruction:
           'Ya tenés permiso para usar ${request.toolName}. Retomá lo que '
           'estabas haciendo desde donde te quedaste.',
+    );
+  }
+
+  /// Saca del hilo una tarjeta que solo AVISA, sin conceder ni rechazar nada.
+  ///
+  /// Es para el bloqueo de un hook: ahí no hay turno suspendido esperando —el
+  /// CLI ya denegó y siguió—, así que descartarla no le debe nada a nadie.
+  /// Como [Session.pendingPermission] es el único lugar donde vive la
+  /// tarjeta, limpiarla es lo que hace que el descarte se mantenga cuando el
+  /// hilo se vuelve a construir.
+  void dismissSessionPermission(String projectId, String sessionId) {
+    _permissionBlockedProfileBySession.remove(sessionId);
+    _updateSession(
+      projectId,
+      sessionId,
+      (session) => session.copyWith(clearPendingPermission: true),
     );
   }
 

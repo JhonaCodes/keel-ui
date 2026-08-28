@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:keel_ui/src/core/ui/form_panel.dart';
 import 'package:keel_ui/src/modules/agents/model/permission_request.dart';
 import 'package:keel_ui/src/shared/shared.dart';
 
@@ -19,10 +20,16 @@ class PermissionRequestBanner extends StatefulWidget {
     super.key,
     required this.request,
     required this.onRespond,
+    this.onDismiss,
   });
 
   final PermissionRequest request;
   final void Function(bool grant) onRespond;
+
+  /// Sacar del hilo un aviso que NO espera respuesta —hoy, el bloqueo de un
+  /// hook—. Nulo donde el hilo todavía no sabe descartar: entonces la tarjeta
+  /// va sin botón de cerrar en vez de ofrecer uno que no haría nada.
+  final VoidCallback? onDismiss;
 
   @override
   State<PermissionRequestBanner> createState() =>
@@ -56,7 +63,10 @@ class _PermissionRequestBannerState extends State<PermissionRequestBanner> {
     // que frenó. Ofrecer "permitir" ahí manda al usuario a prender un ajuste
     // global que no cambia nada, y a quedarse sin entender por qué.
     if (request.isHookDenial) {
-      return _HookDenialBanner(request: request);
+      return _HookDenialBanner(
+        request: request,
+        onDismiss: widget.onDismiss,
+      );
     }
 
     if (request.isCatalogChange) {
@@ -232,8 +242,102 @@ class _CatalogDetail extends StatelessWidget {
 /// No tiene botón de conceder a propósito: lo que corresponde es mirar el
 /// hook. Si sobra, se apaga desde su pantalla — o se le pide a Keel AI, que
 /// corre sin hooks justamente para poder destrabar esto.
+///
+/// Va COLAPSADA a dos renglones. El stderr de un hook son quince líneas, y
+/// un guardarraíl que dispara seguido las repetía enteras hasta dejar el
+/// hilo ilegible: acá entra el titular y el arranque del motivo, y el resto
+/// vive a un click, en el panel lateral.
 class _HookDenialBanner extends StatelessWidget {
-  const _HookDenialBanner({required this.request});
+  const _HookDenialBanner({required this.request, this.onDismiss});
+
+  final PermissionRequest request;
+  final VoidCallback? onDismiss;
+
+  String _title() {
+    final hookName = request.blockingHookName;
+    return hookName == null
+        ? 'Un hook frenó ${request.toolName}.'
+        : 'El hook "$hookName" frenó ${request.toolName}.';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final dismiss = onDismiss;
+
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 460),
+        child: Container(
+          margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          decoration: ShapeDecoration(
+            color: scheme.surfaceContainerHigh,
+            shape: 16.smoothBorder(
+              side: BorderSide(color: scheme.error.withValues(alpha: 0.35)),
+            ),
+          ),
+          child: InkWell(
+            onTap: () => showFormPanel<void>(
+              context,
+              child: HookDenialDetailPanel(request: request),
+            ),
+            customBorder: 16.smoothBorder(),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(14, 10, 6, 10),
+              child: Row(
+                children: [
+                  Icon(Icons.gpp_maybe_outlined, size: 18, color: scheme.error),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          _title(),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: scheme.onSurface,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        Text(
+                          request.message,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: scheme.onSurfaceVariant,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (dismiss != null)
+                    IconButton(
+                      tooltip: 'Descartar',
+                      iconSize: 16,
+                      visualDensity: VisualDensity.compact,
+                      onPressed: dismiss,
+                      icon: Icon(Icons.close, color: scheme.onSurfaceVariant),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Todo lo que la tarjeta colapsada no muestra: el mensaje entero del hook
+/// —con el comando que corrió y su marcador— y qué hacer al respecto.
+class HookDenialDetailPanel extends StatelessWidget {
+  const HookDenialDetailPanel({super.key, required this.request});
 
   final PermissionRequest request;
 
@@ -242,62 +346,40 @@ class _HookDenialBanner extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final hookName = request.blockingHookName;
 
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 460),
-        child: Container(
-          margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-          padding: const EdgeInsets.all(14),
-          decoration: ShapeDecoration(
-            color: scheme.surfaceContainerHigh,
-            shape: 16.smoothBorder(
-              side: BorderSide(color: scheme.error.withValues(alpha: 0.35)),
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(hookName == null ? 'Hook' : 'Hook "$hookName"'),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
+        children: [
+          Text(
+            hookName == null
+                ? 'Un hook frenó ${request.toolName}.'
+                : 'El hook "$hookName" frenó ${request.toolName}.',
+            style: TextStyle(
+              color: scheme.onSurface,
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
             ),
           ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(Icons.gpp_maybe_outlined, size: 18, color: scheme.error),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      hookName == null
-                          ? 'Un hook frenó ${request.toolName}.'
-                          : 'El hook "$hookName" frenó ${request.toolName}.',
-                      style: TextStyle(
-                        color: scheme.onSurface,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      request.message,
-                      style: TextStyle(
-                        color: scheme.onSurfaceVariant,
-                        fontSize: 12,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'No hay permiso que conceder: esto lo decidió un '
-                      'guardarraíl. Si sobra, apagalo en Hooks — o pedíselo '
-                      'a Keel AI, que corre sin hooks.',
-                      style: TextStyle(
-                        color: scheme.onSurfaceVariant,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+          const SizedBox(height: 12),
+          SelectableText(
+            request.message,
+            style: TextStyle(
+              fontFamily: 'monospace',
+              fontSize: 12,
+              color: scheme.onSurfaceVariant,
+            ),
           ),
-        ),
+          const SizedBox(height: 16),
+          Text(
+            'No hay permiso que conceder: esto lo decidió un guardarraíl. Si '
+            'sobra, apagalo en Hooks — o pedíselo a Keel AI, que corre sin '
+            'hooks.',
+            style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12),
+          ),
+        ],
       ),
     );
   }

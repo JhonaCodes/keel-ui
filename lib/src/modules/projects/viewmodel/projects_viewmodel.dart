@@ -1640,8 +1640,20 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
           _storeResolution(projectId, sessionId, resolution);
         }
 
+        // El `project` de arriba es un snapshot tomado ANTES de `_updateSession`,
+        // así que su sesión todavía tiene el `request` vacío de recién creada:
+        // hay que releer el proyecto acá. Y un request vacío NO es `null`, así
+        // que `??` nunca lo cubría — de ahí el chequeo explícito de vacío. Sin
+        // las dos cosas, el PRIMER nodo de una sesión nueva recibía
+        // "Pedido original:" en blanco y se quedaba sin caso que resolver.
+        final freshProject = _projectById(projectId);
+        final storedRequest = freshProject == null
+            ? null
+            : _sessionById(freshProject, sessionId)?.request;
         final baseInstruction = adaptiveNodePrompt(
-          request: _sessionById(project, sessionId)?.request ?? request,
+          request: storedRequest == null || storedRequest.isEmpty
+              ? request
+              : storedRequest,
           workflow: workflow,
           resolution: resolution,
           node: node,

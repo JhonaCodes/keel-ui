@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
 
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/modules/workflows/model/workflow.dart';
 import 'package:keel_ui/src/modules/workflows/viewmodel/workflows_viewmodel.dart';
 import 'package:keel_ui/src/modules/workflows/ui/screen/workflow_form_screen.dart';
@@ -28,17 +29,21 @@ class WorkflowMultiSelect extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            Text('Workflows', style: Theme.of(context).textTheme.labelLarge),
+            Text(
+              t.labelWorkflows,
+              style: Theme.of(context).textTheme.labelLarge,
+            ),
             const Spacer(),
             TextButton.icon(
               onPressed: () => openWorkflowFormScreen(context),
               icon: const Icon(Icons.add, size: 18),
-              label: const Text('Registrar workflow'),
+              label: Text(t.buttonRegister),
             ),
           ],
         ),
@@ -46,9 +51,9 @@ class WorkflowMultiSelect extends StatelessWidget {
           viewmodel: WorkflowsService.instance.notifier,
           build: (state, viewmodel, keep) {
             if (state.workflows.isEmpty) {
-              return const Padding(
-                padding: EdgeInsets.symmetric(vertical: 8),
-                child: Text('Todavía no registraste ningún workflow.'),
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Text(t.messageNoWorkflowsRegistered),
               );
             }
             return Wrap(

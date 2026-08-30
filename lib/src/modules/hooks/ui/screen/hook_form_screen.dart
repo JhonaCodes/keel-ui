@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/core/ui/form_panel.dart';
 import 'package:keel_ui/src/modules/hooks/model/hook.dart';
 import 'package:keel_ui/src/modules/hooks/model/hook_event.dart';
@@ -138,8 +139,8 @@ class _HookFormScreenState extends State<HookFormScreen> {
           TextField(
             controller: _nameController,
             decoration: InputDecoration(
-              labelText: 'Nombre',
-              helperText: 'Es también el nombre del script que se genera.',
+              labelText: AppLocalizations.of(context)!.formLabelHookName,
+              helperText: AppLocalizations.of(context)!.formHintHookScript,
               errorText: _nameError,
               border: const OutlineInputBorder(
                 borderRadius: BorderRadius.all(Radius.circular(16)),
@@ -155,12 +156,12 @@ class _HookFormScreenState extends State<HookFormScreen> {
             controller: _descriptionController,
             minLines: 2,
             maxLines: 4,
-            decoration: const InputDecoration(
-              labelText: 'Qué hace',
+            decoration: InputDecoration(
+              labelText: AppLocalizations.of(context)!.formLabelWhatHookDoes,
               helperText:
                   'Para vos, no para el modelo: el modelo nunca ve un hook, '
                   'solo su efecto.',
-              border: OutlineInputBorder(
+              border: const OutlineInputBorder(
                 borderRadius: BorderRadius.all(Radius.circular(16)),
               ),
             ),
@@ -176,8 +177,8 @@ class _HookFormScreenState extends State<HookFormScreen> {
             decoration: InputDecoration(
               labelText: 'Acotar a',
               helperText: _event.matcherHint.isEmpty
-                  ? 'Este evento no filtra: dejalo vacío.'
-                  : 'Vacío = todo. Ejemplos: ${_event.matcherHint}',
+                  ? AppLocalizations.of(context)!.formMessageNoEventFilter
+                  : AppLocalizations.of(context)!.formHintEventFilter(_event.matcherHint),
               border: const OutlineInputBorder(
                 borderRadius: BorderRadius.all(Radius.circular(16)),
               ),
@@ -196,12 +197,10 @@ class _HookFormScreenState extends State<HookFormScreen> {
           TextField(
             controller: _timeoutController,
             keyboardType: TextInputType.number,
-            decoration: const InputDecoration(
-              labelText: 'Timeout (segundos)',
-              helperText:
-                  'Corto a propósito: un hook de "antes de usar una '
-                  'herramienta" se paga en cada paso del agente.',
-              border: OutlineInputBorder(
+            decoration: InputDecoration(
+              labelText: AppLocalizations.of(context)!.formLabelHookTimeout,
+              helperText: AppLocalizations.of(context)!.formDescriptionHookScope,
+              border: const OutlineInputBorder(
                 borderRadius: BorderRadius.all(Radius.circular(16)),
               ),
             ),
@@ -211,10 +210,7 @@ class _HookFormScreenState extends State<HookFormScreen> {
             value: _isGlobal,
             contentPadding: EdgeInsets.zero,
             title: const Text('Aplicar a todos los agentes'),
-            subtitle: const Text(
-              'Sin tener que asignarlo. Keel AI queda afuera igual: es a '
-              'quien le pedís apagar un hook que te trabó.',
-            ),
+            subtitle: Text(AppLocalizations.of(context)!.formLabelHookRules),
             onChanged: (value) => setState(() => _isGlobal = value),
           ),
           const Divider(height: 32),
@@ -225,9 +221,7 @@ class _HookFormScreenState extends State<HookFormScreen> {
           Padding(
             padding: const EdgeInsets.only(top: 6, left: 4),
             child: Text(
-              'Qué reglas hace cumplir este hook. No cambia lo que corre: '
-              'deja anotado cuáles de tus reglas están garantizadas y cuáles '
-              'dependen de que el modelo obedezca.',
+              AppLocalizations.of(context)!.formDescriptionHookRules,
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ),
@@ -261,9 +255,9 @@ class _EventPicker extends StatelessWidget {
         DropdownButtonFormField<HookEvent>(
           initialValue: value,
           isExpanded: true,
-          decoration: const InputDecoration(
-            labelText: 'Cuándo corre',
-            border: OutlineInputBorder(
+          decoration: InputDecoration(
+            labelText: AppLocalizations.of(context)!.formLabelWhenHookRuns,
+            border: const OutlineInputBorder(
               borderRadius: BorderRadius.all(Radius.circular(16)),
             ),
           ),
@@ -337,7 +331,7 @@ class _BodyPicker extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Qué ejecuta', style: Theme.of(context).textTheme.labelLarge),
+        Text(AppLocalizations.of(context)!.formLabelWhatHookExecutes, style: Theme.of(context).textTheme.labelLarge),
         const SizedBox(height: 8),
         SegmentedButton<bool>(
           segments: const [
@@ -350,7 +344,7 @@ class _BodyPicker extends StatelessWidget {
         const SizedBox(height: 12),
         if (usesTool) ...[
           if (toolNames.isEmpty)
-            const Text('Todavía no registraste ninguna tool.')
+            Text(AppLocalizations.of(context)!.messageNoToolsRegisteredShort)
           else
             DropdownButtonFormField<String>(
               initialValue: toolNames.contains(selectedTool)
@@ -372,9 +366,7 @@ class _BodyPicker extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(top: 6, left: 4),
             child: Text(
-              'El código viaja en el respaldo y puede usar los secrets que '
-              'la tool declara. Un comando que apunta a un script de tu '
-              'disco no se restaura en otra máquina.',
+              AppLocalizations.of(context)!.formDescriptionHookCode,
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ),
@@ -384,12 +376,10 @@ class _BodyPicker extends StatelessWidget {
             minLines: 3,
             maxLines: 12,
             style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               labelText: 'Comando',
-              helperText:
-                  'Recibe el evento como JSON por entrada estándar. Salir '
-                  'con código 2 bloquea.',
-              border: OutlineInputBorder(
+              helperText: AppLocalizations.of(context)!.formDescriptionHookTimeout,
+              border: const OutlineInputBorder(
                 borderRadius: BorderRadius.all(Radius.circular(16)),
               ),
             ),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/core/ui/form_panel.dart';
 import 'package:keel_ui/src/modules/projects/model/project.dart';
 import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
@@ -69,6 +70,7 @@ class _RequirementFormScreenState extends State<RequirementFormScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
     final projects = ProjectsService.instance.notifier.data.projects;
 
     return Scaffold(
@@ -114,9 +116,9 @@ class _RequirementFormScreenState extends State<RequirementFormScreen> {
                 const SizedBox(height: 16),
                 TextField(
                   controller: _titleController,
-                  decoration: const InputDecoration(
-                    labelText: 'Título',
-                    border: OutlineInputBorder(
+                  decoration: InputDecoration(
+                    labelText: t.labelRequirementTitle,
+                    border: const OutlineInputBorder(
                       borderRadius: BorderRadius.all(Radius.circular(16)),
                     ),
                   ),
@@ -126,10 +128,10 @@ class _RequirementFormScreenState extends State<RequirementFormScreen> {
                   controller: _needController,
                   minLines: 3,
                   maxLines: 6,
-                  decoration: const InputDecoration(
-                    labelText: 'Qué necesita',
+                  decoration: InputDecoration(
+                    labelText: t.labelRequirementNeed,
                     alignLabelWithHint: true,
-                    border: OutlineInputBorder(
+                    border: const OutlineInputBorder(
                       borderRadius: BorderRadius.all(Radius.circular(16)),
                     ),
                   ),
@@ -139,10 +141,10 @@ class _RequirementFormScreenState extends State<RequirementFormScreen> {
                   controller: _contextController,
                   minLines: 3,
                   maxLines: 6,
-                  decoration: const InputDecoration(
-                    labelText: 'Contexto: qué hicieron y por qué lo necesitan',
+                  decoration: InputDecoration(
+                    labelText: t.labelRequirementContext,
                     alignLabelWithHint: true,
-                    border: OutlineInputBorder(
+                    border: const OutlineInputBorder(
                       borderRadius: BorderRadius.all(Radius.circular(16)),
                     ),
                   ),

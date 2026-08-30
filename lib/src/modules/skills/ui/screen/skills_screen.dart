@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
 
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/integrations/prompt_insights/prompt_insights.dart';
 import 'package:keel_ui/src/modules/skills/model/skill.dart';
 import 'package:keel_ui/src/modules/skills/viewmodel/skills_viewmodel.dart';
@@ -13,17 +14,18 @@ class SkillsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Skills registrados'),
+        title: Text(t.pageTitleSkillsRegistered),
         actions: [
           IconButton(
-            tooltip: 'Importar un paquete',
+            tooltip: t.tooltipImportPackage,
             icon: const Icon(Icons.inbox_outlined),
             onPressed: () => openBundleImportPanel(context),
           ),
           IconButton(
-            tooltip: 'Registrar nuevo',
+            tooltip: t.tooltipRegisterNew,
             icon: const Icon(Icons.add),
             onPressed: () => openSkillFormScreen(context),
           ),
@@ -37,9 +39,7 @@ class SkillsScreen extends StatelessWidget {
               viewmodel: SkillsService.instance.notifier,
               build: (state, viewmodel, keep) {
                 if (state.skills.isEmpty) {
-                  return const Center(
-                    child: Text('Todavía no registraste ningún skill.'),
-                  );
+                  return Center(child: Text(t.messageNoSkillsRegistered));
                 }
                 return ListView.separated(
                   padding: const EdgeInsets.symmetric(vertical: 8),
@@ -65,6 +65,7 @@ class _SuggestionsBand extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
     return ReactiveViewModelBuilder<
       PromptInsightsViewModel,
       PromptInsightsState
@@ -83,8 +84,7 @@ class _SuggestionsBand extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Detecté cosas que pedís seguido — ¿las convertimos en '
-                'skills globales?',
+                t.suggestionIntro,
                 style: TextStyle(
                   color: scheme.onSecondaryContainer,
                   fontWeight: FontWeight.w600,
@@ -119,17 +119,15 @@ class _SuggestionsBand extends StatelessWidget {
                             context,
                             draftGlobal: true,
                             draftContent:
-                                'Instrucción recurrente detectada '
-                                '(${suggestion.occurrences} veces). '
-                                'Ejemplos de lo que pediste:\n'
+                                '${t.suggestionDraftHeader(suggestion.occurrences)}'
                                 '${suggestion.sampleTexts.map((t) => '- $t').join('\n')}\n\n'
-                                'Redactá acá la instrucción definitiva:',
+                                '${t.suggestionDraftFooter}',
                           );
                         },
-                        child: const Text('Crear skill'),
+                        child: Text(t.buttonCreateSkill),
                       ),
                       IconButton(
-                        tooltip: 'Descartar',
+                        tooltip: t.tooltipDismiss,
                         icon: const Icon(Icons.close, size: 16),
                         onPressed: () => viewmodel.resolveSuggestion(
                           suggestion.id,

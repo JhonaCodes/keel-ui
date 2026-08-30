@@ -21,12 +21,13 @@ class BundleExportPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
     return ReactiveViewModelBuilder<BundleViewModel, BundleState>(
       viewmodel: BundleService.instance.notifier,
       build: (state, viewmodel, keep) {
         final draft = state.draft;
         return Scaffold(
-          appBar: AppBar(title: const Text('Exportar un paquete')),
+          appBar: AppBar(title: Text(t.actionExportPackage)),
           body: draft == null
               ? Center(
                   child: state.busy
@@ -35,7 +36,7 @@ class BundleExportPanel extends StatelessWidget {
                           padding: const EdgeInsets.all(24),
                           child: Text(
                             state.log.isEmpty
-                                ? 'Nada que exportar.'
+                                ? t.bundleExportNothingYet
                                 : state.log,
                             textAlign: TextAlign.center,
                           ),
@@ -46,7 +47,7 @@ class BundleExportPanel extends StatelessWidget {
                   children: [
                     _DraftCover(manifest: draft.manifest),
                     const SizedBox(height: 18),
-                    const _SectionHead(label: 'Qué se lleva'),
+                    _SectionHead(label: t.bundleSectionWhatItTakes),
                     const SizedBox(height: 10),
                     _CountChips(counts: draft.closure.counts),
                     if (draft.closure.missing.isNotEmpty) ...[
@@ -56,29 +57,26 @@ class BundleExportPanel extends StatelessWidget {
                         // No es un error: un perfil puede nombrar una skill
                         // que borraste. Pero del otro lado va a faltar
                         // igual, y en silencio sería peor.
-                        text:
-                            'Esto lo nombra pero de este lado no existe, así '
-                            'que no viaja:\n'
-                            '${draft.closure.missing.map((m) => '· $m').join('\n')}',
+                        text: t.bundleMissingNote(
+                          draft.closure.missing.map((m) => '· $m').join('\n'),
+                        ),
                       ),
                     ],
                     if (draft.manifest.requiredSecrets.isNotEmpty) ...[
                       const SizedBox(height: 14),
                       _Note(
                         icon: Icons.key_outlined,
-                        text:
-                            'Quien lo instale va a tener que crear estos '
-                            'secrets con estos nombres: '
-                            '${draft.manifest.requiredSecrets.join(', ')}. '
-                            'Los valores no viajan.',
+                        text: t.bundleSecretsToCreateNote(
+                          draft.manifest.requiredSecrets.join(', '),
+                        ),
                       ),
                     ],
                     const SizedBox(height: 20),
                     _SectionHead(
-                      label: 'Lo que va a ver quien lo reciba',
+                      label: t.bundleSectionWhatRecipientSees,
                       detail: draft.audit.isClean
-                          ? 'sin hallazgos'
-                          : '${draft.audit.findings.length} hallazgos',
+                          ? t.bundleNoFindings
+                          : t.bundleFindingsCount(draft.audit.findings.length),
                     ),
                     const SizedBox(height: 10),
                     BundleFindingsView(audit: draft.audit),
@@ -100,7 +98,7 @@ class BundleExportPanel extends StatelessWidget {
                             Icons.inventory_2_outlined,
                             size: 17,
                           ),
-                          label: const Text('Guardar el zip…'),
+                          label: Text(t.actionSaveZip),
                         ),
                       ],
                     ),

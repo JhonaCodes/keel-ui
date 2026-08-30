@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
 
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/integrations/catalog_bundle/catalog_bundle.dart';
 import 'package:keel_ui/src/modules/workflows/model/workflow.dart';
 import 'package:keel_ui/src/modules/workflows/viewmodel/workflows_viewmodel.dart';
@@ -12,17 +13,18 @@ class WorkflowsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Workflows registrados'),
+        title: Text(t.pageTitleRegisteredWorkflows),
         actions: [
           IconButton(
-            tooltip: 'Importar un paquete',
+            tooltip: t.tooltipImportPackage,
             icon: const Icon(Icons.inbox_outlined),
             onPressed: () => openBundleImportPanel(context),
           ),
           IconButton(
-            tooltip: 'Registrar nuevo',
+            tooltip: t.tooltipRegisterNew,
             icon: const Icon(Icons.add),
             onPressed: () => openWorkflowFormScreen(context),
           ),
@@ -32,9 +34,7 @@ class WorkflowsScreen extends StatelessWidget {
         viewmodel: WorkflowsService.instance.notifier,
         build: (state, viewmodel, keep) {
           if (state.workflows.isEmpty) {
-            return const Center(
-              child: Text('Todavía no registraste ningún workflow.'),
-            );
+            return Center(child: Text(t.messageNoWorkflowsRegistered));
           }
           return ListView.separated(
             padding: const EdgeInsets.symmetric(vertical: 8),

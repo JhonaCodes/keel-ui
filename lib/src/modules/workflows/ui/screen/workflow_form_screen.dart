@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
 
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/core/ui/form_panel.dart';
 import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
 import 'package:keel_ui/src/modules/agent_profiles/viewmodel/agent_profiles_viewmodel.dart';
@@ -145,10 +146,9 @@ class _WorkflowFormScreenState extends State<WorkflowFormScreen> {
             controller: _when,
             minLines: 2,
             maxLines: 4,
-            decoration: const InputDecoration(
-              labelText: 'Intención y cuándo se aplica',
-              helperText:
-                  'El motor decide los nodos mínimos; no configurás una cadena de agentes.',
+            decoration: InputDecoration(
+              labelText: AppLocalizations.of(context)!.formLabelWorkflowIntent,
+              helperText: AppLocalizations.of(context)!.formDescriptionWorkflowEngine,
             ),
           ),
           const SizedBox(height: 20),
@@ -157,12 +157,16 @@ class _WorkflowFormScreenState extends State<WorkflowFormScreen> {
             decoration: const InputDecoration(labelText: 'Tipo de caso'),
             items: [
               for (final kind in WorkflowKind.values)
-                DropdownMenuItem(value: kind, child: Text(_kindLabel(kind))),
+                DropdownMenuItem(value: kind, child: Text(_kindLabel(kind, AppLocalizations.of(context)!))),
             ],
             onChanged: (value) => setState(() {
               _kind = value!;
               if (widget.initial == null) {
-                _capabilities = defaultWorkflowCapabilities(_kind, _ownerRole);
+                _capabilities = defaultWorkflowCapabilities(
+                  _kind,
+                  _ownerRole,
+                  l10n: AppLocalizations.of(context),
+                );
               }
             }),
           ),
@@ -210,7 +214,9 @@ class _WorkflowFormScreenState extends State<WorkflowFormScreen> {
             ),
           ),
           const SizedBox(height: 20),
-          Text('Límite de reformulaciones: $_maxReplans'),
+          Text(
+            AppLocalizations.of(context)!.labelMaxReplansLimit(_maxReplans),
+          ),
           Slider(
             value: _maxReplans.toDouble(),
             min: 0,
@@ -219,7 +225,11 @@ class _WorkflowFormScreenState extends State<WorkflowFormScreen> {
             label: '$_maxReplans',
             onChanged: (value) => setState(() => _maxReplans = value.round()),
           ),
-          Text('Subagentes de lectura/verificación: $_maxSubagents'),
+          Text(
+            AppLocalizations.of(
+              context,
+            )!.labelMaxSubagentsLimit(_maxSubagents),
+          ),
           Slider(
             value: _maxSubagents.toDouble(),
             min: 0,
@@ -228,7 +238,11 @@ class _WorkflowFormScreenState extends State<WorkflowFormScreen> {
             label: '$_maxSubagents',
             onChanged: (value) => setState(() => _maxSubagents = value.round()),
           ),
-          Text('Ciclos compartidos de auditoría: $_maxReviewCycles'),
+          Text(
+            AppLocalizations.of(
+              context,
+            )!.labelMaxReviewCyclesLimit(_maxReviewCycles),
+          ),
           Slider(
             value: _maxReviewCycles.toDouble(),
             min: 1,
@@ -445,14 +459,14 @@ class _CapabilityEditorTileState extends State<_CapabilityEditorTile> {
               setState(() {});
               _emit();
             },
-            decoration: const InputDecoration(labelText: 'Título visible'),
+            decoration: InputDecoration(labelText: AppLocalizations.of(context)!.formLabelWorkflowTitle),
           ),
           TextField(
             controller: _instruction,
             onChanged: (_) => _emit(),
             minLines: 2,
             maxLines: 4,
-            decoration: const InputDecoration(labelText: 'Instrucción'),
+            decoration: InputDecoration(labelText: AppLocalizations.of(context)!.formLabelWorkflowInstruction),
           ),
           TextField(
             controller: _role,
@@ -472,7 +486,7 @@ class _CapabilityEditorTileState extends State<_CapabilityEditorTile> {
           const SizedBox(height: 8),
           DropdownButtonFormField<WorkflowCapabilityActivation>(
             initialValue: widget.capability.activation,
-            decoration: const InputDecoration(labelText: 'Activación'),
+            decoration: InputDecoration(labelText: AppLocalizations.of(context)!.formLabelWorkflowActivation),
             items: const [
               DropdownMenuItem(
                 value: WorkflowCapabilityActivation.required,
@@ -488,15 +502,15 @@ class _CapabilityEditorTileState extends State<_CapabilityEditorTile> {
           const SizedBox(height: 8),
           DropdownButtonFormField<WorkflowExecutor>(
             initialValue: widget.capability.executor,
-            decoration: const InputDecoration(labelText: 'Ejecución'),
-            items: const [
+            decoration: InputDecoration(labelText: AppLocalizations.of(context)!.formLabelWorkflowExecution),
+            items: [
               DropdownMenuItem(
                 value: WorkflowExecutor.newSession,
-                child: Text('Nueva sesión'),
+                child: Text(AppLocalizations.of(context)!.optionNewSession),
               ),
               DropdownMenuItem(
                 value: WorkflowExecutor.resumeParent,
-                child: Text('Reanudar sesión padre'),
+                child: Text(AppLocalizations.of(context)!.optionResumeParentSession),
               ),
               DropdownMenuItem(
                 value: WorkflowExecutor.providerSubagent,
@@ -504,7 +518,7 @@ class _CapabilityEditorTileState extends State<_CapabilityEditorTile> {
               ),
               DropdownMenuItem(
                 value: WorkflowExecutor.manualApproval,
-                child: Text('Aprobación manual'),
+                child: Text(AppLocalizations.of(context)!.optionManualApproval),
               ),
             ],
             onChanged: (value) => _emit(executor: value),
@@ -514,18 +528,18 @@ class _CapabilityEditorTileState extends State<_CapabilityEditorTile> {
             TextField(
               controller: _parent,
               onChanged: (_) => _emit(),
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'ID del paso padre',
-                helperText: 'La sesión del padre se conserva y se reanuda.',
+                helperText: AppLocalizations.of(context)!.formDescriptionParentSessionKept,
               ),
             ),
           TextField(
             controller: _maxTurns,
             keyboardType: TextInputType.number,
             onChanged: (_) => _emit(),
-            decoration: const InputDecoration(
-              labelText: 'Máximo de turnos agentic',
-              helperText: 'Vacío o 0 usa el límite del proveedor.',
+            decoration: InputDecoration(
+              labelText: AppLocalizations.of(context)!.formLabelMaxAgenticTurns,
+              helperText: AppLocalizations.of(context)!.formDescriptionMaxAgenticTurns,
             ),
           ),
           TextField(
@@ -576,10 +590,9 @@ class _ResolutionRoleField extends StatelessWidget {
         }.toList()..sort();
         return DropdownButtonFormField<String>(
           initialValue: value.isEmpty ? null : value,
-          decoration: const InputDecoration(
-            labelText: 'Responsable de resolución',
-            helperText:
-                'Un responsable integra evidencia y es el único escritor.',
+          decoration: InputDecoration(
+            labelText: AppLocalizations.of(context)!.formLabelWorkflowResponsible,
+            helperText: AppLocalizations.of(context)!.formDescriptionResponsible,
           ),
           items: [
             const DropdownMenuItem(value: '', child: Text('Cualquier miembro')),
@@ -593,9 +606,9 @@ class _ResolutionRoleField extends StatelessWidget {
   }
 }
 
-String _kindLabel(WorkflowKind kind) => switch (kind) {
+String _kindLabel(WorkflowKind kind, AppLocalizations? t) => switch (kind) {
   WorkflowKind.general => 'General',
   WorkflowKind.bug => 'Bug',
-  WorkflowKind.migration => 'Migración',
+  WorkflowKind.migration => t?.workflowKindMigration ?? 'Migración',
   WorkflowKind.roadmap => 'Formato de tareas',
 };

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/core/ui/form_panel.dart';
 import 'package:keel_ui/src/integrations/llm/openai_compatible/remote_model_catalog.dart';
 import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
@@ -290,6 +291,7 @@ class _RemoteModelField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
     return FutureBuilder<List<AgentModelOption>>(
       future: models,
       builder: (context, snapshot) {
@@ -306,9 +308,9 @@ class _RemoteModelField extends StatelessWidget {
           initialValue: selected,
           isExpanded: true,
           decoration: InputDecoration(
-            labelText: 'Modelo (${provider.label})',
+            labelText: t.labelModelWithProvider(provider.label),
             suffixIcon: IconButton(
-              tooltip: 'Refrescar catálogo',
+              tooltip: t.tooltipRefreshCatalog,
               onPressed: onRefresh,
               icon: snapshot.connectionState == ConnectionState.waiting
                   ? const SizedBox.square(

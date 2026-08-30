@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:reactive_notifier/reactive_notifier.dart';
 
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/core/services/external_link_service.dart';
 import 'package:keel_ui/src/core/ui/form_panel.dart';
 import 'package:keel_ui/src/integrations/mcp_catalog/mcp_catalog.dart';
@@ -165,6 +166,7 @@ class _McpServerFormScreenState extends State<McpServerFormScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
     final isEditing = widget.initial != null;
 
     return Scaffold(
@@ -272,10 +274,10 @@ class _McpServerFormScreenState extends State<McpServerFormScreen> {
                     controller: _headersController,
                     minLines: 2,
                     maxLines: 6,
-                    decoration: const InputDecoration(
-                      labelText: 'Headers (KEY=valor, una por línea)',
+                    decoration: InputDecoration(
+                      labelText: t.labelHeadersKeyValue,
                       alignLabelWithHint: true,
-                      border: OutlineInputBorder(
+                      border: const OutlineInputBorder(
                         borderRadius: BorderRadius.all(Radius.circular(16)),
                       ),
                     ),
@@ -287,7 +289,7 @@ class _McpServerFormScreenState extends State<McpServerFormScreen> {
                   onChanged: (value) =>
                       setState(() => _availableToKeelAi = value),
                   contentPadding: EdgeInsets.zero,
-                  title: const Text('Dárselo a Keel AI (el asistente)'),
+                  title: Text(t.labelGiveToKeelAi),
                   subtitle: const Text(
                     'Registrar el MCP no basta: un agente solo lo ve si lo '
                     'tiene asignado. Al resto de los agentes se les asigna '
@@ -326,6 +328,7 @@ class _CatalogHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
 
@@ -353,7 +356,7 @@ class _CatalogHeader extends StatelessWidget {
             TextButton.icon(
               onPressed: () => openExternalUrl(entry.docsUrl),
               icon: const Icon(Icons.open_in_new, size: 15),
-              label: const Text('Documentación'),
+              label: Text(t.buttonDocumentation),
             ),
           ],
         ),
@@ -397,6 +400,7 @@ class _ProbeRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
     return ReactiveViewModelBuilder<McpServersViewModel, McpServersState>(
       viewmodel: McpServersService.instance.notifier,
       build: (state, viewmodel, keep) {
@@ -414,7 +418,7 @@ class _ProbeRow extends StatelessWidget {
                   onPressed: probing
                       ? null
                       : () => viewmodel.probeServer(server.id),
-                  child: const Text('Probar la conexión'),
+                  child: Text(t.buttonTestConnection),
                 ),
                 const SizedBox(width: 14),
                 Expanded(

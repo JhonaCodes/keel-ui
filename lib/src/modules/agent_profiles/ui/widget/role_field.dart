@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
 
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/modules/workflows/model/workflow.dart';
 import 'package:keel_ui/src/modules/workflows/viewmodel/workflows_viewmodel.dart';
 
@@ -23,34 +24,34 @@ class RoleField extends StatelessWidget {
       viewmodel: WorkflowsService.instance.notifier,
       build: (state, viewmodel, keep) {
         final wanted = _rolesWantedBy(state.workflows);
+        final t = AppLocalizations.of(context)!;
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             TextField(
               controller: controller,
-              decoration: const InputDecoration(
-                labelText: 'Rol',
-                hintText: 'Qué hace este agente',
-                border: OutlineInputBorder(
+              decoration: InputDecoration(
+                labelText: t.formLabelAgentRole,
+                hintText: t.formLabelAgentRoleHint,
+                border: const OutlineInputBorder(
                   borderRadius: BorderRadius.all(Radius.circular(16)),
                 ),
               ),
             ),
             if (wanted.isEmpty)
-              const Padding(
-                padding: EdgeInsets.only(top: 6, left: 4),
+              Padding(
+                padding: const EdgeInsets.only(top: 6, left: 4),
                 child: Text(
-                  'El preflight del workflow busca responsables por este rol.',
-                  style: TextStyle(fontSize: 11),
+                  t.formDescriptionRolesHelp,
+                  style: const TextStyle(fontSize: 11),
                 ),
               )
             else ...[
               Padding(
                 padding: const EdgeInsets.only(top: 10, left: 4, bottom: 6),
                 child: Text(
-                  'Roles que piden tus workflows — tocá uno para que este '
-                  'agente los cubra:',
+                  t.formDescriptionRoles,
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ),

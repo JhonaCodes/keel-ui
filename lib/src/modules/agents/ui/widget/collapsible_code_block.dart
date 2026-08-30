@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:gpt_markdown/gpt_markdown.dart';
 
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/core/services/external_link_service.dart';
 import 'package:keel_ui/src/core/ui/form_panel.dart';
 import 'package:keel_ui/src/modules/agents/model/code_block_presentation.dart';
@@ -54,6 +55,7 @@ class _CollapsibleCodeBlockState extends State<CollapsibleCodeBlock> {
     if (_closed) return const SizedBox.shrink();
 
     final scheme = Theme.of(context).colorScheme;
+    final t = AppLocalizations.of(context);
     final presentation = _presentation;
 
     return Container(
@@ -79,7 +81,7 @@ class _CollapsibleCodeBlockState extends State<CollapsibleCodeBlock> {
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
-                  '${presentation.title} · $_lineCount líneas',
+                  t.codeBlockLineCount(presentation.title, _lineCount),
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(fontSize: 12, color: scheme.outline),
                 ),
@@ -92,7 +94,7 @@ class _CollapsibleCodeBlockState extends State<CollapsibleCodeBlock> {
               TextButton.icon(
                 onPressed: _ver,
                 icon: const Icon(Icons.visibility_outlined, size: 14),
-                label: const Text('Ver'),
+                label: Text(t.buttonView),
                 style: TextButton.styleFrom(
                   visualDensity: VisualDensity.compact,
                   padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -101,7 +103,7 @@ class _CollapsibleCodeBlockState extends State<CollapsibleCodeBlock> {
               TextButton.icon(
                 onPressed: () => setState(() => _closed = true),
                 icon: const Icon(Icons.close, size: 14),
-                label: const Text('Cerrar'),
+                label: Text(t.buttonClose),
                 style: TextButton.styleFrom(
                   visualDensity: VisualDensity.compact,
                   padding: const EdgeInsets.symmetric(horizontal: 8),

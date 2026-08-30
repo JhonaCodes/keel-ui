@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
 
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/modules/hooks/model/hook.dart';
 import 'package:keel_ui/src/modules/hooks/ui/screen/hook_form_screen.dart';
 import 'package:keel_ui/src/modules/hooks/ui/screen/hook_import_screen.dart';
@@ -12,17 +13,18 @@ class HooksScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Hooks registrados'),
+        title: Text(t.pageTitleHooksRegistered),
         actions: [
           IconButton(
-            tooltip: 'Importar de Claude Code',
+            tooltip: t.pageTitleImportHooks,
             icon: const Icon(Icons.download_outlined),
             onPressed: () => openHookImportScreen(context),
           ),
           IconButton(
-            tooltip: 'Registrar nuevo',
+            tooltip: t.tooltipRegisterNew,
             icon: const Icon(Icons.add),
             onPressed: () => openHookFormScreen(context),
           ),
@@ -54,6 +56,7 @@ class _EmptyHooks extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
     return Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 460),
@@ -63,15 +66,12 @@ class _EmptyHooks extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                'Todavía no registraste ningún hook.',
+                t.messageNoHooksRegistered,
                 style: Theme.of(context).textTheme.titleMedium,
               ),
               const SizedBox(height: 8),
               Text(
-                'Un hook es un comando que corre en un momento del turno y '
-                'que el agente no puede saltearse: puede frenar una '
-                'herramienta antes de que se use, o reaccionar después. '
-                'Una regla pide; un hook garantiza.',
+                t.messageNoHooksDescription,
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.bodySmall,
               ),

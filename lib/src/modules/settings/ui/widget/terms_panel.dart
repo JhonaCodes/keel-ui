@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/core/services/external_link_service.dart';
 import 'package:keel_ui/src/core/ui/form_panel.dart';
 import 'package:keel_ui/src/modules/settings/model/keel_about.dart';
@@ -19,9 +20,10 @@ class TermsPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
     final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Términos de uso')),
+      appBar: AppBar(title: Text(t.labelTermsOfUse)),
       body: ListView(
         padding: const EdgeInsets.all(24),
         children: [
@@ -33,13 +35,13 @@ class TermsPanel extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            KeelTerms.version,
+            KeelTerms.version(t),
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
           const SizedBox(height: 24),
-          for (final section in KeelTerms.sections) ...[
+          for (final section in KeelTerms.sections(t)) ...[
             _TermsSectionView(section: section),
             const SizedBox(height: 20),
           ],
@@ -57,7 +59,7 @@ class TermsPanel extends StatelessWidget {
             child: OutlinedButton.icon(
               onPressed: () => openExternalUrl(KeelAbout.website),
               icon: const Icon(Icons.public, size: 18),
-              label: const Text('jhonacode.com'),
+              label: Text(t.linkWebsite),
             ),
           ),
           const SizedBox(height: 24),

@@ -35,17 +35,18 @@ class _BundleImportPanelState extends State<BundleImportPanel> {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
     return ReactiveViewModelBuilder<BundleViewModel, BundleState>(
       viewmodel: BundleService.instance.notifier,
       build: (state, viewmodel, keep) {
         final review = state.review;
         return Scaffold(
           appBar: AppBar(
-            title: const Text('Importar un paquete'),
+            title: Text(t.actionImportPackage),
             actions: [
               if (review != null)
                 IconButton(
-                  tooltip: 'Descartar',
+                  tooltip: t.tooltipDismiss,
                   icon: const Icon(Icons.close),
                   onPressed: () {
                     setState(() => _understood = false);
@@ -70,10 +71,10 @@ class _BundleImportPanelState extends State<BundleImportPanel> {
                 _Brings(contents: review.contents),
                 const SizedBox(height: 20),
                 _SectionHead(
-                  label: 'Revisión de seguridad',
+                  label: t.bundleSectionSecurityReview,
                   detail: review.audit.isClean
-                      ? 'sin hallazgos'
-                      : '${review.audit.findings.length} hallazgos',
+                      ? t.bundleNoFindings
+                      : t.bundleFindingsCount(review.audit.findings.length),
                 ),
                 const SizedBox(height: 10),
                 BundleFindingsView(audit: review.audit),
@@ -119,20 +120,15 @@ class _Sources extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final t = AppLocalizations.of(context);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          'Un paquete trae un agente, un workflow o una skill con todo lo que '
-          'necesita para funcionar: sus skills, sus reglas, sus tools, sus '
-          'hooks, sus servidores MCP y su documentación.',
-          style: theme.textTheme.bodyMedium,
-        ),
+        Text(t.bundleImportIntro, style: theme.textTheme.bodyMedium),
         const SizedBox(height: 6),
         Text(
-          'Nada se instala sin que veas antes qué trae y qué encontró la '
-          'revisión.',
+          t.bundleImportSafetyNote,
           style: TextStyle(fontSize: 12.5, color: scheme.onSurfaceVariant),
         ),
         const SizedBox(height: 22),
@@ -141,11 +137,11 @@ class _Sources extends StatelessWidget {
             FilledButton.icon(
               onPressed: busy ? null : onPickFile,
               icon: const Icon(Icons.folder_open, size: 17),
-              label: const Text('Elegir un archivo'),
+              label: Text(t.actionChooseFile),
             ),
             const SizedBox(width: 14),
             Text(
-              'o desde un enlace',
+              t.bundleOrFromLink,
               style: TextStyle(fontSize: 12, color: scheme.outline),
             ),
           ],
@@ -157,10 +153,10 @@ class _Sources extends StatelessWidget {
               child: TextField(
                 controller: link,
                 enabled: !busy,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   isDense: true,
-                  border: OutlineInputBorder(),
-                  hintText: 'https://…/keel-agent-flutter-expert.zip',
+                  border: const OutlineInputBorder(),
+                  hintText: t.bundleLinkHint,
                 ),
                 onSubmitted: (_) => onOpenLink(),
               ),
@@ -169,7 +165,7 @@ class _Sources extends StatelessWidget {
             OutlinedButton.icon(
               onPressed: busy ? null : onOpenLink,
               icon: const Icon(Icons.download_outlined, size: 17),
-              label: const Text('Traer'),
+              label: Text(t.buttonBring),
             ),
           ],
         ),
@@ -260,12 +256,13 @@ class _Brings extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final t = AppLocalizations.of(context);
     final secrets = contents.manifest.requiredSecrets;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const _SectionHead(label: 'Qué trae'),
+        _SectionHead(label: t.bundleSectionWhatItBrings),
         const SizedBox(height: 10),
         Wrap(
           spacing: 8,
@@ -280,7 +277,7 @@ class _Brings extends StatelessWidget {
                 ),
             if (contents.documentCount > 0)
               _Chip(
-                label: 'documentos',
+                label: t.bundleDocumentsLabel,
                 count: contents.documentCount,
                 names: const [],
               ),
@@ -301,9 +298,7 @@ class _Brings extends StatelessWidget {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    'Necesita estos secrets, que tenés que crear vos con '
-                    'estos nombres: ${secrets.join(', ')}. Un paquete nunca '
-                    'trae valores.',
+                    t.bundleSecretsRequiredNote(secrets.join(', ')),
                     style: TextStyle(
                       fontSize: 12,
                       color: scheme.onSurfaceVariant,
@@ -380,6 +375,7 @@ class _InstallBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final t = AppLocalizations.of(context);
     // Con un hallazgo grave el botón no alcanza. No es una traba: es el
     // segundo que hace falta para leer lo de arriba, que es todo el punto
     // de haberlo listado.
@@ -397,8 +393,7 @@ class _InstallBar extends StatelessWidget {
             contentPadding: EdgeInsets.zero,
             dense: true,
             title: Text(
-              'Leí los ${audit.countAt(BundleRisk.alta)} hallazgos de '
-              'gravedad alta y quiero instalarlo igual.',
+              t.bundleHighRiskAck(audit.countAt(BundleRisk.alta)),
               style: TextStyle(fontSize: 12.5, color: scheme.onSurface),
             ),
           ),
@@ -417,7 +412,7 @@ class _InstallBar extends StatelessWidget {
             FilledButton.icon(
               onPressed: canInstall ? onInstall : null,
               icon: const Icon(Icons.download_done_outlined, size: 17),
-              label: const Text('Instalar'),
+              label: Text(t.buttonInstall),
             ),
           ],
         ),

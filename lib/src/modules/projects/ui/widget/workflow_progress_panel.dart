@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
 import 'package:keel_ui/src/modules/agents/model/agent_model_option.dart';
 import 'package:keel_ui/src/modules/agents/model/agent_provider.dart';
@@ -47,11 +48,15 @@ class WorkflowProgressPanel extends StatelessWidget {
   final Workflow? workflow;
   final List<AgentProfile> members;
 
-  List<WorkflowCapability> get _capabilities {
+  List<WorkflowCapability> _capabilitiesOf(BuildContext context) {
     final flow = workflow;
     if (flow == null) return const [];
     return flow.capabilities.isEmpty
-        ? defaultWorkflowCapabilities(flow.kind, flow.policy.resolutionRole)
+        ? defaultWorkflowCapabilities(
+            flow.kind,
+            flow.policy.resolutionRole,
+            l10n: AppLocalizations.of(context),
+          )
         : flow.capabilities;
   }
 
@@ -171,6 +176,7 @@ class WorkflowProgressPanel extends StatelessWidget {
   ) async {
     final flow = workflow;
     if (flow == null || !_canAssign(capability)) return;
+    final capabilities = _capabilitiesOf(context);
     final roles = {
       for (final member in members)
         if (member.role.trim().isNotEmpty) member.role.trim(),
@@ -202,7 +208,7 @@ class WorkflowProgressPanel extends StatelessWidget {
       name: flow.name,
       whenToApply: flow.whenToApply,
       capabilities: [
-        for (final entry in _capabilities)
+        for (final entry in capabilities)
           entry.id == capability.id ? entry.copyWith(role: picked) : entry,
       ],
     );
@@ -340,6 +346,7 @@ class WorkflowProgressPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final flow = workflow;
+    final capabilities = _capabilitiesOf(context);
     final resolution = session?.resolutionCase;
     final done =
         resolution?.nodes
@@ -348,14 +355,14 @@ class WorkflowProgressPanel extends StatelessWidget {
         0;
     final active =
         resolution?.nodes.length ??
-        _capabilities
+        capabilities
             .where(
               (entry) =>
                   entry.activation == WorkflowCapabilityActivation.required,
             )
             .length;
     final engines = {
-      for (final capability in _capabilities)
+      for (final capability in capabilities)
         if (_ownerOf(capability) case final owner?)
           project.tuned(owner).provider,
     };
@@ -418,37 +425,36 @@ class WorkflowProgressPanel extends StatelessWidget {
           ),
           if (preflight != null && preflight.performed && !preflight.ready)
             _PanelNote('Preflight bloqueado: ${preflight.errorSummary}'),
-          for (var index = 0; index < _capabilities.length; index++)
+          for (var index = 0; index < capabilities.length; index++)
             _CapabilityRow(
-              capability: _displayCapability(_capabilities[index]),
-              isLast: index == _capabilities.length - 1,
-              state: _stateOf(_capabilities[index]),
-              owner: _ownerOf(_capabilities[index]),
-              engine: _engineOf(_capabilities[index]),
+              capability: _displayCapability(capabilities[index]),
+              isLast: index == capabilities.length - 1,
+              state: _stateOf(capabilities[index]),
+              owner: _ownerOf(capabilities[index]),
+              engine: _engineOf(capabilities[index]),
               isTuned: project.memberTuning.containsKey(
-                _ownerOf(_capabilities[index])?.id,
+                _ownerOf(capabilities[index])?.id,
               ),
               ownerIndex: members.indexWhere(
-                (member) => member.id == _ownerOf(_capabilities[index])?.id,
+                (member) => member.id == _ownerOf(capabilities[index])?.id,
               ),
-              consulted: _consultedIn(_capabilities[index].id),
-              findings: _findingsOf(_capabilities[index].id),
-              gates: _gatesOf(_capabilities[index].id),
-              coverage: _coverageOf(_capabilities[index].id),
-              canEdit: _canAssign(_capabilities[index]),
-              onAssign: () =>
-                  _assignProjectAgent(context, _capabilities[index]),
+              consulted: _consultedIn(capabilities[index].id),
+              findings: _findingsOf(capabilities[index].id),
+              gates: _gatesOf(capabilities[index].id),
+              coverage: _coverageOf(capabilities[index].id),
+              canEdit: _canAssign(capabilities[index]),
+              onAssign: () => _assignProjectAgent(context, capabilities[index]),
               onSharedRole: () =>
-                  _assignSharedRole(context, _capabilities[index]),
-              onTuneEngine: () => _tuneEngine(context, _capabilities[index]),
+                  _assignSharedRole(context, capabilities[index]),
+              onTuneEngine: () => _tuneEngine(context, capabilities[index]),
               onActivate: () =>
-                  _activateCapability(context, _capabilities[index]),
+                  _activateCapability(context, capabilities[index]),
               onApprove:
-                  _capabilities[index].executor ==
+                  capabilities[index].executor ==
                           WorkflowExecutor.manualApproval &&
-                      _nodeOf(_capabilities[index].id)?.status ==
+                      _nodeOf(capabilities[index].id)?.status ==
                           WorkNodeStatus.paused
-                  ? () => _approveCapability(context, _capabilities[index])
+                  ? () => _approveCapability(context, capabilities[index])
                   : null,
             ),
         ],

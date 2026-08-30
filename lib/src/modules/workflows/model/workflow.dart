@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/modules/workflows/model/workflow_capability.dart';
 
 export 'package:keel_ui/src/modules/workflows/model/workflow_capability.dart';
@@ -279,21 +280,22 @@ class Workflow {
 
 List<WorkflowCapability> defaultWorkflowCapabilities(
   WorkflowKind kind,
-  String resolutionRole,
-) {
+  String resolutionRole, {
+  AppLocalizations? l10n,
+}) {
   final owner = resolutionRole.trim();
   final fallback = owner.isEmpty ? '*' : owner;
   if (kind == WorkflowKind.roadmap) {
     return [
       WorkflowCapability(
         id: 'implementation',
-        title: 'Construir formato de tareas',
+        title: l10n?.workflowTitleTaskFormat ?? 'Build the task format',
         instruction: 'Crear o corregir el formato TASKS del proyecto.',
         role: fallback,
       ),
       WorkflowCapability(
         id: 'verification',
-        title: 'Verificar formato',
+        title: l10n?.workflowTitleVerifyFormat ?? 'Verify format',
         instruction: 'Validar estructura, referencias y frontmatter.',
         role: fallback,
         dependencyIds: const ['implementation'],
@@ -303,7 +305,7 @@ List<WorkflowCapability> defaultWorkflowCapabilities(
   return [
     WorkflowCapability(
       id: 'planner',
-      title: 'Planificar y delimitar',
+      title: l10n?.workflowTitlePlanAndScope ?? 'Plan and scope',
       instruction: 'Definir alcance, riesgos y criterios de aceptación.',
       role: fallback,
       readOnly: true,
@@ -312,14 +314,16 @@ List<WorkflowCapability> defaultWorkflowCapabilities(
     if (kind == WorkflowKind.migration)
       WorkflowCapability(
         id: 'impact',
-        title: 'Diseño del punto único de entrada',
+        title:
+            l10n?.workflowTitleSingleEntryPoint ??
+            'Design the single entry point',
         instruction: 'Inventariar impacto end-to-end y compatibilidad.',
         role: fallback,
         dependencyIds: const ['planner'],
       ),
     WorkflowCapability(
       id: 'implementation',
-      title: 'Implementar con evidencia',
+      title: l10n?.workflowTitleImplement ?? 'Implement with evidence',
       instruction: 'Aplicar la corrección mínima integrada y verificable.',
       role: fallback,
       dependencyIds: [kind == WorkflowKind.migration ? 'impact' : 'planner'],
@@ -327,7 +331,7 @@ List<WorkflowCapability> defaultWorkflowCapabilities(
     ),
     WorkflowCapability(
       id: 'code-audit',
-      title: 'Auditar código',
+      title: l10n?.workflowTitleCodeAudit ?? 'Audit code',
       instruction: 'Revisar calidad, invariantes y riesgos del cambio.',
       role: 'auditor',
       dependencyIds: const ['implementation'],
@@ -340,7 +344,7 @@ List<WorkflowCapability> defaultWorkflowCapabilities(
     ),
     WorkflowCapability(
       id: 'code-correction',
-      title: 'Corregir hallazgos de código',
+      title: l10n?.workflowTitleCodeCorrection ?? 'Fix code findings',
       instruction: 'Resolver los hallazgos válidos de la auditoría de código.',
       role: fallback,
       dependencyIds: const ['code-audit'],
@@ -350,7 +354,7 @@ List<WorkflowCapability> defaultWorkflowCapabilities(
     ),
     WorkflowCapability(
       id: 'tests',
-      title: 'Crear y ajustar pruebas',
+      title: l10n?.workflowTitleTests ?? 'Create and adjust tests',
       instruction: 'Crear o ajustar pruebas de la implementación.',
       role: fallback,
       dependencyIds: const ['code-correction'],
@@ -360,7 +364,7 @@ List<WorkflowCapability> defaultWorkflowCapabilities(
     ),
     WorkflowCapability(
       id: 'test-audit',
-      title: 'Auditar tests',
+      title: l10n?.workflowTitleTestAudit ?? 'Audit tests',
       instruction: 'Comprobar cobertura y valor contrafactual de las pruebas.',
       role: 'test-auditor',
       dependencyIds: const ['tests'],
@@ -373,7 +377,7 @@ List<WorkflowCapability> defaultWorkflowCapabilities(
     ),
     WorkflowCapability(
       id: 'test-correction',
-      title: 'Corregir hallazgos de tests',
+      title: l10n?.workflowTitleTestCorrection ?? 'Fix test findings',
       instruction: 'Resolver los hallazgos válidos de la auditoría de pruebas.',
       role: fallback,
       dependencyIds: const ['test-audit'],
@@ -383,7 +387,7 @@ List<WorkflowCapability> defaultWorkflowCapabilities(
     ),
     WorkflowCapability(
       id: 'device-e2e',
-      title: 'Verificación end-to-end en dispositivo',
+      title: l10n?.workflowTitleDeviceE2e ?? 'End-to-end verification on device',
       instruction: 'Validar el comportamiento completo en el entorno real.',
       role: 'verifier',
       dependencyIds: const ['test-correction'],
@@ -392,7 +396,7 @@ List<WorkflowCapability> defaultWorkflowCapabilities(
     ),
     WorkflowCapability(
       id: 'verification',
-      title: 'Verificación de cierre',
+      title: l10n?.workflowTitleVerification ?? 'Closing verification',
       instruction: 'Ejecutar gates y cerrar solo con evidencia suficiente.',
       role: fallback,
       dependencyIds: const ['test-correction'],
@@ -402,7 +406,7 @@ List<WorkflowCapability> defaultWorkflowCapabilities(
     ),
     WorkflowCapability(
       id: 'publish-approval',
-      title: 'Aprobar publicación',
+      title: l10n?.workflowTitlePublishApproval ?? 'Approve publication',
       instruction: 'Esperar aprobación explícita antes de publicar.',
       role: fallback,
       dependencyIds: const ['verification'],

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/core/ui/confirm_card.dart';
 import 'package:keel_ui/src/core/ui/form_panel.dart';
 import 'package:keel_ui/src/core/ui/inline_rename_field.dart';
@@ -624,14 +625,12 @@ class _SessionRowState extends State<_SessionRow> {
   }
 
   Future<void> _confirmAndClose(BuildContext context) async {
+    final t = AppLocalizations.of(context);
     final confirmed = await confirmWithCard(
       context,
-      title: 'Cerrar sesión',
-      body:
-          'Se borra el hilo de "${session.title}" y el contexto que los '
-          'agentes acumularon en ella. El proyecto queda igual, con sus '
-          'agentes, reglas y documentos.',
-      confirmLabel: 'Cerrar sesión',
+      title: t.labelCloseSession,
+      body: t.messageCloseSessionBody(session.title),
+      confirmLabel: t.labelCloseSession,
       destructive: true,
     );
 
@@ -642,6 +641,7 @@ class _SessionRowState extends State<_SessionRow> {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
 
     final trailing = switch (session.status) {
@@ -659,9 +659,9 @@ class _SessionRowState extends State<_SessionRow> {
       // «ejecutando». Toda sesión abierta caía acá y mostraba lo mismo,
       // corriera o no — así que la única fila que hablaba de ejecución
       // decía siempre lo mismo. Quien ejecuta es `isRunning`.
-      SessionStatus.running when session.isRunning => const Tooltip(
-        message: 'Trabajando ahora',
-        child: RunningDot(),
+      SessionStatus.running when session.isRunning => Tooltip(
+        message: t.tooltipWorkingNow,
+        child: const RunningDot(),
       ),
       SessionStatus.running => Text(
         session.resolutionCase?.status.name ?? '···',
@@ -691,7 +691,7 @@ class _SessionRowState extends State<_SessionRow> {
               child: InlineRenameField(
                 value: session.title,
                 handle: _rename,
-                hintText: 'Nombre de la sesión',
+                hintText: t.hintSessionName,
                 openEmptyWhen: kDefaultSessionTitle,
                 onRename: (name) {
                   ProjectsService.instance.notifier.renameSession(
@@ -710,7 +710,7 @@ class _SessionRowState extends State<_SessionRow> {
             const SizedBox(width: 4),
             trailing,
             IconButton(
-              tooltip: 'Cerrar sesión',
+              tooltip: t.labelCloseSession,
               icon: const Icon(Icons.close, size: 13),
               constraints: const BoxConstraints.tightFor(width: 24, height: 24),
               padding: EdgeInsets.zero,

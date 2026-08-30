@@ -50,8 +50,7 @@ class AppSettings {
   final double windowWidth;
   final double windowHeight;
 
-  /// Idioma elegido en Ajustes: `'en'`, `'es_CO'`, o vacío para seguir el
-  /// idioma del sistema operativo (comportamiento por defecto de Flutter).
+  /// Idioma elegido en Ajustes: `'en'` o `'es_CO'`.
   final String language;
 
   const AppSettings({
@@ -63,7 +62,7 @@ class AppSettings {
     this.knowledgeRepoUrl = '',
     this.windowWidth = kDefaultWindowWidth,
     this.windowHeight = kDefaultWindowHeight,
-    this.language = '',
+    this.language = 'en',
   });
 
   AppSettings copyWith({
@@ -103,6 +102,7 @@ class AppSettings {
   };
 
   factory AppSettings.fromJson(Map<String, dynamic> json) {
+    final language = json['language'] as String?;
     return AppSettings(
       chatFontScale:
           (json['chatFontScale'] as num?)?.toDouble() ?? kDefaultChatFontScale,
@@ -116,7 +116,11 @@ class AppSettings {
           (json['windowWidth'] as num?)?.toDouble() ?? kDefaultWindowWidth,
       windowHeight:
           (json['windowHeight'] as num?)?.toDouble() ?? kDefaultWindowHeight,
-      language: json['language'] as String? ?? '',
+      language: switch (language) {
+        'es' || 'es_CO' => 'es_CO',
+        'en' => 'en',
+        _ => 'en',
+      },
     );
   }
 

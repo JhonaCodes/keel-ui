@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
 
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/core/ui/running_dot.dart';
 import 'package:keel_ui/src/modules/requirements/model/internal_requirement.dart';
 import 'package:keel_ui/src/modules/sidebar_layout/model/sidebar_layout.dart';
@@ -151,6 +152,7 @@ class _RequirementRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     final (glyph, color) = switch (selectedProjectId) {
       final id? when id == requirement.fromProjectId => (
@@ -213,9 +215,9 @@ class _RequirementRow extends StatelessWidget {
             ),
             if (thinking) ...[
               const SizedBox(width: 6),
-              const Tooltip(
-                message: 'Un agente está contestando en el hilo',
-                child: RunningDot(),
+              Tooltip(
+                message: t.tooltipAgentAnsweringThread,
+                child: const RunningDot(),
               ),
             ],
           ],

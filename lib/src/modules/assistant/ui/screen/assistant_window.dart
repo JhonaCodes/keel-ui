@@ -82,36 +82,42 @@ class _AssistantWindowState extends State<AssistantWindow> {
             GlobalCupertinoLocalizations.delegate,
           ],
           supportedLocales: AppLocalizations.supportedLocales,
-          home: Scaffold(
-            appBar: AppBar(
-              title: const Text('Asistente'),
-              actions: [
-                if (state.sessions.length > 1)
-                  _SessionsMenu(
-                    sessions: state.sessions,
-                    selectedId: state.activeAgentId,
-                    onSelect: (id) => unawaited(viewmodel.selectSession(id)),
-                  ),
-                IconButton(
-                  tooltip: 'Nueva conversación',
-                  icon: const Icon(Icons.add_comment_outlined),
-                  onPressed: () => unawaited(viewmodel.newSession()),
-                ),
-              ],
-            ),
-            body: snapshot == null
-                ? const Center(child: CircularProgressIndicator())
-                : ChatView(
-                    key: ValueKey(snapshot.id),
-                    agent: snapshot.toAgent(),
-                    controller: _composer,
-                    actions: const BridgeChatActions(),
-                    fontScaleOverride: state.chatFontScale,
-                    emptyState: AssistantWelcomeCard(
-                      onExampleTap: (prompt) =>
-                          setState(() => _composer.text = prompt),
+          home: Builder(
+            builder: (context) {
+              final t = AppLocalizations.of(context);
+              return Scaffold(
+                appBar: AppBar(
+                  title: Text(t.assistantWindowTitle),
+                  actions: [
+                    if (state.sessions.length > 1)
+                      _SessionsMenu(
+                        sessions: state.sessions,
+                        selectedId: state.activeAgentId,
+                        onSelect: (id) =>
+                            unawaited(viewmodel.selectSession(id)),
+                      ),
+                    IconButton(
+                      tooltip: t.tooltipNewConversation,
+                      icon: const Icon(Icons.add_comment_outlined),
+                      onPressed: () => unawaited(viewmodel.newSession()),
                     ),
-                  ),
+                  ],
+                ),
+                body: snapshot == null
+                    ? const Center(child: CircularProgressIndicator())
+                    : ChatView(
+                        key: ValueKey(snapshot.id),
+                        agent: snapshot.toAgent(),
+                        controller: _composer,
+                        actions: const BridgeChatActions(),
+                        fontScaleOverride: state.chatFontScale,
+                        emptyState: AssistantWelcomeCard(
+                          onExampleTap: (prompt) =>
+                              setState(() => _composer.text = prompt),
+                        ),
+                      ),
+              );
+            },
           ),
         );
       },

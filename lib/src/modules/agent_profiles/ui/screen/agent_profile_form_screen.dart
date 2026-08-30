@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/core/ui/form_panel.dart';
 import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
 import 'package:keel_ui/src/modules/agent_profiles/viewmodel/agent_profiles_viewmodel.dart';
@@ -129,18 +130,19 @@ class _AgentProfileFormScreenState extends State<AgentProfileFormScreen> {
   @override
   Widget build(BuildContext context) {
     final isEditing = widget.initial != null;
+    final t = AppLocalizations.of(context)!;
 
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          isEditing ? 'Editar agente registrado' : 'Registrar agente',
+          isEditing ? t.formTitleEditAgent : t.formTitleRegisterAgent,
         ),
         actions: [
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: FilledButton(
               onPressed: _submit,
-              child: Text(isEditing ? 'Guardar' : 'Registrar'),
+              child: Text(isEditing ? t.buttonSave : t.buttonRegister),
             ),
           ),
         ],
@@ -158,7 +160,7 @@ class _AgentProfileFormScreenState extends State<AgentProfileFormScreen> {
                   autofocus: true,
                   onChanged: _onNameChanged,
                   decoration: InputDecoration(
-                    labelText: 'Nombre (minúsculas, sin espacios, máx. 16)',
+                    labelText: t.formLabelAgentName,
                     errorText: _nameError,
                     border: const OutlineInputBorder(
                       borderRadius: BorderRadius.all(Radius.circular(16)),
@@ -172,10 +174,10 @@ class _AgentProfileFormScreenState extends State<AgentProfileFormScreen> {
                   controller: _systemPromptController,
                   minLines: 10,
                   maxLines: 28,
-                  decoration: const InputDecoration(
-                    labelText: 'System prompt',
+                  decoration: InputDecoration(
+                    labelText: t.formLabelSystemPrompt,
                     alignLabelWithHint: true,
-                    border: OutlineInputBorder(
+                    border: const OutlineInputBorder(
                       borderRadius: BorderRadius.all(Radius.circular(16)),
                     ),
                   ),
@@ -199,12 +201,8 @@ class _AgentProfileFormScreenState extends State<AgentProfileFormScreen> {
                   padding: const EdgeInsets.only(top: 6, left: 4),
                   child: Text(
                     widget.initial?.name == kKeelAiHandleForHooks
-                        ? 'Keel AI corre sin hooks a propósito: es a quien le '
-                              'pedís apagar uno que te trabó. Lo que asignes '
-                              'acá no se va a aplicar.'
-                        : 'Corren fuera del modelo, así que no los puede '
-                              'saltear. Las reglas de arriba se piden; estos '
-                              'se cumplen.',
+                        ? t.formDescriptionKeelAiHooks
+                        : t.formDescriptionHooks,
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ),
@@ -220,12 +218,8 @@ class _AgentProfileFormScreenState extends State<AgentProfileFormScreen> {
                 ),
                 const SizedBox(height: 16),
                 SwitchListTile(
-                  title: const Text('Puede administrar el sistema'),
-                  subtitle: const Text(
-                    'Agente constructor: recibe las mismas tools de creación '
-                    'que Keel AI (skills, reglas, tools, agentes, workflows, '
-                    'proyectos) en sus chats 1:1.',
-                  ),
+                  title: Text(t.formMessageCanManageSystem),
+                  subtitle: Text(t.formDescriptionManageSystem),
                   contentPadding: EdgeInsets.zero,
                   value: _canManageSystem,
                   onChanged: (value) =>
@@ -234,11 +228,9 @@ class _AgentProfileFormScreenState extends State<AgentProfileFormScreen> {
                 const SizedBox(height: 16),
                 DropdownButtonFormField<AgentProvider>(
                   initialValue: _provider,
-                  decoration: const InputDecoration(
-                    labelText:
-                        'Proveedor (codex: sin tools/MCPs/esfuerzo, y sus '
-                        'propios modelos)',
-                    border: OutlineInputBorder(
+                  decoration: InputDecoration(
+                    labelText: t.formLabelProvider,
+                    border: const OutlineInputBorder(
                       borderRadius: BorderRadius.all(Radius.circular(16)),
                     ),
                   ),
@@ -265,7 +257,7 @@ class _AgentProfileFormScreenState extends State<AgentProfileFormScreen> {
                   key: ValueKey(_provider),
                   initialValue: _model,
                   decoration: InputDecoration(
-                    labelText: 'Modelo por defecto (${_provider.label})',
+                    labelText: t.formLabelModel(_provider.label),
                     border: const OutlineInputBorder(
                       borderRadius: BorderRadius.all(Radius.circular(16)),
                     ),
@@ -285,9 +277,9 @@ class _AgentProfileFormScreenState extends State<AgentProfileFormScreen> {
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
                   initialValue: _effort,
-                  decoration: const InputDecoration(
-                    labelText: 'Esfuerzo por defecto',
-                    border: OutlineInputBorder(
+                  decoration: InputDecoration(
+                    labelText: t.formLabelEffort,
+                    border: const OutlineInputBorder(
                       borderRadius: BorderRadius.all(Radius.circular(16)),
                     ),
                   ),

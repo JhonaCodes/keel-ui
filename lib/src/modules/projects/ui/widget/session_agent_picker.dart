@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
 
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/core/ui/form_panel.dart';
 import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
 import 'package:keel_ui/src/modules/agent_profiles/viewmodel/agent_profiles_viewmodel.dart';
@@ -33,8 +34,9 @@ class SessionAgentPicker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Agentes de esta sesión')),
+      appBar: AppBar(title: Text(t.labelSessionAgents)),
       body: ReactiveViewModelBuilder<ProjectsViewModel, ProjectsState>(
         viewmodel: ProjectsService.instance.notifier,
         build: (state, projectsViewModel, keep) {
@@ -45,7 +47,7 @@ class SessionAgentPicker extends StatelessWidget {
               .where((entry) => entry.id == sessionId)
               .firstOrNull;
           if (project == null || session == null) {
-            return const Center(child: Text('La sesión ya no existe.'));
+            return Center(child: Text(t.messageSessionGone));
           }
           return _PickerBody(project: project, session: session);
         },
@@ -62,6 +64,7 @@ class _PickerBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
     return ReactiveViewModelBuilder<AgentProfilesViewModel, AgentProfilesState>(
       viewmodel: AgentProfilesService.instance.notifier,
       build: (profilesState, profilesViewModel, keep) {
@@ -84,9 +87,7 @@ class _PickerBody extends StatelessWidget {
         return ListView(
           padding: const EdgeInsets.symmetric(vertical: 8),
           children: [
-            const _SectionLabel(
-              'Miembros del proyecto (en todas las sesiones)',
-            ),
+            _SectionLabel(t.sectionProjectMembers),
             for (final profile in standing)
               ListTile(
                 dense: true,
@@ -95,11 +96,14 @@ class _PickerBody extends StatelessWidget {
                 subtitle: profile.role.isEmpty ? null : Text(profile.role),
               ),
             const Divider(height: 16),
-            const _SectionLabel('Solo en ESTA sesión'),
+            _SectionLabel(t.sectionSessionOnly),
             if (extras.isEmpty)
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                child: Text('Ninguno todavía.'),
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 4,
+                ),
+                child: Text(t.messageNoExtraAgentsYet),
               ),
             for (final profile in extras)
               ListTile(
@@ -108,7 +112,7 @@ class _PickerBody extends StatelessWidget {
                 title: Text(profile.name),
                 subtitle: profile.role.isEmpty ? null : Text(profile.role),
                 trailing: IconButton(
-                  tooltip: 'Quitar de esta sesión',
+                  tooltip: t.tooltipRemoveFromSession,
                   icon: const Icon(Icons.remove_circle_outline, size: 18),
                   onPressed: () => projects.removeAgentFromSession(
                     project.id,
@@ -118,11 +122,14 @@ class _PickerBody extends StatelessWidget {
                 ),
               ),
             const Divider(height: 16),
-            const _SectionLabel('Agregar a esta sesión'),
+            _SectionLabel(t.sectionAddToSession),
             if (available.isEmpty)
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                child: Text('No quedan agentes registrados por sumar.'),
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 4,
+                ),
+                child: Text(t.messageNoAgentsToAdd),
               ),
             for (final profile in available)
               ListTile(

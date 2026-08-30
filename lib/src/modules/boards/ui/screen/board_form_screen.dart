@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/core/ui/form_panel.dart';
 import 'package:keel_ui/src/integrations/genui/genui.dart';
 import 'package:keel_ui/src/modules/boards/model/board.dart';
@@ -169,6 +170,7 @@ class _BoardFormScreenState extends State<BoardFormScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final isEditing = widget.initial != null;
@@ -202,10 +204,10 @@ class _BoardFormScreenState extends State<BoardFormScreen> {
             minLines: 18,
             maxLines: 40,
             style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-            decoration: const InputDecoration(
-              labelText: 'Especificación',
+            decoration: InputDecoration(
+              labelText: t.labelSpecification,
               alignLabelWithHint: true,
-              border: OutlineInputBorder(
+              border: const OutlineInputBorder(
                 borderRadius: BorderRadius.all(Radius.circular(12)),
               ),
             ),

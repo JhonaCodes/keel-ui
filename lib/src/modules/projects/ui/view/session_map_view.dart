@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
 import 'package:keel_ui/src/modules/projects/model/project.dart';
 import 'package:keel_ui/src/modules/projects/model/session.dart';
@@ -540,6 +541,7 @@ class _MapBar extends StatelessWidget {
     // medias no se puede apretar.
     return LayoutBuilder(
       builder: (context, constraints) {
+        final t = AppLocalizations.of(context);
         final showLabels = constraints.maxWidth >= 700;
         return Container(
           padding: const EdgeInsets.fromLTRB(12, 7, 12, 7),
@@ -587,7 +589,7 @@ class _MapBar extends StatelessWidget {
               _BarButton(
                 icon: Icons.legend_toggle,
                 label: showLabels ? 'Leyenda' : null,
-                tooltip: 'Qué significa cada línea',
+                tooltip: t.tooltipLegendMeaning,
                 active: legendOpen,
                 onPressed: onToggleLegend,
               ),

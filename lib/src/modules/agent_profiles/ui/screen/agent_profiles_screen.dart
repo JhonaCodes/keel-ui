@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
 
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/integrations/catalog_bundle/catalog_bundle.dart';
 import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
 import 'package:keel_ui/src/modules/agent_profiles/viewmodel/agent_profiles_viewmodel.dart';
@@ -12,17 +13,18 @@ class AgentProfilesScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Agentes registrados'),
+        title: Text(t.pageTitleAgentsRegistered),
         actions: [
           IconButton(
-            tooltip: 'Importar un paquete',
+            tooltip: t.tooltipImportPackage,
             icon: const Icon(Icons.inbox_outlined),
             onPressed: () => openBundleImportPanel(context),
           ),
           IconButton(
-            tooltip: 'Registrar nuevo',
+            tooltip: t.tooltipRegisterNew,
             icon: const Icon(Icons.add),
             onPressed: () => openAgentProfileFormScreen(context),
           ),
@@ -41,9 +43,7 @@ class AgentProfilesScreen extends StatelessWidget {
                   .where((profile) => profile.name != kKeelAiHandle)
                   .toList();
               if (profiles.isEmpty) {
-                return const Center(
-                  child: Text('Todavía no registraste ningún agente.'),
-                );
+                return Center(child: Text(t.messageNoAgentsRegistered));
               }
               return ListView.separated(
                 padding: const EdgeInsets.symmetric(vertical: 8),

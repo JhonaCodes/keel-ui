@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/core/ui/form_panel.dart';
 import 'package:keel_ui/src/integrations/mcp_catalog/mcp_catalog.dart';
 import 'package:keel_ui/src/modules/mcp_servers/viewmodel/mcp_servers_viewmodel.dart';
@@ -80,6 +81,7 @@ class _McpConfigImportScreenState extends State<McpConfigImportScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final viewmodel = McpServersService.instance.notifier;
@@ -87,7 +89,7 @@ class _McpConfigImportScreenState extends State<McpConfigImportScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Pegar una configuración MCP'),
+        title: Text(t.labelPasteMcpConfig),
         actions: [
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -112,10 +114,10 @@ class _McpConfigImportScreenState extends State<McpConfigImportScreen> {
             maxLines: 18,
             onChanged: _onChanged,
             style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-            decoration: const InputDecoration(
-              labelText: 'Pegá el bloque tal como está en la documentación',
+            decoration: InputDecoration(
+              labelText: t.labelPasteBlockAsInDocs,
               alignLabelWithHint: true,
-              border: OutlineInputBorder(
+              border: const OutlineInputBorder(
                 borderRadius: BorderRadius.all(Radius.circular(16)),
               ),
             ),

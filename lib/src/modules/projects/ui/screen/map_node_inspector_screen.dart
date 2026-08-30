@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/core/ui/form_panel.dart';
 import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
 import 'package:keel_ui/src/modules/agents/model/agent_tool_activity.dart';
@@ -93,7 +94,7 @@ class _MapNodeInspectorScreenState extends State<MapNodeInspectorScreen> {
         title: Text(_node.label),
         actions: [
           IconButton(
-            tooltip: 'Cerrar',
+            tooltip: AppLocalizations.of(context)!.buttonClose,
             onPressed: () => Navigator.of(context).pop(),
             icon: const Icon(Icons.close),
           ),
@@ -114,31 +115,29 @@ class _MapNodeInspectorScreenState extends State<MapNodeInspectorScreen> {
                   if (subagent != null) ...[
                     _Section(
                       icon: Icons.account_tree_outlined,
-                      label: 'le pidió',
+                      label: AppLocalizations.of(context)!.labelAskedFor,
                       child: _Body(text: subagent.prompt),
                     ),
                     _Section(
                       icon: Icons.psychology_outlined,
-                      label: 'cómo razona',
-                      trailing: subagent.isRunning ? 'en vivo' : null,
+                      label: AppLocalizations.of(context)!.labelHowReasons,
+                      trailing: subagent.isRunning ? AppLocalizations.of(context)!.statusLive : null,
                       child: _Body(
                         text: subagent.reasoning,
-                        empty:
-                            'No dejó pensamiento visible. Con modelos que no lo '
-                            'emiten, acá no hay nada que mostrar.',
+                        empty: AppLocalizations.of(context)!.messageNoReasoningVisible,
                         mono: true,
                       ),
                     ),
                     _Section(
                       icon: Icons.terminal,
-                      label: 'qué hizo',
+                      label: AppLocalizations.of(context)!.labelWhatDid,
                       trailing: '${subagent.tools.length}',
                       child: _Tools(tools: subagent.tools),
                     ),
                     if (subagent.result.isNotEmpty)
                       _Section(
                         icon: Icons.check,
-                        label: 'qué devolvió',
+                        label: AppLocalizations.of(context)!.labelWhatReturned,
                         child: _Body(text: subagent.result),
                       ),
                   ] else ...[
@@ -147,29 +146,27 @@ class _MapNodeInspectorScreenState extends State<MapNodeInspectorScreen> {
                           ? Icons.reply
                           : Icons.assignment_outlined,
                       label: _node.kind == MapNodeKind.consultation
-                          ? 'le pidió'
-                          : 'el encargo',
+                          ? AppLocalizations.of(context)!.labelAskedFor
+                          : AppLocalizations.of(context)!.labelTask,
                       child: _Body(
                         text: _node.nodeInstruction,
-                        empty:
-                            'Este nodo no pertenece a un caso de resolución: habla '
-                            'cuando lo consultan.',
+                        empty: AppLocalizations.of(context)!.messageNodeNotResolution,
                       ),
                     ),
                     _Section(
                       icon: Icons.psychology_outlined,
-                      label: 'cómo razona',
-                      trailing: _node.isLive ? 'en vivo' : null,
+                      label: AppLocalizations.of(context)!.labelHowReasons,
+                      trailing: _node.isLive ? AppLocalizations.of(context)!.statusLive : null,
                       child: _Body(
                         text: _node.reasoning,
-                        empty: 'Todavía no razonó nada en este paso.',
+                        empty: AppLocalizations.of(context)!.messageNoReasoningYet,
                         mono: true,
                       ),
                     ),
                     if (_node.said.isNotEmpty)
                       _Section(
                         icon: Icons.check,
-                        label: 'qué resolvió',
+                        label: AppLocalizations.of(context)!.labelWhatResolved,
                         // Lo que dijo ENTERO. El cuadro del lienzo muestra su
                         // primera frase porque mide dos centímetros; acá
                         // adentro no hay nada que obligue a recortar.
@@ -179,13 +176,13 @@ class _MapNodeInspectorScreenState extends State<MapNodeInspectorScreen> {
                   if (_node.consults.isNotEmpty)
                     _Section(
                       icon: Icons.reply,
-                      label: 'le consultaron',
+                      label: AppLocalizations.of(context)!.labelAskedAbout,
                       trailing: '${_node.consults.length}',
                       child: _Consults(consults: _node.consults),
                     ),
                   _Section(
                     icon: Icons.pin_outlined,
-                    label: 'números',
+                    label: AppLocalizations.of(context)!.labelNumbers,
                     child: _Numbers(node: _node),
                   ),
                   const SizedBox(height: 12),
@@ -194,11 +191,11 @@ class _MapNodeInspectorScreenState extends State<MapNodeInspectorScreen> {
             ),
           ),
           if (subagent != null && subagent.isRunning)
-            _Locked(parent: _owner?.name ?? 'el miembro que lo abrió'),
+            _Locked(parent: _owner?.name ?? AppLocalizations.of(context)!.labelMemberOpened),
           if (_writeTo != null)
             _Composer(
               controller: _composer,
-              hint: 'Escribile a @${_writeTo!.name}…',
+              hint: AppLocalizations.of(context)!.placeholderWriteTo(_writeTo!.name),
               onSend: _send,
             )
           else
@@ -207,8 +204,7 @@ class _MapNodeInspectorScreenState extends State<MapNodeInspectorScreen> {
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
               color: scheme.surfaceContainerLow,
               child: Text(
-                'Este nodo ya no es miembro del proyecto, así que no hay a '
-                'quién escribirle.',
+                AppLocalizations.of(context)!.messageNodeNotMember,
                 style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
               ),
             ),
@@ -303,7 +299,7 @@ class _Header extends StatelessWidget {
                 ),
                 const SizedBox(width: 5),
                 Text(
-                  _stateLabel(node.state),
+                  _stateLabel(node.state, AppLocalizations.of(context)!),
                   style: TextStyle(
                     fontSize: 10.5,
                     color: mapStateIconColor(node.state, scheme),
@@ -317,16 +313,16 @@ class _Header extends StatelessWidget {
     );
   }
 
-  static String _stateLabel(MapNodeState state) => switch (state) {
+  static String _stateLabel(MapNodeState state, AppLocalizations t) => switch (state) {
     MapNodeState.idle => 'en reposo',
     MapNodeState.receiving => 'recibiendo',
     MapNodeState.thinking => 'pensando',
     MapNodeState.working => 'trabajando',
     MapNodeState.writing => 'escribiendo',
     MapNodeState.replying => 'contestando',
-    MapNodeState.waiting => 'esperándote',
+    MapNodeState.waiting => t.mapStateWaiting,
     MapNodeState.done => 'cerrado',
-    MapNodeState.failed => 'cortó',
+    MapNodeState.failed => t.mapStateFailed,
   };
 }
 
@@ -471,7 +467,7 @@ class _Consults extends StatelessWidget {
           const SizedBox(height: 5),
           _Quote(
             text: consult.ask,
-            empty: 'No quedó registrado con qué frase lo llamó.',
+            empty: AppLocalizations.of(context)!.messageNoConsultRecord,
             color: kMapConsultColor,
           ),
           const SizedBox(height: 7),
@@ -536,7 +532,7 @@ class _Tools extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     if (tools.isEmpty) {
       return Text(
-        'Todavía no abrió ninguna herramienta.',
+        AppLocalizations.of(context)!.messageNoToolsOpened,
         style: TextStyle(fontSize: 12, color: scheme.outline),
       );
     }
@@ -660,9 +656,7 @@ class _Locked extends StatelessWidget {
           const SizedBox(width: 9),
           Expanded(
             child: Text(
-              'Mientras corre, a un subagente no se le puede escribir: el CLI '
-              'no abre ese canal. Lo que va acá abajo le llega a $parent, que '
-              'es quien lo abrió.',
+              AppLocalizations.of(context)!.messageSubagentWriteLocked(parent),
               style: TextStyle(
                 fontSize: 11.5,
                 height: 1.45,

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/integrations/requirements_mcp/requirements_mcp.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/markdown_text.dart';
 import 'package:keel_ui/src/modules/projects/model/project.dart';
@@ -181,6 +182,7 @@ class _Header extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
+    final t = AppLocalizations.of(context);
     final edad = DateTime.now().difference(requirement.createdAt);
 
     return Padding(
@@ -218,17 +220,17 @@ class _Header extends StatelessWidget {
                   TextSpan(
                     children: [
                       TextSpan(
-                        text: '#${from?.name ?? 'proyecto eliminado'}',
+                        text: '#${from?.name ?? t.labelDeletedProject}',
                         style: const TextStyle(color: _kOrigen),
                       ),
                       const TextSpan(text: ' → '),
                       TextSpan(
-                        text: '#${to?.name ?? 'proyecto eliminado'}',
+                        text: '#${to?.name ?? t.labelDeletedProject}',
                         style: const TextStyle(color: _kDestino),
                       ),
-                      TextSpan(text: ' · abierto hace ${_edad(edad)}'),
+                      TextSpan(text: ' · ${t.labelOpenSince(_edad(t, edad))}'),
                       if (requirement.blocking)
-                        const TextSpan(text: ' · bloquea a quien lo pide'),
+                        TextSpan(text: ' · ${t.labelBlockingRequester}'),
                     ],
                   ),
                   style: text.bodySmall,
@@ -243,10 +245,10 @@ class _Header extends StatelessWidget {
     );
   }
 
-  static String _edad(Duration age) {
-    if (age.inMinutes < 60) return '${age.inMinutes} min';
-    if (age.inHours < 24) return '${age.inHours} h';
-    return '${age.inDays} ${age.inDays == 1 ? 'día' : 'días'}';
+  static String _edad(AppLocalizations t, Duration age) {
+    if (age.inMinutes < 60) return t.durationMinutesShort(age.inMinutes);
+    if (age.inHours < 24) return t.durationHoursShort(age.inHours);
+    return t.durationDaysShort(age.inDays);
   }
 }
 
@@ -298,6 +300,7 @@ class _Band extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final t = AppLocalizations.of(context);
     final color = switch (side) {
       RequirementSide.origen => _kOrigen,
       RequirementSide.destino => _kDestino,
@@ -347,7 +350,7 @@ class _Band extends StatelessWidget {
                     ),
                   ),
                 Text(
-                  _cuando(at),
+                  _cuando(t, at),
                   style: TextStyle(
                     fontFamily: 'monospace',
                     fontSize: 11,
@@ -364,8 +367,8 @@ class _Band extends StatelessWidget {
     );
   }
 
-  static String _cuando(DateTime at) {
-    final dias = const ['lun', 'mar', 'mié', 'jue', 'vie', 'sáb', 'dom'];
+  static String _cuando(AppLocalizations t, DateTime at) {
+    final dias = t.labelWeekdayShort.split(', ');
     final hh = at.hour.toString().padLeft(2, '0');
     final mm = at.minute.toString().padLeft(2, '0');
     return '${dias[at.weekday - 1]} $hh:$mm';
@@ -412,14 +415,15 @@ class _TakenNote extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final t = AppLocalizations.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(13, 6, 0, 6),
       child: Text(
         // Sin handle lo tomaste vos con el botón, no un agente. «Lo tomó @»
         // con la arroba colgando es lo que salía antes.
         (requirement.takenByHandle ?? '').isEmpty
-            ? 'Lo tomaste vos'
-            : 'Lo tomó @${requirement.takenByHandle}',
+            ? t.messageTakenByYou
+            : t.messageRequirementTaken(requirement.takenByHandle!),
         style: TextStyle(fontSize: 11.5, color: scheme.outline),
       ),
     );
@@ -436,6 +440,7 @@ class _TaskNote extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final t = AppLocalizations.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(13, 6, 0, 6),
       child: Row(
@@ -444,7 +449,7 @@ class _TaskNote extends StatelessWidget {
           const SizedBox(width: 6),
           Flexible(
             child: Text(
-              'Quedó como tarea: $taskPath',
+              t.messageRequirementTask(taskPath),
               style: TextStyle(fontSize: 11.5, color: scheme.tertiary),
             ),
           ),
@@ -462,6 +467,7 @@ class _VerdictBox extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final t = AppLocalizations.of(context);
     final good =
         verdict.kind == RequirementVerdictKind.viable ||
         verdict.kind == RequirementVerdictKind.yaResuelto;
@@ -480,7 +486,7 @@ class _VerdictBox extends StatelessWidget {
           Row(
             children: [
               Text(
-                'VEREDICTO',
+                t.labelVerdict,
                 style: TextStyle(
                   fontFamily: 'monospace',
                   fontSize: 10,
@@ -557,15 +563,15 @@ class _Composer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final t = AppLocalizations.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
       child: Row(
         children: [
           IconButton(
             tooltip: planMode
-                ? 'Modo plan activo: propone en vez de afirmar'
-                : 'Modo plan: que proponga cómo lo haría. Para implementarlo '
-                      'de verdad, «Tomar y evaluar» abre una sesión',
+                ? t.tooltipPlanModeActive
+                : t.messagePlanMode,
             icon: Icon(
               planMode ? Icons.architecture : Icons.architecture_outlined,
               size: 18,
@@ -594,10 +600,10 @@ class _Composer extends StatelessWidget {
                 onSend: onSend,
                 enabled: !thinking,
                 hintText: thinking
-                    ? 'Está contestando…'
+                    ? t.messageRequirementAnswering
                     : planMode
-                    ? 'Pedí un plan — @ para llamar a un agente'
-                    : 'Escribí acá — @ para preguntarle a un agente',
+                    ? t.messagePlanRequest
+                    : t.messageWriteHere,
               ),
             ),
           ),
@@ -635,6 +641,7 @@ class _ClosureBar extends StatelessWidget {
     if (!requirement.status.isOpen) return const SizedBox.shrink();
 
     final scheme = Theme.of(context).colorScheme;
+    final t = AppLocalizations.of(context);
     final requirements = RequirementsService.instance.notifier;
     final pidieronCierre = requirement.status == RequirementStatus.respondido;
     final destino = ProjectsService.instance.notifier.data.projects
@@ -671,15 +678,11 @@ class _ClosureBar extends StatelessWidget {
               TextSpan(
                 children: [
                   if (pidieronCierre)
-                    const TextSpan(
-                      text: 'El destino pidió el cierre. ',
-                      style: TextStyle(fontWeight: FontWeight.w600),
+                    TextSpan(
+                      text: '${t.messageRequirementClosed} ',
+                      style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
-                  const TextSpan(
-                    text:
-                        'Solo del lado que lo abrió se puede cerrar — es quien '
-                        'sabe si lo que necesitaba está.',
-                  ),
+                  TextSpan(text: t.messageOnlyOriginCanClose),
                 ],
               ),
               style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
@@ -688,7 +691,7 @@ class _ClosureBar extends StatelessWidget {
           if (sinTomar)
             FilledButton.tonal(
               onPressed: () => _tomarYEvaluar(context),
-              child: const Text('Tomar y evaluar'),
+              child: Text(t.buttonAssignAndEvaluate),
             )
           else if (trabajando != null)
             TextButton.icon(
@@ -697,17 +700,17 @@ class _ClosureBar extends StatelessWidget {
                 destino!.id,
                 trabajando.id,
               ),
-              label: const Text('Ir a la sesión'),
+              label: Text(t.buttonGoToSession),
             ),
           if (pidieronCierre)
             TextButton(
               onPressed: () => _rechazar(context, requirements),
-              child: const Text('Rechazar y explicar'),
+              child: Text(t.buttonRejectAndExplain),
             ),
           const SizedBox(width: 6),
           FilledButton(
             onPressed: () => requirements.close(requirement.id),
-            child: const Text('Cerrar'),
+            child: Text(t.buttonClose),
           ),
         ],
       ),
@@ -736,27 +739,27 @@ class _ClosureBar extends StatelessWidget {
     final options = projects.choosableWorkflowsOf(to);
     var workflowId = to.activeWorkflowId ?? '';
     if (options.length > 1) {
+      if (!context.mounted) return;
+      final t = AppLocalizations.of(context);
       final picked = await openWorkflowPicker(
         context,
         options: options,
         currentId: workflowId,
-        title: 'Con qué workflow lo evalúa',
-        note:
-            'Va a abrir una sesión nueva en #${to.name}. Elegí la fila de '
-            'agentes que corresponde a este pedido — evaluar un requerimiento '
-            'rara vez es lo mismo que resolver un ticket.',
+        title: t.labelWithWorkflow,
+        note: t.messageNewRequirementSessionNote(to.name),
       );
       if (picked == null) return;
       workflowId = picked;
     }
     if (!context.mounted) return;
+    final t = AppLocalizations.of(context);
 
     final sessionId = projects.startRequirementSession(
       projectId: to.id,
       sessionTitle: '${requirement.code} · ${requirement.title}',
       request: renderRequirementForTurn(
         requirement,
-        fromProject: from?.name ?? 'un proyecto que ya no existe',
+        fromProject: from?.name ?? t.labelProjectNoLongerExists,
         toProject: to.name,
       ),
       workflowId: workflowId,
@@ -786,35 +789,38 @@ class _ClosureBar extends StatelessWidget {
     final controller = TextEditingController();
     final reason = await showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Rechazar el cierre'),
-        content: SizedBox(
-          width: 420,
-          child: TextField(
-            controller: controller,
-            autofocus: true,
-            minLines: 3,
-            maxLines: 6,
-            decoration: InputDecoration(
-              labelText: 'Qué falta',
-              alignLabelWithHint: true,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
+      builder: (context) {
+        final t = AppLocalizations.of(context);
+        return AlertDialog(
+          title: Text(t.pageTitleRejectClosure),
+          content: SizedBox(
+            width: 420,
+            child: TextField(
+              controller: controller,
+              autofocus: true,
+              minLines: 3,
+              maxLines: 6,
+              decoration: InputDecoration(
+                labelText: t.formLabelWhatMissing,
+                alignLabelWithHint: true,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
               ),
             ),
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(controller.text),
-            child: const Text('Rechazar'),
-          ),
-        ],
-      ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text(t.buttonCancel),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(controller.text),
+              child: Text(t.buttonReject),
+            ),
+          ],
+        );
+      },
     );
     controller.dispose();
     if (reason == null) return;

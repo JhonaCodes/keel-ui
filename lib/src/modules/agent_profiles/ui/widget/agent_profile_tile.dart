@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/modules/catalog_locks/model/catalog_lock.dart';
 import 'package:keel_ui/src/modules/catalog_locks/ui/widget/catalog_lock_button.dart';
 import 'package:keel_ui/src/modules/catalog_locks/viewmodel/catalog_locks_viewmodel.dart';
@@ -17,12 +18,11 @@ class AgentProfileTile extends StatelessWidget {
   final AgentProfile profile;
 
   Future<void> _confirmAndDelete(BuildContext context) async {
+    final t = AppLocalizations.of(context)!;
     final confirmed = await confirmWithCard(
       context,
-      title: 'Eliminar agente registrado',
-      body:
-          'Se eliminará el registro "${profile.name}". Esto no afecta a los '
-          'chats que ya usaste con esta configuración.',
+      title: t.formTitleDeleteAgent,
+      body: t.formConfirmDeleteAgent(profile.name),
       destructive: true,
     );
 
@@ -101,20 +101,20 @@ class AgentProfileTile extends StatelessWidget {
         children: [
           CatalogLockButton(kind: CatalogLockKind.agent, name: profile.name),
           IconButton(
-            tooltip: 'Editar',
+            tooltip: AppLocalizations.of(context)!.tooltipEditAgent,
             icon: const Icon(Icons.edit_outlined),
             onPressed: isLocked
                 ? null
                 : () => openAgentProfileFormScreen(context, initial: profile),
           ),
           IconButton(
-            tooltip: 'Exportar como paquete',
+            tooltip: AppLocalizations.of(context)!.tooltipExportAsPackage,
             icon: const Icon(Icons.inventory_2_outlined),
             onPressed: () =>
                 openBundleExportPanel(context, BundleKind.agent, profile.name),
           ),
           IconButton(
-            tooltip: 'Eliminar',
+            tooltip: AppLocalizations.of(context)!.tooltipDeleteAgent,
             icon: const Icon(Icons.delete_outline),
             onPressed: isLocked ? null : () => _confirmAndDelete(context),
           ),

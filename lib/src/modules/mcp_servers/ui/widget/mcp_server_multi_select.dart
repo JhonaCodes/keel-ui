@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
 
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/modules/mcp_servers/model/mcp_server_config.dart';
 import 'package:keel_ui/src/modules/mcp_servers/viewmodel/mcp_servers_viewmodel.dart';
 import 'package:keel_ui/src/modules/mcp_servers/ui/screen/mcp_server_form_screen.dart';
@@ -27,6 +28,7 @@ class McpServerMultiSelect extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -48,9 +50,9 @@ class McpServerMultiSelect extends StatelessWidget {
           viewmodel: McpServersService.instance.notifier,
           build: (state, viewmodel, keep) {
             if (state.servers.isEmpty) {
-              return const Padding(
-                padding: EdgeInsets.symmetric(vertical: 8),
-                child: Text('Todavía no registraste ningún MCP externo.'),
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Text(t.messageNoMcpServersRegistered),
               );
             }
             return Wrap(

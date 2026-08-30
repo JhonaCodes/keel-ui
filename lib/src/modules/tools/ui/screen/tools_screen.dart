@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
 
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/modules/tools/model/tool.dart';
 import 'package:keel_ui/src/modules/tools/viewmodel/tools_viewmodel.dart';
 import 'package:keel_ui/src/modules/tools/ui/screen/tool_form_screen.dart';
@@ -11,12 +12,13 @@ class ToolsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Tools registradas'),
+        title: Text(t.pageTitleTools),
         actions: [
           IconButton(
-            tooltip: 'Registrar nueva',
+            tooltip: t.tooltipRegisterNew,
             icon: const Icon(Icons.add),
             onPressed: () => openToolFormScreen(context),
           ),
@@ -26,9 +28,7 @@ class ToolsScreen extends StatelessWidget {
         viewmodel: ToolsService.instance.notifier,
         build: (state, viewmodel, keep) {
           if (state.tools.isEmpty) {
-            return const Center(
-              child: Text('Todavía no registraste ninguna tool.'),
-            );
+            return Center(child: Text(t.messageNoToolsRegistered));
           }
           return ListView.separated(
             padding: const EdgeInsets.symmetric(vertical: 8),

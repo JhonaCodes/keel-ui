@@ -1,9 +1,12 @@
 import 'package:flutter/widgets.dart';
 
-/// Traduce el `language` guardado en [AppSettings] (`'en'`, `'es_CO'`, o
-/// `''` para el idioma del sistema) al [Locale] que espera `MaterialApp`.
+/// Traduce el `language` guardado en [AppSettings] al [Locale] que espera
+/// `MaterialApp`. El valor histórico `es` se mantiene legible, pero siempre
+/// se resuelve como español de Colombia.
 Locale? localeForLanguageCode(String code) {
-  if (code.isEmpty) return null;
-  final parts = code.split('_');
-  return parts.length > 1 ? Locale(parts[0], parts[1]) : Locale(parts[0]);
+  return switch (code) {
+    'es' || 'es_CO' => const Locale('es', 'CO'),
+    'en' => const Locale('en'),
+    _ => const Locale('en'),
+  };
 }

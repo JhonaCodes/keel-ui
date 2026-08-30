@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
 
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/modules/tools/model/tool.dart';
 import 'package:keel_ui/src/modules/tools/viewmodel/tools_viewmodel.dart';
 import 'package:keel_ui/src/modules/tools/ui/screen/tool_form_screen.dart';
@@ -28,17 +29,18 @@ class ToolMultiSelect extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            Text('Tools', style: Theme.of(context).textTheme.labelLarge),
+            Text(t.labelTools, style: Theme.of(context).textTheme.labelLarge),
             const Spacer(),
             TextButton.icon(
               onPressed: () => openToolFormScreen(context),
               icon: const Icon(Icons.add, size: 18),
-              label: const Text('Registrar tool'),
+              label: Text(t.buttonRegister),
             ),
           ],
         ),
@@ -46,9 +48,9 @@ class ToolMultiSelect extends StatelessWidget {
           viewmodel: ToolsService.instance.notifier,
           build: (state, viewmodel, keep) {
             if (state.tools.isEmpty) {
-              return const Padding(
-                padding: EdgeInsets.symmetric(vertical: 8),
-                child: Text('Todavía no registraste ninguna tool.'),
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Text(t.messageNoToolsRegistered),
               );
             }
             return Wrap(

@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
+
 /// The images attached to a message, as bounded PREVIEW boxes inside the
 /// bubble — never at full size. A dropped screenshot is often 3000px wide;
 /// rendered raw it would blow the bubble past the thread and push the text
@@ -46,12 +48,13 @@ class _AttachmentCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final t = AppLocalizations.of(context);
 
     return Semantics(
       button: true,
-      label: 'Imagen adjunta, abrir en tamaño completo',
+      label: t.semanticsOpenImageFullSize,
       child: Tooltip(
-        message: 'Abrir en tamaño completo',
+        message: t.tooltipOpenFullSize,
         child: InkWell(
           onTap: () => _openFullSize(context),
           borderRadius: BorderRadius.circular(12),
@@ -85,6 +88,7 @@ class _MissingAttachment extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final t = AppLocalizations.of(context);
 
     return Center(
       child: Column(
@@ -93,7 +97,7 @@ class _MissingAttachment extends StatelessWidget {
           Icon(Icons.broken_image_outlined, color: scheme.outline),
           const SizedBox(height: 4),
           Text(
-            'Imagen no disponible',
+            t.messageImageUnavailable,
             style: TextStyle(fontSize: 11, color: scheme.outline),
           ),
         ],
@@ -112,6 +116,7 @@ class _FullSizeImageDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
+    final t = AppLocalizations.of(context);
 
     return Dialog(
       backgroundColor: Colors.transparent,
@@ -135,7 +140,7 @@ class _FullSizeImageDialog extends StatelessWidget {
             ),
           ),
           IconButton(
-            tooltip: 'Cerrar',
+            tooltip: t.buttonClose,
             icon: const Icon(Icons.close),
             onPressed: () => Navigator.of(context).pop(),
           ),

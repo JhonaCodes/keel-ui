@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
 import 'package:desktop_drop/desktop_drop.dart';
 
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/core/services/external_link_service.dart';
 import 'package:keel_ui/src/integrations/workspace_roots/workspace_roots.dart';
 import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
@@ -681,6 +682,7 @@ class _ChannelHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     final open = session;
     String subtitle;
@@ -761,7 +763,7 @@ class _ChannelHeader extends StatelessWidget {
                     ),
                   if (open != null)
                     IconButton(
-                      tooltip: 'Agentes de esta sesión',
+                      tooltip: t.labelSessionAgents,
                       icon: const Icon(Icons.person_add_alt_outlined, size: 20),
                       onPressed: () => openSessionAgentPicker(
                         context,
@@ -914,6 +916,7 @@ class _EmptyChannel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -927,7 +930,7 @@ class _EmptyChannel extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              'Ninguna sesión abierta',
+              t.labelNoSessionOpen,
               style: Theme.of(context).textTheme.titleSmall,
             ),
             const SizedBox(height: 6),
@@ -942,7 +945,7 @@ class _EmptyChannel extends StatelessWidget {
               onPressed: () =>
                   WorkspaceService.instance.notifier.openNewSession(projectId),
               icon: const Icon(Icons.add, size: 18),
-              label: const Text('Nueva sesión'),
+              label: Text(t.buttonNewSession),
             ),
           ],
         ),
@@ -1076,16 +1079,14 @@ class _WorkflowChip extends StatelessWidget {
   bool get _canChange => session.messages.isEmpty;
 
   Future<void> _pick(BuildContext context) async {
+    final t = AppLocalizations.of(context);
     final projects = ProjectsService.instance.notifier;
     final picked = await openWorkflowPicker(
       context,
       options: projects.choosableWorkflowsOf(project),
       currentId: session.workflowId,
-      title: 'Con qué workflow corre',
-      note:
-          'Esta sesión y ninguna otra. Un proyecto hace trabajos de clases '
-          'distintas —armar la carpeta de tareas, resolver un ticket, evaluar '
-          'un requerimiento— y cada uno quiere otra fila de agentes.',
+      title: t.labelWhichWorkflowRuns,
+      note: t.messageWhichWorkflowRunsNote,
     );
     if (picked == null) return;
     projects.setSessionWorkflow(project.id, session.id, picked);

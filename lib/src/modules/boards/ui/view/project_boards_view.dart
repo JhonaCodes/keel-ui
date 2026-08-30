@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
 
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/modules/assistant/service/assistant_window_bridge.dart';
 import 'package:keel_ui/src/modules/boards/model/board.dart';
 import 'package:keel_ui/src/modules/boards/model/board_run.dart';
@@ -131,6 +132,7 @@ class _Empty extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
 
@@ -174,13 +176,13 @@ class _Empty extends StatelessWidget {
                       boardRequestFor(project),
                     ),
                     icon: const Icon(Icons.auto_awesome, size: 16),
-                    label: const Text('Pedírselo a Keel AI'),
+                    label: Text(t.buttonAskKeelAi),
                   ),
                   OutlinedButton.icon(
                     onPressed: () =>
                         openBoardFormScreen(context, projectId: project.id),
                     icon: const Icon(Icons.add, size: 16),
-                    label: const Text('Crearlo a mano'),
+                    label: Text(t.buttonCreateByHand),
                   ),
                 ],
               ),
@@ -241,6 +243,7 @@ class _BoardCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final campos = board.fields.length;
@@ -346,7 +349,7 @@ class _BoardCard extends StatelessWidget {
                   if (board.actions.any((action) => action.runsCommands)) ...[
                     const SizedBox(width: 8),
                     Tooltip(
-                      message: 'Corre comandos en tu máquina',
+                      message: t.tooltipRunsCommandsOnYourMachine,
                       child: Icon(
                         Icons.terminal_outlined,
                         size: 13,

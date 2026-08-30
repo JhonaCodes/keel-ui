@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/integrations/mcp_catalog/mcp_catalog.dart';
 import 'package:keel_ui/src/modules/catalog_locks/model/catalog_lock.dart';
 import 'package:keel_ui/src/modules/catalog_locks/ui/widget/catalog_lock_button.dart';
@@ -33,12 +34,11 @@ class InstalledIntegrationCard extends StatelessWidget {
   final bool probing;
 
   Future<void> _confirmAndDelete(BuildContext context) async {
+    final t = AppLocalizations.of(context);
     final confirmed = await confirmWithCard(
       context,
-      title: 'Eliminar integración',
-      body:
-          'Se elimina "${server.name}". Los agentes que la tenían asignada '
-          'dejan de recibir sus tools.',
+      title: t.labelDeleteIntegration,
+      body: t.messageDeleteIntegrationBody(server.name),
       destructive: true,
     );
     if (confirmed) {

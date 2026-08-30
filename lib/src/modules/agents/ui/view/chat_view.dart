@@ -5,6 +5,7 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:multiselect_field/multiselect_field.dart';
 
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/modules/agents/model/agent.dart';
 import 'package:keel_ui/src/modules/agents/model/agent_model_option.dart';
 import 'package:keel_ui/src/modules/agents/model/agent_provider.dart';
@@ -278,7 +279,9 @@ class _ChatViewState extends State<ChatView> {
   Widget _conversation(Agent agent) {
     return agent.messages.isEmpty
         ? widget.emptyState ??
-              const Center(child: Text('Escríbele algo a tu agente'))
+              Center(
+                child: Text(AppLocalizations.of(context).messageWriteToAgent),
+              )
         : Stack(
             children: [
               SelectionArea(
@@ -313,7 +316,7 @@ class _ChatViewState extends State<ChatView> {
                   right: 20,
                   bottom: 16,
                   child: FloatingActionButton.small(
-                    tooltip: 'Ir al mensaje más reciente',
+                    tooltip: AppLocalizations.of(context).tooltipGoToLatestMessage,
                     onPressed: _goToLatest,
                     child: const Icon(Icons.arrow_downward),
                   ),

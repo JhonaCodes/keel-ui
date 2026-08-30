@@ -130,5 +130,663 @@
         "example": "5"
       }
     }
-  }
+  },
+
+  "pageTitleSettings": "Configuración",
+  "pageTitleSkillsRegistered": "Skills registrados",
+  "pageTitleSecrets": "Secretos",
+  "pageTitleHooksRegistered": "Hooks registrados",
+  "pageTitleRulesRegistered": "Reglas registradas",
+  "pageTitleTestBoard": "Banco de pruebas",
+  "pageTitleTools": "Herramientas registradas",
+  "pageTitleIntegrations": "Integraciones",
+  "pageTitleMachine": "Máquina",
+  "pageTitleAgentsRegistered": "Agentes registrados",
+  "pageTitleKnowledge": "Saber",
+  "pageTitleInternalRequirements": "Requerimientos internos",
+  "pageTitleProjects": "Proyectos",
+  "pageTitleSessionAgents": "Agentes de esta sesión",
+  "pageTitleImportHooks": "Importar hooks de Claude Code",
+  "pageTitleTermsOfUse": "Términos de uso",
+  "pageTitleLockedElements": "Elementos bloqueados",
+  "pageTitleOpenRequirement": "Abrir un requerimiento",
+  "pageTitleModifySharedDefault": "Modificar default compartido",
+  "pageTitlePasteMCPConfig": "Pegar una configuración MCP",
+  "pageTitleImportBackup": "Importar respaldo",
+  "pageTitleExportPackage": "Exportar un paquete",
+  "pageTitleBackup": "Respaldo",
+  "pageTitleImportPackage": "Importar un paquete",
+  "pageTitleFaults": "Fallas",
+  "pageTitleEditQueuedMessage": "Editar mensaje en espera",
+  "pageTitleRegisteredWorkflows": "Workflows registrados",
+  "pageTitleUseAgent": "Usar un agente",
+  "pageTitleEngineOf": "Motor de @{member}",
+  "@pageTitleEngineOf": {
+    "placeholders": {
+      "member": {
+        "type": "String",
+        "example": "nombre-agente"
+      }
+    }
+  },
+  "pageTitleRejectClosure": "Rechazar el cierre",
+
+  "settingTextSize": "Tamaño del texto",
+  "settingWritePermissions": "Permisos de escritura",
+  "settingScheduledJobsApi": "API de trabajos programados",
+  "settingApplyToAllAgents": "Aplicar a todos los agentes",
+  "settingCanAdministrateSystem": "Puede administrar el sistema",
+  "settingBlocksRequester": "Frena a quien lo pide",
+  "settingAccessEntireFilesystem": "Acceso a todo el sistema de archivos",
+
+  "descriptionWritePermissions": "Leer archivos, buscarlos y consultar la web siempre está permitido. Aquí decides qué pueden modificar los agentes. Aplica a todos.",
+  "descriptionScheduledJobsApi": "Para schedulers externos (cron, keel): POST /projects/<nombre>/tasks con el token Bearer. Solo loopback.",
+  "descriptionLockedElements": "Lo que un agente no puede cambiar ni borrar sin pedirte permiso primero. El candado se pone desde cada ítem; acá se ven todos juntos.",
+
+  "labelLockedElements": "Elementos bloqueados",
+  "labelAboutKeel": "Acerca de Keel",
+  "labelGlobal": "global",
+  "labelWhatExecutes": "Qué ejecuta",
+  "labelChat": "Chat",
+  "labelMap": "Mapa",
+  "labelEngine": "MOTOR",
+  "labelTurns": "TURNOS",
+  "labelInput": "ENTRADA",
+  "labelOutput": "SALIDA",
+  "labelCacheRead": "CACHÉ LEÍDA",
+  "labelSecretsEnv": "Secretos (env)",
+  "labelSource": "Fuente",
+  "labelAssistant": "Asistente",
+  "labelCompactContext": "Compactar contexto ({percent}%)",
+  "@labelCompactContext": {
+    "placeholders": {
+      "percent": {
+        "type": "int",
+        "example": "50"
+      }
+    }
+  },
+  "labelRequired": "Requerida",
+  "labelOptional": "Opcional",
+  "labelDiff": "Diff",
+  "labelEdit": "Editar",
+  "labelView": "Vista",
+  "labelAdaptiveCapabilities": "Capacidades adaptativas",
+  "labelMandatoryContext": "Contexto obligatorio",
+  "labelReplansLimit": "Límite de reformulaciones: {count}",
+  "@labelReplansLimit": {
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "5"
+      }
+    }
+  },
+  "labelReadVerifySubagents": "Subagentes de lectura/verificación: {count}",
+  "@labelReadVerifySubagents": {
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "10"
+      }
+    }
+  },
+  "labelSharedAuditCycles": "Ciclos compartidos de auditoría: {count}",
+  "@labelSharedAuditCycles": {
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "3"
+      }
+    }
+  },
+  "labelAgentFor": "Agente para \\\"{capability}\\\"",
+  "@labelAgentFor": {
+    "placeholders": {
+      "capability": {
+        "type": "String",
+        "example": "Nombre de la capacidad"
+      }
+    }
+  },
+
+  "buttonNew": "Nuevo",
+  "buttonRegisterSkill": "Registrar skill",
+  "buttonCreateSkill": "Crear skill",
+  "buttonReplace": "Reemplazar",
+  "buttonEdit": "Editar",
+  "buttonImport": "Importar",
+  "buttonRegenerateToken": "Regenerar token",
+  "buttonViewLocked": "Ver bloqueados…",
+  "buttonAskKeelAI": "Pedírselo a Keel AI",
+  "buttonCreateManually": "Crearlo a mano",
+  "buttonRename": "Renombrar",
+  "buttonUngroupGroup": "Deshacer el grupo",
+  "buttonRegisterSecret": "Registrar secret",
+  "buttonLoadValue": "Cargar valor",
+  "buttonNewSession": "Nueva sesión",
+  "buttonChooseFolder": "Elegir carpeta",
+  "buttonReviewAgain": "Revisar de nuevo",
+  "buttonDefineFormat": "Definir el formato",
+  "buttonDocumentation": "Documentación",
+  "buttonTestConnection": "Probar la conexión",
+  "buttonRegisterMCP": "Registrar MCP",
+  "buttonChoose": "Elegir…",
+  "buttonRegisterAgent": "Registrar agente",
+  "buttonTest": "Probar",
+  "buttonOpenWithSystemApp": "Abrir con la app del sistema",
+  "buttonReturnToAgentDefault": "Volver al del agente",
+  "buttonReview": "Revisar",
+  "buttonRebuildAndReopen": "Reconstruir y reabrir",
+  "buttonExport": "Exportar…",
+  "buttonImportDots": "Importar…",
+  "buttonBackup": "Respaldar",
+  "buttonBackupAndUpload": "Respaldar y subir",
+  "buttonRestoreDots": "Restaurar…",
+  "buttonBring": "Traer",
+  "buttonInstall": "Instalar",
+  "buttonAsk": "Preguntar…",
+  "buttonClear": "Vaciar",
+  "buttonView": "Ver",
+  "buttonApproveChange": "Aprobar cambio",
+  "buttonAddRule": "Agregar regla",
+  "buttonAddKnowledge": "Agregar conocimiento",
+  "buttonApproveAndContinue": "Aprobar y continuar",
+  "buttonOpen": "Abrir",
+  "buttonNewKnowledgeBase": "Nueva base",
+  "buttonContinuePlanning": "Seguir planificando",
+  "buttonImplement": "Implementar",
+  "buttonRegister": "Registrar",
+  "buttonReloadFromDisk": "Recargar del disco",
+  "buttonClose": "Cerrar",
+  "buttonReject": "Rechazar",
+  "buttonAssignAndEvaluate": "Tomar y evaluar",
+  "buttonGoToSession": "Ir a la sesión",
+  "buttonRejectAndExplain": "Rechazar y explicar",
+
+  "messageNoSkillsRegistered": "Todavía no registraste ningún skill.",
+  "messageNoToolsRegistered": "Todavía no registraste ninguna herramienta.",
+  "messageNoRulesRegistered": "Todavía no registraste ninguna regla.",
+  "messageApiNotRunning": "La API no está corriendo en esta ventana.",
+  "messageApiUrl": "URL: http://127.0.0.1:{port}",
+  "@messageApiUrl": {
+    "placeholders": {
+      "port": {
+        "type": "int",
+        "example": "8080"
+      }
+    }
+  },
+  "messageApiToken": "Token: {token}",
+  "@messageApiToken": {
+    "placeholders": {
+      "token": {
+        "type": "String",
+        "example": "abc123xyz"
+      }
+    }
+  },
+  "messageBoardNotFound": "Ese tablero ya no existe.",
+  "messageNoBoardsYet": "Todavía no hay tableros",
+  "messageNoHooksRegistered": "Todavía no registraste ningún hook.",
+  "messageNoExternalMCPs": "Todavía no registraste ningún MCP externo.",
+  "messageNoProjectsRegistered": "Todavía no registraste ningún proyecto.",
+  "messageNoAgentsRegistered": "Todavía no registraste ningún agente.",
+  "messageNoWorkflowsRegistered": "Todavía no registraste ningún workflow.",
+  "messageNoneYet": "Ninguno todavía.",
+  "messageNoMoreAgentsToAdd": "No quedan agentes registrados por sumar.",
+  "messageCouldNotOpenImage": "No pude abrir la imagen: {error}",
+  "@messageCouldNotOpenImage": {
+    "placeholders": {
+      "error": {
+        "type": "String",
+        "example": "Archivo no encontrado"
+      }
+    }
+  },
+  "messageSessionNotFound": "La sesión ya no existe.",
+  "messageDrop": "Soltar {name}",
+  "@messageDrop": {
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "Nombre del ítem"
+      }
+    }
+  },
+  "messageFileTooLarge": "El archivo es muy grande para mostrar un diff.",
+  "messageAskYourAgent": "Escríbele algo a tu agente",
+  "messageNoKnowledgeBases": "Todavía no hay ninguna base de saber.",
+  "messageBackupEmpty": "El respaldo no trae nada aplicable.",
+
+  "optionCommand": "Un comando",
+  "optionRegisteredTool": "Una tool registrada",
+  "optionGiveToKeelAI": "Dárselo a Keel AI (el asistente)",
+  "optionIMaintainIt": "Lo mantengo yo",
+  "optionUseDefault": "Usar default ({role})",
+  "@optionUseDefault": {
+    "placeholders": {
+      "role": {
+        "type": "String",
+        "example": "revisor"
+      }
+    }
+  },
+  "optionAnyMember": "Cualquier miembro",
+  "optionNewSession": "Nueva sesión",
+  "optionResumeParentSession": "Reanudar sesión padre",
+  "optionProviderSubagent": "Subagente del proveedor",
+  "optionManualApproval": "Aprobación manual",
+  "optionAgentProvider": "El del agente ({provider})",
+  "@optionAgentProvider": {
+    "placeholders": {
+      "provider": {
+        "type": "String",
+        "example": "claude"
+      }
+    }
+  },
+  "optionAgentEffort": "El del agente ({effort})",
+  "@optionAgentEffort": {
+    "placeholders": {
+      "effort": {
+        "type": "String",
+        "example": "media"
+      }
+    }
+  },
+
+  "titleReadOnly": "Solo lectura",
+  "titleRequiresIndependentAgent": "Requiere agente independiente",
+
+  "subtitleReadOnly": "Planificadores y auditores no escriben.",
+
+  "linkWebsite": "jhonacode.com",
+  "linkCommunity": "Comunidad en Discord",
+
+  "tooltipRegisterNew": "Registrar nuevo",
+  "tooltipImportPackage": "Importar un paquete",
+  "tooltipDismiss": "Descartar",
+  "messageNoHooksDescription": "Un hook es un comando que se ejecuta en un momento del turno y que el agente no puede omitir: puede detener una herramienta antes de usarla o reaccionar después. Una regla pide; un hook garantiza.",
+  "labelLlmProviders": "PROVEEDORES LLM",
+  "labelOtherSecrets": "OTROS SECRETOS",
+  "suggestionIntro": "Detecté cosas que pides con frecuencia — ¿las convertimos en skills globales?",
+  "suggestionDraftHeader": "Se detectó una instrucción recurrente ({count} veces). Ejemplos de lo que pediste:\\n",
+  "@suggestionDraftHeader": {
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "3"
+      }
+    }
+  },
+  "suggestionDraftFooter": "Redacta aquí la instrucción definitiva:",
+
+  "formTitleRegisterAgent": "Registrar agente",
+  "formTitleEditAgent": "Editar agente registrado",
+  "formLabelAgentName": "Nombre (minúsculas, sin espacios, máx. 16)",
+  "formLabelAgentRole": "Rol",
+  "formLabelAgentRoleHint": "Qué hace este agente",
+  "formLabelSystemPrompt": "System prompt",
+  "formLabelProvider": "Proveedor (codex: sin tools/MCPs/esfuerzo, y sus propios modelos)",
+  "formLabelModel": "Modelo por defecto ({provider})",
+  "@formLabelModel": {
+    "placeholders": {"provider": {"type": "String"}}
+  },
+  "formLabelEffort": "Esfuerzo por defecto",
+  "formMessageCanManageSystem": "Puede administrar el sistema",
+  "formDescriptionManageSystem": "Agente constructor: recibe las mismas tools de creación que Keel AI (skills, reglas, tools, agentes, workflows, proyectos) en sus chats 1:1.",
+  "formDescriptionKeelAiHooks": "Keel AI corre sin hooks a propósito: es a quien le pides apagar uno que te trabó. Lo que asignes aquí no se va a aplicar.",
+  "formDescriptionHooks": "Corren fuera del modelo, así que no los puede saltear. Las reglas de arriba se piden; estos se cumplen.",
+  "formDescriptionRoles": "Roles que piden tus workflows — tocá uno para que este agente los cubra:",
+  "formDescriptionRolesHelp": "El preflight del workflow busca responsables por este rol.",
+  "formConfirmDeleteAgent": "Se eliminará el registro \\\"{name}\\\". Esto no afecta a los chats que ya usaste con esta configuración.",
+  "formTitleDeleteAgent": "Eliminar agente registrado",
+
+  "tooltipEditAgent": "Editar",
+  "tooltipExportAsPackage": "Exportar como paquete",
+  "tooltipDeleteAgent": "Eliminar",
+
+  "mapStateWaiting": "Esperándote",
+  "mapStateFailed": "Cortó",
+  "labelAskedFor": "Le pidió",
+  "labelHowReasons": "Cómo razona",
+  "statusLive": "En vivo",
+  "labelWhatDid": "Qué hizo",
+  "labelWhatReturned": "Qué devolvió",
+  "labelTask": "El encargo",
+  "labelWhatResolved": "Qué resolvió",
+  "labelAskedAbout": "Le consultaron",
+  "labelNumbers": "Números",
+  "labelMemberOpened": "El miembro que lo abrió",
+  "placeholderWriteTo": "Escribile a @{name}…",
+  "@placeholderWriteTo": {
+    "placeholders": {
+      "name": {"type": "String", "example": "nombre-agente"}
+    }
+  },
+  "messageNoReasoningVisible": "No dejó pensamiento visible. Con modelos que no lo emiten, acá no hay nada que mostrar.",
+  "messageNodeNotResolution": "Este nodo no pertenece a un caso de resolución: habla cuando lo consultan.",
+  "messageNoReasoningYet": "Todavía no razonó nada en este paso.",
+  "messageNodeNotMember": "Este nodo ya no es miembro del proyecto, así que no hay a quién escribirle.",
+  "messageNoConsultRecord": "No quedó registrado con qué frase lo llamó.",
+  "messageNoToolsOpened": "Todavía no abrió ninguna herramienta.",
+  "messageSubagentWriteLocked": "Mientras corre, a un subagente no se le puede escribir: el CLI no abre ese canal. Lo que va acá abajo le llega a {parent}, que es quien lo abrió.",
+  "@messageSubagentWriteLocked": {
+    "placeholders": {
+      "parent": {"type": "String", "example": "nombre-agente"}
+    }
+  },
+
+  "formLabelHookName": "Nombre",
+  "formHintHookScript": "Es también el nombre del script que se genera.",
+  "formLabelWhatHookDoes": "Qué hace",
+  "formMessageNoEventFilter": "Este evento no filtra: dejalo vacío.",
+  "formHintEventFilter": "Vacío = todo. Ejemplos: {matcherHint}",
+  "@formHintEventFilter": {
+    "placeholders": {"matcherHint": {"type": "String", "example": "herramienta_usada"}}
+  },
+  "formDescriptionHookScope": "Corto a propósito: un hook de \"antes de usar una herramienta\": si lo rechazas, no se llama. Uno de \"después\" es más raro.",
+  "formLabelHookRules": "Qué reglas hace cumplir este hook",
+  "formDescriptionHookRules": "No cambia lo que corre: deja anotado cuáles de tus reglas están garantizadas y cuáles se piden.",
+  "formLabelWhenHookRuns": "Cuándo corre",
+  "formLabelWhatHookExecutes": "Qué ejecuta",
+  "messageNoToolsRegisteredShort": "Todavía no registraste ninguna tool.",
+  "formDescriptionHookCode": "El código viaja en el respaldo y puede usar los secrets que configuraste. Si el admin no permite write, un hook del disco no se restaura en otra máquina.",
+  "formLabelHookTimeout": "Timeout (segundos)",
+  "formDescriptionHookTimeout": "Recibe el evento como JSON por entrada estándar. Salir con código 2 bloquea.",
+
+  "pageTitleMachineTitle": "Máquina",
+  "messageDetectionNotIntegration": "Detectar no es integrar: los que dicen «sin adaptador» están en tu máquina pero Keel todavía no sabe hablarles, y no se le puede pedir que lo hagan solos.",
+  "labelConsumption": "Consumo · últimos 14 días",
+  "messageNoConsumptionYet": "Todavía no hay nada medido. El historial arranca hoy: hasta ahora los contadores de cada turno se leían para el porcentaje de contexto y se tiraban, así que no hay forma de saber qué se gastó dónde. Y el historial empieza el día que se instaló esta pantalla.",
+  "labelCacheReadShort": "CACHÉ LEÍDA",
+  "messageNoTokenCount": "Sin medición — su CLI no informa tokens",
+  "labelCoresShort": "{cores} núcleos",
+  "@labelCoresShort": {
+    "placeholders": {"cores": {"type": "int", "example": "4"}}
+  },
+  "messageNotInPath": "No está en el PATH",
+
+  "formLabelWorkflowIntent": "Intención y cuándo se aplica",
+  "formDescriptionWorkflowEngine": "El motor decide los nodos mínimos; no configuras una cadena de agentes.",
+  "labelMaxReplans": "Límite de reformulaciones: {count}",
+  "@labelMaxReplans": {
+    "placeholders": {"count": {"type": "int", "example": "5"}}
+  },
+  "labelMaxSubagents": "Subagentes de lectura/verificación: {count}",
+  "@labelMaxSubagents": {
+    "placeholders": {"count": {"type": "int", "example": "10"}}
+  },
+  "labelMaxReviewCycles": "Ciclos compartidos de auditoría: {count}",
+  "@labelMaxReviewCycles": {
+    "placeholders": {"count": {"type": "int", "example": "3"}}
+  },
+  "formLabelWorkflowTitle": "Título visible",
+  "formLabelWorkflowInstruction": "Instrucción",
+  "formLabelWorkflowActivation": "Activación",
+  "formLabelWorkflowExecution": "Ejecución",
+  "optionNewSession": "Nueva sesión",
+  "optionResumeParentSession": "Reanudar sesión padre",
+  "optionManualApproval": "Aprobación manual",
+  "formDescriptionParentSessionKept": "La sesión del padre se conserva y se reanuda.",
+  "formLabelMaxAgenticTurns": "Máximo de turnos agentic",
+  "formDescriptionMaxAgenticTurns": "Vacío o 0 usa el límite del proveedor.",
+  "formLabelWorkflowOwner": "Dueño",
+  "formDescriptionWorkflowOwner": "El dueño debe ser distinto de quienes produjeron sus dependencias.",
+  "formLabelWorkflowResponsible": "Responsable de resolución",
+  "formDescriptionResponsible": "Un responsable integra evidencia y es el único escritor.",
+  "workflowKindMigration": "Migración",
+
+  "labelAge": "{days, plural, =1 {1 día} other {{days} días}}",
+  "@labelAge": {
+    "placeholders": {"days": {"type": "int", "example": "5"}}
+  },
+  "labelWeekdayShort": "lun, mar, mié, jue, vie, sáb, dom",
+  "messageRequirementTaken": "Lo tomó @{handle}",
+  "@messageRequirementTaken": {
+    "placeholders": {"handle": {"type": "String", "example": "nombre-agente"}}
+  },
+  "messageRequirementTask": "Quedó como tarea: {taskPath}",
+  "@messageRequirementTask": {
+    "placeholders": {"taskPath": {"type": "String", "example": "proyecto/id-tarea"}}
+  },
+  "messagePlanMode": "Modo plan: que proponga cómo lo haría. Para implementarlo de verdad, «Tomar y evaluar» abre una sesión.",
+  "messageRequirementAnswering": "Está contestando…",
+  "messagePlanRequest": "Pide un plan — @ para llamar a un agente",
+  "messageWriteHere": "Escribe aquí — @ para preguntarle a un agente",
+  "messageRequirementClosed": "El destino pidió el cierre.",
+  "messageOnlyOriginCanClose": "Solo del lado que lo abrió se puede cerrar — es quien sabe si lo que necesitaba está.",
+  "buttonGoToSession": "Ir a la sesión",
+  "labelWithWorkflow": "Con qué workflow lo evalúa",
+  "messageNewSessionOpenedWorkflow": "Va a abrir una sesión nueva en #{workflowName}. Elige la fila de abajo para cada rol.",
+  "@messageNewSessionOpenedWorkflow": {
+    "placeholders": {"workflowName": {"type": "String", "example": "revisión"}}
+  },
+  "formLabelWhatMissing": "Qué falta",
+
+  "bundleExportNothingYet": "Todavía no hay nada para exportar.",
+  "bundleSectionWhatItTakes": "Qué se lleva",
+  "bundleSectionWhatItBrings": "Qué trae",
+  "bundleSectionWhatRecipientSees": "Lo que va a ver quien lo reciba",
+  "bundleSectionSecurityReview": "Revisión de seguridad",
+  "bundleNoFindings": "sin hallazgos",
+  "bundleFindingsCount": "{count, plural, =1 {1 hallazgo} other {{count} hallazgos}}",
+  "@bundleFindingsCount": {
+    "placeholders": {"count": {"type": "int", "example": "3"}}
+  },
+  "bundleMissingNote": "Esto lo nombra pero de este lado no existe, así que no viaja:\n{list}",
+  "@bundleMissingNote": {
+    "placeholders": {"list": {"type": "String", "example": "· skill-x"}}
+  },
+  "bundleSecretsToCreateNote": "Quien lo instale va a tener que crear estos secrets con estos nombres: {names}. Los valores no viajan.",
+  "@bundleSecretsToCreateNote": {
+    "placeholders": {"names": {"type": "String", "example": "API_KEY"}}
+  },
+  "actionImportPackage": "Importar un paquete",
+  "bundleImportIntro": "Un paquete trae un agente, un workflow o una skill con todo lo que necesita para funcionar: sus skills, sus reglas, sus tools, sus hooks, sus servidores MCP y su documentación.",
+  "bundleImportSafetyNote": "Nada se instala sin que veas antes qué trae y qué encontró la revisión.",
+  "actionChooseFile": "Elegir un archivo",
+  "bundleOrFromLink": "o desde un enlace",
+  "bundleLinkHint": "https://…/keel-agent-flutter-expert.zip",
+  "actionBring": "Traer",
+  "bundleDocumentsLabel": "documentos",
+  "bundleSecretsRequiredNote": "Necesita estos secrets, que tienes que crear tú con estos nombres: {names}. Un paquete nunca trae valores.",
+  "@bundleSecretsRequiredNote": {
+    "placeholders": {"names": {"type": "String", "example": "API_KEY"}}
+  },
+  "actionInstall": "Instalar",
+  "bundleHighRiskAck": "Leí los {count} hallazgos de gravedad alta y quiero instalarlo igual.",
+  "@bundleHighRiskAck": {
+    "placeholders": {"count": {"type": "int", "example": "2"}}
+  },
+  "bundleAuditCleanNote": "Revisé {count} textos y no encontré nada conocido. No es una garantía: busca lo que sabe buscar.",
+  "@bundleAuditCleanNote": {
+    "placeholders": {"count": {"type": "int", "example": "42"}}
+  },
+  "bundleRiskLevelLabel": "GRAVEDAD {level}",
+  "@bundleRiskLevelLabel": {
+    "placeholders": {"level": {"type": "String", "example": "ALTA"}}
+  },
+
+  "actionSaveAsPng": "Guardar como PNG",
+  "codeBlockLineCount": "{title} · {count, plural, =1 {1 línea} other {{count} líneas}}",
+  "@codeBlockLineCount": {
+    "placeholders": {
+      "title": {"type": "String", "example": "python"},
+      "count": {"type": "int", "example": "12"}
+    }
+  },
+  "semanticsOpenImageFullSize": "Imagen adjunta, abrir en tamaño completo",
+  "tooltipOpenFullSize": "Abrir en tamaño completo",
+  "messageImageUnavailable": "Imagen no disponible",
+
+  "labelDeletedProject": "proyecto eliminado",
+  "labelOpenSince": "abierto hace {age}",
+  "@labelOpenSince": {
+    "placeholders": {"age": {"type": "String", "example": "2 h"}}
+  },
+  "labelBlockingRequester": "bloquea a quien lo pide",
+  "durationMinutesShort": "{count} min",
+  "@durationMinutesShort": {
+    "placeholders": {"count": {"type": "int", "example": "5"}}
+  },
+  "durationHoursShort": "{count} h",
+  "@durationHoursShort": {
+    "placeholders": {"count": {"type": "int", "example": "5"}}
+  },
+  "durationDaysShort": "{count, plural, =1 {1 día} other {{count} días}}",
+  "@durationDaysShort": {
+    "placeholders": {"count": {"type": "int", "example": "5"}}
+  },
+  "messageTakenByYou": "Lo tomaste tú",
+  "labelVerdict": "VEREDICTO",
+  "tooltipPlanModeActive": "Modo plan activo: propone en vez de afirmar",
+  "messageNewRequirementSessionNote": "Va a abrir una sesión nueva en #{workflowName}. Elige la fila de agentes que corresponde a este pedido — evaluar un requerimiento rara vez es lo mismo que resolver un ticket.",
+  "@messageNewRequirementSessionNote": {
+    "placeholders": {"workflowName": {"type": "String", "example": "keel-ui"}}
+  },
+  "labelProjectNoLongerExists": "un proyecto que ya no existe",
+  "assistantWindowTitle": "Asistente",
+  "buttonAskKeelAi": "Pedírselo a Keel AI",
+  "buttonCreateByHand": "Crearlo a mano",
+  "buttonOverwriteAnyway": "Sobrescribir igual",
+  "buttonNewSession": "Nueva sesión",
+  "buttonTestConnection": "Probar la conexión",
+  "hintAskAboutThisLine": "Pregunta sobre esta línea…",
+  "hintQueuedMessage": "Mensaje que se enviará en el próximo turno",
+  "hintSessionName": "Nombre de la sesión",
+  "labelCloseSession": "Cerrar sesión",
+  "labelDeleteIntegration": "Eliminar integración",
+  "labelFileChanged": "El archivo cambió",
+  "labelGiveToKeelAi": "Dárselo a Keel AI (el asistente)",
+  "labelHeadersKeyValue": "Headers (KEY=valor, una por línea)",
+  "labelKnowledgeBaseAnswers": "Qué contesta esta base",
+  "labelModelWithProvider": "Modelo ({provider})",
+  "@labelModelWithProvider": {"placeholders": {"provider": {"type": "String", "example": "OpenAI"}}},
+  "labelMaxReplansLimit": "Límite de reformulaciones: {count}",
+  "@labelMaxReplansLimit": {"placeholders": {"count": {"type": "int", "example": "2"}}},
+  "labelMaxReviewCyclesLimit": "Ciclos compartidos de auditoría: {count}",
+  "@labelMaxReviewCyclesLimit": {"placeholders": {"count": {"type": "int", "example": "4"}}},
+  "labelMaxSubagentsLimit": "Subagentes de lectura/verificación: {count}",
+  "@labelMaxSubagentsLimit": {"placeholders": {"count": {"type": "int", "example": "1"}}},
+  "labelNoBoardsYet": "Todavía no hay tableros",
+  "labelNoSessionOpen": "Ninguna sesión abierta",
+  "labelPasteBlockAsInDocs": "Pega el bloque tal como está en la documentación",
+  "labelPasteMcpConfig": "Pegar una configuración MCP",
+  "labelProjectPurpose": "Propósito",
+  "labelRequirementContext": "Contexto: qué hicieron y por qué lo necesitan",
+  "labelRequirementNeed": "Qué necesita",
+  "labelRequirementTitle": "Título",
+  "labelSessionAgents": "Agentes de esta sesión",
+  "labelSpecification": "Especificación",
+  "labelTermsOfUse": "Términos de uso",
+  "labelWhichWorkflowRuns": "Con qué workflow corre",
+  "messageCloseSessionBody": "Se borra el hilo de \"{title}\" y el contexto que los agentes acumularon en ella. El proyecto queda igual, con sus agentes, reglas y documentos.",
+  "@messageCloseSessionBody": {"placeholders": {"title": {"type": "String", "example": "Fix login bug"}}},
+  "messageDeleteIntegrationBody": "Se elimina \"{name}\". Los agentes que la tenían asignada dejan de recibir sus tools.",
+  "@messageDeleteIntegrationBody": {"placeholders": {"name": {"type": "String", "example": "GitHub"}}},
+  "messageFileChangedBody": "Este archivo se modificó (por ejemplo el agente lo editó) desde que abriste esta ventana. Si guardas ahora, vas a sobrescribir ese cambio con lo que tienes aquí.",
+  "messageNoAgentsToAdd": "No quedan agentes registrados por sumar",
+  "messageNoBoardsExplainer": "Un tablero es una pantallita para disparar algo contra tu propia app: lanzar una oferta, mandarte un push, pegarle a un endpoint que estás escribiendo.\n\nLo más rápido es pedírselo a un agente del proyecto: lee tu código y lo arma solo. Aparece en la sección Tableros de ese proyecto.",
+  "messageNoExtraAgentsYet": "Ninguno todavía.",
+  "messageNoKnowledgeBasesYet": "Todavía no hay ninguna base de saber.",
+  "messageNoMcpServersRegistered": "Todavía no registraste ningún MCP externo.",
+  "messageSessionGone": "La sesión ya no existe.",
+  "messageWhichWorkflowRunsNote": "Esta sesión y ninguna otra. Un proyecto hace trabajos de clases distintas —armar la carpeta de tareas, resolver un ticket, evaluar un requerimiento— y cada uno quiere otra fila de agentes.",
+  "sectionAddToSession": "Agregar a esta sesión",
+  "sectionProjectMembers": "Miembros del proyecto (en todas las sesiones)",
+  "sectionSessionOnly": "Solo en ESTA sesión",
+  "tooltipAgentAnsweringThread": "Un agente está contestando en el hilo",
+  "tooltipGoToLatestMessage": "Ir al mensaje más reciente",
+  "tooltipGuardrailsAutorun": "Guardarraíles que corren solos",
+  "tooltipLegendMeaning": "Qué significa cada línea",
+  "tooltipNewConversation": "Nueva conversación",
+  "tooltipRefreshCatalog": "Refrescar catálogo",
+  "tooltipRemoveFromSession": "Quitar de esta sesión",
+  "tooltipRunsCommandsOnYourMachine": "Corre comandos en tu máquina",
+  "tooltipWorkingNow": "Trabajando ahora",
+  "workflowTitleTaskFormat": "Construir formato de tareas",
+  "workflowTitleVerifyFormat": "Verificar formato",
+  "workflowTitlePlanAndScope": "Planificar y delimitar",
+  "workflowTitleSingleEntryPoint": "Diseño del punto único de entrada",
+  "workflowTitleImplement": "Implementar con evidencia",
+  "workflowTitleCodeAudit": "Auditar código",
+  "workflowTitleCodeCorrection": "Corregir hallazgos de código",
+  "workflowTitleTests": "Crear y ajustar pruebas",
+  "workflowTitleTestAudit": "Auditar tests",
+  "workflowTitleTestCorrection": "Corregir hallazgos de tests",
+  "workflowTitleDeviceE2e": "Verificación end-to-end en dispositivo",
+  "workflowTitleVerification": "Verificación de cierre",
+  "workflowTitlePublishApproval": "Aprobar publicación",
+  "termsVersion": "Versión 1 — agosto de 2026",
+  "termsSection1Title": "1. Qué es Keel",
+  "termsSection1Body": "Keel es una herramienta de escritorio que trabaja sobre los CLI de agentes que ya tienes instalados en tu máquina. No es un servicio: no hay un servidor de Keel al que te conectes, no hay cuenta que crear y no hay registro. Si apagas internet, Keel sigue abriéndose.\n\nUsar Keel significa aceptar estos términos. Si no estás de acuerdo con alguno, no lo uses.",
+  "termsSection2Title": "2. De quién es",
+  "termsSection2Body": "Keel —su código, su diseño, su nombre, su documentación y todo lo que lo acompaña— es propiedad intelectual de Jhonatan Ortiz (JhonaCode), ingeniero de software. Todos los derechos reservados.\n\nNo es software libre ni de código abierto. No se distribuye bajo MIT, Apache, BSD, GPL ni ninguna otra licencia permisiva. Tener una copia no te da derecho a usarla: hace falta permiso escrito del autor. El texto completo está en el archivo LICENSE.",
+  "termsSection3Title": "3. Solo se descarga de jhonacode.com",
+  "termsSection3Body": "El autor se reserva de forma exclusiva el derecho a distribuir Keel. El ÚNICO canal autorizado es jhonacode.com.\n\nQueda prohibido republicar, espejar, subir a otro sitio, incluir en un repositorio de paquetes, en una tienda de aplicaciones, en una imagen de contenedor o en cualquier otro canal de distribución, sea gratis o cobrando. Tampoco se puede revender, alquilar, sublicenciar ni ofrecer Keel como servicio a terceros.",
+  "termsSection4Title": "4. Copias que no vinieron de ahí",
+  "termsSection4Body": "Cualquier copia de Keel obtenida fuera de jhonacode.com no está autorizada, y el autor no tiene forma de saber qué le hicieron: pudo ser modificada, empaquetada con otra cosa o alterada para hacer algo que Keel no hace.\n\nEl autor no responde por esas copias ni por lo que provoquen, y nada de lo que hagan puede atribuírsele. Una compilación modificada por un tercero no es Keel, aunque se llame así. Si te importa lo que corre en tu máquina, bájala del sitio oficial.",
+  "termsSection5Title": "5. Keel no te pide datos",
+  "termsSection5Body": "No te pide nombre, correo, contraseñas ni claves de nada. No hay inicio de sesión. Todo lo que armas —proyectos, agentes, skills, tools, bases de saber, hilos de chat y ajustes— se guarda en tu propia máquina.\n\nLos valores de tus secrets nunca salen en un respaldo: el respaldo lleva solo los nombres, para que del otro lado sepas cuáles completar. La API de trabajos programados escucha únicamente en loopback, o sea que no es alcanzable desde fuera de tu equipo.",
+  "termsSection6Title": "6. Lo único que sí sale de tu máquina",
+  "termsSection6Body": "Si esta compilación trae configurado un canal de reportes, cuando algo se rompe se envía a ese canal: el mensaje del error, su traza, el archivo de Keel donde ocurrió, el nombre de tu equipo y si la compilación es de desarrollo o de producción.\n\nNo se envía nada más. Ni el contenido de tus chats, ni tus archivos, ni tus secrets, ni qué proyectos tienes. Sirve para una sola cosa: que quien mantiene Keel se entere de que algo falló.",
+  "termsSection7Title": "7. Keel es una herramienta, y tú la manejas",
+  "termsSection7Body": "Keel lanza agentes con los permisos que tú les das, y esos permisos pueden incluir acceso completo a tu disco. Un agente puede crear, modificar y borrar archivos, ejecutar comandos y hacer commits en tus repositorios.\n\nTú decides qué permisos otorgas, sobre qué carpetas y qué le pides a cada agente. Keel ejecuta esas decisiones; no las toma por ti y no las supervisa. El autor no se hace responsable del uso que le des a la herramienta ni de las consecuencias de lo que los agentes hagan siguiendo tus instrucciones.",
+  "termsSection8Title": "8. Tus archivos son tuyos, y tus respaldos también",
+  "termsSection8Body": "Una herramienta que le da acceso a tu disco a un agente puede terminar en archivos perdidos, sobrescritos o cambiados de una forma que no querías. Puede pasar por un error de Keel, por un error del agente o por una instrucción tuya que salió distinta a como la pensaste.\n\nMantener respaldos de lo que te importa es responsabilidad tuya. El autor no responde por pérdida ni por corrupción de datos.",
+  "termsSection9Title": "9. No es para usos críticos",
+  "termsSection9Body": "Keel no está diseñado ni probado para entornos donde una falla ponga en riesgo la vida, la salud, la seguridad o infraestructura esencial: medicina, aviación, transporte, energía, control industrial o similares. No lo uses ahí.",
+  "termsSection10Title": "10. Lo que no depende de Keel",
+  "termsSection10Body": "Los CLI de agentes y los servidores MCP que uses son de terceros. Cada uno tiene sus propios términos, sus precios y su propia forma de tratar lo que le mandas. Keel no responde por ellos, ni por lo que cobren, ni por lo que hagan con la información que reciben, ni por lo que decidan cambiar o discontinuar.\n\nCumplir los términos de esos servicios es cosa tuya.",
+  "termsSection11Title": "11. Lo que te comprometes a no hacer",
+  "termsSection11Body": "No copiar, modificar, traducir ni crear obras derivadas de Keel.\nNo aplicar ingeniería inversa, descompilar ni desensamblar, salvo donde la ley lo permita de forma imperativa.\nNo eludir ni desactivar ninguna medida técnica de protección.\nNo quitar ni tapar los avisos de autoría, copyright o licencia.\nNo usar el nombre, el logo ni la imagen de Keel o de JhonaCode sin permiso escrito.\nNo usar Keel ni ninguna parte de él para entrenar modelos de aprendizaje automático o sistemas de inteligencia artificial.\nNo usar Keel para nada ilegal, ni para vulnerar derechos de terceros.",
+  "termsSection12Title": "12. Si tu uso le trae un problema al autor",
+  "termsSection12Body": "Si un tercero reclama algo por la forma en que usaste Keel, o por lo que hiciste con lo que produjo, ese reclamo es tuyo. Te comprometes a mantener al autor libre de todo daño, gasto o responsabilidad que salga de tu uso de la herramienta o del incumplimiento de estos términos.",
+  "termsSection13Title": "13. Sin garantía",
+  "termsSection13Body": "Keel se entrega TAL CUAL ESTÁ y SEGÚN DISPONIBILIDAD, sin garantía de ningún tipo, expresa o implícita. No se garantiza que funcione sin errores ni interrupciones, que esté disponible, que sea compatible con tu equipo o con tus herramientas, ni que sirva para un propósito determinado.",
+  "termsSection14Title": "14. Hasta dónde llega la responsabilidad",
+  "termsSection14Body": "En la medida en que la ley lo permita, el autor no responde por daños indirectos, incidentales, especiales ni consecuentes, ni por lucro cesante, pérdida de datos, pérdida de tiempo de trabajo o interrupción de actividad, aunque se le hubiera advertido de esa posibilidad.\n\nSi aun así se determinara alguna responsabilidad, su límite total será lo que hayas pagado por Keel en los doce meses previos al hecho, que en la práctica es cero: Keel no se cobra y las donaciones no son un pago por el software.",
+  "termsSection15Title": "15. Donaciones",
+  "termsSection15Body": "Si Keel te sirve y quieres apoyar el trabajo, se agradece. Es completamente voluntario.\n\nUna donación es eso y nada más: no es una compra, no es una licencia, no da derecho a usar el software sin permiso, no incluye soporte, no da prioridad en nada, no crea ninguna obligación del autor hacia quien dona y no se devuelve.",
+  "termsSection16Title": "16. Cuándo se termina el permiso",
+  "termsSection16Body": "Cualquier uso fuera de lo autorizado extingue de inmediato y sin aviso todo permiso concedido. También puede revocarse un permiso otorgado antes. Al terminar, tienes que dejar de usar Keel y borrar las copias que tengas.\n\nLas secciones sobre propiedad, responsabilidad, garantía e indemnidad siguen vigentes después de eso.",
+  "termsSection17Title": "17. Si alguna cláusula no vale",
+  "termsSection17Body": "Si un tribunal declara inválida o inaplicable alguna parte de estos términos, el resto sigue en pie, y esa parte se interpreta de la forma más cercana posible a su intención original.\n\nQue el autor no ejerza un derecho en algún momento no significa que renuncie a él. Entre Keel y tú no hay sociedad, empleo, franquicia ni representación de ningún tipo.",
+  "termsSection18Title": "18. Ley aplicable",
+  "termsSection18Body": "Estos términos se rigen por las leyes del país de residencia del autor, y cualquier controversia se somete a los tribunales competentes de ese lugar.",
+  "termsSection19Title": "19. Estos términos pueden cambiar",
+  "termsSection19Body": "Si cambian, la versión que vale es la que muestra esta pantalla. Seguir usando Keel después de un cambio significa que lo aceptas.",
+  "termsSection20Title": "20. Contacto",
+  "termsSection20Body": "Para pedir permiso de uso, donar, reportar algo o cualquier otra consulta: jhonacode.com",
+  "messageWriteToAgent": "Escríbele algo a tu agente",
+
+  "skillAlreadyExists": "La skill \"{name}\" ya existía, la reusé.",
+  "@skillAlreadyExists": {
+    "placeholders": {"name": {"type": "String"}}
+  },
+  "ruleAlreadyExists": "La regla \"{name}\" ya existía, la reusé.",
+  "@ruleAlreadyExists": {
+    "placeholders": {"name": {"type": "String"}}
+  },
+  "toolAlreadyExists": "La tool \"{name}\" ya existía, la reusé.",
+  "@toolAlreadyExists": {
+    "placeholders": {"name": {"type": "String"}}
+  },
+  "skillCreated": "Creé la skill \"{name}\".",
+  "@skillCreated": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+  "ruleCreated": "Creé la regla \"{name}\".",
+  "@ruleCreated": {
+    "placeholders": {"name": {"type": "String"}}
+  },
+  "handleReserved": "El handle \"{handle}\" está reservado.",
+  "@handleReserved": {
+    "placeholders": {"handle": {"type": "String"}}
+  },
+  "keelAiModifyBlocked": "Keel AI pidió modificar un elemento bloqueado."
 }

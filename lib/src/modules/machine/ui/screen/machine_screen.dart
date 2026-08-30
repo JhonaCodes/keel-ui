@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
 
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/integrations/app_update/app_update.dart';
 import 'package:keel_ui/src/integrations/machine/machine.dart';
 import 'package:keel_ui/src/integrations/usage_ledger/usage_ledger.dart';
@@ -33,7 +34,7 @@ class _MachineScreenState extends State<MachineScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Máquina'),
+        title: Text(AppLocalizations.of(context)!.pageTitleMachineTitle),
         actions: [
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -67,11 +68,7 @@ class _MachineScreenState extends State<MachineScreen> {
               for (final service in snapshot.services)
                 _ServiceRow(service: service),
             const SizedBox(height: 10),
-            _Note(
-              'Detectar no es integrar: los que dicen «sin adaptador» están '
-              'en tu máquina pero Keel todavía no sabe hablarles, y no se le '
-              'pueden asignar a un agente.',
-            ),
+            _Note(AppLocalizations.of(context)!.messageDetectionNotIntegration),
 
             const _Usage(),
 
@@ -102,7 +99,7 @@ class _Usage extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _Head(
-              'Consumo · últimos 14 días',
+              AppLocalizations.of(context)!.labelConsumption,
               trailing: total == 0 ? null : '${_tokens(total)} tokens',
             ),
             UsageBars(days: days, models: models),
@@ -118,12 +115,7 @@ class _Usage extends StatelessWidget {
             ],
             const SizedBox(height: 18),
             if (engines.isEmpty)
-              _Note(
-                'Todavía no hay nada medido. El historial arranca hoy: hasta '
-                'ahora los contadores de cada turno se leían para el '
-                'porcentaje de contexto y se tiraban, así que no hay forma '
-                'de mostrar lo de antes.',
-              )
+              _Note(AppLocalizations.of(context)!.messageNoConsumptionYet)
             else ...[
               _EngineTable(engines: engines),
               const SizedBox(height: 10),
@@ -171,7 +163,7 @@ class _EngineTable extends StatelessWidget {
             Text('TURNOS', style: head),
             Text('ENTRADA', style: head),
             Text('SALIDA', style: head),
-            Text('CACHÉ LEÍDA', style: head),
+            Text(AppLocalizations.of(context)!.labelCacheReadShort, style: head),
           ],
         ),
         for (final engine in engines)
@@ -203,7 +195,7 @@ class _EngineTable extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 7),
                   child: Text(
-                    'sin medición — su CLI no informa tokens',
+                    AppLocalizations.of(context)!.messageNoTokenCount,
                     style: cell.copyWith(color: scheme.outline),
                   ),
                 )
@@ -261,7 +253,7 @@ class _Hardware extends StatelessWidget {
               child: _Metric(
                 label: 'Carga',
                 value: machine.load.toStringAsFixed(2).replaceAll('.', ','),
-                detail: 'de ${machine.cores}',
+                detail: 'de ${AppLocalizations.of(context)!.labelCoresShort(machine.cores)}',
                 ratio: machine.loadRatio,
               ),
             ),
@@ -482,7 +474,7 @@ class _ServiceRow extends StatelessWidget {
           ),
           Expanded(
             child: Text(
-              service.installed ? service.path : 'no está en el PATH',
+              service.installed ? service.path : AppLocalizations.of(context)!.messageNotInPath,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
 
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/modules/projects/model/project.dart';
 import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
 import 'package:keel_ui/src/modules/projects/ui/screen/project_form_screen.dart';
@@ -11,12 +12,13 @@ class ProjectsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Proyectos'),
+        title: Text(t.pageTitleProjects),
         actions: [
           IconButton(
-            tooltip: 'Registrar nuevo',
+            tooltip: t.tooltipRegisterNew,
             icon: const Icon(Icons.add),
             onPressed: () => openProjectFormScreen(context),
           ),
@@ -26,9 +28,7 @@ class ProjectsScreen extends StatelessWidget {
         viewmodel: ProjectsService.instance.notifier,
         build: (state, viewmodel, keep) {
           if (state.projects.isEmpty) {
-            return const Center(
-              child: Text('Todavía no registraste ningún proyecto.'),
-            );
+            return Center(child: Text(t.messageNoProjectsRegistered));
           }
           return ListView.separated(
             padding: const EdgeInsets.symmetric(vertical: 8),

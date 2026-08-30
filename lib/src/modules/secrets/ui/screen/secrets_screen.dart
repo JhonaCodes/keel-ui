@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
 
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/modules/secrets/model/secret.dart';
 import 'package:keel_ui/src/modules/secrets/viewmodel/secrets_viewmodel.dart';
 import 'package:keel_ui/src/modules/secrets/ui/screen/secret_form_screen.dart';
@@ -13,12 +14,13 @@ class SecretsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Secrets'),
+        title: Text(t.pageTitleSecrets),
         actions: [
           IconButton(
-            tooltip: 'Registrar nuevo',
+            tooltip: t.tooltipRegisterNew,
             icon: const Icon(Icons.add),
             onPressed: () => openSecretFormScreen(context),
           ),
@@ -40,7 +42,7 @@ class SecretsScreen extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
                 child: Text(
-                  'PROVEEDORES LLM',
+                  t.labelLlmProviders,
                   style: Theme.of(context).textTheme.labelSmall,
                 ),
               ),
@@ -50,7 +52,7 @@ class SecretsScreen extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 20, 16, 4),
                   child: Text(
-                    'OTROS SECRETS',
+                    t.labelOtherSecrets,
                     style: Theme.of(context).textTheme.labelSmall,
                   ),
                 ),

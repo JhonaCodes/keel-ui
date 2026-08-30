@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
 
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/modules/hooks/model/hook.dart';
 import 'package:keel_ui/src/modules/hooks/ui/screen/hook_form_screen.dart';
 import 'package:keel_ui/src/modules/hooks/viewmodel/hooks_viewmodel.dart';
@@ -32,17 +33,18 @@ class HookMultiSelect extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            Text('Hooks', style: Theme.of(context).textTheme.labelLarge),
+            Text(t.labelHooks, style: Theme.of(context).textTheme.labelLarge),
             const Spacer(),
             TextButton.icon(
               onPressed: () => openHookFormScreen(context),
               icon: const Icon(Icons.add, size: 18),
-              label: const Text('Registrar hook'),
+              label: Text(t.buttonRegister),
             ),
           ],
         ),
@@ -50,9 +52,9 @@ class HookMultiSelect extends StatelessWidget {
           viewmodel: HooksService.instance.notifier,
           build: (state, viewmodel, keep) {
             if (state.hooks.isEmpty) {
-              return const Padding(
-                padding: EdgeInsets.symmetric(vertical: 8),
-                child: Text('Todavía no registraste ningún hook.'),
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Text(t.messageNoHooksRegistered),
               );
             }
             return Wrap(
@@ -62,7 +64,9 @@ class HookMultiSelect extends StatelessWidget {
                 for (final hook in state.hooks)
                   FilterChip(
                     label: Text(
-                      hook.isGlobal ? '${hook.name} (global)' : hook.name,
+                      hook.isGlobal
+                          ? '${hook.name} (${t.labelGlobal})'
+                          : hook.name,
                     ),
                     avatar: hook.enabled
                         ? null

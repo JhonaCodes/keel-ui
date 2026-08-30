@@ -20,8 +20,9 @@ class SettingsPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Configuración')),
+      appBar: AppBar(title: Text(t.pageTitleSettings)),
       body: ReactiveViewModelBuilder<SettingsViewModel, AppSettings>(
         viewmodel: SettingsService.instance.notifier,
         build: (settings, viewmodel, keep) {
@@ -29,7 +30,7 @@ class SettingsPanel extends StatelessWidget {
             padding: const EdgeInsets.all(24),
             children: [
               Text(
-                'Tamaño del texto',
+                t.settingTextSize,
                 style: Theme.of(context).textTheme.labelLarge,
               ),
               Row(
@@ -54,14 +55,12 @@ class SettingsPanel extends StatelessWidget {
               _LanguageField(language: settings.language),
               const SizedBox(height: 24),
               Text(
-                'Permisos de escritura',
+                t.settingWritePermissions,
                 style: Theme.of(context).textTheme.labelLarge,
               ),
               const SizedBox(height: 4),
               Text(
-                'Leer archivos, buscarlos y consultar la web siempre está '
-                'permitido. Acá decidís qué pueden modificar los agentes. '
-                'Aplica a todos.',
+                t.descriptionWritePermissions,
                 style: Theme.of(context).textTheme.bodySmall,
               ),
               const SizedBox(height: 4),
@@ -76,28 +75,24 @@ class SettingsPanel extends StatelessWidget {
                 ),
               const SizedBox(height: 24),
               Text(
-                'API de trabajos programados',
+                t.settingScheduledJobsApi,
                 style: Theme.of(context).textTheme.labelLarge,
               ),
               const SizedBox(height: 4),
               Text(
-                'Para schedulers externos (cron, keel): '
-                'POST /projects/<nombre>/tasks {"prompt": "..."} con el '
-                'token Bearer. Solo loopback.',
+                t.descriptionScheduledJobsApi,
                 style: Theme.of(context).textTheme.bodySmall,
               ),
               const SizedBox(height: 8),
               const _JobsApiInfo(),
               const SizedBox(height: 24),
               Text(
-                'Elementos bloqueados',
+                t.labelLockedElements,
                 style: Theme.of(context).textTheme.labelLarge,
               ),
               const SizedBox(height: 4),
               Text(
-                'Lo que un agente no puede cambiar ni borrar sin pedirte '
-                'permiso primero. El candado se pone desde cada ítem; acá se '
-                'ven todos juntos.',
+                t.descriptionLockedElements,
                 style: Theme.of(context).textTheme.bodySmall,
               ),
               const SizedBox(height: 8),
@@ -106,7 +101,7 @@ class SettingsPanel extends StatelessWidget {
                 child: OutlinedButton.icon(
                   onPressed: () => openCatalogLocksPanel(context),
                   icon: const Icon(Icons.lock_outline, size: 18),
-                  label: const Text('Ver bloqueados…'),
+                  label: Text(t.buttonViewLocked),
                 ),
               ),
               const SizedBox(height: 32),
@@ -119,9 +114,7 @@ class SettingsPanel extends StatelessWidget {
   }
 }
 
-/// Selector de idioma. `language` vacío sigue el idioma del sistema
-/// operativo — no hay una opción explícita para eso en el dropdown porque
-/// "Español (Colombia)"/"English" ya cubren el par soportado.
+/// Selector del idioma persistido de la aplicación.
 class _LanguageField extends StatelessWidget {
   final String language;
 
@@ -130,11 +123,6 @@ class _LanguageField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = AppLocalizations.of(context);
-    // Vacío = sigue el idioma del sistema: el dropdown muestra lo que
-    // Flutter ya resolvió para esta ventana, no un valor inventado.
-    final resolved = language.isEmpty
-        ? Localizations.localeOf(context).languageCode
-        : language;
     return ListTile(
       contentPadding: EdgeInsets.zero,
       title: Text(
@@ -142,7 +130,7 @@ class _LanguageField extends StatelessWidget {
         style: Theme.of(context).textTheme.labelLarge,
       ),
       trailing: DropdownButton<String>(
-        value: resolved.startsWith('es') ? 'es_CO' : 'en',
+        value: language.startsWith('es') ? 'es_CO' : 'en',
         items: [
           DropdownMenuItem(value: 'es_CO', child: Text(t.languageSpanish)),
           DropdownMenuItem(value: 'en', child: Text(t.languageEnglish)),
@@ -161,11 +149,12 @@ class _JobsApiInfo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
     return ReactiveViewModelBuilder<JobsApiViewModel, JobsApiState>(
       viewmodel: JobsApiService.instance.notifier,
       build: (api, viewmodel, keep) {
         if (!api.running) {
-          return const Text('La API no está corriendo en esta ventana.');
+          return Text(t.messageApiNotRunning);
         }
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -177,7 +166,7 @@ class _JobsApiInfo extends StatelessWidget {
             OutlinedButton.icon(
               onPressed: viewmodel.regenerateToken,
               icon: const Icon(Icons.autorenew, size: 18),
-              label: const Text('Regenerar token'),
+              label: Text(t.buttonRegenerateToken),
             ),
           ],
         );
@@ -196,13 +185,14 @@ class _AboutKeel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
     final theme = Theme.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Divider(),
         const SizedBox(height: 16),
-        Text('Acerca de Keel', style: theme.textTheme.labelLarge),
+        Text(t.labelAboutKeel, style: theme.textTheme.labelLarge),
         const SizedBox(height: 12),
         Wrap(
           spacing: 8,
@@ -221,7 +211,7 @@ class _AboutKeel extends StatelessWidget {
             OutlinedButton.icon(
               onPressed: () => openTermsPanel(context),
               icon: const Icon(Icons.gavel_outlined, size: 18),
-              label: const Text('Términos de uso'),
+              label: Text(t.pageTitleTermsOfUse),
             ),
           ],
         ),

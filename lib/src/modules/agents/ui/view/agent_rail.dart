@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
 
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/modules/assistant/service/assistant_window_bridge.dart';
 import 'package:keel_ui/src/integrations/app_update/app_update.dart';
 import 'package:keel_ui/src/integrations/fault_journal/fault_journal.dart';
@@ -89,6 +90,7 @@ class _AgentRailState extends State<AgentRail> {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
     // `Material` y no `ColoredBox`: el `Material` del `Scaffold` pinta las
     // ondas ANTES que a su hijo, así que una capa opaca del rail las tapaba.
     // El splash y el resaltado del hover se dibujaban y no se veían nunca.
@@ -152,7 +154,7 @@ class _AgentRailState extends State<AgentRail> {
                     _RailButton(
                       label: 'Hooks',
                       icon: Icons.gpp_maybe_outlined,
-                      tooltip: 'Guardarraíles que corren solos',
+                      tooltip: t.tooltipGuardrailsAutorun,
                       onPressed: () => _open('Hooks', widget.onOpenHooks),
                       selected: _openPanel == 'Hooks',
                     ),
@@ -217,7 +219,7 @@ class _AgentRailState extends State<AgentRail> {
             _RailButton(
               label: 'Ajustes',
               icon: Icons.settings_outlined,
-              tooltip: 'Configuración',
+              tooltip: t.labelSettings,
               onPressed: () =>
                   _open('Ajustes', () => openSettingsPanel(context)),
               selected: _openPanel == 'Ajustes',

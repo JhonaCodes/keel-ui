@@ -14,6 +14,7 @@ class BundleFindingsView extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final t = AppLocalizations.of(context);
 
     if (audit.isClean) {
       return Container(
@@ -28,8 +29,7 @@ class BundleFindingsView extends StatelessWidget {
             const SizedBox(width: 10),
             Expanded(
               child: Text(
-                'Revisé ${audit.scannedTexts} textos y no encontré nada '
-                'conocido. No es una garantía: busca lo que sabe buscar.',
+                t.bundleAuditCleanNote(audit.scannedTexts),
                 style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
               ),
             ),
@@ -75,6 +75,7 @@ class _RiskHead extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final t = AppLocalizations.of(context);
     final color = riskColor(risk, scheme);
     return Padding(
       padding: const EdgeInsets.only(top: 6, bottom: 8),
@@ -83,7 +84,7 @@ class _RiskHead extends StatelessWidget {
           Icon(riskIcon(risk), size: 15, color: color),
           const SizedBox(width: 7),
           Text(
-            'GRAVEDAD ${risk.label.toUpperCase()}',
+            t.bundleRiskLevelLabel(risk.label.toUpperCase()),
             style: TextStyle(
               fontFamily: 'monospace',
               fontSize: 10,

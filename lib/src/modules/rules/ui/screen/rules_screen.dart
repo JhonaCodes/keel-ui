@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
 
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/modules/rules/model/rule.dart';
 import 'package:keel_ui/src/modules/rules/viewmodel/rules_viewmodel.dart';
 import 'package:keel_ui/src/modules/rules/ui/screen/rule_form_screen.dart';
@@ -11,12 +12,13 @@ class RulesScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Reglas registradas'),
+        title: Text(t.pageTitleRulesRegistered),
         actions: [
           IconButton(
-            tooltip: 'Registrar nueva',
+            tooltip: t.tooltipRegisterNew,
             icon: const Icon(Icons.add),
             onPressed: () => openRuleFormScreen(context),
           ),
@@ -26,9 +28,7 @@ class RulesScreen extends StatelessWidget {
         viewmodel: RulesService.instance.notifier,
         build: (state, viewmodel, keep) {
           if (state.rules.isEmpty) {
-            return const Center(
-              child: Text('Todavía no registraste ninguna regla.'),
-            );
+            return Center(child: Text(t.messageNoRulesRegistered));
           }
           return ListView.separated(
             padding: const EdgeInsets.symmetric(vertical: 8),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
 
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/modules/skills/model/skill.dart';
 import 'package:keel_ui/src/modules/skills/viewmodel/skills_viewmodel.dart';
 import 'package:keel_ui/src/modules/skills/ui/screen/skill_form_screen.dart';
@@ -28,17 +29,18 @@ class SkillMultiSelect extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            Text('Skills', style: Theme.of(context).textTheme.labelLarge),
+            Text(t.labelSkills, style: Theme.of(context).textTheme.labelLarge),
             const Spacer(),
             TextButton.icon(
               onPressed: () => openSkillFormScreen(context),
               icon: const Icon(Icons.add, size: 18),
-              label: const Text('Registrar skill'),
+              label: Text(t.buttonRegisterSkill),
             ),
           ],
         ),
@@ -46,9 +48,9 @@ class SkillMultiSelect extends StatelessWidget {
           viewmodel: SkillsService.instance.notifier,
           build: (state, viewmodel, keep) {
             if (state.skills.isEmpty) {
-              return const Padding(
-                padding: EdgeInsets.symmetric(vertical: 8),
-                child: Text('Todavía no registraste ningún skill.'),
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Text(t.messageNoSkillsRegistered),
               );
             }
             return Wrap(

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/core/ui/form_panel.dart';
 import 'package:keel_ui/src/modules/knowledge/model/knowledge_base.dart';
 import 'package:keel_ui/src/modules/knowledge/viewmodel/knowledge_viewmodel.dart';
@@ -113,6 +114,7 @@ class _KnowledgeBaseFormScreenState extends State<KnowledgeBaseFormScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
     final isEditing = widget.initial != null;
 
     return Scaffold(
@@ -148,12 +150,12 @@ class _KnowledgeBaseFormScreenState extends State<KnowledgeBaseFormScreen> {
           const SizedBox(height: 16),
           TextField(
             controller: _descriptionController,
-            decoration: const InputDecoration(
-              labelText: 'Qué contesta esta base',
+            decoration: InputDecoration(
+              labelText: t.labelKnowledgeBaseAnswers,
               hintText: 'Contratos de API, dominio y procesos de NUI Markets.',
               helperText:
                   'Es lo primero que lee un agente para decidir si buscar acá.',
-              border: OutlineInputBorder(
+              border: const OutlineInputBorder(
                 borderRadius: BorderRadius.all(Radius.circular(16)),
               ),
             ),

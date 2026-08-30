@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
 
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/modules/knowledge/ui/screen/knowledge_base_form_screen.dart';
 import 'package:keel_ui/src/modules/knowledge/viewmodel/knowledge_viewmodel.dart';
 
@@ -28,6 +29,7 @@ class KnowledgeBaseMultiSelect extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -38,7 +40,7 @@ class KnowledgeBaseMultiSelect extends StatelessWidget {
             TextButton.icon(
               onPressed: () => openKnowledgeBaseFormScreen(context),
               icon: const Icon(Icons.add, size: 18),
-              label: const Text('Nueva base'),
+              label: Text(t.buttonNewKnowledgeBase),
             ),
           ],
         ),
@@ -46,9 +48,9 @@ class KnowledgeBaseMultiSelect extends StatelessWidget {
           viewmodel: KnowledgeService.instance.notifier,
           build: (state, viewmodel, keep) {
             if (state.bases.isEmpty) {
-              return const Padding(
-                padding: EdgeInsets.symmetric(vertical: 8),
-                child: Text('Todavía no hay ninguna base de saber.'),
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Text(t.messageNoKnowledgeBasesYet),
               );
             }
             return Wrap(

@@ -2,6 +2,7 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
 
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/core/ui/form_panel.dart';
 import 'package:keel_ui/src/modules/knowledge/ui/widget/knowledge_base_multi_select.dart';
 import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
@@ -161,6 +162,7 @@ class _ProjectFormScreenState extends State<ProjectFormScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
     final isEditing = widget.initial != null;
 
     return Scaffold(
@@ -199,9 +201,9 @@ class _ProjectFormScreenState extends State<ProjectFormScreen> {
                 const SizedBox(height: 16),
                 TextField(
                   controller: _purposeController,
-                  decoration: const InputDecoration(
-                    labelText: 'Propósito',
-                    border: OutlineInputBorder(
+                  decoration: InputDecoration(
+                    labelText: t.labelProjectPurpose,
+                    border: const OutlineInputBorder(
                       borderRadius: BorderRadius.all(Radius.circular(16)),
                     ),
                   ),
@@ -351,6 +353,7 @@ class _ProjectMembersSelect extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -375,9 +378,9 @@ class _ProjectMembersSelect extends StatelessWidget {
                 .where((profile) => profile.name != kKeelAiHandle)
                 .toList();
             if (profiles.isEmpty) {
-              return const Padding(
-                padding: EdgeInsets.symmetric(vertical: 8),
-                child: Text('Todavía no registraste ningún agente.'),
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Text(t.messageNoAgentsRegistered),
               );
             }
             return Wrap(

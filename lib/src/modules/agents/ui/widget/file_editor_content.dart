@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:gpt_markdown/gpt_markdown.dart';
 
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/core/services/local_file_service.dart';
 import 'package:keel_ui/src/modules/agents/model/code_language.dart';
 import 'package:keel_ui/src/modules/agents/model/file_edit.dart';
@@ -149,14 +150,12 @@ class _FileEditorContentState extends State<FileEditorContent> {
   }
 
   Future<bool> _confirmOverwriteStale() {
+    final t = AppLocalizations.of(context);
     return confirmWithCard(
       context,
-      title: 'El archivo cambió',
-      body:
-          'Este archivo se modificó (por ejemplo el agente lo editó) desde '
-          'que abriste esta ventana. Si guardas ahora, vas a sobrescribir '
-          'ese cambio con lo que tienes aquí.',
-      confirmLabel: 'Sobrescribir igual',
+      title: t.labelFileChanged,
+      body: t.messageFileChangedBody,
+      confirmLabel: t.buttonOverwriteAnyway,
       destructive: true,
     );
   }
@@ -559,6 +558,7 @@ class _AskBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
     return Padding(
       padding: const EdgeInsets.only(top: 8),
       child: Row(
@@ -567,9 +567,9 @@ class _AskBar extends StatelessWidget {
             child: TextField(
               controller: controller,
               enabled: !asking,
-              decoration: const InputDecoration(
-                hintText: 'Pregunta sobre esta línea…',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                hintText: t.hintAskAboutThisLine,
+                border: const OutlineInputBorder(),
                 isDense: true,
               ),
               onSubmitted: (_) => onSubmit(),

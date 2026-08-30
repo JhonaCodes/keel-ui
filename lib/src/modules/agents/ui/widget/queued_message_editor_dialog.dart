@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/integrations/chat_references/chat_references.dart';
 import 'package:keel_ui/src/modules/agents/model/queued_message.dart';
 
@@ -49,6 +50,7 @@ class _QueuedMessageEditorDialogState extends State<QueuedMessageEditorDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
     return AlertDialog(
       title: const Text('Editar mensaje en espera'),
       content: SizedBox(
@@ -58,9 +60,7 @@ class _QueuedMessageEditorDialogState extends State<QueuedMessageEditorDialog> {
           autofocus: true,
           minLines: 3,
           maxLines: 8,
-          decoration: const InputDecoration(
-            hintText: 'Mensaje que se enviará en el próximo turno',
-          ),
+          decoration: InputDecoration(hintText: t.hintQueuedMessage),
           onSubmitted: (_) => _save(),
         ),
       ),

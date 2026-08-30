@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
 
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/modules/catalog_locks/model/catalog_lock.dart';
 import 'package:keel_ui/src/modules/catalog_locks/ui/widget/catalog_lock_button.dart';
 import 'package:keel_ui/src/modules/catalog_locks/viewmodel/catalog_locks_viewmodel.dart';
@@ -64,6 +65,7 @@ class _Empty extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
     final theme = Theme.of(context);
     return Center(
       child: Padding(
@@ -73,15 +75,10 @@ class _Empty extends StatelessWidget {
           children: [
             Icon(Icons.tune, size: 28, color: theme.colorScheme.outline),
             const SizedBox(height: 14),
-            Text('Todavía no hay tableros', style: theme.textTheme.titleSmall),
+            Text(t.labelNoBoardsYet, style: theme.textTheme.titleSmall),
             const SizedBox(height: 8),
             Text(
-              'Un tablero es una pantallita para disparar algo contra tu '
-              'propia app: lanzar una oferta, mandarte un push, pegarle a un '
-              'endpoint que estás escribiendo.\n\n'
-              'Lo más rápido es pedírselo a un agente del proyecto: lee tu '
-              'código y lo arma solo. Aparece en la sección Tableros de ese '
-              'proyecto.',
+              t.messageNoBoardsExplainer,
               textAlign: TextAlign.center,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,

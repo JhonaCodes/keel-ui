@@ -40,6 +40,7 @@ const _workflowKeys = {
   'gates',
   'max_reformulaciones',
   'max_subagentes',
+  'max_ciclos_auditoria',
   'construye_roadmap',
   'capacidades',
 };
@@ -130,7 +131,8 @@ List<AssistantAction> parseAssistantActions(String text) {
         requiredKnowledgeBaseNames: _splitList(fields['conocimiento']),
         qualityGates: _workflowQualityGates(fields['gates']),
         maxReplans: _boundedInt(fields['max_reformulaciones']),
-        maxSubagents: _boundedInt(fields['max_subagentes']),
+        maxSubagents: _subagentLimit(fields['max_subagentes']),
+        maxReviewCycles: _reviewCycles(fields['max_ciclos_auditoria']),
         capabilities: _workflowCapabilities(fields['capacidades']),
         buildsRoadmap: fields.containsKey('construye_roadmap')
             ? _parseBool(fields['construye_roadmap'])
@@ -174,7 +176,10 @@ List<AssistantAction> parseAssistantActions(String text) {
 
 bool _parseBool(String? raw) {
   final normalized = raw?.trim().toLowerCase();
-  return normalized == 'si' || normalized == 'sí' || normalized == 'true';
+  return normalized == 'si' ||
+      normalized == 'sí' ||
+      normalized == 'yes' ||
+      normalized == 'true';
 }
 
 List<String> _splitList(String? raw) {
@@ -198,7 +203,9 @@ List<WorkflowQualityGate> _workflowQualityGates(String? raw) => [
 ];
 
 /// Compact fenced-block representation:
-/// id|title|role|required/optional|dep-a+dep-b|shared/independent|instruction
+/// Legacy: id|title|role|required/optional|dep-a+dep-b|shared/independent|instruction
+/// Extended: id|title|role|required/optional|deps|shared/independent|
+/// executor|parent|maxTurns|readOnly|outputContract|instruction
 List<WorkflowCapability> _workflowCapabilities(String? raw) {
   if (raw == null || raw.trim().isEmpty) return const [];
   final capabilities = <WorkflowCapability>[];
@@ -209,6 +216,9 @@ List<WorkflowCapability> _workflowCapabilities(String? raw) {
         (fields[5] != 'shared' && fields[5] != 'independent')) {
       continue;
     }
+    final extended =
+        fields.length >= 12 &&
+        WorkflowExecutor.values.any((entry) => entry.name == fields[6]);
     capabilities.add(
       WorkflowCapability(
         id: fields[0],
@@ -223,7 +233,16 @@ List<WorkflowCapability> _workflowCapabilities(String? raw) {
             .where((value) => value.isNotEmpty)
             .toList(),
         requiresIndependentOwner: fields[5] == 'independent',
-        instruction: fields.sublist(6).join('|'),
+        executor: extended
+            ? WorkflowExecutor.values.firstWhere(
+                (entry) => entry.name == fields[6],
+              )
+            : WorkflowExecutor.newSession,
+        parentCapabilityId: extended && fields[7].isNotEmpty ? fields[7] : '',
+        maxAgenticTurns: extended ? _maxAgenticTurns(fields[8]) : 0,
+        readOnly: extended && _parseBool(fields[9]),
+        outputContract: extended && fields[10].isNotEmpty ? fields[10] : '',
+        instruction: fields.sublist(extended ? 11 : 6).join('|'),
       ),
     );
   }
@@ -234,3 +253,16 @@ int? _boundedInt(String? raw) {
   final value = int.tryParse(raw?.trim() ?? '');
   return value?.clamp(0, 2).toInt();
 }
+
+int? _reviewCycles(String? raw) {
+  final value = int.tryParse(raw?.trim() ?? '');
+  return value?.clamp(1, 4).toInt();
+}
+
+int? _subagentLimit(String? raw) {
+  final value = int.tryParse(raw?.trim() ?? '');
+  return value?.clamp(0, 1).toInt();
+}
+
+int _maxAgenticTurns(String raw) =>
+    (int.tryParse(raw) ?? 0).clamp(0, 20).toInt();

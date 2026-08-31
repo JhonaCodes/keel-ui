@@ -89,6 +89,7 @@ class CreateWorkflowAction extends AssistantAction {
   final List<WorkflowQualityGate> qualityGates;
   final int? maxReplans;
   final int? maxSubagents;
+  final int? maxReviewCycles;
   final List<WorkflowCapability> capabilities;
   final bool? buildsRoadmap;
 
@@ -103,6 +104,7 @@ class CreateWorkflowAction extends AssistantAction {
     this.qualityGates = const [],
     this.maxReplans,
     this.maxSubagents,
+    this.maxReviewCycles,
     this.capabilities = const [],
     this.buildsRoadmap,
   });

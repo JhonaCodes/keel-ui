@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
 import 'package:keel_ui/src/modules/agents/model/agent_model_option.dart';
 import 'package:keel_ui/src/modules/agents/model/agent_provider.dart';
@@ -48,15 +47,11 @@ class WorkflowProgressPanel extends StatelessWidget {
   final Workflow? workflow;
   final List<AgentProfile> members;
 
-  List<WorkflowCapability> _capabilitiesOf(BuildContext context) {
+  List<WorkflowCapability> _capabilitiesOf() {
     final flow = workflow;
     if (flow == null) return const [];
     return flow.capabilities.isEmpty
-        ? defaultWorkflowCapabilities(
-            flow.kind,
-            flow.policy.resolutionRole,
-            l10n: AppLocalizations.of(context),
-          )
+        ? defaultWorkflowCapabilities(flow.kind, flow.policy.resolutionRole)
         : flow.capabilities;
   }
 
@@ -176,7 +171,7 @@ class WorkflowProgressPanel extends StatelessWidget {
   ) async {
     final flow = workflow;
     if (flow == null || !_canAssign(capability)) return;
-    final capabilities = _capabilitiesOf(context);
+    final capabilities = _capabilitiesOf();
     final roles = {
       for (final member in members)
         if (member.role.trim().isNotEmpty) member.role.trim(),
@@ -346,7 +341,7 @@ class WorkflowProgressPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final flow = workflow;
-    final capabilities = _capabilitiesOf(context);
+    final capabilities = _capabilitiesOf();
     final resolution = session?.resolutionCase;
     final done =
         resolution?.nodes

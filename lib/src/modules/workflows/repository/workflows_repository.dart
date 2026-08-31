@@ -44,7 +44,10 @@ bool _usesCurrentWorkflowSchema(Map<String, dynamic> record) {
   final raw = record['capabilities'];
   if (raw is! List || raw.isEmpty) return false;
   if (raw.any(
-    (entry) => entry is! Map || entry['requiresIndependentOwner'] is! bool,
+    (entry) =>
+        entry is! Map ||
+        entry['requiresIndependentOwner'] is! bool ||
+        entry['executor'] is! String,
   )) {
     return false;
   }

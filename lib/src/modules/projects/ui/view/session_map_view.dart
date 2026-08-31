@@ -37,12 +37,14 @@ class SessionMapView extends StatefulWidget {
     required this.session,
     required this.members,
     required this.workflow,
+    this.initiallyExpandedParents = const {},
   });
 
   final Project project;
   final Session? session;
   final List<AgentProfile> members;
   final Workflow? workflow;
+  final Set<String> initiallyExpandedParents;
 
   @override
   State<SessionMapView> createState() => _SessionMapViewState();
@@ -76,6 +78,7 @@ class _SessionMapViewState extends State<SessionMapView>
   @override
   void initState() {
     super.initState();
+    _expanded.addAll(widget.initiallyExpandedParents);
     _view.addListener(_watchScale);
     _camera.addListener(() {
       final tween = _cameraTween;

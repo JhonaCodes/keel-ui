@@ -318,7 +318,8 @@ AssistantActionResult executeWorkflowAction(CreateWorkflowAction action) {
         ? _defaultWorkflowGates(action.kind)
         : action.qualityGates,
     maxReplans: action.maxReplans ?? 2,
-    maxSubagents: action.maxSubagents ?? 2,
+    maxSubagents: action.maxSubagents ?? 1,
+    maxReviewCycles: action.maxReviewCycles ?? 4,
   );
   final error = existing == null
       ? viewmodel.createWorkflow(

@@ -31,7 +31,7 @@ capacidades: diagnose|Diagnosticar|diagnosticador|required||shared|Aislar la cau
       WorkflowQualityGate.regression,
     ]);
     expect(workflow.maxReplans, 1);
-    expect(workflow.maxSubagents, 2);
+    expect(workflow.maxSubagents, 1);
     expect(workflow.capabilities, hasLength(3));
     expect(workflow.capabilities[1].dependencyIds, ['diagnose']);
     expect(
@@ -40,6 +40,29 @@ capacidades: diagnose|Diagnosticar|diagnosticador|required||shared|Aislar la cau
     );
     expect(workflow.capabilities.last.requiresIndependentOwner, isTrue);
     expect(workflow.capabilities.first.requiresIndependentOwner, isFalse);
+  });
+
+  test('el bloque workflow conserva el contrato de ejecución extendido', () {
+    final workflow =
+        parseAssistantActions('''
+```workflow
+nombre: delivery-loop
+max_ciclos_auditoria: 4
+capacidades: implement|Implement|builder|required||shared|newSession||12|no||Implement with evidence ;; audit|Audit|auditor|required|implement|independent|providerSubagent|implement|3|yes|audit-feedback|Return findings
+```
+''').single
+            as CreateWorkflowAction;
+
+    expect(workflow.maxReviewCycles, 4);
+    expect(workflow.capabilities[0].executor, WorkflowExecutor.newSession);
+    expect(
+      workflow.capabilities[1].executor,
+      WorkflowExecutor.providerSubagent,
+    );
+    expect(workflow.capabilities[1].parentCapabilityId, 'implement');
+    expect(workflow.capabilities[1].maxAgenticTurns, 3);
+    expect(workflow.capabilities[1].readOnly, isTrue);
+    expect(workflow.capabilities[1].outputContract, 'audit-feedback');
   });
 
   test('rechaza la forma anterior sin semántica de independencia', () {

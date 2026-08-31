@@ -523,7 +523,10 @@ final List<Tool> keelAiTools = _withCatalogChangeParameters([
           description: 'Máximo de reformulaciones, de 0 a 2.',
         ),
         'max_subagents': Schema.int(
-          description: 'Máximo de subagentes permitidos, de 0 a 2.',
+          description: 'Máximo de auditores simultáneos, de 0 a 1.',
+        ),
+        'max_review_cycles': Schema.int(
+          description: 'Máximo total de ciclos auditoría/corrección, de 1 a 4.',
         ),
         'builds_roadmap': Schema.bool(
           description:
@@ -548,6 +551,24 @@ final List<Tool> keelAiTools = _withCatalogChangeParameters([
                 description:
                     'True cuando debe ejecutarla un agente distinto de '
                     'quienes produjeron sus dependencias.',
+              ),
+              'executor': Schema.string(
+                description:
+                    'newSession, resumeParent, providerSubagent o manualApproval.',
+              ),
+              'parent_capability_id': Schema.string(
+                description:
+                    'Nodo padre obligatorio para resumeParent y providerSubagent.',
+              ),
+              'max_agentic_turns': Schema.int(
+                description: 'Presupuesto de turnos, de 0 a 20.',
+              ),
+              'read_only': Schema.bool(
+                description:
+                    'True para planificación y auditorías sin escritura.',
+              ),
+              'output_contract': Schema.string(
+                description: 'Contrato de salida, por ejemplo audit-feedback.',
               ),
             },
             required: ['id', 'title', 'instruction', 'role', 'activation'],
@@ -819,7 +840,10 @@ final List<Tool> keelAiTools = _withCatalogChangeParameters([
           description: 'Máximo de reformulaciones, de 0 a 2.',
         ),
         'max_subagents': Schema.int(
-          description: 'Máximo de subagentes permitidos, de 0 a 2.',
+          description: 'Máximo de auditores simultáneos, de 0 a 1.',
+        ),
+        'max_review_cycles': Schema.int(
+          description: 'Máximo total de ciclos auditoría/corrección, de 1 a 4.',
         ),
         'builds_roadmap': Schema.bool(
           description:
@@ -844,6 +868,24 @@ final List<Tool> keelAiTools = _withCatalogChangeParameters([
                 description:
                     'True cuando debe ejecutarla un agente distinto de '
                     'quienes produjeron sus dependencias.',
+              ),
+              'executor': Schema.string(
+                description:
+                    'newSession, resumeParent, providerSubagent o manualApproval.',
+              ),
+              'parent_capability_id': Schema.string(
+                description:
+                    'Nodo padre obligatorio para resumeParent y providerSubagent.',
+              ),
+              'max_agentic_turns': Schema.int(
+                description: 'Presupuesto de turnos, de 0 a 20.',
+              ),
+              'read_only': Schema.bool(
+                description:
+                    'True para planificación y auditorías sin escritura.',
+              ),
+              'output_contract': Schema.string(
+                description: 'Contrato de salida, por ejemplo audit-feedback.',
               ),
             },
             required: ['id', 'title', 'instruction', 'role', 'activation'],

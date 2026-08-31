@@ -220,8 +220,8 @@ class _WorkflowFormScreenState extends State<WorkflowFormScreen> {
           Slider(
             value: _maxReplans.toDouble(),
             min: 0,
-            max: 1,
-            divisions: 1,
+            max: 2,
+            divisions: 2,
             label: '$_maxReplans',
             onChanged: (value) => setState(() => _maxReplans = value.round()),
           ),
@@ -233,8 +233,8 @@ class _WorkflowFormScreenState extends State<WorkflowFormScreen> {
           Slider(
             value: _maxSubagents.toDouble(),
             min: 0,
-            max: 2,
-            divisions: 2,
+            max: 1,
+            divisions: 1,
             label: '$_maxSubagents',
             onChanged: (value) => setState(() => _maxSubagents = value.round()),
           ),

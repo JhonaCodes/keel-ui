@@ -552,8 +552,9 @@ Future<(bool, String)> _runKeelAiTool(
               ? null
               : _stringList(arguments['knowledge_base_names']),
           qualityGates: qualityGates,
-          maxReplans: _boundedWorkflowLimit(arguments['max_replans']),
-          maxSubagents: _boundedWorkflowLimit(arguments['max_subagents']),
+          maxReplans: _boundedReplanLimit(arguments['max_replans']),
+          maxSubagents: _boundedSubagentLimit(arguments['max_subagents']),
+          maxReviewCycles: _boundedReviewCycles(arguments['max_review_cycles']),
         ),
         skillNames: arguments['skills'] == null
             ? null
@@ -634,8 +635,9 @@ Future<(bool, String)> _runKeelAiTool(
             arguments['knowledge_base_names'],
           ),
           qualityGates: _workflowQualityGates(arguments['quality_gates']),
-          maxReplans: _boundedWorkflowLimit(arguments['max_replans']),
-          maxSubagents: _boundedWorkflowLimit(arguments['max_subagents']),
+          maxReplans: _boundedReplanLimit(arguments['max_replans']),
+          maxSubagents: _boundedSubagentLimit(arguments['max_subagents']),
+          maxReviewCycles: _boundedReviewCycles(arguments['max_review_cycles']),
           capabilities:
               _workflowCapabilities(arguments['capabilities']) ?? const [],
           buildsRoadmap: arguments['builds_roadmap'] as bool?,
@@ -1604,9 +1606,19 @@ List<WorkflowQualityGate> _workflowQualityGates(Object? value) => [
       if (gate.name == name) gate,
 ];
 
-int? _boundedWorkflowLimit(Object? value) {
+int? _boundedReplanLimit(Object? value) {
   final number = value as num?;
   return number?.toInt().clamp(0, 2).toInt();
+}
+
+int? _boundedSubagentLimit(Object? value) {
+  final number = value as num?;
+  return number?.toInt().clamp(0, 1).toInt();
+}
+
+int? _boundedReviewCycles(Object? value) {
+  final number = value as num?;
+  return number?.toInt().clamp(1, 4).toInt();
 }
 
 List<WorkflowCapability>? _workflowCapabilities(Object? value) {
@@ -1633,6 +1645,17 @@ List<WorkflowCapability>? _workflowCapabilities(Object? value) {
             ? WorkflowCapabilityActivation.optional
             : WorkflowCapabilityActivation.required,
         requiresIndependentOwner: data['independent'] as bool? ?? false,
+        executor: WorkflowExecutor.values.firstWhere(
+          (entry) => entry.name == data['executor'],
+          orElse: () => WorkflowExecutor.newSession,
+        ),
+        parentCapabilityId: (data['parent_capability_id'] as String? ?? '')
+            .trim(),
+        maxAgenticTurns: ((data['max_agentic_turns'] as num?)?.toInt() ?? 0)
+            .clamp(0, 20)
+            .toInt(),
+        readOnly: data['read_only'] as bool? ?? false,
+        outputContract: (data['output_contract'] as String? ?? '').trim(),
       ),
     );
   }

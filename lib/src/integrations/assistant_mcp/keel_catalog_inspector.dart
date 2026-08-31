@@ -50,6 +50,7 @@ class KeelCatalogInspector {
           '${_orNone(workflow.policy.qualityGates.map((gate) => gate.name))}',
       'Reformulaciones máximas: ${workflow.policy.maxReplans}',
       'Subagentes máximos: ${workflow.policy.maxSubagents}',
+      'Ciclos de auditoría máximos: ${workflow.policy.maxReviewCycles}',
       'Construye roadmap: ${workflow.buildsRoadmap ? 'sí' : 'no'}',
       'Capacidades (${capabilities.length}):',
       for (final capability in capabilities) ...[
@@ -57,6 +58,11 @@ class KeelCatalogInspector {
         '  rol: ${capability.role} · activación: '
             '${capability.activation.name} · independiente: '
             '${capability.requiresIndependentOwner ? 'sí' : 'no'}',
+        '  ejecución: ${capability.executor.name} · padre: '
+            '${_valueOr(capability.parentCapabilityId, 'ninguno')} · '
+            'solo lectura: ${capability.readOnly ? 'sí' : 'no'} · '
+            'turnos: ${capability.maxAgenticTurns}',
+        '  contrato de salida: ${_valueOr(capability.outputContract, 'ninguno')}',
         '  dependencias: ${_orNone(capability.dependencyIds)}',
         '  instrucción: ${capability.instruction}',
       ],

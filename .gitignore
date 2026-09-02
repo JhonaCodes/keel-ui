@@ -46,3 +46,4 @@ app.*.map.json
 
 # Credenciales de compilación (webhook de Discord). Nunca al repositorio.
 keel_secrets.json
+/test/goldens/failures/

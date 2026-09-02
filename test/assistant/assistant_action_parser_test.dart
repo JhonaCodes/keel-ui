@@ -31,7 +31,9 @@ capacidades: diagnose|Diagnosticar|diagnosticador|required||shared|Aislar la cau
       WorkflowQualityGate.regression,
     ]);
     expect(workflow.maxReplans, 1);
-    expect(workflow.maxSubagents, 1);
+    // Los 2 que declara el bloque sobreviven: el tope por nodo es
+    // kMaxSubagentsPerNode, no 1.
+    expect(workflow.maxSubagents, 2);
     expect(workflow.capabilities, hasLength(3));
     expect(workflow.capabilities[1].dependencyIds, ['diagnose']);
     expect(
@@ -40,6 +42,27 @@ capacidades: diagnose|Diagnosticar|diagnosticador|required||shared|Aislar la cau
     );
     expect(workflow.capabilities.last.requiresIndependentOwner, isTrue);
     expect(workflow.capabilities.first.requiresIndependentOwner, isFalse);
+  });
+
+  test('el tope de subagentes se recorta a kMaxSubagentsPerNode', () {
+    CreateWorkflowAction parseWith(String declared) =>
+        parseAssistantActions('''
+```workflow
+nombre: fan-out
+cuando: Probar el recorte del tope.
+responsable: resolver
+max_subagentes: $declared
+```
+''').single as CreateWorkflowAction;
+
+    // Un número absurdo no puede colarse: el mapa dibuja hasta ese tope y por
+    // encima de él la fan-out deja de ser observable.
+    expect(parseWith('99').maxSubagents, kMaxSubagentsPerNode);
+    // El borde exacto pasa entero.
+    expect(parseWith('$kMaxSubagentsPerNode').maxSubagents, kMaxSubagentsPerNode);
+    // Y cero sigue siendo válido: es "sin delegación interna".
+    expect(parseWith('0').maxSubagents, 0);
+    expect(parseWith('-3').maxSubagents, 0);
   });
 
   test('el bloque workflow conserva el contrato de ejecución extendido', () {

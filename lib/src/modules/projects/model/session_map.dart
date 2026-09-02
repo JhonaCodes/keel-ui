@@ -14,7 +14,7 @@ import 'package:keel_ui/src/modules/workflows/model/workflow.dart';
 /// ni cambia lo que corre. Un padre que largó doce llenaría el carril y
 /// taparía a los demás; los que no entran se cuentan en una píldora que se
 /// abre.
-const kSubagentsDrawn = 4;
+const kSubagentsDrawn = kMaxSubagentsPerNode;
 
 enum MapNodeKind { you, work, free, consultation, subagent, end }
 

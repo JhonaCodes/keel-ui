@@ -5,6 +5,13 @@ import 'package:keel_ui/src/modules/workflows/model/workflow_capability.dart';
 
 export 'package:keel_ui/src/modules/workflows/model/workflow_capability.dart';
 
+/// Techo de subagentes que un NODO puede abrir, no la corrida entera: cada
+/// nodo delega por sus propios motivos y el presupuesto se lleva por
+/// (turno raíz, nodo). Seis entran en el mapa sin recortar y alcanzan para
+/// una verificación por perspectivas —correctitud, seguridad, reproducción—
+/// en paralelo, que es el caso que justifica pasar de uno.
+const int kMaxSubagentsPerNode = 6;
+
 enum WorkflowKind { general, bug, migration, roadmap }
 
 enum WorkflowQualityGate { analysis, focusedTests, compatibility, regression }

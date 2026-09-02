@@ -1613,7 +1613,7 @@ int? _boundedReplanLimit(Object? value) {
 
 int? _boundedSubagentLimit(Object? value) {
   final number = value as num?;
-  return number?.toInt().clamp(0, 1).toInt();
+  return number?.toInt().clamp(0, kMaxSubagentsPerNode).toInt();
 }
 
 int? _boundedReviewCycles(Object? value) {

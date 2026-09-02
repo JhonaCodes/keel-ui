@@ -1435,6 +1435,11 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     unawaited(_persist());
   }
 
+  /// Si la sesión sigue marcada como detenida. Un turno nuevo no puede
+  /// arrancar mientras lo esté: `_runTurn` corta en su primera guarda.
+  bool isSessionStopped(String sessionId) =>
+      _stoppedSessionIds.contains(sessionId);
+
   void stopSession(String projectId, String sessionId) {
     final run = _runningSessions.remove(sessionId);
     final project = _projectById(projectId);
@@ -2841,6 +2846,19 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
         ],
       ),
     );
+    // La marca de «detenido» es del turno que se frenó, no de la sesión. Acá
+    // el mensaje YA salió de la cola: si la marca sobrevive, `_runTurn` corta
+    // en su primera guarda y el mensaje se pierde para siempre — aparece en
+    // el hilo, no lo lee nadie, y el usuario lo tiene que escribir de nuevo.
+    // La corrida de workflow lo limpiaba en su `finally`; una sesión sin
+    // workflow no tenía quién.
+    // La marca de «detenido» es del turno que se frenó, no de la sesión. Acá
+    // el mensaje YA salió de la cola: si la marca sobrevive, `_runTurn` corta
+    // en su primera guarda y el mensaje se pierde para siempre — aparece en
+    // el hilo, no lo lee nadie, y el usuario lo tiene que escribir de nuevo.
+    // La corrida de workflow lo limpiaba en su `finally`; una sesión sin
+    // workflow no tenía quién.
+    _stoppedSessionIds.remove(sessionId);
     await _persist();
     await _sendToSession(
       projectId,
@@ -3260,28 +3278,34 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
           ask: final ask,
           prompt: final prompt,
         ):
-          if (subagentLimitExceeded) continue;
+          // Cuando llega este evento el CLI YA abrió el subagente: no hay
+          // forma de impedirlo, solo de cancelar la corrida entera. Cancelar
+          // mataba el nodo con todo su trabajo ya hecho —producción migrada,
+          // tests a medio adaptar— por un tope que el propio contrato del
+          // workflow le pedía superar. Así que el tope avisa UNA vez y el
+          // turno sigue; el subagente se registra igual, porque nada de lo
+          // que hace un agente puede quedar invisible en el mapa.
           if (!_subagentBudget.tryReserve(
-            turnId: turnId,
-            maxSubagents: maxSubagents,
-          )) {
+                turnId: turnId,
+                workNodeId: workNodeId,
+                maxSubagents: maxSubagents,
+              ) &&
+              !subagentLimitExceeded) {
             subagentLimitExceeded = true;
-            turnFailed = true;
-            failureMessage =
-                'Se alcanzó el máximo de $maxSubagents subagente(s) para '
-                'este turno; no se continuará delegando.';
-            run.cancel();
             _appendMessage(
               projectId,
               sessionId,
               ChatMessage(
-                role: ChatRole.error,
-                text: failureMessage,
+                role: ChatRole.system,
+                text:
+                    'Este nodo se pasó de los $maxSubagents subagente(s) que '
+                    'permite el workflow. Se registran igual para que queden '
+                    'visibles, pero revisá el contrato: su instrucción está '
+                    'pidiendo más delegación de la que su política habilita.',
                 timestamp: DateTime.now(),
                 workNodeId: workNodeId,
               ),
             );
-            continue;
           }
           _updateSession(
             projectId,

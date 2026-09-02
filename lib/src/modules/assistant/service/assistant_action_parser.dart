@@ -261,7 +261,7 @@ int? _reviewCycles(String? raw) {
 
 int? _subagentLimit(String? raw) {
   final value = int.tryParse(raw?.trim() ?? '');
-  return value?.clamp(0, 1).toInt();
+  return value?.clamp(0, kMaxSubagentsPerNode).toInt();
 }
 
 int _maxAgenticTurns(String raw) =>

@@ -523,7 +523,10 @@ final List<Tool> keelAiTools = _withCatalogChangeParameters([
           description: 'Máximo de reformulaciones, de 0 a 2.',
         ),
         'max_subagents': Schema.int(
-          description: 'Máximo de auditores simultáneos, de 0 a 1.',
+          description:
+              'Máximo de subagentes de lectura/verificación que cada NODO '
+              'puede abrir en paralelo, de 0 a 6. El cupo es por nodo, no por '
+              'corrida: un nodo no le consume el presupuesto al siguiente.',
         ),
         'max_review_cycles': Schema.int(
           description: 'Máximo total de ciclos auditoría/corrección, de 1 a 4.',
@@ -840,7 +843,10 @@ final List<Tool> keelAiTools = _withCatalogChangeParameters([
           description: 'Máximo de reformulaciones, de 0 a 2.',
         ),
         'max_subagents': Schema.int(
-          description: 'Máximo de auditores simultáneos, de 0 a 1.',
+          description:
+              'Máximo de subagentes de lectura/verificación que cada NODO '
+              'puede abrir en paralelo, de 0 a 6. El cupo es por nodo, no por '
+              'corrida: un nodo no le consume el presupuesto al siguiente.',
         ),
         'max_review_cycles': Schema.int(
           description: 'Máximo total de ciclos auditoría/corrección, de 1 a 4.',

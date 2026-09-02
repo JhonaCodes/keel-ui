@@ -198,6 +198,37 @@ void main() {
     },
   );
 
+  test(
+    'interrumpir no deja la sesión marcada como detenida para el mensaje nuevo',
+    () async {
+      final viewmodel = ProjectsViewModel();
+      await viewmodel.ready;
+      final project = runningProject();
+      viewmodel.updateState(
+        ProjectsState(projects: [project], selectedProjectId: project.id),
+      );
+      final messageId = await viewmodel.queueSessionMessage(
+        project.id,
+        'session',
+        'Cambiá el enfoque ahora',
+      );
+
+      await viewmodel.sendQueuedSessionMessageNow(
+        project.id,
+        'session',
+        messageId!,
+      );
+
+      // `stopSession` marca la sesión para cortar el turno viejo. Esa marca es
+      // del turno, no de la sesión: si sobrevive al despacho, `_runTurn` corta
+      // en su primera guarda y el mensaje queda escrito en el hilo sin que lo
+      // lea nadie — que es exactamente el bug de "lo tengo que mandar otra
+      // vez". Que el mensaje aparezca en `messages` NO alcanza como oráculo:
+      // `_sendToSession` lo agrega antes de llegar a esa guarda.
+      expect(viewmodel.isSessionStopped('session'), isFalse);
+    },
+  );
+
   testWidgets('se puede escribir y guardar en espera durante un turno', (
     tester,
   ) async {

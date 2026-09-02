@@ -11,7 +11,19 @@ import 'package:keel_ui/src/modules/secrets/viewmodel/secrets_viewmodel.dart';
 
 typedef LlmSecretResolver = Future<String?> Function(String secretRef);
 
-const kDefaultOpenAiCompatibleMaxToolRounds = 40;
+/// Red contra un bucle infinito de herramientas, no un presupuesto de trabajo.
+///
+/// Vive alto a propósito. A los proveedores por CLI nadie les corta el ciclo,
+/// así que un tope bajo acá no ahorraba nada: cortaba el nodo a mitad de
+/// camino y obligaba a relanzarlo entero, que sale MÁS caro que las rondas
+/// que evitó. Un nodo de migración con inventario de impacto pasa de 40 sin
+/// esfuerzo.
+const kDefaultOpenAiCompatibleMaxToolRounds = 200;
+
+/// Cuántas veces se reintenta un fallo TRANSITORIO del proveedor antes de
+/// darlo por perdido. Los proveedores por CLI reintentan por dentro; los de
+/// API no tenían nada, y un 429 mataba el nodo entero.
+const kOpenAiCompatibleTransientRetries = 3;
 
 /// Runner for providers implementing OpenAI-compatible Chat Completions.
 ///
@@ -107,19 +119,46 @@ class OpenAiCompatibleApiRunner implements LlmRunner {
       String? warnedSterileToolSignature;
 
       for (var round = 0; round <= maxToolRounds; round++) {
-        final response = await _send(
-          client: client,
-          secret: secret,
-          spec: spec,
-          messages: messages,
-          functions: functions,
-        );
-        if (cancelled) return;
+        // Un 429 o un 5xx no significan que el trabajo esté mal: significan
+        // que el proveedor está ocupado. Sin reintento, cada uno mataba el
+        // nodo y obligaba a pagarlo dos veces.
+        http.StreamedResponse response;
+        var lastStatus = 0;
+        var lastBody = '';
+        var attempt = 0;
+        while (true) {
+          response = await _send(
+            client: client,
+            secret: secret,
+            spec: spec,
+            messages: messages,
+            functions: functions,
+          );
+          if (cancelled) return;
+          if (response.statusCode < 400) break;
+
+          lastStatus = response.statusCode;
+          lastBody = await response.stream.bytesToString();
+          final transient = _isTransientStatus(lastStatus);
+          if (!transient || attempt >= kOpenAiCompatibleTransientRetries) break;
+
+          attempt++;
+          final wait = _retryDelayFor(response.headers, attempt);
+          Log.w(
+            'Proveedor por API devolvió $lastStatus; reintento $attempt de '
+            '$kOpenAiCompatibleTransientRetries en ${wait.inSeconds}s',
+          );
+          await Future<void>.delayed(wait);
+          if (cancelled) return;
+        }
+
         if (response.statusCode >= 400) {
-          final body = await response.stream.bytesToString();
+          final retried = attempt > 0
+              ? ' (tras $attempt reintento(s))'
+              : '';
           yield {
             'type': 'failure',
-            'message': '${response.statusCode} · ${_firstLine(body)}',
+            'message': '$lastStatus$retried · ${_firstLine(lastBody)}',
           };
           yield _completed(
             spec,
@@ -174,19 +213,20 @@ class OpenAiCompatibleApiRunner implements LlmRunner {
         }
         if (round == maxToolRounds) {
           final roundsLabel = maxToolRounds == 1 ? 'ronda' : 'rondas';
+          // Agotar la red de seguridad NO es un fallo del turno. Marcarlo como
+          // error tiraba TODO lo que el nodo ya había producido y obligaba a
+          // relanzarlo desde cero: el corte terminaba costando más que las
+          // rondas que evitaba. Se cierra con lo que hay y se deja dicho en el
+          // hilo, para que el nodo siguiente lo continúe en vez de repetirlo.
           yield {
-            'type': 'failure',
-            'message':
-                'Keel detuvo el ciclo de herramientas al alcanzar el límite '
-                'seguro de $maxToolRounds $roundsLabel.',
+            'type': 'assistantText',
+            'text':
+                '\n\n[keel] Corté el ciclo de herramientas al llegar a '
+                '$maxToolRounds $roundsLabel. Lo de arriba es el trabajo '
+                'hecho hasta ese punto y puede estar incompleto: continualo, '
+                'no lo repitas desde cero.',
           };
-          yield _completed(
-            spec,
-            started,
-            isError: true,
-            usage: usage,
-            hasReportedFailure: true,
-          );
+          yield _completed(spec, started, isError: false, usage: usage);
           return;
         }
 
@@ -503,6 +543,24 @@ String _firstLine(String body) {
   if (trimmed.isEmpty) return 'sin cuerpo';
   final line = const LineSplitter().convert(trimmed).first;
   return line.length > 160 ? '${line.substring(0, 160)}...' : line;
+}
+
+/// Un fallo que se arregla solo esperando. 429 es cuota por minuto; 5xx es el
+/// proveedor caído o saturado. Un 4xx que no sea 429 es culpa del pedido —
+/// reintentarlo es quemar plata en el mismo error.
+bool _isTransientStatus(int status) =>
+    status == 429 || status == 408 || (status >= 500 && status < 600);
+
+/// Cuánto esperar antes del reintento. Si el proveedor dijo `Retry-After`, le
+/// hacemos caso: sabe mejor que nosotros cuándo se le libera la cuota. Si no,
+/// backoff exponencial acotado a un minuto.
+Duration _retryDelayFor(Map<String, String> headers, int attempt) {
+  final header = headers['retry-after'];
+  final seconds = header == null ? null : int.tryParse(header.trim());
+  if (seconds != null && seconds > 0) {
+    return Duration(seconds: seconds.clamp(1, 60));
+  }
+  return Duration(seconds: (1 << (attempt - 1)).clamp(1, 60));
 }
 
 /// Shared by the runner and the remote model picker. It intentionally returns

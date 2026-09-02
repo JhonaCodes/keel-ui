@@ -21,17 +21,20 @@ const _spec = LlmTurnSpec(
 
 void main() {
   group('OpenAiCompatibleApiRunner', () {
-    test('usa un máximo predeterminado seguro de 40 rondas de tools', () {
+    test('la red contra bucles vive alta, no como presupuesto de trabajo', () {
       final runner = OpenAiCompatibleApiRunner(
         baseUrl: 'https://api.deepseek.com',
         secretRef: 'DEEPSEEK_API_KEY',
         resolveSecret: (_) async => 'test-token-deepseek',
       );
 
-      expect(runner.maxToolRounds, 40);
+      // A los proveedores por CLI nadie les corta el ciclo. Un tope bajo acá
+      // no ahorraba: cortaba el nodo a media tarea y obligaba a relanzarlo.
+      expect(runner.maxToolRounds, kDefaultOpenAiCompatibleMaxToolRounds);
+      expect(runner.maxToolRounds, greaterThanOrEqualTo(200));
     });
 
-    test('el default corta una cadena de tools en la request 41', () async {
+    test('el default corta una cadena de tools infinita, y no antes', () async {
       var requests = 0;
       final runner = OpenAiCompatibleApiRunner(
         baseUrl: 'https://api.deepseek.com',
@@ -55,11 +58,13 @@ void main() {
           .run(_spec, userPath: '', cancel: const Stream<void>.empty())
           .toList();
 
-      expect(requests, 41);
-      expect(
-        events.where((event) => event['type'] == 'failure').single['message'],
-        contains('límite seguro de 40 rondas'),
-      );
+      // El modelo pide tool para siempre: la red tiene que frenarlo. Se ata al
+      // valor de la constante, no a un número escrito a mano — así subir el
+      // tope no obliga a editar el test, pero seguir teniendo red sí se prueba.
+      expect(requests, kDefaultOpenAiCompatibleMaxToolRounds + 1);
+      // Y frena SIN romper el turno: el trabajo hecho se entrega.
+      expect(events.where((event) => event['type'] == 'failure'), isEmpty);
+      expect(events.last, containsPair('isError', false));
     });
 
     test('entrega el historial aislado antes del mensaje actual', () async {
@@ -356,13 +361,77 @@ void main() {
             .run(_spec, userPath: '', cancel: const Stream<void>.empty())
             .toList();
 
+        // Agotar la red NO es un fallo del turno: marcarlo como error tiraba
+        // todo el trabajo del nodo y obligaba a pagarlo dos veces. Se cierra
+        // bien, con el aviso en el texto para que el siguiente lo continúe.
+        expect(events.where((event) => event['type'] == 'failure'), isEmpty);
+        expect(events.last, containsPair('isError', false));
         expect(
-          events.where((event) => event['type'] == 'failure').single['message'],
-          allOf(startsWith('Keel detuvo'), contains('límite seguro')),
+          events
+              .where((event) => event['type'] == 'assistantText')
+              .last['text'],
+          allOf(contains('Corté el ciclo'), contains('no lo repitas')),
         );
-        expect(events.last, containsPair('hasReportedFailure', true));
       },
     );
+
+    test('un 429 se reintenta en vez de matar el nodo', () async {
+      var requests = 0;
+      final runner = OpenAiCompatibleApiRunner(
+        baseUrl: 'https://openrouter.ai/api/v1',
+        secretRef: 'OPENROUTER_API_KEY',
+        resolveSecret: (_) async => 'test-token-openrouter',
+        client: MockClient((request) async {
+          requests++;
+          // Los dos primeros intentos rebotan por cuota; el tercero pasa.
+          if (requests < 3) {
+            return http.Response('{"error":"rate limited"}', 429, headers: {
+              'retry-after': '1',
+            });
+          }
+          return http.Response(
+            [
+              'data: {"choices":[{"delta":{"content":"listo"}}]}',
+              'data: [DONE]',
+              '',
+            ].join('\n'),
+            200,
+          );
+        }),
+      );
+
+      final events = await runner
+          .run(_spec, userPath: '', cancel: const Stream<void>.empty())
+          .toList();
+
+      expect(requests, 3);
+      expect(events.where((event) => event['type'] == 'failure'), isEmpty);
+      expect(events.last, containsPair('isError', false));
+    });
+
+    test('un 4xx que no es de cuota no se reintenta', () async {
+      var requests = 0;
+      final runner = OpenAiCompatibleApiRunner(
+        baseUrl: 'https://openrouter.ai/api/v1',
+        secretRef: 'OPENROUTER_API_KEY',
+        resolveSecret: (_) async => 'test-token-openrouter',
+        client: MockClient((request) async {
+          requests++;
+          return http.Response('{"error":"bad request"}', 400);
+        }),
+      );
+
+      final events = await runner
+          .run(_spec, userPath: '', cancel: const Stream<void>.empty())
+          .toList();
+
+      // Reintentar un pedido mal formado es quemar plata en el mismo error.
+      expect(requests, 1);
+      expect(
+        events.where((event) => event['type'] == 'failure').single['message'],
+        startsWith('400'),
+      );
+    });
 
     test('MiniMax conserva el nombre plano y la base /v1', () async {
       late http.Request seen;

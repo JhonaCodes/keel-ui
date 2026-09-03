@@ -5,6 +5,24 @@ import 'package:keel_ui/src/modules/workflows/repository/workflows_repository.da
 
 void main() {
   group('Workflow adaptativo', () {
+    test('el cupo de subagentes sobrevive al viaje por disco', () {
+      final policy = WorkflowPolicy.fromJson({
+        'maxSubagents': kMaxSubagentsPerNode,
+      });
+
+      // Estaba recortado a 1 al LEER: el valor que el usuario elegía en la UI
+      // se guardaba bien y se perdía en silencio al recargar la app.
+      expect(policy.maxSubagents, kMaxSubagentsPerNode);
+    });
+
+    test('el cupo de subagentes sigue teniendo techo', () {
+      expect(
+        WorkflowPolicy.fromJson({'maxSubagents': 99}).maxSubagents,
+        kMaxSubagentsPerNode,
+      );
+      expect(WorkflowPolicy.fromJson({'maxSubagents': -1}).maxSubagents, 0);
+    });
+
     test('descarta la cadena ordenada al leer un registro anterior', () {
       final workflow = Workflow.fromJson({
         'id': 'legacy',

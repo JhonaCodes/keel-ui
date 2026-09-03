@@ -20,6 +20,62 @@ typedef LlmSecretResolver = Future<String?> Function(String secretRef);
 /// esfuerzo.
 const kDefaultOpenAiCompatibleMaxToolRounds = 200;
 
+/// Techo de salida por turno, en tokens.
+///
+/// ## Por qué el campo tiene que ir
+///
+/// Omitir `max_tokens` no significa «sin límite»: el proveedor asume el techo
+/// del modelo y **cobra esa reserva por adelantado**. Con GLM-5.2 son 131.072
+/// tokens, así que una cuenta que no cubra esa terminación hipotética recibe
+/// `402` en TODO request —incluso en uno que iba a devolver tres líneas—, con
+/// el mensaje «requires more credits, or fewer max_tokens». Mandarlo explícito
+/// hace que el crédito exigido sea proporcional a lo que el turno puede usar
+/// de verdad, en vez de al máximo teórico del modelo.
+///
+/// ## El número sale de opencode
+///
+/// Mismo valor y misma forma que `OUTPUT_TOKEN_MAX` en
+/// `packages/opencode/src/provider/transform.ts`, que enruta a estos mismos
+/// proveedores y ya resolvió el problema:
+///
+/// ```ts
+/// export const OUTPUT_TOKEN_MAX = 32_000
+/// export function maxOutputTokens(model, outputTokenMax = OUTPUT_TOKEN_MAX) {
+///   return Math.min(model.limit.output, outputTokenMax) || outputTokenMax
+/// }
+/// ```
+///
+/// Es un techo plano, no una tabla por esfuerzo: un turno típico emite bastante
+/// menos, así que 32.000 ya deja varias veces el aire necesario, y recortar más
+/// solo arriesga cortar una respuesta a mitad de camino — lo que obliga a
+/// relanzar el nodo entero y sale más caro que los tokens reservados de más.
+/// Es el mismo razonamiento que mantiene alto a
+/// [kDefaultOpenAiCompatibleMaxToolRounds].
+const kOpenAiCompatibleOutputTokenMax = 32000;
+
+/// El techo efectivo: el menor entre lo que el modelo declara poder emitir y
+/// [outputTokenMax].
+///
+/// Port directo del `Math.min(...) || outputTokenMax` de opencode, incluida la
+/// parte que más importa: cuando el modelo NO declara su límite —
+/// [modelOutputLimit] nulo o cero, que en JavaScript es el valor falsy que
+/// dispara el `||`— el resultado es el techo, nunca cero. Un cero acá volvería
+/// a dejar el request sin límite útil y traería de vuelta el `402`.
+///
+/// Hoy [modelOutputLimit] llega nulo: `RemoteModelCatalog` pide el catálogo de
+/// OpenRouter pero solo conserva `id` y `name`. Cuando ese catálogo capture
+/// también `top_provider.max_completion_tokens`, pasarlo acá recorta el techo
+/// por modelo sin tocar nada más.
+int openAiCompatibleMaxOutputTokens({
+  int? modelOutputLimit,
+  int outputTokenMax = kOpenAiCompatibleOutputTokenMax,
+}) {
+  final int declared = modelOutputLimit ?? 0;
+  final int clamped = declared < outputTokenMax ? declared : outputTokenMax;
+
+  return clamped > 0 ? clamped : outputTokenMax;
+}
+
 /// Cuántas veces se reintenta un fallo TRANSITORIO del proveedor antes de
 /// darlo por perdido. Los proveedores por CLI reintentan por dentro; los de
 /// API no tenían nada, y un 429 mataba el nodo entero.
@@ -328,6 +384,7 @@ class OpenAiCompatibleApiRunner implements LlmRunner {
         'model': spec.model,
         'stream': true,
         'stream_options': {'include_usage': true},
+        'max_tokens': openAiCompatibleMaxOutputTokens(),
         'messages': messages,
         if (functions.isNotEmpty) ...{
           'tools': functions.map((function) => function.toJson()).toList(),

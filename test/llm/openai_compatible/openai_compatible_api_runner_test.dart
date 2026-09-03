@@ -34,6 +34,51 @@ void main() {
       expect(runner.maxToolRounds, greaterThanOrEqualTo(200));
     });
 
+    test('sin límite declarado el techo es el tope, nunca cero', () {
+      // La mitad que importa del `Math.min(...) || outputTokenMax` de opencode:
+      // un modelo que no declara su salida daría 0, y un 0 deja el request sin
+      // límite útil — que es el 402 de vuelta.
+      expect(
+        openAiCompatibleMaxOutputTokens(),
+        kOpenAiCompatibleOutputTokenMax,
+      );
+      expect(
+        openAiCompatibleMaxOutputTokens(modelOutputLimit: 0),
+        kOpenAiCompatibleOutputTokenMax,
+      );
+      expect(
+        openAiCompatibleMaxOutputTokens(modelOutputLimit: null),
+        kOpenAiCompatibleOutputTokenMax,
+      );
+
+      // Holgado contra un turno real, y muy por debajo del techo de un modelo
+      // de 128k: si lo alcanzara, el crédito exigido volvería a ser el máximo
+      // teórico del modelo.
+      expect(kOpenAiCompatibleOutputTokenMax, greaterThanOrEqualTo(32000));
+      expect(kOpenAiCompatibleOutputTokenMax, lessThan(131072));
+    });
+
+    test('gana el menor entre el límite del modelo y el tope', () {
+      // Un modelo más chico que el tope manda: pedir más de lo que puede emitir
+      // encarece la reserva sin comprar nada.
+      expect(openAiCompatibleMaxOutputTokens(modelOutputLimit: 8192), 8192);
+
+      // Un modelo más grande no levanta el tope: ese es el punto del recorte.
+      expect(
+        openAiCompatibleMaxOutputTokens(modelOutputLimit: 131072),
+        kOpenAiCompatibleOutputTokenMax,
+      );
+
+      // Y el tope es parametrizable, como el `outputTokenMax` de opencode.
+      expect(
+        openAiCompatibleMaxOutputTokens(
+          modelOutputLimit: 131072,
+          outputTokenMax: 16000,
+        ),
+        16000,
+      );
+    });
+
     test('el default corta una cadena de tools infinita, y no antes', () async {
       var requests = 0;
       final runner = OpenAiCompatibleApiRunner(
@@ -149,6 +194,13 @@ void main() {
       expect(body['model'], 'openai/gpt-4');
       expect(body['stream'], isTrue);
       expect(body['stream_options'], {'include_usage': true});
+      expect(
+        body['max_tokens'],
+        openAiCompatibleMaxOutputTokens(),
+        reason:
+            'sin max_tokens el proveedor reserva el techo del modelo y cobra '
+            'esa reserva por adelantado: la cuenta recibe 402 en todo request',
+      );
       expect(body['messages'], [
         {'role': 'system', 'content': 'Respondé breve.'},
         {'role': 'user', 'content': 'hola'},

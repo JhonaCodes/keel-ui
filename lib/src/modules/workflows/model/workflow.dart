@@ -90,7 +90,13 @@ class WorkflowPolicy {
           .whereType<WorkflowQualityGate>()
           .toList(),
       maxReplans: (data['maxReplans'] as int? ?? 2).clamp(0, 2),
-      maxSubagents: (data['maxSubagents'] as int? ?? 1).clamp(0, 1),
+      // El techo se aplica también al LEER: si acá quedaba en 1, un workflow
+      // guardado con más subagentes los perdía en silencio al recargarse, y el
+      // valor que el usuario eligió en la UI no sobrevivía a reiniciar la app.
+      maxSubagents: (data['maxSubagents'] as int? ?? 1).clamp(
+        0,
+        kMaxSubagentsPerNode,
+      ),
       maxReviewCycles: (data['maxReviewCycles'] as int? ?? 4).clamp(1, 4),
     );
   }

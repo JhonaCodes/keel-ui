@@ -42,6 +42,7 @@ class QueuedMessage {
     DateTime? createdAt,
     this.imagePaths = const [],
     this.delivery = QueuedDelivery.standby,
+    this.viaKeelAi = false,
   }) : id = id ?? generateUuidV4(),
        createdAt = createdAt ?? DateTime.now();
 
@@ -58,6 +59,12 @@ class QueuedMessage {
   final DateTime createdAt;
   final QueuedDelivery delivery;
 
+  /// Lo escribió Keel AI en nombre del usuario. Espera acá igual que
+  /// cualquier otro mensaje, y la atribución tiene que viajar con él: la
+  /// sesión que lo recibe casi siempre está corriendo, así que si esto se
+  /// perdiera en la cola el hilo lo mostraría como tipeado por el usuario.
+  final bool viaKeelAi;
+
   QueuedMessage copyWith({
     String? text,
     List<String>? imagePaths,
@@ -69,6 +76,7 @@ class QueuedMessage {
       imagePaths: imagePaths ?? this.imagePaths,
       createdAt: createdAt,
       delivery: delivery ?? this.delivery,
+      viaKeelAi: viaKeelAi,
     );
   }
 
@@ -78,6 +86,7 @@ class QueuedMessage {
     'imagePaths': imagePaths,
     'createdAt': createdAt.toIso8601String(),
     'delivery': delivery.name,
+    'viaKeelAi': viaKeelAi,
   };
 
   factory QueuedMessage.fromJson(Map<String, dynamic> json) {
@@ -89,6 +98,7 @@ class QueuedMessage {
       // trae, y perder un mensaje del usuario por eso sería peor.
       createdAt: DateTime.tryParse(json['createdAt'] as String? ?? ''),
       delivery: _deliveryFromName(json['delivery'] as String?),
+      viaKeelAi: json['viaKeelAi'] as bool? ?? false,
     );
   }
 
@@ -101,14 +111,21 @@ class QueuedMessage {
           text == other.text &&
           listEquals(imagePaths, other.imagePaths) &&
           createdAt == other.createdAt &&
-          delivery == other.delivery;
+          delivery == other.delivery &&
+          viaKeelAi == other.viaKeelAi;
 
   @override
-  int get hashCode =>
-      Object.hash(id, text, Object.hashAll(imagePaths), createdAt, delivery);
+  int get hashCode => Object.hash(
+    id,
+    text,
+    Object.hashAll(imagePaths),
+    createdAt,
+    delivery,
+    viaKeelAi,
+  );
 
   @override
   String toString() =>
       'QueuedMessage(id: $id, text: $text, images: ${imagePaths.length}, '
-      'delivery: ${delivery.name})';
+      'delivery: ${delivery.name}, viaKeelAi: $viaKeelAi)';
 }

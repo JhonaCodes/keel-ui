@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:info_label/info_label.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
 
@@ -11,6 +12,7 @@ import 'package:keel_ui/src/modules/agents/ui/widget/reasoning_panel.dart';
 import 'package:keel_ui/src/modules/settings/model/app_settings.dart';
 import 'package:keel_ui/src/modules/settings/viewmodel/settings_viewmodel.dart';
 import 'package:keel_ui/src/modules/projects/model/member_color.dart';
+import 'package:keel_ui/src/modules/projects/model/session_message_reference.dart';
 import 'package:keel_ui/src/modules/projects/ui/widget/member_avatar.dart';
 import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
 import 'package:keel_ui/src/shared/shared.dart';
@@ -23,6 +25,7 @@ class SessionMessageBubble extends StatelessWidget {
     super.key,
     required this.message,
     required this.projectId,
+    required this.sessionId,
     required this.author,
     required this.nodeTitle,
     required this.askedBy,
@@ -32,6 +35,11 @@ class SessionMessageBubble extends StatelessWidget {
 
   final ChatMessage message;
   final String projectId;
+
+  /// La sesión a la que pertenece este mensaje. Hace falta para armar la
+  /// referencia que copia el botón: un id de mensaje derivado de un hilo
+  /// histórico solo es único adentro de su sesión.
+  final String sessionId;
   final AgentProfile? author;
   final String? nodeTitle;
   final AgentProfile? askedBy;
@@ -113,7 +121,10 @@ class _Content extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (!isUser) _AuthorLine(bubble: bubble, accent: accent),
+              if (!isUser)
+                _AuthorLine(bubble: bubble, accent: accent)
+              else if (message.viaKeelAi)
+                _OnBehalfLine(at: message.timestamp),
               ChatMessageBody(
                 message: message,
                 foreground: foreground,
@@ -216,6 +227,9 @@ class _AuthorLine extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final author = bubble.author;
+    // Sin autor no es el mensaje de un miembro: es una nota que escribió la
+    // app. Esas burbujas nunca tuvieron encabezado, y tampoco les toca el
+    // botón de copiar referencia.
     if (author == null) return const SizedBox.shrink();
 
     final isConsultReply = bubble.askedBy != null;
@@ -283,7 +297,104 @@ class _AuthorLine extends StatelessWidget {
               fontFeatures: const [FontFeature.tabularFigures()],
             ),
           ),
+          CopyMessageReferenceButton(
+            reference: SessionMessageReference(
+              projectId: bubble.projectId,
+              sessionId: bubble.sessionId,
+              messageId: bubble.message.id,
+            ),
+          ),
         ],
+      ),
+    );
+  }
+}
+
+/// Se lo puso Keel AI: el usuario decidió la respuesta en el chat del
+/// sistema y no la tipeó acá. Sin esta línea, al releer el hilo dentro de
+/// una semana ese mensaje se lee como si lo hubiera escrito él a mano.
+class _OnBehalfLine extends StatelessWidget {
+  const _OnBehalfLine({required this.at});
+
+  final DateTime at;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.smart_toy_outlined, size: 12, color: scheme.outline),
+          const SizedBox(width: 5),
+          Text(
+            'Keel AI · en tu nombre',
+            style: TextStyle(
+              fontFamily: 'monospace',
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+              color: scheme.outline,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            _clockOf(at),
+            style: TextStyle(
+              fontSize: 11,
+              color: scheme.outline,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Copia el token que apunta a ESTE mensaje, para pegarlo en el chat de Keel
+/// AI y preguntarle a qué se refiere. Confirma con un tilde durante dos
+/// segundos, igual que el visor de código.
+class CopyMessageReferenceButton extends StatefulWidget {
+  const CopyMessageReferenceButton({super.key, required this.reference});
+
+  final SessionMessageReference reference;
+
+  @override
+  State<CopyMessageReferenceButton> createState() =>
+      _CopyMessageReferenceButtonState();
+}
+
+class _CopyMessageReferenceButtonState
+    extends State<CopyMessageReferenceButton> {
+  bool _copied = false;
+
+  Future<void> _copy() async {
+    await Clipboard.setData(ClipboardData(text: widget.reference.token));
+    if (!mounted) return;
+    setState(() => _copied = true);
+    await Future<void>.delayed(const Duration(seconds: 2));
+    if (mounted) setState(() => _copied = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return Tooltip(
+      message: _copied ? 'Referencia copiada' : 'Copiar referencia',
+      child: InkWell(
+        onTap: _copy,
+        borderRadius: BorderRadius.circular(4),
+        child: Padding(
+          padding: const EdgeInsets.all(2),
+          child: Icon(
+            _copied ? Icons.check : Icons.link,
+            size: 13,
+            color: _copied ? scheme.primary : scheme.outline,
+          ),
+        ),
       ),
     );
   }

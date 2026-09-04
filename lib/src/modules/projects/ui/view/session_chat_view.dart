@@ -259,6 +259,7 @@ class _ThreadList extends StatelessWidget {
             ThreadMessage(message: final message) => _ThreadBubble(
               key: ValueKey(message.timestamp.microsecondsSinceEpoch),
               projectId: projectId,
+              sessionId: open.id,
               message: message,
               members: members,
               allProfiles: allProfiles,
@@ -275,6 +276,7 @@ class _ThreadBubble extends StatelessWidget {
   const _ThreadBubble({
     super.key,
     required this.projectId,
+    required this.sessionId,
     required this.message,
     required this.members,
     required this.allProfiles,
@@ -282,6 +284,7 @@ class _ThreadBubble extends StatelessWidget {
   });
 
   final String projectId;
+  final String sessionId;
   final ChatMessage message;
   final List<AgentProfile> members;
 
@@ -309,6 +312,7 @@ class _ThreadBubble extends StatelessWidget {
       child: SessionMessageBubble(
         message: message,
         projectId: projectId,
+        sessionId: sessionId,
         author: author,
         nodeTitle: nodeTitle,
         askedBy: askedBy,

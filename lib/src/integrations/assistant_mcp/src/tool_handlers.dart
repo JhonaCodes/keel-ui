@@ -98,6 +98,9 @@ const _readOnlyTools = {
   'get_item',
   'describe_system',
   'list_locked_items',
+  'list_project_sessions',
+  'read_session_thread',
+  'resolve_message_reference',
 };
 
 typedef _LockedTarget = ({CatalogLockKind kind, String name});
@@ -585,6 +588,27 @@ Future<(bool, String)> _runKeelAiTool(
       return _openProjectSession(
         project: (arguments['project'] as String).trim(),
         prompt: (arguments['prompt'] as String).trim(),
+      );
+
+    case 'list_project_sessions':
+      return _listProjectSessions((arguments['project'] as String).trim());
+
+    case 'read_session_thread':
+      return _readSessionThread(
+        project: (arguments['project'] as String).trim(),
+        session: (arguments['session'] as String? ?? '').trim(),
+        limit: (arguments['limit'] as num?)?.toInt() ?? 40,
+      );
+
+    case 'resolve_message_reference':
+      return _resolveMessageReference(
+        (arguments['reference'] as String? ?? '').trim(),
+      );
+
+    case 'reply_in_session':
+      return _replyInSession(
+        rawReference: (arguments['reference'] as String? ?? '').trim(),
+        text: (arguments['text'] as String? ?? '').trim(),
       );
 
     case 'list_secret_names':
@@ -1502,6 +1526,303 @@ List<String> _without(List<String> current, List<String> removed) {
     'Abrí una sesión en "${target.name}" y le pasé el pedido. Sus miembros '
         'ya están trabajando.',
   );
+}
+
+// ───────── Leer sesiones y contestar adentro de una ─────────
+//
+// Las tres primeras leen; `reply_in_session` escribe, y escribe por la MISMA
+// puerta que el compositor del canal (`ProjectsViewModel.replyInSession` →
+// `_sendToSession`), no por plomería aparte: si la sesión está corriendo, el
+// mensaje se encola y sale como el turno siguiente, que es el caso normal.
+
+/// Cuánto texto de un mensaje entra en un listado. El hilo entero de una
+/// sesión larga no cabe en un turno, y para decidir cuál mirar alcanza con
+/// el principio.
+const _threadPreviewLimit = 400;
+
+/// Cuánto texto entra al resolver una referencia. Acá sí interesa el mensaje
+/// completo, pero un turno con veinte ediciones de archivo tampoco sirve.
+const _resolvedMessageLimit = 4000;
+
+/// Cuántos mensajes de cada lado acompañan al resuelto. El punto de la tool
+/// es poder EXPLICAR a qué se refiere, y para eso hace falta lo que se dijo
+/// alrededor, no solo la línea señalada.
+const _referenceNeighbours = 3;
+
+(bool, String) _listProjectSessions(String projectName) {
+  final project = _projectNamed(projectName);
+  if (project == null) return (false, 'No existe el proyecto "$projectName".');
+  if (project.sessions.isEmpty) {
+    return (true, 'El proyecto "${project.name}" todavía no tiene sesiones.');
+  }
+
+  final lines = <String>[];
+  for (final session in project.sessions) {
+    final active = session.id == project.activeSessionId ? ' · ACTIVA' : '';
+    final running = session.isRunning ? ' · corriendo' : '';
+    lines.add(
+      '- ${session.title} (id: ${session.id})$active$running\n'
+      '  estado: ${session.status.name} · abierta: '
+      '${session.createdAt.toIso8601String()} · '
+      'mensajes: ${session.messages.length}',
+    );
+  }
+  return (
+    true,
+    'Sesiones de "${project.name}":\n${lines.join('\n')}\n\n'
+        'Para leer una: read_session_thread(project, session).',
+  );
+}
+
+(bool, String) _readSessionThread({
+  required String project,
+  required String session,
+  required int limit,
+}) {
+  final target = _projectNamed(project);
+  if (target == null) return (false, 'No existe el proyecto "$project".');
+
+  final open = _sessionOf(target, session);
+  if (open == null) {
+    return (
+      false,
+      session.isEmpty
+          ? 'El proyecto "${target.name}" no tiene una sesión activa.'
+          : 'No encontré la sesión "$session" en "${target.name}".',
+    );
+  }
+  if (open.messages.isEmpty) {
+    return (true, 'La sesión "${open.title}" todavía no tiene mensajes.');
+  }
+
+  final bounded = limit <= 0 ? 40 : limit;
+  final from = open.messages.length > bounded
+      ? open.messages.length - bounded
+      : 0;
+  final lines = <String>[];
+  for (var index = from; index < open.messages.length; index++) {
+    lines.add(
+      _threadLine(
+        target,
+        open,
+        open.messages[index],
+        textLimit: _threadPreviewLimit,
+      ),
+    );
+  }
+
+  final omitted = from > 0
+      ? 'Se omitieron los $from mensajes anteriores.\n'
+      : '';
+  return (
+    true,
+    'Hilo de "${open.title}" en "${target.name}" '
+        '(${open.messages.length} mensajes)\n$omitted\n${lines.join('\n\n')}',
+  );
+}
+
+(bool, String) _resolveMessageReference(String raw) {
+  final reference = SessionMessageReference.tryParse(raw);
+  if (reference == null) {
+    return (
+      false,
+      'Eso no es una referencia de mensaje. Tiene la forma '
+          'keel://message/<id>?project=<id>&session=<id>, y sale del botón de '
+          'copiar de una burbuja del hilo.',
+    );
+  }
+
+  final found = _locateMessage(reference);
+  if (found == null) {
+    return (
+      false,
+      'La referencia no resuelve: el proyecto, la sesión o el mensaje ya no '
+          'existen. Pedile al usuario que la vuelva a copiar.',
+    );
+  }
+
+  final (:project, :session, :message, :index) = found;
+  final before = <String>[];
+  for (
+    var i = index - _referenceNeighbours < 0 ? 0 : index - _referenceNeighbours;
+    i < index;
+    i++
+  ) {
+    before.add(
+      _threadLine(
+        project,
+        session,
+        session.messages[i],
+        textLimit: _threadPreviewLimit,
+      ),
+    );
+  }
+  final after = <String>[];
+  final last = index + _referenceNeighbours >= session.messages.length
+      ? session.messages.length - 1
+      : index + _referenceNeighbours;
+  for (var i = index + 1; i <= last; i++) {
+    after.add(
+      _threadLine(
+        project,
+        session,
+        session.messages[i],
+        textLimit: _threadPreviewLimit,
+      ),
+    );
+  }
+
+  return (
+    true,
+    'REFERENCIA RESUELTA\n'
+        'Proyecto: ${project.name}\n'
+        'Sesión: ${session.title} (id: ${session.id})'
+        '${session.isRunning ? ' · corriendo ahora' : ''}\n'
+        'Pedido original de la sesión: '
+        '${_bounded(session.request, _threadPreviewLimit)}\n'
+        '\n'
+        'EL MENSAJE\n'
+        '${_threadLine(project, session, message, textLimit: _resolvedMessageLimit)}\n'
+        '\n'
+        'ANTES\n${before.isEmpty ? '(es el primero del hilo)' : before.join('\n\n')}\n'
+        '\n'
+        'DESPUÉS\n${after.isEmpty ? '(es el último del hilo)' : after.join('\n\n')}\n'
+        '\n'
+        'Explicale al usuario a qué se refiere. Para contestar, esperá a que '
+        'te lo pida y usá reply_in_session con esta misma referencia.',
+  );
+}
+
+(bool, String) _replyInSession({
+  required String rawReference,
+  required String text,
+}) {
+  if (text.isEmpty) return (false, 'La respuesta no puede ir vacía.');
+
+  final reference = SessionMessageReference.tryParse(rawReference);
+  if (reference == null) {
+    return (false, 'Eso no es una referencia de mensaje válida.');
+  }
+  final found = _locateMessage(reference);
+  if (found == null) {
+    return (
+      false,
+      'No pude contestar: la referencia ya no resuelve a un mensaje de una '
+          'sesión existente.',
+    );
+  }
+
+  final (:project, :session, :message, index: _) = found;
+  final prompt = assistantReplyRequest(
+    authorHandle: _handleOf(message.authorProfileId),
+    nodeId: message.workNodeId,
+    askedAt: message.timestamp,
+    quotedText: message.text,
+    answer: text,
+  );
+
+  // Sin `await`, igual que `open_project_session` y por la misma razón: si la
+  // sesión no está corriendo, esto abre el turno del miembro y ese turno dura
+  // lo que dure. Esperarlo dejaría la tool colgada minutos y al usuario sin
+  // respuesta en el chat, cuando lo único que tiene que confirmar es que el
+  // mensaje salió.
+  final wasRunning = session.isRunning;
+  unawaited(
+    ProjectsService.instance.notifier.replyInSession(
+      project.id,
+      session.id,
+      prompt,
+    ),
+  );
+
+  return (
+    true,
+    wasRunning
+        ? 'Mandé la respuesta al canal de "${session.title}" en '
+              '"${project.name}". La sesión está trabajando, así que entra '
+              'como el turno siguiente — no la repitas.'
+        : 'Mandé la respuesta al canal de "${session.title}" en '
+              '"${project.name}". El miembro ya la está leyendo.',
+  );
+}
+
+Project? _projectNamed(String name) => ProjectsService
+    .instance
+    .notifier
+    .data
+    .projects
+    .where((entry) => entry.name == name)
+    .firstOrNull;
+
+/// La sesión pedida por id o por título exacto; vacío devuelve la activa.
+Session? _sessionOf(Project project, String idOrTitle) {
+  if (idOrTitle.isEmpty) return project.activeSession;
+  return project.sessions
+          .where((entry) => entry.id == idOrTitle)
+          .firstOrNull ??
+      project.sessions.where((entry) => entry.title == idOrTitle).firstOrNull;
+}
+
+({Project project, Session session, ChatMessage message, int index})?
+_locateMessage(SessionMessageReference reference) {
+  final project = ProjectsService.instance.notifier.data.projects
+      .where((entry) => entry.id == reference.projectId)
+      .firstOrNull;
+  if (project == null) return null;
+  final session = project.sessions
+      .where((entry) => entry.id == reference.sessionId)
+      .firstOrNull;
+  if (session == null) return null;
+  final index = session.messages.indexWhere(
+    (entry) => entry.id == reference.messageId,
+  );
+  if (index < 0) return null;
+  return (
+    project: project,
+    session: session,
+    message: session.messages[index],
+    index: index,
+  );
+}
+
+String _threadLine(
+  Project project,
+  Session session,
+  ChatMessage message, {
+  required int textLimit,
+}) {
+  final author = switch (message.role) {
+    ChatRole.user => message.viaKeelAi ? 'vos (vía Keel AI)' : 'vos',
+    ChatRole.error => 'error del sistema',
+    ChatRole.system => 'la app',
+    ChatRole.assistant => '@${_handleOf(message.authorProfileId) ?? 'miembro'}',
+  };
+  final node = message.workNodeId == null ? '' : ' · nodo ${message.workNodeId}';
+  final consult = message.consultOfProfileId == null
+      ? ''
+      : ' · consulta de @${_handleOf(message.consultOfProfileId) ?? 'miembro'}';
+  final reference = SessionMessageReference(
+    projectId: project.id,
+    sessionId: session.id,
+    messageId: message.id,
+  );
+  return '[$author · ${message.timestamp.toIso8601String()}$node$consult]\n'
+      'ref: ${reference.token}\n'
+      '${_bounded(message.text, textLimit)}';
+}
+
+String? _handleOf(String? profileId) {
+  if (profileId == null) return null;
+  return AgentProfilesService.instance.notifier.data.profiles
+      .where((profile) => profile.id == profileId)
+      .firstOrNull
+      ?.name;
+}
+
+String _bounded(String text, int limit) {
+  final trimmed = text.trim();
+  if (trimmed.isEmpty) return '(sin texto)';
+  return trimmed.length > limit ? '${trimmed.substring(0, limit)}…' : trimmed;
 }
 
 /// Estado operativo: lo que está configurado, lo que falta y lo que está

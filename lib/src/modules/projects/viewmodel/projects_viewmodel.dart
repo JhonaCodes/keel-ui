@@ -2216,11 +2216,25 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     await _sendToSession(projectId, session.id, text, imagePaths: imagePaths);
   }
 
+  /// Contesta, adentro de una sesión que ya existe, un mensaje concreto de
+  /// esa sesión. Es lo que llama la tool `reply_in_session` de Keel AI
+  /// después de que el usuario dijo «respondele».
+  ///
+  /// Entra por la MISMA vía que el compositor: si la sesión está corriendo el
+  /// mensaje se encola y sale como el turno siguiente. Lo único distinto es
+  /// que queda marcado como puesto por Keel AI.
+  Future<void> replyInSession(
+    String projectId,
+    String sessionId,
+    String text,
+  ) => _sendToSession(projectId, sessionId, text, viaKeelAi: true);
+
   Future<void> _sendToSession(
     String projectId,
     String sessionId,
     String text, {
     List<String> imagePaths = const [],
+    bool viaKeelAi = false,
   }) async {
     final trimmedForInsights = text.trim();
     if (trimmedForInsights.isNotEmpty) {
@@ -2243,6 +2257,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
         sessionId,
         trimmed,
         imagePaths: imagePaths,
+        viaKeelAi: viaKeelAi,
       );
       return;
     }
@@ -2273,6 +2288,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
           text: trimmed,
           timestamp: DateTime.now(),
           imagePaths: imagePaths,
+          viaKeelAi: viaKeelAi,
         ),
       );
     }
@@ -2301,6 +2317,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
           sessionId,
           trimmed,
           imagePaths: imagePaths,
+          viaKeelAi: viaKeelAi,
         );
       }
       return;
@@ -2323,6 +2340,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
         text: trimmed,
         timestamp: DateTime.now(),
         imagePaths: imagePaths,
+        viaKeelAi: viaKeelAi,
       ),
     );
     final members = membersOf(project, session: session);
@@ -2360,6 +2378,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     String sessionId,
     String text, {
     List<String> imagePaths = const [],
+    bool viaKeelAi = false,
   }) async {
     final trimmed = text.trim();
     if (trimmed.isEmpty && imagePaths.isEmpty) return null;
@@ -2375,6 +2394,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
             text: trimmed,
             imagePaths: [...imagePaths],
             createdAt: DateTime.now(),
+            viaKeelAi: viaKeelAi,
           ),
         ],
       ),
@@ -2865,6 +2885,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
       sessionId,
       next.text,
       imagePaths: next.imagePaths,
+      viaKeelAi: next.viaKeelAi,
     );
   }
 

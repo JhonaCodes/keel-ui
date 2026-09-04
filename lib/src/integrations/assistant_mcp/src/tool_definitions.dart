@@ -709,6 +709,83 @@ final List<Tool> keelAiTools = _withCatalogChangeParameters([
     ),
   ),
   Tool(
+    name: 'list_project_sessions',
+    description:
+        'Las SESIONES de un proyecto: id, título, cuándo se abrió, si está '
+        'corriendo, cuántos mensajes tiene y con qué workflow. Es el índice '
+        'para después leer un hilo con read_session_thread.',
+    inputSchema: ObjectSchema(
+      properties: {
+        'project': Schema.string(description: 'Nombre del proyecto.'),
+      },
+      required: ['project'],
+    ),
+  ),
+  Tool(
+    name: 'read_session_thread',
+    description:
+        'El HILO de una sesión: quién escribió cada mensaje, en qué nodo de '
+        'resolución, a qué hora y qué dijo. Cada línea trae su REFERENCIA '
+        '(keel://message/...), que es lo que se le pasa a '
+        'resolve_message_reference y a reply_in_session. Sin `session` lee la '
+        'sesión activa del proyecto.',
+    inputSchema: ObjectSchema(
+      properties: {
+        'project': Schema.string(description: 'Nombre del proyecto.'),
+        'session': Schema.string(
+          description: 'Id o título exacto de la sesión. Vacío = la activa.',
+        ),
+        'limit': Schema.int(
+          description: 'Cuántos mensajes del final traer. Por defecto 40.',
+        ),
+      },
+      required: ['project'],
+    ),
+  ),
+  Tool(
+    name: 'resolve_message_reference',
+    description:
+        'Resuelve una referencia de mensaje que el usuario te pegó '
+        '(keel://message/...) y te devuelve ESE mensaje entero junto con su '
+        'contexto: proyecto, sesión, quién lo escribió, en qué nodo, y los '
+        'mensajes de antes y de después. Usala apenas veas una referencia: '
+        'sin el contexto no podés explicar a qué se refiere, solo repetirlo.',
+    inputSchema: ObjectSchema(
+      properties: {
+        'reference': Schema.string(
+          description:
+              'La referencia tal como te la pegó el usuario. Acepta el token '
+              'pelado o adentro de una oración.',
+        ),
+      },
+      required: ['reference'],
+    ),
+  ),
+  Tool(
+    name: 'reply_in_session',
+    description:
+        'Manda una respuesta AL CANAL de la sesión de la que salió esa '
+        'referencia, citando el mensaje original y dirigida al miembro que '
+        'preguntó. El mensaje sale de verdad: si la sesión está corriendo '
+        'entra como el turno siguiente. En el hilo queda marcado como puesto '
+        'por vos en nombre del usuario. LLAMALA SOLO cuando el usuario ya '
+        'decidió y te pidió responder — nunca por tu cuenta, y nunca antes de '
+        'haberle explicado de qué se trata.',
+    inputSchema: ObjectSchema(
+      properties: {
+        'reference': Schema.string(
+          description: 'La referencia del mensaje que se está contestando.',
+        ),
+        'text': Schema.string(
+          description:
+              'La respuesta, tal como el usuario la decidió. Es lo que va a '
+              'leer el miembro: escribila para él, no para el usuario.',
+        ),
+      },
+      required: ['reference', 'text'],
+    ),
+  ),
+  Tool(
     name: 'describe_system',
     description:
         'Estado actual del sistema: qué está configurado (repos de catálogo '

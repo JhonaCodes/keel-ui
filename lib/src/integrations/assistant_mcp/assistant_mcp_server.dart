@@ -21,7 +21,12 @@ import 'package:keel_ui/src/integrations/system_vault/system_vault.dart';
 import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
 import 'package:keel_ui/src/modules/boards/viewmodel/boards_viewmodel.dart';
 import 'package:keel_ui/src/modules/agents/model/agent_provider.dart';
+import 'package:keel_ui/src/modules/agents/model/chat_message.dart';
 import 'package:keel_ui/src/modules/agents/model/permission_request.dart';
+import 'package:keel_ui/src/modules/projects/model/project.dart';
+import 'package:keel_ui/src/modules/projects/model/session.dart';
+import 'package:keel_ui/src/modules/projects/model/session_message_reference.dart';
+import 'package:keel_ui/src/modules/projects/model/session_reply_request.dart';
 import 'package:keel_ui/src/modules/knowledge/model/knowledge_base.dart';
 import 'package:keel_ui/src/modules/knowledge/viewmodel/knowledge_viewmodel.dart';
 import 'package:keel_ui/src/modules/agent_profiles/viewmodel/agent_profiles_viewmodel.dart';
@@ -73,6 +78,10 @@ const kKeelAiMcpToolNames = [
   'mcp__keelai-actions__unassign_from_agent',
   'mcp__keelai-actions__update_project',
   'mcp__keelai-actions__open_project_session',
+  'mcp__keelai-actions__list_project_sessions',
+  'mcp__keelai-actions__read_session_thread',
+  'mcp__keelai-actions__resolve_message_reference',
+  'mcp__keelai-actions__reply_in_session',
   'mcp__keelai-actions__register_mcp_server',
   'mcp__keelai-actions__list_mcp_catalog',
   'mcp__keelai-actions__install_mcp_integration',

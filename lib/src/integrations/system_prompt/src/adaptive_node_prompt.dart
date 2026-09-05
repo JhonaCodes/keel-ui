@@ -24,6 +24,7 @@ String adaptiveNodePrompt({
   required Workflow workflow,
   required ResolutionCase resolution,
   required WorkNode node,
+  bool isAudit = false,
 }) {
   final findings = resolution.findings
       .map(
@@ -41,10 +42,11 @@ String adaptiveNodePrompt({
       'la escritura. Trabajá solo lo que desbloquea este nodo y conservá la '
       'evidencia verificable. Hallazgos abiertos:\n'
       '${findings.isEmpty ? '- ninguno' : findings}\n\n'
-      'Antes de cerrar, ejecutá el gate que corresponda y dejá qué cambió, '
-      'qué evidencia lo valida y qué dependencia queda lista. Si este es '
-      'una migración, registrá cada área que verificaste con bloques '
-      '```cobertura (area: model|serialization|persistence|dataMigration|'
-      'callers|compatibility|tests|ui; estado: satisfied|notApplicable; '
-      'motivo: evidencia o justificación).';
+      'Antes de cerrar, ejecutá el gate que corresponda y terminá con el '
+      'bloque ```keel-outcome (status, summary con la evidencia, files, '
+      'artifacts${isAudit ? ', y verdict GO o NO-GO: en este nodo el veredicto es obligatorio y NO-GO exige el hallazgo con su ubicación' : ''}). '
+      'Si este es una migración, registrá cada área que verificaste con '
+      'bloques ```cobertura (area: model|serialization|persistence|'
+      'dataMigration|callers|compatibility|tests|ui; estado: '
+      'satisfied|notApplicable; motivo: evidencia o justificación).';
 }

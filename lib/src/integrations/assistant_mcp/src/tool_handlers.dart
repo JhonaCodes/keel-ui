@@ -1976,6 +1976,7 @@ List<WorkflowCapability>? _workflowCapabilities(Object? value) {
             .clamp(0, 20)
             .toInt(),
         readOnly: data['read_only'] as bool? ?? false,
+        approvalRequired: data['approval_required'] as bool? ?? false,
         outputContract: (data['output_contract'] as String? ?? '').trim(),
       ),
     );

@@ -5,6 +5,8 @@ import 'package:keel_ui/src/modules/projects/model/resolution_case.dart';
 import 'package:keel_ui/src/modules/projects/model/resolution_finding.dart';
 import 'package:keel_ui/src/modules/projects/model/resolution_preflight.dart';
 import 'package:keel_ui/src/modules/projects/model/migration_coverage.dart';
+import 'package:keel_ui/src/modules/projects/model/session_decision.dart';
+import 'package:keel_ui/src/modules/projects/model/turn_outcome_report.dart';
 import 'package:keel_ui/src/modules/projects/model/work_node.dart';
 import 'package:keel_ui/src/modules/projects/service/resolution_engine.dart';
 import 'package:keel_ui/src/modules/workflows/model/workflow.dart';
@@ -255,5 +257,187 @@ void main() {
     );
     expect(released.status, ResolutionCaseStatus.active);
     expect(released.nodes.where((n) => n.status == WorkNodeStatus.running), isEmpty);
+  });
+
+  group('applyOutcome', () {
+    ResolutionCase graph() {
+      final started = ResolutionEngine.start(
+        id: 'case-1',
+        kind: WorkflowKind.bug,
+        ownerRole: 'implementador',
+      );
+      // Todo lo anterior a la auditoría ya cerró.
+      return started.copyWith(
+        nodes: [
+          for (final node in started.nodes)
+            node.id == 'planner' || node.id == 'implementation'
+                ? node.copyWith(status: WorkNodeStatus.done)
+                : node,
+        ],
+      );
+    }
+
+    String nextId() => 'id-${DateTime.now().microsecondsSinceEpoch}';
+
+    test('un NO-GO de la auditoría devuelve el nodo auditado a pending, '
+        'deja el hallazgo asignado y re-abre la auditoría', () {
+      final noGo = ResolutionEngine.applyOutcome(
+        graph(),
+        nodeId: 'code-audit',
+        report: const TurnOutcomeReport(
+          status: TurnOutcomeStatus.done,
+          summary: 'unwrap en lib/a.dart:12',
+          verdict: TurnVerdict.noGo,
+        ),
+        isAudit: true,
+        parentNodeId: 'implementation',
+        maxReplans: 2,
+        profileId: 'auditor',
+        now: DateTime(2026),
+        newId: nextId,
+      );
+
+      final resolution = noGo.resolution;
+      WorkNodeStatus statusOf(String id) =>
+          resolution.nodes.firstWhere((node) => node.id == id).status;
+
+      expect(statusOf('implementation'), WorkNodeStatus.pending);
+      expect(statusOf('code-audit'), WorkNodeStatus.pending);
+      expect(resolution.status, ResolutionCaseStatus.active);
+      expect(resolution.reviewCycleCount, 1);
+      expect(resolution.findings, hasLength(1));
+      expect(resolution.findings.single.status, ResolutionFindingStatus.assigned);
+      expect(resolution.findings.single.affectedNodeId, 'implementation');
+      expect(
+        resolution.findings.single.evidence.source,
+        ResolutionEvidenceSource.review,
+      );
+      expect(ResolutionEngine.canComplete(resolution), isFalse);
+      expect(noGo.decision, isNull);
+
+      // La corrección cierra y la auditoría vuelve con GO: el hallazgo queda
+      // resuelto y el caso puede cerrar cuando el resto termine.
+      final fixed = ResolutionEngine.applyOutcome(
+        resolution,
+        nodeId: 'implementation',
+        report: const TurnOutcomeReport(
+          status: TurnOutcomeStatus.done,
+          summary: 'unwrap reemplazado por ?',
+        ),
+        isAudit: false,
+        maxReplans: 2,
+        profileId: 'dev',
+        now: DateTime(2026),
+        newId: nextId,
+      ).resolution;
+      final go = ResolutionEngine.applyOutcome(
+        fixed,
+        nodeId: 'code-audit',
+        report: const TurnOutcomeReport(
+          status: TurnOutcomeStatus.done,
+          summary: 'sin hallazgos',
+          verdict: TurnVerdict.go,
+        ),
+        isAudit: true,
+        parentNodeId: 'implementation',
+        maxReplans: 2,
+        profileId: 'auditor',
+        now: DateTime(2026),
+        newId: nextId,
+      ).resolution;
+
+      expect(
+        go.findings.single.status,
+        ResolutionFindingStatus.resolved,
+      );
+      expect(
+        go.nodes.firstWhere((node) => node.id == 'code-audit').status,
+        WorkNodeStatus.done,
+      );
+      expect(
+        go.nodes.firstWhere((node) => node.id == 'code-audit').output?.verdict,
+        TurnVerdict.go,
+      );
+    });
+
+    test('needs_user pausa el nodo y deja una decisión pendiente', () {
+      final application = ResolutionEngine.applyOutcome(
+        graph(),
+        nodeId: 'code-audit',
+        report: const TurnOutcomeReport(
+          status: TurnOutcomeStatus.needsUser,
+          summary: 'no sé qué rama auditar',
+          question: '¿main o develop?',
+        ),
+        isAudit: true,
+        parentNodeId: 'implementation',
+        maxReplans: 2,
+        profileId: 'auditor',
+        now: DateTime(2026),
+        newId: nextId,
+      );
+
+      expect(
+        application.resolution.nodes
+            .firstWhere((node) => node.id == 'code-audit')
+            .status,
+        WorkNodeStatus.paused,
+      );
+      expect(application.resolution.status, ResolutionCaseStatus.active);
+      final decision = application.decision;
+      expect(decision, isNotNull);
+      expect(decision!.kind, SessionDecisionKind.question);
+      expect(decision.workNodeId, 'code-audit');
+      expect(decision.profileId, 'auditor');
+      expect(decision.detail, '¿main o develop?');
+      expect(decision.status, SessionDecisionStatus.pending);
+    });
+
+    test('next activa una capacidad opcional sin tocar el resto', () {
+      final application = ResolutionEngine.applyOutcome(
+        graph(),
+        nodeId: 'code-audit',
+        report: const TurnOutcomeReport(
+          status: TurnOutcomeStatus.done,
+          summary: 'ok',
+          verdict: TurnVerdict.go,
+          next: 'device-e2e',
+        ),
+        isAudit: true,
+        parentNodeId: 'implementation',
+        maxReplans: 2,
+        profileId: 'auditor',
+        now: DateTime(2026),
+        newId: nextId,
+      );
+
+      expect(application.activateCapabilityId, 'device-e2e');
+    });
+
+    test('blocked registra un hallazgo de contrato y reintenta el nodo', () {
+      final application = ResolutionEngine.applyOutcome(
+        graph(),
+        nodeId: 'code-audit',
+        report: const TurnOutcomeReport(
+          status: TurnOutcomeStatus.blocked,
+          summary: 'el repo no compila por un cambio ajeno',
+        ),
+        isAudit: true,
+        parentNodeId: 'implementation',
+        maxReplans: 2,
+        profileId: 'auditor',
+        now: DateTime(2026),
+        newId: nextId,
+      );
+
+      final resolution = application.resolution;
+      expect(resolution.findings.single.evidence.source,
+          ResolutionEvidenceSource.contract);
+      expect(
+        resolution.nodes.firstWhere((node) => node.id == 'code-audit').status,
+        WorkNodeStatus.pending,
+      );
+      expect(resolution.status, ResolutionCaseStatus.active);
+    });
   });
 }

@@ -6,6 +6,7 @@ import 'package:keel_ui/src/modules/projects/model/session_plan_item.dart';
 import 'package:keel_ui/src/modules/projects/model/session_live_turn.dart';
 import 'package:keel_ui/src/modules/projects/model/session_subagent.dart';
 import 'package:keel_ui/src/modules/projects/model/resolution_case.dart';
+import 'package:keel_ui/src/modules/projects/model/session_decision.dart';
 import 'package:keel_ui/src/modules/projects/model/session_queued_message.dart';
 import 'package:keel_ui/src/modules/projects/model/session_usage.dart';
 
@@ -114,6 +115,10 @@ class Session {
   /// desaparecer.
   final List<SessionQueuedMessage> queuedMessages;
 
+  /// Todo lo que un agente le pidió al usuario en esta sesión: preguntas,
+  /// permisos, aprobaciones. Una cola, persistida. Ver [SessionDecision].
+  final List<SessionDecision> decisions;
+
   const Session({
     required this.id,
     required this.title,
@@ -134,7 +139,14 @@ class Session {
     this.liveTurn,
     this.subagents = const [],
     this.queuedMessages = const [],
+    this.decisions = const [],
   });
+
+  /// Hay algo que solo el usuario puede destrabar.
+  bool get waitingForUser => decisions.any((decision) => decision.isPending);
+
+  List<SessionDecision> get pendingDecisions =>
+      [for (final decision in decisions) if (decision.isPending) decision];
 
   /// How full the context is, 0..1, or null while nothing has reported yet.
   double? get contextUsageRatio {
@@ -165,6 +177,7 @@ class Session {
     bool clearLiveTurn = false,
     List<SessionSubagent>? subagents,
     List<SessionQueuedMessage>? queuedMessages,
+    List<SessionDecision>? decisions,
   }) {
     return Session(
       id: id,
@@ -191,6 +204,7 @@ class Session {
       liveTurn: clearLiveTurn ? null : (liveTurn ?? this.liveTurn),
       subagents: subagents ?? this.subagents,
       queuedMessages: queuedMessages ?? this.queuedMessages,
+      decisions: decisions ?? this.decisions,
     );
   }
 
@@ -211,6 +225,7 @@ class Session {
     'usage': usage.toJson(),
     'subagents': [for (final subagent in subagents) subagent.toJson()],
     'queuedMessages': [for (final message in queuedMessages) message.toJson()],
+    'decisions': [for (final decision in decisions) decision.toJson()],
   };
 
   factory Session.fromJson(Map<String, dynamic> json) {
@@ -263,6 +278,10 @@ class Session {
       queuedMessages: [
         for (final entry in json['queuedMessages'] as List? ?? const [])
           SessionQueuedMessage.fromJson(entry as Map<String, dynamic>),
+      ],
+      decisions: [
+        for (final entry in json['decisions'] as List? ?? const [])
+          SessionDecision.fromJson((entry as Map).cast<String, dynamic>()),
       ],
     );
   }

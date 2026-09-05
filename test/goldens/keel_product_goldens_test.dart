@@ -480,15 +480,9 @@ final _workspaceProjects = [
   _activeProject,
 ];
 
-Future<void> _seedProductWorkspace() async {
-  await Future.wait([
-    AgentProfilesService.instance.notifier.ready,
-    WorkflowsService.instance.notifier.ready,
-    ProjectsService.instance.notifier.ready,
-    SidebarLayoutService.instance.notifier.ready,
-    RulesService.instance.notifier.ready,
-    KnowledgeService.instance.notifier.ready,
-  ]);
+/// Seeds the catalogs the real screens read. Every service is already ready:
+/// `setUpAll` resolved them outside any fake-async zone (see there for why).
+void _seedProductWorkspace() {
   AgentProfilesService.instance.notifier.updateState(
     AgentProfilesState(profiles: _members),
   );
@@ -528,8 +522,34 @@ Future<void> _seedProductWorkspace() async {
 }
 
 void main() {
+  late Directory supportRoot;
+
   setUpAll(() async {
     LocalDatabase.markUnavailable();
+    // KnowledgeViewModel resolves Application Support through path_provider
+    // before it reports ready. Under a widget test that channel has no
+    // handler, so the reply never reaches the fake-async zone and every test
+    // that awaits KnowledgeService.ready hangs until the runner times out.
+    supportRoot = await Directory.systemTemp.createTemp('keel-goldens-');
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+          const MethodChannel('plugins.flutter.io/path_provider'),
+          (_) async => supportRoot.path,
+        );
+    // Resolve every catalog HERE, outside the fake-async zone of a widget
+    // test. Each ViewModel caches its `ready` future, and a future created
+    // inside one test's FakeAsync zone propagates its completion through
+    // that zone: the next test awaiting the same cached future never wakes
+    // up, because that zone is no longer pumped. Resolved from the real zone,
+    // the futures complete for every test that follows.
+    await Future.wait([
+      AgentProfilesService.instance.notifier.ready,
+      WorkflowsService.instance.notifier.ready,
+      ProjectsService.instance.notifier.ready,
+      SidebarLayoutService.instance.notifier.ready,
+      RulesService.instance.notifier.ready,
+      KnowledgeService.instance.notifier.ready,
+    ]);
     if (!await _productFont.exists() || !await _materialIconsFont.exists()) {
       return;
     }
@@ -544,6 +564,15 @@ void main() {
     final iconLoader = FontLoader('MaterialIcons')
       ..addFont(Future.value(iconBytes));
     await iconLoader.load();
+  });
+
+  tearDownAll(() async {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+          const MethodChannel('plugins.flutter.io/path_provider'),
+          null,
+        );
+    await supportRoot.delete(recursive: true);
   });
 
   testWidgets('workflow editor product golden', (tester) async {
@@ -609,7 +638,7 @@ void main() {
   }, skip: !_goldenFontsAvailable);
 
   testWidgets('multi-agent session chat product golden', (tester) async {
-    await _seedProductWorkspace();
+    _seedProductWorkspace();
     await _goldenSurface(
       tester,
       Center(
@@ -629,7 +658,7 @@ void main() {
   testWidgets(
     'complete product workspace uses the real Keel screen',
     (tester) async {
-      await _seedProductWorkspace();
+      _seedProductWorkspace();
       await _goldenSurface(
         tester,
         const AgentsScreen(),

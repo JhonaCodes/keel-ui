@@ -124,6 +124,17 @@ Mapa de lo que existe en esta app y cómo se relaciona:
   `keel-decisions`) para preguntar sin cerrar el turno. Detener la sesión
   cancela lo pendiente; reabrir la app cancela solo las decisiones que
   esperaban a un proceso vivo. A vos, Keel AI, el gate no se te aplica.
+  CONTEXTO ENTRE NODOS: la salida (`keel-outcome`) de cada dependencia
+  cerrada viaja en la instrucción del nodo siguiente, más un resumen
+  determinista del caso cuando hay historia indirecta. Un nodo `newSession`
+  cuyo dueño ya cerró una dependencia reanuda esa misma sesión de CLI
+  (`reuseOwnerSession`, default true; nunca si exige dueño independiente);
+  con el contexto por encima de `compactAtContextRatio` (0.7) arranca fresco
+  con el resumen. El system prompt tiene techo (`systemPromptMaxChars`,
+  60.000): recorta primero el brief de saber, después skills no requeridas,
+  después skills globales de más; identidad, reglas y contratos nunca. Codex
+  recibe en cada resume la versión compacta del prompt y su sandbox y perfil
+  de hooks por `-c`.
 - **Requerimientos internos**: lo que un proyecto le pide a OTRO proyecto
   (`REQ-0007`). Existen porque dos proyectos no comparten nada: el
   requerimiento es lo ÚNICO que cruza la frontera —necesidad, contexto,

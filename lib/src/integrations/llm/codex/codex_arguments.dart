@@ -2,10 +2,12 @@ import 'package:keel_ui/src/integrations/system_prompt/system_prompt.dart';
 import 'package:keel_ui/src/modules/agents/model/agent_model_option.dart'
     show codexModelArgument;
 
-/// Codex no tiene flag de system prompt: en el PRIMER turno de una sesión el
-/// stack de instrucciones del member viaja como preámbulo delimitado del
-/// prompt del usuario (los turnos con resume ya lo tienen en el historial
-/// del thread). Migrado literal de `CodexCliService`/`task_runner_isolate`.
+/// Codex no tiene flag de system prompt: el stack de instrucciones del
+/// member viaja como preámbulo delimitado del prompt del usuario. En el
+/// primer turno va completo; en un resume el ViewModel manda la versión
+/// COMPACTA (identidad, reglas, contratos —sin skills ni saber), y acá se
+/// antepone igual. Antes se descartaba en resume y la identidad vivía solo
+/// en el turno 1: reglas y protocolo de cierre se perdían en silencio.
 String buildCodexPrompt({
   required String prompt,
   required String? sessionId,
@@ -18,9 +20,7 @@ String buildCodexPrompt({
   // sandbox— sepa que tiene que planificar y no ejecutar.
   final userPrompt = planMode ? '$kPlanModePrompt\n\n$prompt' : prompt;
 
-  if (sessionId != null ||
-      additionalSystemPrompt == null ||
-      additionalSystemPrompt.isEmpty) {
+  if (additionalSystemPrompt == null || additionalSystemPrompt.isEmpty) {
     return userPrompt;
   }
   return codexRoleWrappedPrompt(
@@ -44,6 +44,13 @@ List<String> buildCodexArguments({
   // los catálogos se separaran por proveedor) cae al modelo del config.
   final codexModel = codexModelArgument(model);
   final isResume = sessionId != null;
+  // El modo plan le gana al acceso total: si el turno solo planifica, no
+  // hay lectura que justifique dejarlo escribir.
+  final sandbox = planMode
+      ? 'read-only'
+      : fullFileSystemAccess
+      ? 'danger-full-access'
+      : 'workspace-write';
 
   return [
     'exec',
@@ -51,21 +58,21 @@ List<String> buildCodexArguments({
     if (codexModel != null) ...['-m', codexModel],
     '--json',
     '--skip-git-repo-check',
-    // `resume` has its own CLI parser. Unlike `exec`, it does not accept
-    // sandbox, profile, or colour flags; forwarding them makes the resumed
-    // turn fail before the model sees the prompt. The current Codex CLI has
-    // no equivalent for preserving those process-level options on resume.
+    // `resume` tiene su propio parser: no acepta `-s`, `-p` ni `--color`.
+    // Pero sí acepta `-c clave=valor` (verificado en codex 0.149.1), que es
+    // como el sandbox y el perfil de hooks sobreviven al reanudar. Antes se
+    // descartaban: un turno de plan reanudado corría sin freno y los hooks
+    // (incluido el gate de permisos) no aplicaban.
     if (!isResume) ...[
       '-s',
-      // El modo plan le gana al acceso total: si el turno solo planifica, no
-      // hay lectura que justifique dejarlo escribir.
-      if (planMode)
-        'read-only'
-      else
-        fullFileSystemAccess ? 'danger-full-access' : 'workspace-write',
+      sandbox,
       if (codexProfileName != null) ...['-p', codexProfileName],
       '--color',
       'never',
+    ] else ...[
+      '-c',
+      'sandbox_mode="$sandbox"',
+      if (codexProfileName != null) ...['-c', 'profile="$codexProfileName"'],
     ],
     prompt,
   ];

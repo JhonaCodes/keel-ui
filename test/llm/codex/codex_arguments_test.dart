@@ -23,7 +23,11 @@ void main() {
       );
     });
 
-    test('turno con resume: no repite el preámbulo aunque haya rol', () {
+    test('turno con resume: repite el preámbulo que le pasen (el compacto)',
+        () {
+      // Antes se descartaba: la identidad, las reglas y el protocolo de
+      // cierre vivían solo en el turno 1 y se perdían en cada resume. El
+      // ViewModel manda una versión compacta; acá se antepone igual.
       final prompt = buildCodexPrompt(
         prompt: 'Seguí con lo anterior',
         sessionId: 'thread-123',
@@ -31,7 +35,8 @@ void main() {
         planMode: false,
       );
 
-      expect(prompt, 'Seguí con lo anterior');
+      expect(prompt, startsWith('### Instrucciones de tu rol'));
+      expect(prompt, endsWith('Seguí con lo anterior'));
     });
 
     test('sin instrucciones de rol: el prompt queda tal cual', () {
@@ -87,9 +92,9 @@ void main() {
       expect(args.contains('danger-full-access'), isFalse);
     });
 
-    test('al reanudar no hay sandbox que aplicar', () {
-      // `exec resume` no acepta `-s`. El turno queda con el freno del texto
-      // nomás, y por eso el runner emite un aviso.
+    test('al reanudar el sandbox viaja por -c, que resume sí acepta', () {
+      // `exec resume` no acepta `-s`, pero acepta `-c clave=valor`
+      // (verificado en codex 0.149.1): el modo plan sigue teniendo freno.
       final args = buildCodexArguments(
         prompt: 'Planificá',
         sessionId: 'thread-1',
@@ -100,6 +105,7 @@ void main() {
       );
 
       expect(args.contains('-s'), isFalse);
+      expect(args, containsAllInOrder(['-c', 'sandbox_mode="read-only"']));
     });
 
     test('el texto del modo plan viaja adentro del prompt', () {
@@ -169,6 +175,8 @@ void main() {
         'thread-abc',
         '--json',
         '--skip-git-repo-check',
+        '-c',
+        'sandbox_mode="workspace-write"',
         'Seguí',
       ]);
     });
@@ -271,4 +279,20 @@ void main() {
       expect(argv, isNot(contains('--color')));
     },
   );
+
+  test('al reanudar con perfil de hooks, el perfil viaja por -c', () {
+    final args = buildCodexArguments(
+      prompt: 'Seguí',
+      sessionId: 'thread-abc',
+      model: '',
+      fullFileSystemAccess: true,
+      codexProfileName: 'keel-turn9',
+      planMode: false,
+    );
+
+    expect(args.contains('-p'), isFalse);
+    expect(args, containsAllInOrder(['-c', 'profile="keel-turn9"']));
+    expect(args, containsAllInOrder(['-c', 'sandbox_mode="danger-full-access"']));
+  });
+
 }

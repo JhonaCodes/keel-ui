@@ -25,6 +25,14 @@ String adaptiveNodePrompt({
   required ResolutionCase resolution,
   required WorkNode node,
   bool isAudit = false,
+
+  /// Lo que dejaron las dependencias cerradas, ya rendido (ver
+  /// `renderDependencyOutputs`). Vacío si ninguna cerró con bloque.
+  String dependencyContext = '',
+
+  /// El estado del caso nodo por nodo (ver `sessionDigest`). Va cuando el
+  /// nodo arranca sin la sesión del CLI: es su única memoria del caso.
+  String digest = '',
 }) {
   final findings = resolution.findings
       .map(
@@ -38,6 +46,8 @@ String adaptiveNodePrompt({
       'del workflow "${workflow.name}". Contrato del nodo: '
       '${node.instruction.isEmpty ? 'producir evidencia verificable para esta capacidad' : node.instruction}. '
       'El responsable de integración conserva el rol ${resolution.ownerRole}. '
+      '${dependencyContext.trim().isEmpty ? '' : '\n\nLO QUE DEJARON LOS NODOS DE LOS QUE DEPENDÉS (arrancá de acá, no lo rehagas):\n${dependencyContext.trim()}\n\n'}'
+      '${digest.trim().isEmpty ? '' : '\n\nESTADO DEL CASO HASTA ACÁ:\n${digest.trim()}\n\n'}'
       'No recorras un flujo fijo ni delegues '
       'la escritura. Trabajá solo lo que desbloquea este nodo y conservá la '
       'evidencia verificable. Hallazgos abiertos:\n'

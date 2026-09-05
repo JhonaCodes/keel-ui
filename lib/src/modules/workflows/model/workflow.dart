@@ -1,8 +1,12 @@
 import 'package:flutter/foundation.dart';
 
 import 'package:keel_ui/l10n/generated/app_localizations.dart';
+import 'package:keel_ui/src/modules/projects/service/turn_prompt.dart'
+    show kDefaultSystemPromptMaxChars;
 import 'package:keel_ui/src/modules/workflows/model/workflow_capability.dart';
 
+export 'package:keel_ui/src/modules/projects/service/turn_prompt.dart'
+    show kDefaultSystemPromptMaxChars;
 export 'package:keel_ui/src/modules/workflows/model/workflow_capability.dart';
 
 /// Techo de subagentes que un NODO puede abrir, no la corrida entera: cada
@@ -50,6 +54,17 @@ class WorkflowPolicy {
   /// techo no lo frena — el preflight lo dice.
   final double maxSessionCostUsd;
 
+  /// Un nodo cuyo dueño ya cerró una dependencia reanuda ESA sesión del CLI
+  /// en vez de abrir una nueva: no vuelve a leer el repo que ya leyó.
+  final bool reuseOwnerSession;
+
+  /// Con el contexto por encima de esta fracción, el nodo arranca fresco
+  /// con el resumen del caso en vez de reanudar.
+  final double compactAtContextRatio;
+
+  /// Techo del system prompt de cada turno, en caracteres.
+  final int systemPromptMaxChars;
+
   const WorkflowPolicy({
     this.resolutionRole = '',
     this.requiredSkillNames = const [],
@@ -65,6 +80,9 @@ class WorkflowPolicy {
     this.idleTimeoutMinutes = kDefaultIdleTimeoutMinutes,
     this.nodeTimeoutMinutes = kDefaultNodeTimeoutMinutes,
     this.maxSessionCostUsd = kDefaultMaxSessionCostUsd,
+    this.reuseOwnerSession = true,
+    this.compactAtContextRatio = 0.7,
+    this.systemPromptMaxChars = kDefaultSystemPromptMaxChars,
   });
 
   WorkflowPolicy copyWith({
@@ -79,6 +97,9 @@ class WorkflowPolicy {
     int? idleTimeoutMinutes,
     int? nodeTimeoutMinutes,
     double? maxSessionCostUsd,
+    bool? reuseOwnerSession,
+    double? compactAtContextRatio,
+    int? systemPromptMaxChars,
   }) => WorkflowPolicy(
     resolutionRole: resolutionRole ?? this.resolutionRole,
     requiredSkillNames: requiredSkillNames ?? this.requiredSkillNames,
@@ -92,6 +113,9 @@ class WorkflowPolicy {
     idleTimeoutMinutes: idleTimeoutMinutes ?? this.idleTimeoutMinutes,
     nodeTimeoutMinutes: nodeTimeoutMinutes ?? this.nodeTimeoutMinutes,
     maxSessionCostUsd: maxSessionCostUsd ?? this.maxSessionCostUsd,
+    reuseOwnerSession: reuseOwnerSession ?? this.reuseOwnerSession,
+    compactAtContextRatio: compactAtContextRatio ?? this.compactAtContextRatio,
+    systemPromptMaxChars: systemPromptMaxChars ?? this.systemPromptMaxChars,
   );
 
   Map<String, dynamic> toJson() => {
@@ -106,6 +130,9 @@ class WorkflowPolicy {
     'idleTimeoutMinutes': idleTimeoutMinutes,
     'nodeTimeoutMinutes': nodeTimeoutMinutes,
     'maxSessionCostUsd': maxSessionCostUsd,
+    'reuseOwnerSession': reuseOwnerSession,
+    'compactAtContextRatio': compactAtContextRatio,
+    'systemPromptMaxChars': systemPromptMaxChars,
   };
 
   factory WorkflowPolicy.fromJson(Map<String, dynamic>? json) {
@@ -142,6 +169,15 @@ class WorkflowPolicy {
           ((data['maxSessionCostUsd'] as num?)?.toDouble() ??
                   kDefaultMaxSessionCostUsd)
               .clamp(0, double.infinity),
+      reuseOwnerSession: data['reuseOwnerSession'] as bool? ?? true,
+      compactAtContextRatio:
+          ((data['compactAtContextRatio'] as num?)?.toDouble() ?? 0.7).clamp(
+            0.3,
+            0.95,
+          ),
+      systemPromptMaxChars:
+          (data['systemPromptMaxChars'] as int? ?? kDefaultSystemPromptMaxChars)
+              .clamp(10000, 400000),
     );
   }
 
@@ -163,7 +199,10 @@ class WorkflowPolicy {
           maxReviewCycles == other.maxReviewCycles &&
           idleTimeoutMinutes == other.idleTimeoutMinutes &&
           nodeTimeoutMinutes == other.nodeTimeoutMinutes &&
-          maxSessionCostUsd == other.maxSessionCostUsd;
+          maxSessionCostUsd == other.maxSessionCostUsd &&
+          reuseOwnerSession == other.reuseOwnerSession &&
+          compactAtContextRatio == other.compactAtContextRatio &&
+          systemPromptMaxChars == other.systemPromptMaxChars;
 
   @override
   int get hashCode => Object.hash(
@@ -178,6 +217,9 @@ class WorkflowPolicy {
     idleTimeoutMinutes,
     nodeTimeoutMinutes,
     maxSessionCostUsd,
+    reuseOwnerSession,
+    compactAtContextRatio,
+    systemPromptMaxChars,
   );
 }
 

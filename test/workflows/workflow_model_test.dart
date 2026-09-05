@@ -335,5 +335,21 @@ void main() {
       // Un registro anterior a estos campos lee los defaults, no cero.
       expect(WorkflowPolicy.fromJson({'maxReplans': 1}).idleTimeoutMinutes, 10);
     });
+
+    test('la policy trae reuso de sesión, umbral de compactación y tope de '
+        'prompt, con defaults al leer registros viejos', () {
+      const policy = WorkflowPolicy();
+      expect(policy.reuseOwnerSession, isTrue);
+      expect(policy.compactAtContextRatio, 0.7);
+      expect(policy.systemPromptMaxChars, kDefaultSystemPromptMaxChars);
+
+      final custom = policy.copyWith(
+        reuseOwnerSession: false,
+        compactAtContextRatio: 0.5,
+        systemPromptMaxChars: 20000,
+      );
+      expect(WorkflowPolicy.fromJson(custom.toJson()), custom);
+      expect(WorkflowPolicy.fromJson({}).reuseOwnerSession, isTrue);
+    });
   });
 }

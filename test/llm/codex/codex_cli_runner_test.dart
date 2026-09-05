@@ -99,9 +99,17 @@ void main() {
   });
 
   test(
-    'resume avisa cuando el CLI no puede reenviar sandbox o perfil',
+    'resume reenvía el sandbox por -c y ya no avisa que no puede',
     () async {
-      final fakeBin = createFakeCliBin('codex', '#!/bin/sh\nexit 0\n');
+      // `exec resume` no acepta `-s`, pero sí `-c sandbox_mode=...`: el
+      // aviso de «reanudó sin sandbox» dejó de ser verdad y se fue.
+      final fakeBin = createFakeCliBin(
+        'codex',
+        r'#!/bin/sh'
+        '\n'
+        r'printf "%s\n" "$@" > "$(dirname "$0")/argv.log"'
+        '\nexit 0\n',
+      );
       addTearDown(() {
         if (fakeBin.existsSync()) fakeBin.deleteSync(recursive: true);
       });
@@ -122,9 +130,10 @@ void main() {
           )
           .toList();
 
-      expect(events, hasLength(1));
-      expect(events.single['type'], 'notice');
-      expect(events.single['message'], contains('resume'));
+      expect(events.where((event) => event['type'] == 'notice'), isEmpty);
+      final argv = File('${fakeBin.path}/argv.log').readAsLinesSync();
+      expect(argv, containsAllInOrder(['-c', 'sandbox_mode="danger-full-access"']));
+      expect(argv.contains('-s'), isFalse);
     },
   );
 }

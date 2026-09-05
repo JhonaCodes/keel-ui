@@ -63,6 +63,7 @@ import 'package:keel_ui/src/modules/projects/model/work_node.dart';
 import 'package:keel_ui/src/modules/projects/repository/projects_repository.dart';
 import 'package:keel_ui/src/integrations/chat_references/chat_references.dart';
 import 'package:keel_ui/src/modules/projects/service/resolution_engine.dart';
+import 'package:keel_ui/src/modules/projects/service/node_context.dart';
 import 'package:keel_ui/src/modules/projects/service/subagent_budget.dart';
 import 'package:keel_ui/src/modules/projects/service/turn_watchdog.dart';
 import 'package:keel_ui/src/modules/projects/service/turn_prompt.dart';
@@ -1824,6 +1825,16 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
             ? null
             : _sessionById(freshProject, sessionId)?.request;
         final isAudit = capability.outputContract == 'audit-feedback';
+        // Lo que dejaron las dependencias viaja en la instrucción: es la
+        // diferencia entre seguir el trabajo y volver a descubrir el repo.
+        // El resumen del caso va cuando hay nodos cerrados que no son
+        // dependencias directas: lo que las salidas directas no cuentan.
+        final outputs = dependencyOutputs(resolution, node);
+        final hasIndirectHistory = resolution.nodes.any(
+          (entry) =>
+              entry.status == WorkNodeStatus.done &&
+              !node.dependencyIds.contains(entry.id),
+        );
         final nodePrompt = adaptiveNodePrompt(
           request: storedRequest == null || storedRequest.isEmpty
               ? request
@@ -1832,6 +1843,8 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
           resolution: resolution,
           node: node,
           isAudit: isAudit,
+          dependencyContext: renderDependencyOutputs(outputs),
+          digest: hasIndirectHistory ? sessionDigest(resolution) : '',
         );
         // Lo que el usuario contestó a este nodo viaja en la instrucción: la
         // sesión del CLI se reanuda con el prompt nuevo, no lee el hilo.
@@ -2553,6 +2566,58 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
 
     switch (capability.executor) {
       case WorkflowExecutor.newSession:
+        // El mismo dueño que ya cerró una dependencia reanuda ESA sesión:
+        // no vuelve a leer el repo que ya leyó. Determinista a propósito,
+        // así el seguimiento de un turno cae en la misma sesión que él.
+        final liveIds =
+            _sessionById(project, sessionId)?.cliSessionsByExecutionId.keys
+                .toSet() ??
+            const <String>{};
+        final reuseFrom = !workflow.policy.reuseOwnerSession
+            ? null
+            : reusableDependencyId(
+                node: node,
+                nodes: resolution.nodes,
+                ownerId: nodeOwner.id,
+                ownerIdOf: (id) =>
+                    preflight.nodeOwners[id]?.id ??
+                    resolution.nodes
+                        .where((entry) => entry.id == id)
+                        .firstOrNull
+                        ?.ownerProfileId ??
+                    '',
+                liveExecutionIds: liveIds,
+                executionIdFor: (id) => _workflowExecutionId(sessionId, id),
+                requiresIndependentOwner: capability.requiresIndependentOwner,
+              );
+        final executionId = _workflowExecutionId(
+          sessionId,
+          reuseFrom ?? capability.id,
+        );
+        if (reuseFrom != null && !followUp) {
+          final compacted = _compactIfNeeded(
+            projectId,
+            sessionId,
+            executionId,
+            workflow.policy,
+          );
+          _appendMessage(
+            projectId,
+            sessionId,
+            ChatMessage(
+              role: ChatRole.system,
+              text: compacted
+                  ? 'El nodo "${node.title}" arranca fresco con el resumen '
+                        'del caso: el contexto de la sesión de "$reuseFrom" '
+                        'superó el umbral de compactación.'
+                  : 'El nodo "${node.title}" reanuda la sesión de '
+                        '"$reuseFrom" (mismo agente): no vuelve a leer lo '
+                        'que ya leyó.',
+              timestamp: DateTime.now(),
+              workNodeId: node.id,
+            ),
+          );
+        }
         return _runTurn(
           projectId: projectId,
           sessionId: sessionId,
@@ -2563,7 +2628,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
           turnId: turnId,
           depth: 0,
           allowConsults: !followUp,
-          executionId: _workflowExecutionId(sessionId, capability.id),
+          executionId: executionId,
           maxTurns: turnCap,
           maxBudgetUsd: maxBudgetUsd,
           planMode: capability.readOnly,
@@ -2571,6 +2636,14 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
       case WorkflowExecutor.resumeParent:
         if (parentOwner == null) {
           return (ok: false, answer: 'No se encontró la sesión padre.', report: null);
+        }
+        if (!followUp) {
+          _compactIfNeeded(
+            projectId,
+            sessionId,
+            _workflowExecutionId(sessionId, parentId),
+            workflow.policy,
+          );
         }
         return _runTurn(
           projectId: projectId,
@@ -2721,6 +2794,36 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
         .join('\n\n');
   }
 
+  /// Si el contexto de la sesión pasó el umbral de la policy, descarta la
+  /// sesión del CLI en [executionId]: el próximo turno arranca fresco con el
+  /// resumen del caso en la instrucción. Sin LLM: el resumen ES la
+  /// compactación. Devuelve si compactó.
+  bool _compactIfNeeded(
+    String projectId,
+    String sessionId,
+    String executionId,
+    WorkflowPolicy policy,
+  ) {
+    final project = _projectById(projectId);
+    final session = project == null ? null : _sessionById(project, sessionId);
+    if (session == null) return false;
+    if (!session.cliSessionsByExecutionId.containsKey(executionId)) {
+      return false;
+    }
+    final ratio = session.contextUsageRatio ?? 0;
+    if (ratio < policy.compactAtContextRatio) return false;
+    _updateSession(projectId, sessionId, (open) {
+      final sessions = Map<String, String>.from(open.cliSessionsByExecutionId)
+        ..remove(executionId);
+      return open.copyWith(cliSessionsByExecutionId: sessions);
+    });
+    Log.i(
+      'Compactación: sesión $executionId descartada con contexto al '
+      '${(ratio * 100).round()}%',
+    );
+    return true;
+  }
+
   String _subagentPacket({
     required Project project,
     required String sessionId,
@@ -2728,14 +2831,11 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     required AgentProfile target,
     required String instruction,
   }) {
-    final skillText = SkillsService.instance.notifier.data.skills
-        .where((skill) => target.skills.contains(skill.name))
-        .map((skill) => 'SKILL ${skill.name}:\n${skill.content}')
-        .join('\n\n');
-    final ruleText = RulesService.instance.notifier.data.rules
-        .where((rule) => target.rules.contains(rule.name))
-        .map((rule) => 'REGLA ${rule.name}:\n${rule.content}')
-        .join('\n\n');
+    // Sin skills, reglas ni system prompt del auditor: cuando la auditoría
+    // cae a la sesión externa, todo eso ya viaja como SU system prompt, y
+    // repetirlo acá lo mandaba dos veces (hasta 12k chars de instrucción).
+    // Cuando corre como subagente nativo, el padre ya tiene las skills del
+    // workflow. El paquete es el contrato y los archivos, nada más.
     final changed =
         _sessionById(project, sessionId)?.messages
             .where((message) => message.fileEdits.isNotEmpty)
@@ -2750,9 +2850,8 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
         'Contrato de salida: veredicto, todos los hallazgos, evidencia, '
         'archivo/línea y acción sugerida.\n'
         'Archivos modificados conocidos: ${changed.isEmpty ? 'no disponibles' : changed}.\n\n'
-        '$instruction\n\nIDENTIDAD DEL AUDITOR:\n${target.systemPrompt}\n\n'
-        '$skillText\n\n$ruleText';
-    return packet.length <= 12000 ? packet : '${packet.substring(0, 12000)}…';
+        '$instruction';
+    return packet.length <= 8000 ? packet : '${packet.substring(0, 8000)}…';
   }
 
   Future<void> _abandonRun(
@@ -4041,6 +4140,10 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
           usesGit: usesGit,
           place: place,
           usesGithubMcp: externalServers.any(isGithubMcpServer),
+          // Codex no tiene system prompt: en un resume el preámbulo se
+          // repite, así que va la versión compacta (identidad, reglas,
+          // contratos) y no las skills ni el saber, que ya están en su hilo.
+          compact: isCodex && cliSessionId != null,
         ),
         mcpConfig: mcpServers.isEmpty
             ? null
@@ -5048,26 +5151,43 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     required bool usesGit,
     required WorktreePlace place,
     bool usesGithubMcp = false,
+
+    /// Solo lo que no se puede perder: identidad, reglas y contratos. Es lo
+    /// que codex recibe en cada turno reanudado, donde repetir las skills y
+    /// el saber costaría lo mismo que el turno 1 cada vez.
+    bool compact = false,
   }) {
-    final buffer = StringBuffer();
+    final sections = <PromptSection>[];
 
     final skills = SkillsService.instance.notifier.data.skills;
+    var globalCount = 0;
     for (final skill in skills) {
       if (!skill.isGlobal || skill.content.isEmpty) continue;
-      if (buffer.isNotEmpty) buffer.writeln();
-      buffer.writeln(skill.content);
+      globalCount++;
+      // Las dos primeras globales se quedan siempre; las de más salen antes
+      // que las reglas y después que el saber si el prompt no entra.
+      sections.add(
+        PromptSection(
+          name: 'skill global ${skill.name}',
+          text: skill.content,
+          dropPriority: globalCount <= 2 ? 0 : 1,
+        ),
+      );
     }
 
     if (member.systemPrompt.isNotEmpty) {
-      if (buffer.isNotEmpty) buffer.writeln();
-      buffer.writeln(member.systemPrompt);
+      sections.add(
+        PromptSection(name: 'perfil de @${member.name}', text: member.systemPrompt),
+      );
     }
 
     final workflowForTurn = session == null ? null : workflowOf(session);
+    final requiredPolicy = workflowForTurn?.policy;
+    final requiredSkillNames = {...?requiredPolicy?.requiredSkillNames};
     final skillNames = {
       ...member.skills,
       ...?workflowForTurn?.skillNames,
-      ...?workflowForTurn?.policy.requiredSkillNames,
+      ...requiredSkillNames,
     };
     final assignedSkills = assignedNonGlobalSkills(skills, skillNames);
     for (final name in skillNames) {
@@ -5077,12 +5197,17 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
       }
     }
     for (final skill in assignedSkills) {
-      buffer.writeln();
-      buffer.writeln(skill.content);
+      sections.add(
+        PromptSection(
+          name: 'skill ${skill.name}',
+          text: skill.content,
+          // Una skill que la policy del workflow EXIGE no se recorta.
+          dropPriority: requiredSkillNames.contains(skill.name) ? 0 : 2,
+        ),
+      );
     }
 
     final rules = RulesService.instance.notifier.data.rules;
-    final requiredPolicy = session == null ? null : workflowOf(session)?.policy;
     final ruleNames = {
       ...member.rules,
       ...project.ruleNames,
@@ -5096,9 +5221,72 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
         );
         continue;
       }
-      buffer.writeln();
-      buffer.writeln(rule.content);
+      sections.add(PromptSection(name: 'regla $name', text: rule.content));
     }
+
+    final companions = membersOf(
+      project,
+      session: session,
+    ).where((m) => m.id != member.id).toList();
+
+    final contracts = StringBuffer();
+    // IDENTIDAD — siempre, haya compañeros o no. Cuando estaba adentro del
+    // `if` de compañeros, un proyecto de un solo miembro perdía entero el
+    // "SOS @handle" y el nombre del proyecto.
+    contracts.writeln(
+      identityPrompt(
+        handle: member.name,
+        role: member.role,
+        projectName: project.name,
+        projectPurpose: project.purpose,
+      ),
+    );
+    if (!project.maintained) {
+      contracts.writeln();
+      contracts.writeln(kReadOnlyProjectPrompt);
+    }
+    if (companions.isNotEmpty) {
+      contracts.writeln(
+        companionsPrompt([
+          for (final companion in companions)
+            (handle: companion.name, role: companion.role),
+        ]),
+      );
+    }
+    if (usesGithubMcp) {
+      contracts.writeln();
+      contracts.writeln(kGithubMcpPrompt);
+    }
+    contracts.writeln();
+    contracts.writeln(kAskVsWorkPrompt);
+    // Solo en el turno de un NODO: una consulta o un chat sin workflow no
+    // tienen motor esperando el bloque.
+    if (!isConsult && session?.resolutionCase != null) {
+      contracts.writeln();
+      contracts.writeln(kOutcomeProtocolPrompt);
+    }
+    // La entrega es del que trabaja, no del que responde una consulta; y
+    // solo tiene sentido donde hay git.
+    if (!isConsult && usesGit) {
+      contracts.writeln();
+      // Con el MCP de GitHub asignado, la variante que abre el PR por tool:
+      // dejar la de `gh` sería contradecir a kGithubMcpPrompt, que ya entró
+      // más arriba en este mismo prompt.
+      contracts.writeln(usesGithubMcp ? kGithubDeliveryPrompt : kDeliveryPrompt);
+      final worktree = worktreePrompt(place);
+      if (worktree.isNotEmpty) {
+        contracts.writeln();
+        contracts.writeln(worktree);
+      }
+    }
+    contracts.writeln();
+    contracts.writeln(
+      subagentPolicyPrompt(
+        provider: project.tuned(member).provider,
+        maxSubagents: requiredPolicy?.maxSubagents ?? 0,
+      ),
+    );
+    sections.add(PromptSection(name: 'contratos', text: contracts.toString()));
 
     final saber = KnowledgeService.instance.notifier.briefFor(
       <String>{
@@ -5107,77 +5295,34 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
         ...?requiredPolicy?.requiredKnowledgeBaseNames,
       }.toList(),
     );
-
-    final companions = membersOf(
-      project,
-      session: session,
-    ).where((m) => m.id != member.id).toList();
-
-    // IDENTIDAD — siempre, haya compañeros o no. Cuando estaba adentro del
-    // `if` de compañeros, un proyecto de un solo miembro perdía entero el
-    // "SOS @handle" y el nombre del proyecto.
-    buffer.writeln();
-    buffer.writeln(
-      identityPrompt(
-        handle: member.name,
-        role: member.role,
-        projectName: project.name,
-        projectPurpose: project.purpose,
-      ),
-    );
-
-    if (!project.maintained) {
-      buffer.writeln();
-      buffer.writeln(kReadOnlyProjectPrompt);
+    const saberName = 'saber';
+    if (saber.trim().isNotEmpty) {
+      sections.add(PromptSection(name: saberName, text: saber, dropPriority: 3));
     }
 
-    if (companions.isNotEmpty) {
-      buffer.writeln(
-        companionsPrompt([
-          for (final companion in companions)
-            (handle: companion.name, role: companion.role),
-        ]),
+    final candidates = compact
+        ? [for (final section in sections) if (section.dropPriority == 0) section]
+        : sections;
+    final budgeted = budgetTurnSystemPrompt(
+      candidates,
+      maxChars: requiredPolicy?.systemPromptMaxChars ?? kDefaultSystemPromptMaxChars,
+    );
+    if (budgeted.dropped.isNotEmpty) {
+      Log.w(
+        'System prompt de @${member.name} recortado: ${budgeted.totalChars} '
+        'chars, fuera ${budgeted.dropped.join(', ')}',
       );
     }
-
-    if (usesGithubMcp) {
-      buffer.writeln();
-      buffer.writeln(kGithubMcpPrompt);
-    }
-
-    buffer.writeln();
-    buffer.writeln(kAskVsWorkPrompt);
-
-    // Solo en el turno de un NODO: una consulta o un chat sin workflow no
-    // tienen motor esperando el bloque.
-    if (!isConsult && session?.resolutionCase != null) {
-      buffer.writeln();
-      buffer.writeln(kOutcomeProtocolPrompt);
-    }
-
-    // La entrega es del que trabaja, no del que responde una consulta; y
-    // solo tiene sentido donde hay git.
-    if (!isConsult && usesGit) {
-      buffer.writeln();
-      // Con el MCP de GitHub asignado, la variante que abre el PR por tool:
-      // dejar la de `gh` sería contradecir a kGithubMcpPrompt, que ya entró
-      // más arriba en este mismo prompt.
-      buffer.writeln(usesGithubMcp ? kGithubDeliveryPrompt : kDeliveryPrompt);
-      final worktree = worktreePrompt(place);
-      if (worktree.isNotEmpty) {
-        buffer.writeln();
-        buffer.writeln(worktree);
-      }
-    }
-
-    buffer.writeln();
-    final subagentPolicy = session == null ? null : workflowOf(session)?.policy;
-    buffer.writeln(
-      subagentPolicyPrompt(
-        provider: project.tuned(member).provider,
-        maxSubagents: subagentPolicy?.maxSubagents ?? 0,
-      ),
-    );
+    final keptSaber = !budgeted.dropped.contains(saberName) &&
+        candidates.any((section) => section.name == saberName);
+    // Lo que sobrevivió al presupuesto, en el mismo orden; el saber y el
+    // plan al final para no romper el prefijo cacheable.
+    final stableKept = [
+      for (final section in candidates)
+        if (section.name != saberName &&
+            !budgeted.dropped.contains(section.name))
+          section.text.trim(),
+    ].where((text) => text.isNotEmpty).join('\n\n');
 
     final plan = planSectionPrompt(
       session,
@@ -5185,8 +5330,8 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
       hasPlanTools: hasPlanTools,
     );
     return composeTurnSystemPrompt(
-      stablePrompt: buffer.toString(),
-      knowledge: saber,
+      stablePrompt: stableKept,
+      knowledge: keptSaber ? saber : '',
       plan: plan,
     );
   }

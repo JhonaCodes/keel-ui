@@ -234,6 +234,9 @@ class Session {
     'queuedMessages': [for (final message in queuedMessages) message.toJson()],
     'decisions': [for (final decision in decisions) decision.toJson()],
     'grantedTools': grantedTools,
+    // Se guarda a propósito: si la app se cierra a mitad de turno, al volver
+    // hay que poder decir quién estaba en qué, y no fingir que no pasó nada.
+    'liveTurn': liveTurn?.toJson(),
   };
 
   factory Session.fromJson(Map<String, dynamic> json) {
@@ -293,6 +296,11 @@ class Session {
       ],
       grantedTools:
           (json['grantedTools'] as List?)?.cast<String>() ?? const [],
+      liveTurn: json['liveTurn'] is Map
+          ? SessionLiveTurn.fromJson(
+              (json['liveTurn'] as Map).cast<String, dynamic>(),
+            )
+          : null,
     );
   }
 

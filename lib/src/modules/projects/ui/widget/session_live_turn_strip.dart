@@ -62,6 +62,20 @@ class SessionLiveTurnStrip extends StatelessWidget {
               ),
             ],
           ),
+          // Un modelo que no expone su razonamiento no está trabado: decirlo
+          // evita la sensación de «se quedó pensando» sin nada que mirar.
+          if (turn.phase == TurnPhase.thinking &&
+              (reasoning == null || reasoning.isEmpty))
+            Padding(
+              padding: const EdgeInsets.only(left: _kIndent, top: 4),
+              child: Text(
+                'pensando (este modelo no expone su razonamiento en vivo)',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Theme.of(context).colorScheme.outline,
+                ),
+              ),
+            ),
           if (reasoning != null && reasoning.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(left: _kIndent, top: 6),

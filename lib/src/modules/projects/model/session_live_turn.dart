@@ -53,6 +53,29 @@ class SessionLiveTurn {
     );
   }
 
+  Map<String, dynamic> toJson() => {
+    'profileId': profileId,
+    'reasoning': reasoning,
+    'activity': activity?.toJson(),
+    'phase': phase.name,
+    'consultOfProfileId': consultOfProfileId,
+  };
+
+  factory SessionLiveTurn.fromJson(Map<String, dynamic> json) =>
+      SessionLiveTurn(
+        profileId: json['profileId'] as String? ?? '',
+        reasoning: json['reasoning'] as String?,
+        activity: json['activity'] is Map
+            ? AgentToolActivity.fromJson(
+                (json['activity'] as Map).cast<String, dynamic>(),
+              )
+            : null,
+        phase: TurnPhase.values.byName(
+          json['phase'] as String? ?? TurnPhase.thinking.name,
+        ),
+        consultOfProfileId: json['consultOfProfileId'] as String?,
+      );
+
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||

@@ -25,6 +25,8 @@ import 'package:keel_ui/src/modules/projects/model/session_queued_message.dart';
 import 'package:keel_ui/src/integrations/chat_references/chat_references.dart';
 import 'package:keel_ui/src/modules/projects/model/thread_entry.dart';
 import 'package:keel_ui/src/modules/projects/ui/view/session_map_view.dart';
+import 'package:keel_ui/src/modules/projects/model/resolution_case.dart';
+import 'package:keel_ui/src/modules/projects/ui/widget/session_subagent_card.dart';
 import 'package:keel_ui/src/modules/projects/ui/widget/session_decision_card.dart';
 import 'package:keel_ui/src/modules/projects/ui/widget/session_agent_picker.dart';
 import 'package:keel_ui/src/modules/projects/ui/widget/session_live_turn_strip.dart';
@@ -274,7 +276,7 @@ class _ProjectChannel extends StatelessWidget {
 
 /// The thread itself: messages interleaved with the hand-off dividers that
 /// explain why the speaker changed.
-class _ThreadList extends StatelessWidget {
+class _ThreadList extends StatefulWidget {
   const _ThreadList({
     required this.projectId,
     required this.session,
@@ -290,35 +292,176 @@ class _ThreadList extends StatelessWidget {
   final Workflow? workflow;
 
   @override
+  State<_ThreadList> createState() => _ThreadListState();
+}
+
+class _ThreadListState extends State<_ThreadList> {
+  ThreadFilter _filter = const ThreadFilter();
+
+  @override
   Widget build(BuildContext context) {
-    final open = session;
-    if (open == null) return _EmptyChannel(projectId: projectId);
+    final open = widget.session;
+    if (open == null) return _EmptyChannel(projectId: widget.projectId);
 
     final entries = buildThreadEntries(
       messages: open.messages,
-      workflow: workflow,
+      workflow: widget.workflow,
+      subagents: open.subagents,
+      filter: _filter,
     );
+    final nodeIds = <String>{
+      for (final message in open.messages)
+        if (message.workNodeId != null) message.workNodeId!,
+    };
 
-    return SelectionArea(
-      child: ListView.builder(
-        reverse: true,
-        padding: const EdgeInsets.all(16),
-        itemCount: entries.length,
-        itemBuilder: (context, index) {
-          final entry = entries[entries.length - 1 - index];
-          return switch (entry) {
-            ThreadHandoff(label: final label) => _HandoffDivider(label: label),
-            ThreadMessage(message: final message) => _ThreadBubble(
-              key: ValueKey(message.timestamp.microsecondsSinceEpoch),
-              projectId: projectId,
-              sessionId: open.id,
-              message: message,
-              members: members,
-              allProfiles: allProfiles,
-              workflow: workflow,
+    return Column(
+      children: [
+        if (widget.members.length > 1 || nodeIds.isNotEmpty)
+          _ThreadFilterBar(
+            filter: _filter,
+            members: widget.members,
+            nodeIds: nodeIds.toList(),
+            workflow: widget.workflow,
+            hasSubagents: open.subagents.isNotEmpty,
+            onChanged: (filter) => setState(() => _filter = filter),
+          ),
+        Expanded(
+          child: SelectionArea(
+            child: ListView.builder(
+              reverse: true,
+              padding: const EdgeInsets.all(16),
+              itemCount: entries.length,
+              itemBuilder: (context, index) {
+                final entry = entries[entries.length - 1 - index];
+                return switch (entry) {
+                  ThreadHandoff(label: final label) =>
+                    _HandoffDivider(label: label),
+                  ThreadSubagent(subagent: final subagent) =>
+                    SessionSubagentCard(
+                      key: ValueKey('subagent:${subagent.id}'),
+                      subagent: subagent,
+                      parentHandle: widget.allProfiles
+                              .where((p) => p.id == subagent.parentProfileId)
+                              .firstOrNull
+                              ?.name ??
+                          'agente',
+                    ),
+                  ThreadMessage(message: final message) => _ThreadBubble(
+                    key: ValueKey(message.timestamp.microsecondsSinceEpoch),
+                    projectId: widget.projectId,
+                    sessionId: open.id,
+                    message: message,
+                    members: widget.members,
+                    allProfiles: widget.allProfiles,
+                    workflow: widget.workflow,
+                    canRetry:
+                        !open.isRunning &&
+                        message.role == ChatRole.error &&
+                        message.workNodeId != null &&
+                        open.resolutionCase != null &&
+                        open.resolutionCase!.status !=
+                            ResolutionCaseStatus.completed,
+                  ),
+                };
+              },
             ),
-          };
-        },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Los chips que acotan el hilo: por agente, por nodo, sistema, subagentes.
+class _ThreadFilterBar extends StatelessWidget {
+  const _ThreadFilterBar({
+    required this.filter,
+    required this.members,
+    required this.nodeIds,
+    required this.workflow,
+    required this.hasSubagents,
+    required this.onChanged,
+  });
+
+  final ThreadFilter filter;
+  final List<AgentProfile> members;
+  final List<String> nodeIds;
+  final Workflow? workflow;
+  final bool hasSubagents;
+  final ValueChanged<ThreadFilter> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: scheme.outlineVariant)),
+      ),
+      padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            for (final member in members) ...[
+              FilterChip(
+                label: Text('@${member.name}'),
+                visualDensity: VisualDensity.compact,
+                selected: filter.authorIds.contains(member.id),
+                onSelected: (selected) => onChanged(
+                  filter.copyWith(
+                    authorIds: selected
+                        ? {...filter.authorIds, member.id}
+                        : {...filter.authorIds}..remove(member.id),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+            ],
+            if (nodeIds.isNotEmpty) ...[
+              const SizedBox(width: 6),
+              for (final nodeId in nodeIds) ...[
+                FilterChip(
+                  label: Text(nodeTitleFor(workflow, nodeId)),
+                  visualDensity: VisualDensity.compact,
+                  selected: filter.nodeIds.contains(nodeId),
+                  onSelected: (selected) => onChanged(
+                    filter.copyWith(
+                      nodeIds: selected
+                          ? {...filter.nodeIds, nodeId}
+                          : {...filter.nodeIds}..remove(nodeId),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 6),
+              ],
+            ],
+            const SizedBox(width: 6),
+            FilterChip(
+              label: const Text('sistema'),
+              visualDensity: VisualDensity.compact,
+              selected: filter.showSystem,
+              onSelected: (selected) =>
+                  onChanged(filter.copyWith(showSystem: selected)),
+            ),
+            if (hasSubagents) ...[
+              const SizedBox(width: 6),
+              FilterChip(
+                label: const Text('subagentes'),
+                visualDensity: VisualDensity.compact,
+                selected: filter.showSubagents,
+                onSelected: (selected) =>
+                    onChanged(filter.copyWith(showSubagents: selected)),
+              ),
+            ],
+            if (!filter.isDefault) ...[
+              const SizedBox(width: 6),
+              TextButton(
+                onPressed: () => onChanged(const ThreadFilter()),
+                child: const Text('todo'),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
@@ -333,12 +476,17 @@ class _ThreadBubble extends StatelessWidget {
     required this.members,
     required this.allProfiles,
     required this.workflow,
+    this.canRetry = false,
   });
 
   final String projectId;
   final String sessionId;
   final ChatMessage message;
   final List<AgentProfile> members;
+
+  /// Un mensaje de error del motor sobre un nodo, con la sesión parada:
+  /// se puede reintentar el paso desde acá.
+  final bool canRetry;
 
   /// Every registered profile, not just this project's members: a message
   /// keeps naming its author even after that agent is removed from the
@@ -357,23 +505,42 @@ class _ThreadBubble extends StatelessWidget {
     final author = _profileById(message.authorProfileId);
     final askedBy = _profileById(message.consultOfProfileId);
     final nodeId = message.workNodeId;
-    final nodeTitle = nodeId == null ? null : 'nodo de resolución: $nodeId';
+    // El título de la capacidad, no el id crudo: «Auditar», no «code-audit».
+    final nodeTitle = nodeId == null
+        ? null
+        : 'paso: ${nodeTitleFor(workflow, nodeId)}';
     final memberIds = [for (final member in members) member.id];
 
+    final bubble = SessionMessageBubble(
+      message: message,
+      projectId: projectId,
+      sessionId: sessionId,
+      author: author,
+      nodeTitle: nodeTitle,
+      askedBy: askedBy,
+      memberIndex: author == null
+          ? 0
+          : authorPaletteIndex(author.id, memberIds),
+      askedByIndex: askedBy == null
+          ? 0
+          : authorPaletteIndex(askedBy.id, memberIds),
+    );
+    if (!canRetry || nodeId == null) return FadeInEntrance(child: bubble);
     return FadeInEntrance(
-      child: SessionMessageBubble(
-        message: message,
-        projectId: projectId,
-        sessionId: sessionId,
-        author: author,
-        nodeTitle: nodeTitle,
-        askedBy: askedBy,
-        memberIndex: author == null
-            ? 0
-            : authorPaletteIndex(author.id, memberIds),
-        askedByIndex: askedBy == null
-            ? 0
-            : authorPaletteIndex(askedBy.id, memberIds),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          bubble,
+          Padding(
+            padding: const EdgeInsets.only(left: 38, bottom: 6),
+            child: TextButton.icon(
+              onPressed: () => ProjectsService.instance.notifier
+                  .retryWorkNode(projectId, sessionId, nodeId),
+              icon: const Icon(Icons.replay_rounded, size: 16),
+              label: Text('Reintentar «${nodeTitleFor(workflow, nodeId)}»'),
+            ),
+          ),
+        ],
       ),
     );
   }

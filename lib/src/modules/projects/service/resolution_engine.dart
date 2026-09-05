@@ -278,6 +278,17 @@ class ResolutionEngine {
     ],
   );
 
+  /// Reintenta un nodo a mano: vuelve a `pending` y el caso a `active`.
+  /// Los intentos no se tocan (los cuenta el turno); los hallazgos quedan.
+  static ResolutionCase retryNode(ResolutionCase resolution, String nodeId) {
+    if (resolution.status == ResolutionCaseStatus.completed) return resolution;
+    return _replaceNodeStatus(
+      resolution.copyWith(status: ResolutionCaseStatus.active),
+      nodeId,
+      WorkNodeStatus.pending,
+    );
+  }
+
   static bool canComplete(ResolutionCase resolution) {
     final nodesDone = resolution.nodes.every(
       (node) => node.status == WorkNodeStatus.done,

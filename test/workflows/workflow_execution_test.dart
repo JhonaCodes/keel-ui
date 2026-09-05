@@ -2,6 +2,9 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:keel_ui/src/modules/projects/model/session.dart';
 import 'package:keel_ui/src/modules/projects/model/session_decision.dart';
+import 'package:keel_ui/src/modules/projects/model/session_live_turn.dart';
+import 'package:keel_ui/src/modules/projects/model/project.dart';
+import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
 import 'package:keel_ui/src/modules/workflows/model/workflow.dart';
 
 void main() {
@@ -118,6 +121,38 @@ void main() {
           .waitingForUser,
       isFalse,
     );
+  });
+
+
+  test('el turno vivo sobrevive al disco y al revivir queda como mensaje', () {
+    const turn = SessionLiveTurn(
+      profileId: 'p1',
+      reasoning: 'estaba pensando en el parser',
+      phase: TurnPhase.thinking,
+    );
+    final session = Session(
+      id: 's',
+      title: 'Sesión',
+      createdAt: DateTime(2026),
+      isRunning: true,
+      liveTurn: turn,
+    );
+
+    final restored = Session.fromJson(session.toJson());
+    expect(restored.liveTurn, turn);
+
+    final project = Project(
+      id: 'p',
+      name: 'p',
+      purpose: '',
+      workingDirectory: '/tmp',
+      createdAt: DateTime(2026),
+    );
+    final revived = ProjectsViewModel.revivedSession(restored, project, 'wf');
+    expect(revived.liveTurn, isNull);
+    expect(revived.isRunning, isFalse);
+    expect(revived.messages.last.text, contains('se cortó al cerrar la app'));
+    expect(revived.messages.last.text, contains('pensando'));
   });
 
 }

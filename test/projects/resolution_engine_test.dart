@@ -441,4 +441,30 @@ void main() {
       expect(resolution.status, ResolutionCaseStatus.active);
     });
   });
+
+  test('reintentar un nodo bloqueado lo devuelve a pendiente y reabre el caso',
+      () {
+    final started = ResolutionEngine.start(
+      id: 'case-1',
+      kind: WorkflowKind.general,
+      ownerRole: 'dev',
+    );
+    final blocked = started.copyWith(
+      status: ResolutionCaseStatus.blocked,
+      nodes: [
+        for (final node in started.nodes)
+          node.id == 'implement'
+              ? node.copyWith(status: WorkNodeStatus.blocked, attempts: 2)
+              : node,
+      ],
+    );
+
+    final retried = ResolutionEngine.retryNode(blocked, 'implement');
+
+    final node = retried.nodes.firstWhere((n) => n.id == 'implement');
+    expect(node.status, WorkNodeStatus.pending);
+    expect(node.attempts, 2);
+    expect(retried.status, ResolutionCaseStatus.active);
+  });
+
 }

@@ -150,6 +150,11 @@ Mapa de lo que existe en esta app y cómo se relaciona:
   por defecto es plan → implement → audit → deliver (approval_required); la
   de migración conserva impacto y matriz de cobertura, sin nodos de
   corrección.
+  CHAT: el hilo de una sesión se filtra por agente, por nodo, sistema y
+  subagentes (estado de la vista); los subagentes se ven intercalados; el
+  chip de cada mensaje dice el título del paso; un error del motor sobre un
+  nodo ofrece «Reintentar» (nodo a pendiente y el workflow retoma); el turno
+  vivo se persiste y al reabrir la app queda como mensaje con lo razonado.
 - **Requerimientos internos**: lo que un proyecto le pide a OTRO proyecto
   (`REQ-0007`). Existen porque dos proyectos no comparten nada: el
   requerimiento es lo ÚNICO que cruza la frontera —necesidad, contexto,

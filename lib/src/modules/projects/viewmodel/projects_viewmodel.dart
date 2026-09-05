@@ -277,12 +277,39 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     if (!session.isRunning &&
         workflowId == session.workflowId &&
         !hasDeliveryWaitingForDeadRun &&
-        !hasBlockingDecision) {
+        !hasBlockingDecision &&
+        session.liveTurn == null) {
       return session;
     }
+    final liveTurn = session.liveTurn;
+    final phaseLabel = switch (liveTurn?.phase) {
+      TurnPhase.thinking => 'pensando',
+      TurnPhase.writing => 'escribiendo',
+      TurnPhase.working => 'trabajando',
+      null => '',
+    };
     return session.copyWith(
       isRunning: false,
       workflowId: workflowId,
+      clearLiveTurn: true,
+      messages: liveTurn == null
+          ? session.messages
+          : [
+              ...session.messages,
+              ChatMessage(
+                role: ChatRole.system,
+                text:
+                    'El turno en curso se cortó al cerrar la app (fase: '
+                    '$phaseLabel). Lo que había razonado no se perdió: está '
+                    'en este mensaje. Reintentá el paso o escribí para seguir.'
+                    '${(liveTurn.reasoning ?? '').trim().isEmpty ? '' : '\n\n${liveTurn.reasoning!.trim()}'}',
+                timestamp: DateTime.now(),
+                workNodeId: session.resolutionCase?.nodes
+                    .where((node) => node.status == WorkNodeStatus.running)
+                    .firstOrNull
+                    ?.id,
+              ),
+            ],
       queuedMessages: [
         for (final message in session.queuedMessages)
           message.copyWith(delivery: SessionQueuedDelivery.standby),
@@ -1529,6 +1556,39 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
       sessionId,
       ResolutionEngine.releaseRunningNodes(resolution),
     );
+  }
+
+  /// Reintenta un nodo a mano desde el hilo: vuelve a pendiente y el
+  /// workflow lo retoma. Para el nodo que se cortó por el vigilante, por un
+  /// caso bloqueado o por cerrar la app.
+  Future<String?> retryWorkNode(
+    String projectId,
+    String sessionId,
+    String nodeId,
+  ) async {
+    final project = _projectById(projectId);
+    final session = project == null ? null : _sessionById(project, sessionId);
+    final resolution = session?.resolutionCase;
+    if (session == null || resolution == null) {
+      return 'Esta sesión no tiene un caso que reintentar.';
+    }
+    if (session.isRunning) return 'La sesión todavía está corriendo.';
+    if (!resolution.nodes.any((node) => node.id == nodeId)) {
+      return 'El nodo $nodeId ya no existe en el caso.';
+    }
+    _storeResolution(
+      projectId,
+      sessionId,
+      ResolutionEngine.retryNode(resolution, nodeId),
+    );
+    _updateSession(
+      projectId,
+      sessionId,
+      (open) => open.copyWith(status: SessionStatus.running),
+    );
+    await _persist();
+    await resumeWorkflow(projectId, sessionId);
+    return null;
   }
 
   /// Retoma un workflow que quedó a mitad —por una interrupción con mensaje

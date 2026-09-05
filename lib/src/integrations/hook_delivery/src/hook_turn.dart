@@ -6,7 +6,9 @@ class TurnHooks {
   /// aplicar.
   final String? claudeSettings;
 
-  /// Contenido del perfil TOML de codex, o null.
+  /// Los overrides `-c` de hooks para codex, uno por línea (ver
+  /// [renderCodexOverrides]), o null. Van con el marcador del directorio de
+  /// scripts, que el workspace del turno reemplaza.
   final String? codexConfig;
 
   /// `{nombre de archivo: contenido}` de wrappers y código de tools.
@@ -48,6 +50,10 @@ TurnHooks prepareTurnHooks({
 
   /// El cupo de subagentes del nodo, si el turno lo aplica. Null: sin hook.
   int? subagentCap,
+
+  /// El tope de llamadas a herramientas del turno, si el proveedor no tiene
+  /// tope de turnos propio (codex). Null: sin hook.
+  int? toolCallCap,
 }) {
   final resolved = resolveHooks(
     catalog: catalog,
@@ -59,6 +65,7 @@ TurnHooks prepareTurnHooks({
     ...resolved.hooks,
     if (gate != null) decisionGateHook(gate),
     if (subagentCap != null) subagentGuardHook(subagentCap),
+    if (toolCallCap != null) toolCapHook(toolCallCap),
   ];
   if (withGate.isEmpty) {
     return TurnHooks(notes: resolved.notes);
@@ -92,7 +99,7 @@ TurnHooks prepareTurnHooks({
         ? null
         : renderClaudeSettings(usable, scriptDir: kHookDirPlaceholder),
     codexConfig: isCodex
-        ? renderCodexConfig(usable, scriptDir: kHookDirPlaceholder)
+        ? renderCodexOverrides(usable, scriptDir: kHookDirPlaceholder)
         : null,
     files: rendered.files,
     notes: notes,

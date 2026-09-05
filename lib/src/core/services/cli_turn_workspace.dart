@@ -28,12 +28,12 @@ const kHookDenialMarker = 'keel:hook';
 /// sería legible con `ps` para cualquier proceso del sistema; un archivo
 /// 0700, no.
 ///
-/// El perfil de codex es la excepción y no vive acá: codex solo lee perfiles
-/// de `$CODEX_HOME`, así que se escribe ahí con un nombre único de este
-/// turno y se borra igual en [dispose].
+/// Codex no lee nada de acá salvo los wrappers de hooks: su configuración
+/// viaja por `-c clave=valor` (ver `codex_config_overrides.dart`), porque
+/// `exec resume` no carga perfiles. Los overrides de hooks se devuelven ya
+/// con la ruta real de los scripts puesta.
 class CliTurnWorkspace {
   final Directory _directory;
-  final File? _codexProfileFile;
 
   /// Ruta del `mcp.json`, o null si el turno no lleva MCP.
   final String? mcpConfigPath;
@@ -42,15 +42,15 @@ class CliTurnWorkspace {
   /// hooks que aplicar.
   final String? claudeSettingsPath;
 
-  /// Nombre del perfil para `codex -p`, o null si no hay hooks.
-  final String? codexProfileName;
+  /// Los overrides `-c` de hooks para codex, uno por evento, con el
+  /// directorio de scripts ya resuelto. Vacío si no hay hooks.
+  final List<String> codexConfigOverrides;
 
   const CliTurnWorkspace._(
-    this._directory,
-    this._codexProfileFile, {
+    this._directory, {
     this.mcpConfigPath,
     this.claudeSettingsPath,
-    this.codexProfileName,
+    this.codexConfigOverrides = const [],
   });
 
   /// Escribe lo que haga falta y devuelve las rutas. Todo es opcional: un
@@ -88,32 +88,22 @@ class CliTurnWorkspace {
       claudeSettingsPath = file.path;
     }
 
-    String? codexProfileName;
-    File? codexProfileFile;
-    if (codexHooksConfig != null) {
-      // El nombre lleva el sufijo del temporal, que ya es único: dos
-      // proyectos corriendo a la vez no pueden pisarse el perfil.
-      codexProfileName = 'keel-${directory.path.split('_').last}';
-      codexProfileFile = File('${_codexHome()}/$codexProfileName.config.toml');
-      await codexProfileFile.parent.create(recursive: true);
-      await codexProfileFile.writeAsString(
-        codexHooksConfig.replaceAll(kHookDirPlaceholder, scriptDir),
-      );
-    }
+    // Un override por línea (ver `renderCodexOverrides`): la ruta de los
+    // scripts recién existe acá, así que acá se reemplaza el marcador.
+    final codexConfigOverrides = codexHooksConfig == null
+        ? const <String>[]
+        : [
+            for (final line in codexHooksConfig.split('\n'))
+              if (line.trim().isNotEmpty)
+                line.replaceAll(kHookDirPlaceholder, scriptDir),
+          ];
 
     return CliTurnWorkspace._(
       directory,
-      codexProfileFile,
       mcpConfigPath: mcpConfigPath,
       claudeSettingsPath: claudeSettingsPath,
-      codexProfileName: codexProfileName,
+      codexConfigOverrides: codexConfigOverrides,
     );
-  }
-
-  static String _codexHome() {
-    final override = Platform.environment['CODEX_HOME'];
-    if (override != null && override.isNotEmpty) return override;
-    return '${Platform.environment['HOME'] ?? ''}/.codex';
   }
 
   /// Borra todo lo del turno. Se llama en un `finally`: si queda un wrapper
@@ -122,9 +112,6 @@ class CliTurnWorkspace {
     try {
       if (await _directory.exists()) {
         await _directory.delete(recursive: true);
-      }
-      if (_codexProfileFile != null && await _codexProfileFile.exists()) {
-        await _codexProfileFile.delete();
       }
     } catch (error) {
       Log.w('No pude limpiar el temporal del turno: $error');

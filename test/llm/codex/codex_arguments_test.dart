@@ -6,85 +6,29 @@ import 'package:keel_ui/src/integrations/llm/codex/codex_arguments.dart';
 
 void main() {
   group('buildCodexPrompt', () {
-    test('primer turno con instrucciones de rol: antepone el preámbulo', () {
-      final prompt = buildCodexPrompt(
-        prompt: 'Revisá este PR',
-        sessionId: null,
-        additionalSystemPrompt: 'Sos el auditor de código.',
-        planMode: false,
-      );
-
-      expect(
-        prompt,
-        '### Instrucciones de tu rol (fijas para toda la conversación)\n'
-        'Sos el auditor de código.\n'
-        '### Fin de instrucciones\n\n'
-        'Revisá este PR',
-      );
-    });
-
-    test('turno con resume: repite el preámbulo que le pasen (el compacto)',
+    test('sin modo plan, el prompt queda tal cual: el rol ya no viaja acá',
         () {
-      // Antes se descartaba: la identidad, las reglas y el protocolo de
-      // cierre vivían solo en el turno 1 y se perdían en cada resume. El
-      // ViewModel manda una versión compacta; acá se antepone igual.
-      final prompt = buildCodexPrompt(
-        prompt: 'Seguí con lo anterior',
-        sessionId: 'thread-123',
-        additionalSystemPrompt: 'Sos el auditor de código.',
-        planMode: false,
-      );
-
-      expect(prompt, startsWith('### Instrucciones de tu rol'));
-      expect(prompt, endsWith('Seguí con lo anterior'));
+      expect(buildCodexPrompt(prompt: 'Hola', planMode: false), 'Hola');
     });
 
-    test('sin instrucciones de rol: el prompt queda tal cual', () {
+    test('el texto del modo plan viaja adentro del prompt', () {
       final prompt = buildCodexPrompt(
-        prompt: 'Hola',
-        sessionId: null,
-        additionalSystemPrompt: null,
-        planMode: false,
+        prompt: 'Agregá manejo de errores',
+        planMode: true,
       );
 
-      expect(prompt, 'Hola');
-    });
-
-    test('instrucciones de rol vacías: el prompt queda tal cual', () {
-      final prompt = buildCodexPrompt(
-        prompt: 'Hola',
-        sessionId: null,
-        additionalSystemPrompt: '',
-        planMode: false,
-      );
-
-      expect(prompt, 'Hola');
+      expect(prompt, contains('PLAN MODE'));
+      expect(prompt, endsWith('Agregá manejo de errores'));
     });
   });
 
   group('modo plan en codex', () {
-    test('el sandbox pasa a read-only', () {
-      final args = buildCodexArguments(
-        prompt: 'Planificá',
-        sessionId: null,
-        model: 'gpt-5-codex',
-        fullFileSystemAccess: false,
-        codexProfileName: null,
-        planMode: true,
-      );
-
-      expect(args, containsAllInOrder(['-s', 'read-only']));
-    });
-
-    test('le gana al acceso total al disco', () {
-      // Si el turno solo planifica, no hay lectura que justifique dejarlo
-      // escribir en todo el disco.
+    test('el sandbox pasa a read-only y le gana al acceso total', () {
       final args = buildCodexArguments(
         prompt: 'Planificá',
         sessionId: null,
         model: 'gpt-5-codex',
         fullFileSystemAccess: true,
-        codexProfileName: null,
         planMode: true,
       );
 
@@ -93,57 +37,26 @@ void main() {
     });
 
     test('al reanudar el sandbox viaja por -c, que resume sí acepta', () {
-      // `exec resume` no acepta `-s`, pero acepta `-c clave=valor`
-      // (verificado en codex 0.149.1): el modo plan sigue teniendo freno.
       final args = buildCodexArguments(
         prompt: 'Planificá',
         sessionId: 'thread-1',
         model: 'gpt-5-codex',
         fullFileSystemAccess: false,
-        codexProfileName: null,
         planMode: true,
       );
 
       expect(args.contains('-s'), isFalse);
       expect(args, containsAllInOrder(['-c', 'sandbox_mode="read-only"']));
     });
-
-    test('el texto del modo plan viaja adentro del prompt', () {
-      // Adentro del prompt y no en el preámbulo, porque el preámbulo se
-      // descarta al reanudar: es lo único que llega en los dos casos.
-      for (final sessionId in [null, 'thread-1']) {
-        final prompt = buildCodexPrompt(
-          prompt: 'Agregá manejo de errores',
-          sessionId: sessionId,
-          additionalSystemPrompt: 'Sos el auditor.',
-          planMode: true,
-        );
-
-        expect(prompt, contains('PLAN MODE'));
-        expect(prompt, contains('Agregá manejo de errores'));
-      }
-    });
-
-    test('apagado no mete el texto en el prompt', () {
-      final prompt = buildCodexPrompt(
-        prompt: 'Agregá manejo de errores',
-        sessionId: null,
-        additionalSystemPrompt: null,
-        planMode: false,
-      );
-
-      expect(prompt, 'Agregá manejo de errores');
-    });
   });
 
   group('buildCodexArguments', () {
-    test('turno nuevo, sin perfil, con acceso restringido', () {
+    test('turno nuevo, sin nada extra, con acceso restringido', () {
       final args = buildCodexArguments(
         prompt: 'Hola',
         sessionId: null,
         model: '',
         fullFileSystemAccess: false,
-        codexProfileName: null,
         planMode: false,
       );
 
@@ -165,7 +78,6 @@ void main() {
         sessionId: 'thread-abc',
         model: '',
         fullFileSystemAccess: false,
-        codexProfileName: null,
         planMode: false,
       );
 
@@ -187,7 +99,6 @@ void main() {
         sessionId: null,
         model: 'sonnet',
         fullFileSystemAccess: false,
-        codexProfileName: null,
         planMode: false,
       );
 
@@ -200,13 +111,10 @@ void main() {
         sessionId: null,
         model: 'gpt-5-codex',
         fullFileSystemAccess: false,
-        codexProfileName: null,
         planMode: false,
       );
 
-      final index = args.indexOf('-m');
-      expect(index, isNot(-1));
-      expect(args[index + 1], 'gpt-5-codex');
+      expect(args[args.indexOf('-m') + 1], 'gpt-5-codex');
     });
 
     test('acceso completo pide danger-full-access', () {
@@ -215,39 +123,85 @@ void main() {
         sessionId: null,
         model: '',
         fullFileSystemAccess: true,
-        codexProfileName: null,
         planMode: false,
       );
 
       expect(args[args.indexOf('-s') + 1], 'danger-full-access');
     });
 
-    test('con perfil de hooks agrega -p <perfil>', () {
+    test('las instrucciones de rol van por developer_instructions solo en '
+        'el primer turno, escapadas como cadena TOML', () {
+      final first = buildCodexArguments(
+        prompt: 'Hola',
+        sessionId: null,
+        model: '',
+        fullFileSystemAccess: false,
+        planMode: false,
+        developerInstructions: 'Sos @qa.\nDecí "no" cuando haga falta.',
+      );
+      expect(
+        first,
+        containsAllInOrder([
+          '-c',
+          r'developer_instructions="Sos @qa.\nDecí \"no\" cuando haga falta."',
+        ]),
+      );
+
+      final resumed = buildCodexArguments(
+        prompt: 'Seguí',
+        sessionId: 'thread-1',
+        model: '',
+        fullFileSystemAccess: false,
+        planMode: false,
+        developerInstructions: 'Sos @qa.',
+      );
+      expect(
+        resumed.any((arg) => arg.startsWith('developer_instructions=')),
+        isFalse,
+      );
+    });
+
+    test('cada override es un -c, en exec y en resume, y con hooks pide '
+        'saltear el trust', () {
+      for (final sessionId in [null, 'thread-1']) {
+        final args = buildCodexArguments(
+          prompt: 'Hola',
+          sessionId: sessionId,
+          model: '',
+          fullFileSystemAccess: false,
+          planMode: false,
+          configOverrides: const [
+            'mcp_servers.keel.url="http://127.0.0.1:1/mcp"',
+            'hooks.PreToolUse=[{hooks=[]}]',
+          ],
+          bypassHookTrust: true,
+        );
+
+        expect(
+          args,
+          containsAllInOrder([
+            '-c',
+            'mcp_servers.keel.url="http://127.0.0.1:1/mcp"',
+            '-c',
+            'hooks.PreToolUse=[{hooks=[]}]',
+            '--dangerously-bypass-hook-trust',
+          ]),
+        );
+        expect(args.contains('-p'), isFalse);
+        expect(args.last, 'Hola');
+      }
+    });
+
+    test('sin hooks no pide saltear el trust', () {
       final args = buildCodexArguments(
         prompt: 'Hola',
         sessionId: null,
         model: '',
         fullFileSystemAccess: false,
-        codexProfileName: 'keel-turn123',
         planMode: false,
       );
 
-      final index = args.indexOf('-p');
-      expect(index, isNot(-1));
-      expect(args[index + 1], 'keel-turn123');
-    });
-
-    test('el prompt siempre es el último argumento', () {
-      final args = buildCodexArguments(
-        prompt: 'Este es el prompt',
-        sessionId: 'thread-1',
-        model: 'gpt-5-codex',
-        fullFileSystemAccess: true,
-        codexProfileName: 'keel-turn1',
-        planMode: false,
-      );
-
-      expect(args.last, 'Este es el prompt');
+      expect(args, isNot(contains('--dangerously-bypass-hook-trust')));
     });
   });
 
@@ -261,7 +215,8 @@ void main() {
       final output = '${help.stdout}\n${help.stderr}';
       expect(output, contains('--model'));
       expect(output, contains('--json'));
-      expect(output, contains('--skip-git-repo-check'));
+      expect(output, contains('--config'));
+      expect(output, contains('--dangerously-bypass-hook-trust'));
       expect(output, isNot(contains('--sandbox')));
       expect(output, isNot(contains('--profile')));
       expect(output, isNot(contains('--color')));
@@ -271,28 +226,13 @@ void main() {
         sessionId: 'thread-real-help',
         model: 'gpt-5.5',
         fullFileSystemAccess: true,
-        codexProfileName: 'keel',
         planMode: false,
+        configOverrides: const ['hooks.PreToolUse=[]'],
+        bypassHookTrust: true,
       );
       expect(argv, isNot(contains('-s')));
       expect(argv, isNot(contains('-p')));
       expect(argv, isNot(contains('--color')));
     },
   );
-
-  test('al reanudar con perfil de hooks, el perfil viaja por -c', () {
-    final args = buildCodexArguments(
-      prompt: 'Seguí',
-      sessionId: 'thread-abc',
-      model: '',
-      fullFileSystemAccess: true,
-      codexProfileName: 'keel-turn9',
-      planMode: false,
-    );
-
-    expect(args.contains('-p'), isFalse);
-    expect(args, containsAllInOrder(['-c', 'profile="keel-turn9"']));
-    expect(args, containsAllInOrder(['-c', 'sandbox_mode="danger-full-access"']));
-  });
-
 }

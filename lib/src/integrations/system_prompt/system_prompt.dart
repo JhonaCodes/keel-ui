@@ -39,7 +39,6 @@ part 'src/plan_section_prompt.dart';
 part 'src/adaptive_node_prompt.dart';
 part 'src/outcome_protocol_prompt.dart';
 part 'src/consult_prompt.dart';
-part 'src/codex_role_wrapper.dart';
 part 'src/known_roots_prompt.dart';
 part 'src/github_mcp_prompt.dart';
 part 'src/plan_mode_prompt.dart';

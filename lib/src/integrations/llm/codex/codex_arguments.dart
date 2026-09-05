@@ -1,43 +1,57 @@
 import 'package:keel_ui/src/integrations/system_prompt/system_prompt.dart';
 import 'package:keel_ui/src/modules/agents/model/agent_model_option.dart'
     show codexModelArgument;
+import 'package:keel_ui/src/shared/utils/toml_string.dart';
 
-/// Codex no tiene flag de system prompt: el stack de instrucciones del
-/// member viaja como preámbulo delimitado del prompt del usuario. En el
-/// primer turno va completo; en un resume el ViewModel manda la versión
-/// COMPACTA (identidad, reglas, contratos —sin skills ni saber), y acá se
-/// antepone igual. Antes se descartaba en resume y la identidad vivía solo
-/// en el turno 1: reglas y protocolo de cierre se perdían en silencio.
-String buildCodexPrompt({
-  required String prompt,
-  required String? sessionId,
-  required String? additionalSystemPrompt,
-  required bool planMode,
-}) {
-  // El modo plan viaja adentro del prompt del usuario y no en el preámbulo,
-  // justamente porque el preámbulo se descarta al reanudar. Es la única
-  // forma de que un turno con `resume` —donde tampoco se puede cambiar el
-  // sandbox— sepa que tiene que planificar y no ejecutar.
-  final userPrompt = planMode ? '$kPlanModePrompt\n\n$prompt' : prompt;
+/// Cuántas llamadas a herramientas vale un «turno» en codex.
+///
+/// Codex no tiene `--max-turns`. El tope del nodo se aplica con un hook que
+/// cuenta llamadas a herramientas y deniega la que excede
+/// `maxTurns × este factor`. Un turno de claude suele encadenar entre una y
+/// tres tools antes de volver a pensar; tres es el techo de esa observación.
+const kCodexToolCallsPerTurn = 3;
 
-  if (additionalSystemPrompt == null || additionalSystemPrompt.isEmpty) {
-    return userPrompt;
-  }
-  return codexRoleWrappedPrompt(
-    prompt: userPrompt,
-    systemPrompt: additionalSystemPrompt,
-  );
+/// El prompt del usuario para un turno de codex.
+///
+/// Solo el pedido, más el modo plan cuando corresponde. Las instrucciones de
+/// rol ya no viajan acá: van por `developer_instructions` (ver
+/// [buildCodexArguments]), que codex trata como mensaje de desarrollador y
+/// guarda en el hilo, así que un resume las tiene sin repetirlas. Antes se
+/// mandaban envueltas en el prompt en cada turno: doble costo y un modelo
+/// que a veces contestaba sobre sus instrucciones en vez de obedecerlas.
+String buildCodexPrompt({required String prompt, required bool planMode}) {
+  // El modo plan viaja adentro del prompt: es del turno, no de la sesión.
+  return planMode ? '$kPlanModePrompt\n\n$prompt' : prompt;
 }
 
-/// Los argumentos de `codex exec` para un turno. Migrado literal de
-/// `task_runner_isolate.dart` (rama `isCodex=true`).
+/// Los argumentos de `codex exec` para un turno.
+///
+/// Todo lo configurable va por `-c clave=valor`, que es lo único que `exec`
+/// y `exec resume` aceptan por igual en codex 0.153 (`-p` no existe en
+/// resume y `-c profile=` está rechazado como legacy). El sandbox del turno
+/// nuevo va por `-s` porque el CLI lo exige así en el primer turno.
 List<String> buildCodexArguments({
   required String prompt,
   required String? sessionId,
   required String model,
   required bool fullFileSystemAccess,
-  required String? codexProfileName,
   required bool planMode,
+
+  /// El system prompt del member. Solo se manda en el PRIMER turno: codex
+  /// lo persiste en el hilo como mensaje de desarrollador y lo reenvía en
+  /// cada resume (verificado capturando los requests, 2026-09-05).
+  String? developerInstructions,
+
+  /// Overrides `clave=valor` ya armados (hooks, MCP). Cada uno es un `-c`.
+  List<String> configOverrides = const [],
+
+  /// Si el turno lleva hooks. Codex 0.153 no corre un hook que no esté
+  /// «trusted» de forma persistente —y los de Keel se generan por turno—,
+  /// así que sin `--dangerously-bypass-hook-trust` los ignora EN SILENCIO:
+  /// el gate de permisos y el tope de herramientas no aplicarían y nadie
+  /// se enteraría. Los hooks son de Keel o del catálogo del usuario, ya
+  /// revisados: el flag dice lo que es.
+  bool bypassHookTrust = false,
 }) {
   // Misma regla que CodexCliService: solo un modelo de codex llega a `-m`.
   // Un member con alias de Claude (todo agente codex creado antes de que
@@ -58,22 +72,21 @@ List<String> buildCodexArguments({
     if (codexModel != null) ...['-m', codexModel],
     '--json',
     '--skip-git-repo-check',
-    // `resume` tiene su propio parser: no acepta `-s`, `-p` ni `--color`.
-    // Pero sí acepta `-c clave=valor` (verificado en codex 0.149.1), que es
-    // como el sandbox y el perfil de hooks sobreviven al reanudar. Antes se
-    // descartaban: un turno de plan reanudado corría sin freno y los hooks
-    // (incluido el gate de permisos) no aplicaban.
-    if (!isResume) ...[
-      '-s',
-      sandbox,
-      if (codexProfileName != null) ...['-p', codexProfileName],
-      '--color',
-      'never',
-    ] else ...[
+    // `resume` tiene su propio parser: no acepta `-s` ni `--color`, pero sí
+    // `-c sandbox_mode=...`, que es como un turno de plan reanudado sigue
+    // teniendo freno.
+    if (!isResume) ...['-s', sandbox, '--color', 'never'] else ...[
       '-c',
-      'sandbox_mode="$sandbox"',
-      if (codexProfileName != null) ...['-c', 'profile="$codexProfileName"'],
+      'sandbox_mode=${tomlString(sandbox)}',
     ],
+    if (!isResume &&
+        developerInstructions != null &&
+        developerInstructions.isNotEmpty) ...[
+      '-c',
+      'developer_instructions=${tomlString(developerInstructions)}',
+    ],
+    for (final override in configOverrides) ...['-c', override],
+    if (bypassHookTrust) '--dangerously-bypass-hook-trust',
     prompt,
   ];
 }

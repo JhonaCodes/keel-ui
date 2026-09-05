@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -136,4 +137,149 @@ void main() {
       expect(argv.contains('-s'), isFalse);
     },
   );
+
+  group('CodexCliRunner — configuración por -c (codex 0.153)', () {
+    late Directory fakeBin;
+
+    setUp(() {
+      // El fake vuelca argv y entorno: el oráculo es lo que el binario
+      // recibiría de verdad, no lo que el runner cree que manda.
+      fakeBin = createFakeCliBin(
+        'codex',
+        r'#!/bin/sh'
+        '\n'
+        r'printf "%s\n" "$@" > "$(dirname "$0")/argv.log"'
+        '\n'
+        r'env > "$(dirname "$0")/env.log"'
+        '\nexit 0\n',
+      );
+    });
+    tearDown(() {
+      if (fakeBin.existsSync()) fakeBin.deleteSync(recursive: true);
+    });
+
+    Future<({List<String> argv, Map<String, String> env})> run(
+      LlmTurnSpec spec,
+    ) async {
+      await const CodexCliRunner()
+          .run(
+            spec,
+            userPath: fakeCliUserPath(fakeBin),
+            cancel: const Stream<void>.empty(),
+          )
+          .toList();
+      final argv = File('${fakeBin.path}/argv.log').readAsLinesSync();
+      final env = <String, String>{};
+      for (final line in File('${fakeBin.path}/env.log').readAsLinesSync()) {
+        final at = line.indexOf('=');
+        if (at > 0) env[line.substring(0, at)] = line.substring(at + 1);
+      }
+      return (argv: argv, env: env);
+    }
+
+    test('con hooks, los pasa por -c y pide saltear el trust: sin el flag '
+        'codex 0.153 los ignora en silencio', () async {
+      final result = await run(
+        const LlmTurnSpec(
+          prompt: 'hola',
+          workingDirectory: '.',
+          model: 'gpt-5-codex',
+          fullFileSystemAccess: false,
+          effort: 'medium',
+          hooksConfig:
+              'hooks.PreToolUse=[{matcher="Bash",hooks=[{type="command",'
+              'command="bash __KEEL_HOOK_DIR__/keel-decision-gate.sh",'
+              'timeout=21600}]}]',
+          hookFiles: {'keel-decision-gate.sh': 'exit 0'},
+        ),
+      );
+
+      expect(result.argv, contains('--dangerously-bypass-hook-trust'));
+      final override = result.argv.firstWhere(
+        (arg) => arg.startsWith('hooks.PreToolUse='),
+        orElse: () => '',
+      );
+      expect(override, isNotEmpty);
+      expect(result.argv[result.argv.indexOf(override) - 1], '-c');
+      expect(override, isNot(contains('__KEEL_HOOK_DIR__')));
+      expect(result.argv.contains('-p'), isFalse);
+    });
+
+    test('sin hooks no pide saltear el trust', () async {
+      final result = await run(_spec);
+
+      expect(result.argv, isNot(contains('--dangerously-bypass-hook-trust')));
+    });
+
+    test('los MCP viajan por -c y el bearer va por el entorno, nunca en '
+        'argv', () async {
+      final mcpConfig = jsonEncode({
+        'mcpServers': {
+          'keel-decisions': {
+            'type': 'http',
+            'url': 'http://127.0.0.1:4321/ask/p/s/a',
+            'headers': {'Authorization': 'Bearer secreto-123'},
+          },
+          'github': {
+            'command': 'npx',
+            'args': ['-y', 'gh-mcp'],
+            'env': {'GITHUB_TOKEN': 'ghp-secreto'},
+          },
+        },
+      });
+      final result = await run(
+        LlmTurnSpec(
+          prompt: 'hola',
+          workingDirectory: '.',
+          model: 'gpt-5-codex',
+          fullFileSystemAccess: false,
+          effort: 'medium',
+          mcpConfig: mcpConfig,
+        ),
+      );
+
+      expect(
+        result.argv,
+        contains('mcp_servers.keel-decisions.url="http://127.0.0.1:4321/ask/p/s/a"'),
+      );
+      expect(result.argv.join('\n'), isNot(contains('secreto-123')));
+      expect(result.argv.join('\n'), isNot(contains('ghp-secreto')));
+      expect(result.env.values, contains('Bearer secreto-123'));
+      expect(result.env['GITHUB_TOKEN'], 'ghp-secreto');
+      expect(result.argv, contains('mcp_servers.github.env_vars=["GITHUB_TOKEN"]'));
+    });
+
+    test('el system prompt va como developer_instructions en el primer '
+        'turno y no se repite al reanudar (el hilo ya lo tiene)', () async {
+      final first = await run(
+        const LlmTurnSpec(
+          prompt: 'hola',
+          workingDirectory: '.',
+          model: 'gpt-5-codex',
+          fullFileSystemAccess: false,
+          effort: 'medium',
+          additionalSystemPrompt: 'SOS @qa\ncon "comillas"',
+        ),
+      );
+      expect(first.argv, contains(r'developer_instructions="SOS @qa\ncon \"comillas\""'));
+      expect(first.argv.last, 'hola');
+
+      final resumed = await run(
+        const LlmTurnSpec(
+          prompt: 'seguí',
+          workingDirectory: '.',
+          model: 'gpt-5-codex',
+          fullFileSystemAccess: false,
+          effort: 'medium',
+          sessionId: 'thread-1',
+          additionalSystemPrompt: 'SOS @qa',
+        ),
+      );
+      expect(
+        resumed.argv.any((arg) => arg.startsWith('developer_instructions=')),
+        isFalse,
+      );
+      expect(resumed.argv.last, 'seguí');
+    });
+  });
 }

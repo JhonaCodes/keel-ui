@@ -18,7 +18,8 @@ de un agente claude, junto a los hooks del usuario y al gate de permisos
 —muere con el turno—, y deniega la tarea `N+1` con el motivo. Cupo cero
 deniega desde la primera, que es lo que el prompt siempre dijo y nunca pudo
 garantizar. Solo claude tiene la tool `Task`; para codex y las APIs no hay
-nada que frenar y el hook no se agrega.
+nada que frenar y el hook no se agrega. Codex tiene en cambio el hook
+`keel-tool-cap` (F51), con el mismo esquema, para el tope de turnos.
 
 **El prompt sigue siendo la primera línea.** `subagentPolicyPrompt` dice
 ahora que el cupo se aplica en código y que cada tarea tiene que llevar una

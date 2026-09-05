@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 
+import 'package:keel_ui/src/modules/projects/model/turn_outcome_report.dart';
+
 enum WorkNodeKind { triage, impact, implementation, verification, custom }
 
 enum WorkNodeStatus { pending, running, paused, done, blocked }
@@ -15,6 +17,13 @@ class WorkNode {
   final List<String> dependencyIds;
   final WorkNodeStatus status;
 
+  /// Lo que dejó el último turno del nodo, tal como lo declaró el agente.
+  /// Es lo que viaja a los nodos que dependen de este.
+  final TurnOutcomeReport? output;
+
+  /// Cuántas veces corrió el nodo (reintentos incluidos).
+  final int attempts;
+
   const WorkNode({
     required this.id,
     required this.kind,
@@ -24,6 +33,8 @@ class WorkNode {
     this.instruction = '',
     this.dependencyIds = const [],
     this.status = WorkNodeStatus.pending,
+    this.output,
+    this.attempts = 0,
   });
 
   WorkNode copyWith({
@@ -33,6 +44,8 @@ class WorkNode {
     String? title,
     String? instruction,
     List<String>? dependencyIds,
+    TurnOutcomeReport? output,
+    int? attempts,
   }) => WorkNode(
     id: id,
     kind: kind,
@@ -42,6 +55,8 @@ class WorkNode {
     instruction: instruction ?? this.instruction,
     dependencyIds: dependencyIds ?? this.dependencyIds,
     status: status ?? this.status,
+    output: output ?? this.output,
+    attempts: attempts ?? this.attempts,
   );
 
   Map<String, dynamic> toJson() => {
@@ -53,6 +68,8 @@ class WorkNode {
     'instruction': instruction,
     'dependencyIds': dependencyIds,
     'status': status.name,
+    'output': output?.toJson(),
+    'attempts': attempts,
   };
 
   factory WorkNode.fromJson(Map<String, dynamic> json) => WorkNode(
@@ -66,5 +83,11 @@ class WorkNode {
     status: WorkNodeStatus.values.byName(
       json['status'] as String? ?? WorkNodeStatus.pending.name,
     ),
+    output: json['output'] is Map
+        ? TurnOutcomeReport.fromJson(
+            (json['output'] as Map).cast<String, dynamic>(),
+          )
+        : null,
+    attempts: json['attempts'] as int? ?? 0,
   );
 }

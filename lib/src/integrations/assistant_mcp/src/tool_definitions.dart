@@ -566,6 +566,11 @@ final List<Tool> keelAiTools = _withCatalogChangeParameters([
               'max_agentic_turns': Schema.int(
                 description: 'Presupuesto de turnos, de 0 a 20.',
               ),
+              'approval_required': Schema.bool(
+                description:
+                    'True si el motor debe pedir la aprobación del usuario '
+                    'antes de correr este nodo (p. ej. publicar).',
+              ),
               'read_only': Schema.bool(
                 description:
                     'True para planificación y auditorías sin escritura.',
@@ -962,6 +967,11 @@ final List<Tool> keelAiTools = _withCatalogChangeParameters([
               ),
               'max_agentic_turns': Schema.int(
                 description: 'Presupuesto de turnos, de 0 a 20.',
+              ),
+              'approval_required': Schema.bool(
+                description:
+                    'True si el motor debe pedir la aprobación del usuario '
+                    'antes de correr este nodo (p. ej. publicar).',
               ),
               'read_only': Schema.bool(
                 description:

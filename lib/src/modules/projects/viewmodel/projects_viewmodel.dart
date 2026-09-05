@@ -13,6 +13,7 @@ import 'package:keel_ui/src/integrations/task_runner/task_runner.dart';
 import 'package:keel_ui/src/integrations/machine/machine.dart';
 import 'package:keel_ui/src/integrations/usage_ledger/usage_ledger.dart';
 import 'package:keel_ui/src/integrations/session_plan_mcp/session_plan_mcp_server.dart';
+import 'package:keel_ui/src/integrations/decisions_mcp/decisions_mcp_server.dart';
 import 'package:keel_ui/src/integrations/user_tools_mcp/user_tools_mcp_server.dart';
 import 'package:keel_ui/src/integrations/hook_delivery/hook_delivery.dart';
 import 'package:keel_ui/src/integrations/project_radar/project_radar.dart';
@@ -46,12 +47,14 @@ import 'package:keel_ui/src/modules/projects/model/member_tuning.dart';
 import 'package:keel_ui/src/modules/projects/model/roadmap_format_skill.dart';
 import 'package:keel_ui/src/modules/projects/model/project.dart';
 import 'package:keel_ui/src/modules/projects/model/session.dart';
+import 'package:keel_ui/src/modules/projects/model/session_decision.dart';
 import 'package:keel_ui/src/modules/projects/model/session_live_turn.dart';
 import 'package:keel_ui/src/modules/projects/model/session_subagent.dart';
 import 'package:keel_ui/src/modules/projects/model/session_plan_item.dart';
 import 'package:keel_ui/src/modules/projects/model/session_queued_message.dart';
 import 'package:keel_ui/src/modules/projects/model/session_usage.dart';
 import 'package:keel_ui/src/modules/projects/model/token_usage.dart';
+import 'package:keel_ui/src/modules/projects/model/turn_outcome_report.dart';
 import 'package:keel_ui/src/modules/projects/model/resolution_case.dart';
 import 'package:keel_ui/src/modules/projects/model/resolution_evidence.dart';
 import 'package:keel_ui/src/modules/projects/model/resolution_preflight.dart';
@@ -91,7 +94,7 @@ const _coverageBlockKeys = {'area', 'estado', 'motivo'};
 /// tomaban mirando el hilo — la "respuesta" de una consulta era el último
 /// mensaje de la sesión, fuera de quien fuera, y un paso fallido dejaba al
 /// ciclo marchar igual por los pasos restantes.
-typedef TurnOutcome = ({bool ok, String answer});
+typedef TurnOutcome = ({bool ok, String answer, TurnOutcomeReport? report});
 
 class _AdaptivePreflightResult {
   const _AdaptivePreflightResult({
@@ -134,6 +137,10 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
   /// Los vigilantes de los turnos vivos, por sesión. Una decisión pendiente
   /// los pausa (la espera humana no es inactividad del agente).
   final Map<String, Set<TurnWatchdog>> _turnWatchdogs = {};
+
+  /// Los turnos VIVOS suspendidos esperando una decisión, por id de
+  /// decisión. Completar uno destraba el hook o la tool que esperaba.
+  final Map<String, Completer<SessionDecision>> _gateCompleters = {};
 
   /// Reference resolution may touch the filesystem before a turn owns a CLI.
   /// This closes that short gap so two fast sends cannot start two turns for
@@ -263,9 +270,13 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     final hasDeliveryWaitingForDeadRun = session.queuedMessages.any(
       (message) => message.delivery != SessionQueuedDelivery.standby,
     );
+    final hasBlockingDecision = session.decisions.any(
+      (decision) => decision.isPending && decision.blocking,
+    );
     if (!session.isRunning &&
         workflowId == session.workflowId &&
-        !hasDeliveryWaitingForDeadRun) {
+        !hasDeliveryWaitingForDeadRun &&
+        !hasBlockingDecision) {
       return session;
     }
     return session.copyWith(
@@ -274,6 +285,17 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
       queuedMessages: [
         for (final message in session.queuedMessages)
           message.copyWith(delivery: SessionQueuedDelivery.standby),
+      ],
+      // Una decisión bloqueante esperaba a un proceso que murió con la app:
+      // se cancela para que la tarjeta no prometa destrabar nada.
+      decisions: [
+        for (final decision in session.decisions)
+          decision.isPending && decision.blocking
+              ? decision.copyWith(
+                  status: SessionDecisionStatus.cancelled,
+                  resolvedAt: DateTime.now(),
+                )
+              : decision,
       ],
     );
   }
@@ -1464,6 +1486,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     if (run == null && !(session?.isRunning ?? false)) return;
 
     _stoppedSessionIds.add(sessionId);
+    _cancelBlockingDecisions(projectId, sessionId);
     run?.cancel();
     _releaseRunningNodes(projectId, sessionId);
 
@@ -1720,6 +1743,47 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
           return;
         }
 
+        // La aprobación es una decisión sobre el paso, no un paso más: el
+        // nodo queda pausado y esperándote hasta que la contestás.
+        if (capability.approvalRequired) {
+          final decisions =
+              _sessionById(_projectById(projectId) ?? project, sessionId)
+                  ?.decisions ??
+              const <SessionDecision>[];
+          final approvals = decisions.where(
+            (decision) =>
+                decision.kind == SessionDecisionKind.approval &&
+                decision.workNodeId == node.id,
+          );
+          final granted = approvals.any(
+            (decision) => decision.status == SessionDecisionStatus.granted,
+          );
+          if (!granted) {
+            resolution = _replaceNode(resolution, node.id, WorkNodeStatus.paused);
+            _storeResolution(projectId, sessionId, resolution);
+            if (!approvals.any((decision) => decision.isPending)) {
+              _enqueueDecision(
+                projectId,
+                sessionId,
+                SessionDecision(
+                  id: generateUuidV4(),
+                  kind: SessionDecisionKind.approval,
+                  profileId: nodeOwner.id,
+                  workNodeId: node.id,
+                  title: 'Aprobar el paso "${node.title.isEmpty ? node.id : node.title}"',
+                  detail: node.instruction.length > 400
+                      ? '${node.instruction.substring(0, 400)}…'
+                      : node.instruction,
+                  createdAt: DateTime.now(),
+                ),
+                memberName: nodeOwner.name,
+              );
+            }
+            await _persist();
+            return;
+          }
+        }
+
         if (capability.executor == WorkflowExecutor.providerSubagent) {
           if (resolution.reviewCycleCount >= workflow.policy.maxReviewCycles) {
             resolution = resolution.copyWith(
@@ -1759,15 +1823,35 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
         final storedRequest = freshProject == null
             ? null
             : _sessionById(freshProject, sessionId)?.request;
-        final baseInstruction = adaptiveNodePrompt(
+        final isAudit = capability.outputContract == 'audit-feedback';
+        final nodePrompt = adaptiveNodePrompt(
           request: storedRequest == null || storedRequest.isEmpty
               ? request
               : storedRequest,
           workflow: workflow,
           resolution: resolution,
           node: node,
+          isAudit: isAudit,
         );
-        final outcome = await _runWorkflowCapability(
+        // Lo que el usuario contestó a este nodo viaja en la instrucción: la
+        // sesión del CLI se reanuda con el prompt nuevo, no lee el hilo.
+        final answers = [
+          for (final decision
+              in freshProject == null
+                  ? const <SessionDecision>[]
+                  : _sessionById(freshProject, sessionId)?.decisions ??
+                        const <SessionDecision>[])
+            if (decision.workNodeId == node.id &&
+                decision.kind != SessionDecisionKind.approval &&
+                decision.status == SessionDecisionStatus.answered)
+              '- Pediste: ${decision.detail}\n  Respuesta: ${decision.answer}',
+        ];
+        final baseInstruction = answers.isEmpty
+            ? nodePrompt
+            : '$nodePrompt\n\nRESPUESTAS DEL USUARIO a lo que pediste antes '
+                  '(seguí con esto, no vuelvas a preguntar lo mismo):\n'
+                  '${answers.join('\n')}';
+        var outcome = await _runWorkflowCapability(
           projectId: projectId,
           sessionId: sessionId,
           workflow: workflow,
@@ -1793,57 +1877,206 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
               sessionId,
             )?.resolutionCase ??
             resolution;
-        if (outcome.ok) {
-          resolution = ResolutionEngine.resolveAssignedFindings(
-            _replaceNode(resolution, node.id, WorkNodeStatus.done),
-            affectedNodeId: node.id,
+        // Un turno que cerró sin el bloque (o una auditoría sin veredicto)
+        // recibe UN seguimiento: un turno de un paso sobre la misma sesión
+        // que solo pide el estado. Barato, y evita adivinar.
+        if (outcome.ok && !_outcomeIsComplete(outcome.report, isAudit)) {
+          outcome = await _runWorkflowCapability(
+            projectId: projectId,
+            sessionId: sessionId,
+            workflow: workflow,
+            capability: capability,
+            resolution: resolution,
+            node: node,
+            nodeOwner: nodeOwner,
+            instruction: baseInstruction,
+            turnId: workflowTurnId,
+            preflight: preflight,
+            maxBudgetUsd: remainingBudgetUsd,
+            followUp: true,
           );
+          if (_stoppedSessionIds.contains(sessionId)) break;
+          resolution =
+              _sessionById(
+                _projectById(projectId) ?? project,
+                sessionId,
+              )?.resolutionCase ??
+              resolution;
+        }
+
+        if (!outcome.ok) {
+          final registration = ResolutionEngine.reportFinding(
+            resolution,
+            evidence: ResolutionEvidence(
+              id: generateUuidV4(),
+              source: ResolutionEvidenceSource.compiler,
+              summary: outcome.answer.trim().isEmpty
+                  ? 'El turno del nodo falló sin respuesta.'
+                  : outcome.answer.trim(),
+              fingerprint: '${node.id}:${normalizeForMatch(outcome.answer)}',
+              createdAt: DateTime.now(),
+            ),
+            affectedNodeId: node.id,
+            maxReplans: workflow.policy.maxReplans,
+          );
+          resolution = registration.resolution;
+          if (!registration.accepted) {
+            resolution = resolution.copyWith(
+              status: ResolutionCaseStatus.blocked,
+            );
+          } else if (resolution.status != ResolutionCaseStatus.blocked) {
+            resolution = _replaceNode(
+              resolution.copyWith(status: ResolutionCaseStatus.active),
+              node.id,
+              WorkNodeStatus.pending,
+            );
+          }
           _storeResolution(projectId, sessionId, resolution);
+          _appendMessage(
+            projectId,
+            sessionId,
+            ChatMessage(
+              role: ChatRole.error,
+              text: resolution.status == ResolutionCaseStatus.blocked
+                  ? 'Caso bloqueado: el nodo "${node.title}" falló dos veces '
+                        'con la misma evidencia.'
+                  : 'El turno del nodo "${node.title}" falló; se reintenta.',
+              timestamp: DateTime.now(),
+              workNodeId: node.id,
+            ),
+          );
+          if (resolution.status == ResolutionCaseStatus.blocked) {
+            _finishSession(projectId, sessionId, SessionStatus.failed);
+            break;
+          }
           continue;
         }
 
-        final registration = ResolutionEngine.reportFinding(
+        // Sin bloque ni después del seguimiento: si habló, se toma lo que
+        // dijo como cierre; si calló del todo, se bloquea con motivo.
+        final report =
+            outcome.report ??
+            TurnOutcomeReport(
+              status: outcome.answer.trim().isEmpty
+                  ? TurnOutcomeStatus.blocked
+                  : TurnOutcomeStatus.done,
+              summary: outcome.answer.trim().isEmpty
+                  ? 'El nodo terminó sin bloque keel-outcome y sin texto.'
+                  : _excerpt(outcome.answer, 600),
+            );
+        final effectiveReport =
+            isAudit &&
+                report.status == TurnOutcomeStatus.done &&
+                report.verdict == null
+            ? TurnOutcomeReport(
+                status: TurnOutcomeStatus.blocked,
+                summary:
+                    'La auditoría cerró sin veredicto GO/NO-GO. '
+                    '${report.summary}',
+                files: report.files,
+                artifacts: report.artifacts,
+              )
+            : report;
+        final application = ResolutionEngine.applyOutcome(
           resolution,
-          evidence: ResolutionEvidence(
-            id: generateUuidV4(),
-            source: ResolutionEvidenceSource.compiler,
-            summary: outcome.answer.trim().isEmpty
-                ? 'El nodo no produjo una respuesta verificable.'
-                : outcome.answer.trim(),
-            fingerprint: '${node.id}:${normalizeForMatch(outcome.answer)}',
-            createdAt: DateTime.now(),
-          ),
-          affectedNodeId: node.id,
+          nodeId: node.id,
+          report: effectiveReport,
+          isAudit: isAudit,
+          parentNodeId: capability.parentCapabilityId.trim(),
           maxReplans: workflow.policy.maxReplans,
+          profileId: nodeOwner.id,
+          now: DateTime.now(),
+          newId: generateUuidV4,
         );
-        resolution = registration.resolution;
-        if (!registration.accepted) {
-          resolution = resolution.copyWith(
-            status: ResolutionCaseStatus.blocked,
-          );
-        } else if (resolution.status != ResolutionCaseStatus.blocked) {
-          resolution = _replaceNode(
-            resolution.copyWith(status: ResolutionCaseStatus.active),
-            node.id,
-            WorkNodeStatus.pending,
-          );
-        }
+        resolution = application.resolution;
         _storeResolution(projectId, sessionId, resolution);
-        _appendMessage(
-          projectId,
-          sessionId,
-          ChatMessage(
-            role: ChatRole.error,
-            text: resolution.status == ResolutionCaseStatus.blocked
-                ? 'Caso bloqueado: la evidencia no permite otra reformulación.'
-                : 'Hallazgo asignado a @${preflight.owner!.name}; se reformula '
-                      'solo el nodo ${node.kind.name}.',
-            timestamp: DateTime.now(),
-          ),
-        );
+
+        final toActivate = application.activateCapabilityId;
+        if (toActivate != null) {
+          final error = await activateWorkflowCapability(
+            projectId,
+            sessionId,
+            toActivate,
+          );
+          _appendMessage(
+            projectId,
+            sessionId,
+            ChatMessage(
+              role: ChatRole.system,
+              text: error == null
+                  ? 'El nodo "${node.title}" activó la capacidad opcional '
+                        '"$toActivate".'
+                  : 'El nodo "${node.title}" pidió activar "$toActivate": '
+                        '$error',
+              timestamp: DateTime.now(),
+              workNodeId: node.id,
+            ),
+          );
+          resolution =
+              _sessionById(
+                _projectById(projectId) ?? project,
+                sessionId,
+              )?.resolutionCase ??
+              resolution;
+        }
+
+        final decision = application.decision;
+        if (decision != null) {
+          _enqueueDecision(
+            projectId,
+            sessionId,
+            decision,
+            memberName: nodeOwner.name,
+          );
+          await _persist();
+          return;
+        }
+
         if (resolution.status == ResolutionCaseStatus.blocked) {
+          _appendMessage(
+            projectId,
+            sessionId,
+            ChatMessage(
+              role: ChatRole.error,
+              text:
+                  'Caso bloqueado en "${node.title}": '
+                  '${effectiveReport.summary}',
+              timestamp: DateTime.now(),
+              workNodeId: node.id,
+            ),
+          );
           _finishSession(projectId, sessionId, SessionStatus.failed);
           break;
+        }
+        if (isAudit && effectiveReport.verdict == TurnVerdict.noGo) {
+          _appendMessage(
+            projectId,
+            sessionId,
+            ChatMessage(
+              role: ChatRole.system,
+              text:
+                  'NO-GO de "${node.title}": vuelve el nodo auditado con el '
+                  'hallazgo; la auditoría re-corre después de la corrección '
+                  '(ciclo ${resolution.reviewCycleCount} de '
+                  '${workflow.policy.maxReviewCycles}).',
+              timestamp: DateTime.now(),
+              workNodeId: node.id,
+            ),
+          );
+        } else if (effectiveReport.status == TurnOutcomeStatus.blocked ||
+            effectiveReport.status == TurnOutcomeStatus.failed) {
+          _appendMessage(
+            projectId,
+            sessionId,
+            ChatMessage(
+              role: ChatRole.system,
+              text:
+                  'El nodo "${node.title}" declaró ${effectiveReport.status.name}: '
+                  '${effectiveReport.summary}. Se reintenta con el hallazgo.',
+              timestamp: DateTime.now(),
+              workNodeId: node.id,
+            ),
+          );
         }
       }
     } catch (error, stackTrace) {
@@ -1852,6 +2085,415 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
       await _settleSessionRunAndDispatch(projectId, sessionId);
     }
   }
+
+  /// Un bloque alcanza si existe y, en un nodo de auditoría, trae veredicto.
+  bool _outcomeIsComplete(TurnOutcomeReport? report, bool isAudit) {
+    if (report == null) return false;
+    if (!isAudit) return true;
+    if (report.status != TurnOutcomeStatus.done) return true;
+    return report.verdict != null;
+  }
+
+  String _excerpt(String text, int max) {
+    final trimmed = text.trim();
+    return trimmed.length <= max ? trimmed : '${trimmed.substring(0, max)}…';
+  }
+
+  void _enqueueDecision(
+    String projectId,
+    String sessionId,
+    SessionDecision decision, {
+    required String memberName,
+  }) {
+    _updateSession(
+      projectId,
+      sessionId,
+      (session) =>
+          session.copyWith(decisions: [...session.decisions, decision]),
+    );
+    _appendMessage(
+      projectId,
+      sessionId,
+      ChatMessage(
+        role: ChatRole.system,
+        text: switch (decision.kind) {
+          SessionDecisionKind.question =>
+            '@$memberName necesita tu respuesta: ${decision.detail}',
+          SessionDecisionKind.permission =>
+            '@$memberName necesita un permiso: ${decision.detail}',
+          SessionDecisionKind.approval =>
+            '${decision.title}: el paso espera tu aprobación.',
+        },
+        timestamp: DateTime.now(),
+        workNodeId: decision.workNodeId,
+      ),
+    );
+  }
+
+  // ── decisiones bloqueantes: gate de permisos y ask_user ─────────────
+
+  /// Lo que contesta el gate antes de una tool que escribe. Si el permiso ya
+  /// está concedido —para la app, para este agente acá, o para esta
+  /// sesión— contesta al instante; si no, encola una decisión y ESPERA a
+  /// que la persona la conteste. El proceso del CLI queda suspendido en el
+  /// hook mientras tanto; el vigilante del turno se pausa.
+  Future<({bool allow, String reason})> decideToolUse({
+    required String projectId,
+    required String sessionId,
+    required String profileId,
+    required String toolName,
+    required String toolInput,
+  }) async {
+    final project = _projectById(projectId);
+    final session = project == null ? null : _sessionById(project, sessionId);
+    if (project == null || session == null) {
+      return (allow: false, reason: 'Keel no reconoce esta sesión.');
+    }
+    if (_isToolGranted(project, session, profileId, toolName)) {
+      return (allow: true, reason: '');
+    }
+    if (_stoppedSessionIds.contains(sessionId)) {
+      return (allow: false, reason: 'El turno fue detenido.');
+    }
+    final member = membersOf(project, session: session)
+        .where((entry) => entry.id == profileId)
+        .firstOrNull;
+    final resolved = await _awaitDecision(
+      projectId,
+      sessionId,
+      SessionDecision(
+        id: generateUuidV4(),
+        kind: SessionDecisionKind.permission,
+        profileId: profileId,
+        workNodeId: _activeWorkNodeId(session) ?? '',
+        title: 'Quiere usar $toolName',
+        detail: toolInput,
+        toolName: toolName,
+        toolInput: toolInput,
+        blocking: true,
+        createdAt: DateTime.now(),
+      ),
+      memberName: member?.name ?? 'agente',
+    );
+    return switch (resolved.status) {
+      SessionDecisionStatus.granted => (allow: true, reason: ''),
+      SessionDecisionStatus.cancelled => (
+        allow: false,
+        reason: 'El turno fue detenido antes de que se decidiera.',
+      ),
+      _ => (
+        allow: false,
+        reason:
+            'La persona rechazó $toolName'
+            '${resolved.answer.isEmpty ? '.' : ': ${resolved.answer}'}',
+      ),
+    };
+  }
+
+  /// `ask_user`: una pregunta que suspende el turno hasta la respuesta.
+  Future<String> askUser({
+    required String projectId,
+    required String sessionId,
+    required String profileId,
+    required String question,
+    List<String> options = const [],
+  }) async {
+    final project = _projectById(projectId);
+    final session = project == null ? null : _sessionById(project, sessionId);
+    if (project == null || session == null) {
+      return 'Keel no reconoce esta sesión; no hay a quién preguntarle.';
+    }
+    if (_stoppedSessionIds.contains(sessionId)) {
+      return 'El turno fue detenido.';
+    }
+    final member = membersOf(project, session: session)
+        .where((entry) => entry.id == profileId)
+        .firstOrNull;
+    final resolved = await _awaitDecision(
+      projectId,
+      sessionId,
+      SessionDecision(
+        id: generateUuidV4(),
+        kind: SessionDecisionKind.question,
+        profileId: profileId,
+        workNodeId: _activeWorkNodeId(session) ?? '',
+        title: 'Necesita una decisión tuya',
+        detail: question,
+        options: options,
+        blocking: true,
+        createdAt: DateTime.now(),
+      ),
+      memberName: member?.name ?? 'agente',
+    );
+    return switch (resolved.status) {
+      SessionDecisionStatus.answered => resolved.answer,
+      SessionDecisionStatus.cancelled =>
+        'La persona detuvo el turno sin contestar.',
+      _ => 'La persona no contestó (${resolved.status.name}).',
+    };
+  }
+
+  bool _isToolGranted(
+    Project project,
+    Session session,
+    String profileId,
+    String toolName,
+  ) =>
+      SettingsService.instance.notifier.data.extraAllowedTools.contains(
+        toolName,
+      ) ||
+      (project.grantedToolsByProfileId[profileId] ?? const []).contains(
+        toolName,
+      ) ||
+      session.grantedTools.contains(toolName);
+
+  Future<SessionDecision> _awaitDecision(
+    String projectId,
+    String sessionId,
+    SessionDecision decision, {
+    required String memberName,
+  }) async {
+    final completer = Completer<SessionDecision>();
+    _gateCompleters[decision.id] = completer;
+    _enqueueDecision(projectId, sessionId, decision, memberName: memberName);
+    // Esperar a una persona no es inactividad del agente.
+    for (final watchdog in _turnWatchdogs[sessionId] ?? const <TurnWatchdog>{}) {
+      watchdog.pause();
+    }
+    unawaited(_persist());
+    try {
+      return await completer.future;
+    } finally {
+      _gateCompleters.remove(decision.id);
+      for (final watchdog
+          in _turnWatchdogs[sessionId] ?? const <TurnWatchdog>{}) {
+        watchdog.resume();
+      }
+    }
+  }
+
+  void _cancelBlockingDecisions(String projectId, String sessionId) {
+    final project = _projectById(projectId);
+    final session = project == null ? null : _sessionById(project, sessionId);
+    if (session == null) return;
+    final cancelled = <SessionDecision>[];
+    _updateSession(
+      projectId,
+      sessionId,
+      (open) => open.copyWith(
+        decisions: [
+          for (final decision in open.decisions)
+            if (decision.isPending && _gateCompleters.containsKey(decision.id))
+              (() {
+                final done = decision.copyWith(
+                  status: SessionDecisionStatus.cancelled,
+                  resolvedAt: DateTime.now(),
+                );
+                cancelled.add(done);
+                return done;
+              })()
+            else
+              decision,
+        ],
+      ),
+    );
+    for (final decision in cancelled) {
+      _gateCompleters.remove(decision.id)?.complete(decision);
+    }
+  }
+
+  void _recordGrant(
+    String projectId,
+    String sessionId,
+    String profileId,
+    String toolName,
+    String scope,
+  ) {
+    switch (scope) {
+      case 'session':
+        _updateSession(
+          projectId,
+          sessionId,
+          (open) => open.copyWith(
+            grantedTools: {...open.grantedTools, toolName}.toList(),
+          ),
+        );
+      case 'profile':
+        _updateProject(projectId, (project) {
+          final grants = Map<String, List<String>>.from(
+            project.grantedToolsByProfileId,
+          );
+          grants[profileId] = {...?grants[profileId], toolName}.toList();
+          return project.copyWith(grantedToolsByProfileId: grants);
+        });
+      case 'app':
+        SettingsService.instance.notifier.setExtraToolEnabled(toolName, true);
+      default:
+        break;
+    }
+  }
+
+  /// Tu respuesta a una decisión pendiente.
+  ///
+  /// Dos caminos según quién espera. Si hay un turno VIVO suspendido (gate o
+  /// `ask_user`), se le completa la espera y el proceso sigue; [scope] dice
+  /// hasta dónde vale un permiso concedido: once | session | profile | app.
+  /// Si no —el nodo cerró con `needs_user` o pide aprobación— se destraba el
+  /// nodo, se deja la respuesta en el hilo y se retoma el workflow.
+  Future<String?> answerSessionDecision(
+    String projectId,
+    String sessionId,
+    String decisionId, {
+    String answer = '',
+    bool? approve,
+    String scope = 'once',
+  }) async {
+    final project = _projectById(projectId);
+    final session = project == null ? null : _sessionById(project, sessionId);
+    final decision = session?.decisions
+        .where((entry) => entry.id == decisionId && entry.isPending)
+        .firstOrNull;
+    if (project == null || session == null || decision == null) {
+      return 'Esa decisión ya no está pendiente.';
+    }
+
+    final waiting = _gateCompleters[decisionId];
+    if (waiting != null) {
+      final isPermission = decision.kind == SessionDecisionKind.permission;
+      if (isPermission && approve == null) return 'Falta conceder o rechazar.';
+      if (!isPermission && answer.trim().isEmpty) {
+        return 'La respuesta está vacía.';
+      }
+      final resolved = decision.copyWith(
+        status: isPermission
+            ? (approve!
+                  ? SessionDecisionStatus.granted
+                  : SessionDecisionStatus.denied)
+            : SessionDecisionStatus.answered,
+        answer: answer.trim(),
+        scope: scope,
+        resolvedAt: DateTime.now(),
+      );
+      _updateSession(
+        projectId,
+        sessionId,
+        (open) => open.copyWith(
+          decisions: [
+            for (final entry in open.decisions)
+              entry.id == decisionId ? resolved : entry,
+          ],
+        ),
+      );
+      if (isPermission && approve!) {
+        _recordGrant(
+          projectId,
+          sessionId,
+          decision.profileId,
+          decision.toolName,
+          scope,
+        );
+      }
+      _appendMessage(
+        projectId,
+        sessionId,
+        ChatMessage(
+          role: ChatRole.user,
+          text: isPermission
+              ? (approve!
+                    ? 'Permitido ${decision.toolName} (${_scopeLabel(scope)}).'
+                    : 'Rechazado ${decision.toolName}.')
+              : answer.trim(),
+          timestamp: DateTime.now(),
+          workNodeId: decision.workNodeId.isEmpty ? null : decision.workNodeId,
+        ),
+      );
+      await _persist();
+      waiting.complete(resolved);
+      return null;
+    }
+
+    final isApproval = decision.kind == SessionDecisionKind.approval;
+    if (isApproval && approve == null) return 'Falta aprobar o rechazar.';
+    if (!isApproval && answer.trim().isEmpty) return 'La respuesta está vacía.';
+
+    final resolved = decision.copyWith(
+      status: isApproval
+          ? (approve! ? SessionDecisionStatus.granted : SessionDecisionStatus.denied)
+          : SessionDecisionStatus.answered,
+      answer: answer.trim(),
+      resolvedAt: DateTime.now(),
+    );
+    _updateSession(
+      projectId,
+      sessionId,
+      (open) => open.copyWith(
+        decisions: [
+          for (final entry in open.decisions)
+            entry.id == decisionId ? resolved : entry,
+        ],
+      ),
+    );
+
+    final resolution = _sessionById(project, sessionId)?.resolutionCase;
+    if (resolution != null) {
+      if (isApproval && approve == false) {
+        final blocked = _replaceNode(
+          resolution.copyWith(status: ResolutionCaseStatus.blocked),
+          decision.workNodeId,
+          WorkNodeStatus.blocked,
+        );
+        _storeResolution(projectId, sessionId, blocked);
+        _appendMessage(
+          projectId,
+          sessionId,
+          ChatMessage(
+            role: ChatRole.error,
+            text: 'Rechazaste el paso "${decision.title}". El caso queda '
+                'bloqueado ahí.',
+            timestamp: DateTime.now(),
+            workNodeId: decision.workNodeId,
+          ),
+        );
+        _finishSession(projectId, sessionId, SessionStatus.failed);
+        await _persist();
+        return null;
+      }
+      _storeResolution(
+        projectId,
+        sessionId,
+        _replaceNode(
+          resolution.copyWith(status: ResolutionCaseStatus.active),
+          decision.workNodeId,
+          WorkNodeStatus.pending,
+        ),
+      );
+    }
+    final member = membersOf(project, session: session)
+        .where((entry) => entry.id == decision.profileId)
+        .firstOrNull;
+    _appendMessage(
+      projectId,
+      sessionId,
+      ChatMessage(
+        role: ChatRole.user,
+        text: isApproval
+            ? 'Aprobado: ${decision.title}'
+            : '@${member?.name ?? 'agente'} ${answer.trim()}',
+        timestamp: DateTime.now(),
+        workNodeId: decision.workNodeId,
+      ),
+    );
+    await _persist();
+    await resumeWorkflow(projectId, sessionId);
+    return null;
+  }
+
+  static String _scopeLabel(String scope) => switch (scope) {
+    'session' => 'esta sesión',
+    'profile' => 'este agente en este proyecto',
+    'app' => 'siempre',
+    _ => 'solo esta vez',
+  };
 
   WorkflowCapability _capabilityFor(Workflow workflow, String nodeId) {
     final capabilities = workflow.capabilities.isEmpty
@@ -1878,9 +2520,13 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     required String turnId,
     required _AdaptivePreflightResult preflight,
     double maxBudgetUsd = 0,
+
+    /// El seguimiento de un turno que cerró sin bloque: UN turno sobre la
+    /// misma sesión que solo pide el estado. No trabaja, no consulta.
+    bool followUp = false,
   }) async {
     final project = _projectById(projectId);
-    if (project == null) return (ok: false, answer: 'Proyecto no disponible.');
+    if (project == null) return (ok: false, answer: 'Proyecto no disponible.', report: null);
 
     final parentId = capability.parentCapabilityId.trim();
     final parentNode = parentId.isEmpty
@@ -1898,9 +2544,12 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
       node.dependencyIds,
       workflow,
     );
-    final effectiveInstruction = reports.isEmpty
+    final effectiveInstruction = followUp
+        ? kOutcomeFollowUpPrompt
+        : reports.isEmpty
         ? instruction
         : '$instruction\n\nINFORMES DE AUDITORÍA A RESOLVER:\n$reports';
+    final turnCap = followUp ? 1 : capability.effectiveMaxAgenticTurns;
 
     switch (capability.executor) {
       case WorkflowExecutor.newSession:
@@ -1913,14 +2562,15 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
           consultOfProfileId: null,
           turnId: turnId,
           depth: 0,
+          allowConsults: !followUp,
           executionId: _workflowExecutionId(sessionId, capability.id),
-          maxTurns: capability.effectiveMaxAgenticTurns,
+          maxTurns: turnCap,
           maxBudgetUsd: maxBudgetUsd,
           planMode: capability.readOnly,
         );
       case WorkflowExecutor.resumeParent:
         if (parentOwner == null) {
-          return (ok: false, answer: 'No se encontró la sesión padre.');
+          return (ok: false, answer: 'No se encontró la sesión padre.', report: null);
         }
         return _runTurn(
           projectId: projectId,
@@ -1931,13 +2581,40 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
           consultOfProfileId: null,
           turnId: turnId,
           depth: 0,
+          allowConsults: !followUp,
           executionId: _workflowExecutionId(sessionId, parentId),
-          maxTurns: capability.effectiveMaxAgenticTurns,
+          maxTurns: turnCap,
           maxBudgetUsd: maxBudgetUsd,
         );
       case WorkflowExecutor.providerSubagent:
         if (parentOwner == null) {
-          return (ok: false, answer: 'No se encontró el padre del auditor.');
+          return (ok: false, answer: 'No se encontró el padre del auditor.', report: null);
+        }
+        if (followUp) {
+          // El estado se le pide a la sesión que de verdad auditó: la
+          // externa del fallback si existe, si no la del padre.
+          final externalId = _workflowExecutionId(sessionId, capability.id);
+          final usedExternal =
+              _sessionById(project, sessionId)?.cliSessionsByExecutionId
+                  .containsKey(externalId) ??
+              false;
+          return _runTurn(
+            projectId: projectId,
+            sessionId: sessionId,
+            member: usedExternal ? nodeOwner : parentOwner,
+            workNodeId: node.id,
+            instruction: kOutcomeFollowUpPrompt,
+            consultOfProfileId: usedExternal ? parentOwner.id : null,
+            turnId: turnId,
+            depth: 0,
+            allowConsults: false,
+            executionId: usedExternal
+                ? externalId
+                : _workflowExecutionId(sessionId, parentId),
+            maxTurns: 1,
+            maxBudgetUsd: maxBudgetUsd,
+            planMode: usedExternal && capability.readOnly,
+          );
         }
         final packet = _subagentPacket(
           project: project,
@@ -2001,7 +2678,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
           planMode: capability.readOnly,
         );
       case WorkflowExecutor.manualApproval:
-        return (ok: false, answer: 'El paso requiere aprobación manual.');
+        return (ok: false, answer: 'El paso requiere aprobación manual.', report: null);
     }
   }
 
@@ -2018,7 +2695,21 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
           dependency,
     };
     if (auditIds.isEmpty) return '';
-    final messages = _sessionById(project, sessionId)?.messages ?? const [];
+    final session = _sessionById(project, sessionId);
+    // Lo que el auditor DECLARÓ en su bloque de cierre va primero: es corto
+    // y es lo que el motor evaluó. El hilo entero queda como respaldo para
+    // nodos que cerraron antes de que el bloque existiera.
+    final declared = [
+      for (final node in session?.resolutionCase?.nodes ?? const <WorkNode>[])
+        if (auditIds.contains(node.id) &&
+            (node.output?.summary.trim().isNotEmpty ?? false))
+          '[${node.title.isEmpty ? node.id : node.title}] '
+              '${node.output!.verdict == null ? '' : 'Veredicto: ${node.output!.verdict == TurnVerdict.go ? 'GO' : 'NO-GO'}. '}'
+              '${node.output!.summary.trim()}'
+              '${node.output!.files.isEmpty ? '' : '\nArchivos: ${node.output!.files.join(', ')}'}',
+    ];
+    if (declared.isNotEmpty) return declared.join('\n\n');
+    final messages = session?.messages ?? const [];
     return messages
         .where(
           (message) =>
@@ -2934,6 +3625,13 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     // El turno planificó y llegó al final solo: hay algo que decidir. Si lo
     // frenaron a mano, no: parar es tomar el control, no pedir permiso.
     final settleProject = _projectById(projectId);
+    final settleSession = settleProject == null
+        ? null
+        : _sessionById(settleProject, sessionId);
+    final lastReport = settleSession?.messages.reversed
+        .where((message) => message.role == ChatRole.assistant)
+        .map((message) => parseKeelOutcome(message.text))
+        .firstOrNull;
     final awaiting = shouldAskToImplement(
       planMode: planned,
       stopped: stopped,
@@ -2941,9 +3639,11 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
       // la sesión guarda la respuesta antes de que el turno se asiente.
       hasAnswer: true,
       hasQueuedMessages:
-          settleProject == null ||
-          (_sessionById(settleProject, sessionId)?.queuedMessages.isNotEmpty ??
-              true),
+          settleSession == null || settleSession.queuedMessages.isNotEmpty,
+      askedUser:
+          (settleSession?.waitingForUser ?? false) ||
+          lastReport?.status == TurnOutcomeStatus.needsUser ||
+          lastReport?.status == TurnOutcomeStatus.needsPermission,
     );
     _updateSession(
       projectId,
@@ -3083,8 +3783,8 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     bool planMode = false,
   }) async {
     final project = _projectById(projectId);
-    if (project == null) return (ok: false, answer: '');
-    if (_stoppedSessionIds.contains(sessionId)) return (ok: false, answer: '');
+    if (project == null) return (ok: false, answer: '', report: null);
+    if (_stoppedSessionIds.contains(sessionId)) return (ok: false, answer: '', report: null);
 
     // The current user request is delivered as `prompt` below. Everything
     // before it is reconstructed for remote APIs; removing that final user
@@ -3126,6 +3826,9 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     var turnFailed = false;
     var sessionConfirmed = false;
     var failureMessage = '';
+    // El tope de turnos no es una falla: es un número que se quedó corto.
+    // El motor le pide al nodo cómo quedó en vez de registrar un hallazgo.
+    var capHit = false;
 
     // El mapa de las bases se arma leyendo el disco: si el catálogo todavía
     // no cargó, el turno saldría sin saber que existen. Acá sí se puede
@@ -3170,6 +3873,26 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     final planEntry = (isCodex || consultOfProfileId != null)
         ? null
         : SessionPlanMcpServer.mcpServerEntryFor(
+            projectId: projectId,
+            sessionId: sessionId,
+            profileId: member.id,
+          );
+    // El gate de permisos: un hook PreToolUse que suspende el proceso hasta
+    // que la persona decide. Con el gate puesto, las tools que escriben
+    // entran a la allow-list del CLI —si no, el CLI las deniega solo, sin
+    // preguntar— y es el gate el que decide. Un proyecto que no mantenés
+    // sigue sin tools de escritura, y una consulta también.
+    await DecisionGateServer.ensureStarted();
+    final gate = (consultOfProfileId != null || !project.maintained)
+        ? null
+        : DecisionGateServer.gateSpecFor(
+            projectId: projectId,
+            sessionId: sessionId,
+            profileId: member.id,
+          );
+    final askEntry = (isCodex || consultOfProfileId != null)
+        ? null
+        : DecisionGateServer.mcpServerEntryFor(
             projectId: projectId,
             sessionId: sessionId,
             profileId: member.id,
@@ -3222,6 +3945,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     final mcpServers = <String, dynamic>{
       kUserToolsMcpServerKey: ?toolsEntry,
       kSessionPlanMcpServerKey: ?planEntry,
+      kDecisionsMcpServerKey: ?askEntry,
       kRoadmapMcpServerKey: ?roadmapEntry,
       kRequirementsMcpServerKey: ?requirementsEntry,
       kBoardsMcpServerKey: ?boardsEntry,
@@ -3260,7 +3984,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     // Los guardarraíles del turno. Se resuelven de este lado: el isolate del
     // session runner no alcanza ni el catálogo ni los secrets, así que lo que
     // cruza son archivos ya renderizados.
-    final turnHooks = await _resolveTurnHooks(project, engine);
+    final turnHooks = await _resolveTurnHooks(project, engine, gate: gate);
     for (final note in turnHooks.notes) {
       _appendMessage(
         projectId,
@@ -3292,6 +4016,8 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
           // proyecto como ajeno no dice nada sobre ellas.
           if (project.maintained)
             ...SettingsService.instance.notifier.data.extraAllowedTools,
+          if (gate != null) ...kDecisionGateTools,
+          if (askEntry != null) ...kDecisionsMcpToolNames,
           if (planEntry != null) ...kSessionPlanMcpToolNames,
           if (roadmapEntry != null)
             ...(isConsult
@@ -3620,28 +4346,34 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
               contextWindowTokens: turn.contextWindowTokens,
             ),
           );
-          if (isError) {
+          if (isError && turn.hitTurnCap) {
+            // No es una falla del agente: el número se quedó corto. Se dice
+            // con el número puesto y el motor le pide al nodo cómo quedó
+            // (bloque keel-outcome) antes de decidir qué sigue.
+            capHit = true;
+            _appendMessage(
+              projectId,
+              sessionId,
+              ChatMessage(
+                role: ChatRole.system,
+                text:
+                    'El paso llegó al tope de $maxTurns turnos agénticos. '
+                    'Se le pide cómo quedó antes de decidir; si suele '
+                    'quedarse corto, subí el tope del paso en el workflow.',
+                timestamp: DateTime.now(),
+                workNodeId: workNodeId,
+              ),
+            );
+          } else if (isError) {
             turnFailed = true;
-            // El tope de turnos no es una falla del agente: es un número que
-            // se quedó corto y dejó el trabajo a mitad de camino. Decirlo
-            // con el número puesto es la diferencia entre poder subirlo y
-            // volver a mandar el mismo pedido esperando otro resultado.
-            // Solo el tope escribe `failureMessage`: el reintento de sesión
-            // muerta lo lee por substring, y llenarlo en el camino genérico
-            // cambiaría cuándo se reintenta un turno entero.
-            final errorText = turn.hitTurnCap
-                ? 'El paso se detuvo al llegar al tope de $maxTurns turnos '
-                      'agénticos de esta capacidad. El trabajo quedó a mitad: '
-                      'subí el tope del paso en el workflow o partí el paso '
-                      'en dos.'
-                : engine.provider.turnFailureMessage(memberName: member.name);
-            if (turn.hitTurnCap) failureMessage = errorText;
             _appendMessage(
               projectId,
               sessionId,
               ChatMessage(
                 role: ChatRole.error,
-                text: errorText,
+                text: engine.provider.turnFailureMessage(
+                  memberName: member.name,
+                ),
                 timestamp: DateTime.now(),
                 workNodeId: workNodeId,
               ),
@@ -3838,9 +4570,17 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
       text: answer.toString(),
     );
 
+    // «Sin texto» ya no es fallo: un turno que trabajó por tools y calló
+    // cuenta como turno, y el motor decide con el bloque keel-outcome (o lo
+    // pide). `capHit` no cambia `ok` a propósito: lo que quedó lo dice el
+    // nodo, no el tope.
+    if (capHit) {
+      Log.i('Nodo $workNodeId al tope de $maxTurns turnos; se pide el cierre');
+    }
     final outcome = (
-      ok: !turnFailed && answer.toString().trim().isNotEmpty,
+      ok: !turnFailed,
       answer: answer.toString(),
+      report: parseKeelOutcome(answer.toString()),
     );
 
     if (!turnFailed && allowConsults && depth < _maxConsultDepth) {
@@ -4408,6 +5148,13 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     buffer.writeln();
     buffer.writeln(kAskVsWorkPrompt);
 
+    // Solo en el turno de un NODO: una consulta o un chat sin workflow no
+    // tienen motor esperando el bloque.
+    if (!isConsult && session?.resolutionCase != null) {
+      buffer.writeln();
+      buffer.writeln(kOutcomeProtocolPrompt);
+    }
+
     // La entrega es del que trabaja, no del que responde una consulta; y
     // solo tiene sentido donde hay git.
     if (!isConsult && usesGit) {
@@ -4824,11 +5571,12 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
   /// guardarraíles lleva.
   Future<TurnHooks> _resolveTurnHooks(
     Project project,
-    AgentProfile member,
-  ) async {
+    AgentProfile member, {
+    DecisionGateSpec? gate,
+  }) async {
     await HooksService.instance.notifier.ready;
     final catalog = HooksService.instance.notifier.data.hooks;
-    if (catalog.isEmpty) return TurnHooks.none;
+    if (catalog.isEmpty && gate == null) return TurnHooks.none;
 
     final tools = ToolsService.instance.notifier.data.tools;
     return prepareTurnHooks(
@@ -4842,6 +5590,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
           : HookProvider.claude,
       profile: member,
       project: project,
+      gate: gate,
     );
   }
 

@@ -83,6 +83,7 @@ void main() {
           'readOnly': false,
           'outputContract': '',
           'requiresIndependentOwner': false,
+          'approvalRequired': false,
         },
         {
           'id': 'device-e2e',
@@ -97,6 +98,7 @@ void main() {
           'readOnly': false,
           'outputContract': '',
           'requiresIndependentOwner': true,
+          'approvalRequired': false,
         },
       ]);
     });

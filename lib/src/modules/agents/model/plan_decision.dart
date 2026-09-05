@@ -15,12 +15,16 @@ library;
 /// - [hasQueuedMessages]: si escribiste algo mientras planificaba, ya
 ///   decidiste seguir por otro lado — y en un instante sale ese turno. La
 ///   tarjeta quedaría flotando sobre un agente que ya está en otra cosa.
+/// - [askedUser]: el turno cerró con `needs_user` o `needs_permission`, o
+///   la sesión tiene una decisión pendiente. Te está preguntando, no
+///   proponiendo un plan: la tarjeta que corresponde es la de la decisión.
 bool shouldAskToImplement({
   required bool planMode,
   required bool stopped,
   required bool hasAnswer,
   required bool hasQueuedMessages,
-}) => planMode && !stopped && hasAnswer && !hasQueuedMessages;
+  bool askedUser = false,
+}) => planMode && !stopped && hasAnswer && !hasQueuedMessages && !askedUser;
 
 /// El pedido que sale cuando aprobás un plan.
 ///

@@ -97,6 +97,33 @@ Mapa de lo que existe en esta app y cómo se relaciona:
   declarado corre con 20 turnos si escribe y 8 si es de solo lectura, nunca
   ilimitado. Se editan en el formulario del workflow; `create_workflow` y
   `update_workflow` todavía no los exponen.
+  CIERRE DE TURNO: todo turno de un nodo termina con un bloque
+  ```keel-outcome (status done|blocked|needs_user|needs_permission|failed,
+  summary con evidencia, files, artifacts, verdict GO|NO-GO en nodos de
+  auditoría, next para activar una capacidad opcional, question con
+  needs_user). El motor lo parsea, no la prosa: un NO-GO devuelve el nodo
+  auditado a pendiente con el hallazgo y re-corre la auditoría; blocked o
+  failed registran un hallazgo de contrato y reintentan; needs_user y
+  needs_permission pausan el nodo y dejan una DECISIÓN pendiente que el
+  usuario contesta desde el chat (la respuesta viaja en la próxima
+  instrucción del nodo). Un turno sin bloque recibe un solo seguimiento de
+  un paso que pide el estado. El tope de turnos ya no es fallo: se le pide
+  el cierre. Una capability con `approval_required: true` pide la aprobación
+  del usuario ANTES de correr y espera: es la forma de pedir aprobación para
+  publicar, en lugar de un nodo aparte con executor `manualApproval`. Un
+  nodo de auditoría es el que tiene `output_contract: audit-feedback`; ahí
+  el verdict es obligatorio.
+  PERMISOS BLOQUEANTES: antes de cada tool que escribe (Bash, Edit, Write,
+  MultiEdit, NotebookEdit) corre un hook interno `keel-decision-gate` que
+  suspende el proceso hasta que el usuario decide desde la tarjeta
+  ESPERÁNDOTE, con alcance: solo esta vez, esta sesión (Session.grantedTools),
+  este agente en este proyecto (Project.grantedToolsByProfileId) o siempre
+  (AppSettings.extraAllowedTools). Vale para claude, codex (solo el primer
+  turno de una sesión, hasta que el resume pase los hooks por `-c`) y las
+  APIs. Los agentes con MCP tienen además `ask_user` (servidor
+  `keel-decisions`) para preguntar sin cerrar el turno. Detener la sesión
+  cancela lo pendiente; reabrir la app cancela solo las decisiones que
+  esperaban a un proceso vivo. A vos, Keel AI, el gate no se te aplica.
 - **Requerimientos internos**: lo que un proyecto le pide a OTRO proyecto
   (`REQ-0007`). Existen porque dos proyectos no comparten nada: el
   requerimiento es lo ÚNICO que cruza la frontera —necesidad, contexto,

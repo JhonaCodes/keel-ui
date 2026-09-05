@@ -159,19 +159,52 @@ class DefaultOpenAiToolBridge implements OpenAiToolBridge {
             return 124;
           },
         );
-        if (event == 'PreToolUse' && exitCode != 0) {
-          return OpenAiToolResult(
-            content: jsonEncode({
-              'ok': false,
-              'error': stderr.trim().isEmpty ? stdout.trim() : stderr.trim(),
-              'hook': hook['statusMessage'] ?? command,
-            }),
-            isError: true,
-          );
+        if (event == 'PreToolUse') {
+          // El mismo contrato que los CLIs: un hook que imprime
+          // `permissionDecision` decide con eso; sin JSON, decide el exit.
+          final decision = _permissionDecision(stdout);
+          final denied =
+              decision.permission == 'deny' ||
+              (exitCode != 0 && decision.permission != 'allow');
+          if (denied) {
+            return OpenAiToolResult(
+              content: jsonEncode({
+                'ok': false,
+                'error': decision.reason.isNotEmpty
+                    ? decision.reason
+                    : (stderr.trim().isEmpty ? stdout.trim() : stderr.trim()),
+                'hook': hook['statusMessage'] ?? command,
+              }),
+              isError: true,
+            );
+          }
         }
       }
     }
     return null;
+  }
+
+  /// La decisión que un hook dejó en stdout, si dejó alguna.
+  static ({String permission, String reason}) _permissionDecision(
+    String stdout,
+  ) {
+    for (final line in stdout.trim().split('\n').reversed) {
+      final trimmed = line.trim();
+      if (!trimmed.startsWith('{')) continue;
+      try {
+        final decoded = jsonDecode(trimmed);
+        final specific = decoded is Map ? decoded['hookSpecificOutput'] : null;
+        if (specific is Map) {
+          return (
+            permission: (specific['permissionDecision'] ?? '').toString(),
+            reason: (specific['permissionDecisionReason'] ?? '').toString(),
+          );
+        }
+      } catch (_) {
+        continue;
+      }
+    }
+    return (permission: '', reason: '');
   }
 
   Iterable<_ToolBinding> _workspaceBindings(LlmTurnSpec spec) sync* {

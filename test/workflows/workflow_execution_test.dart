@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:keel_ui/src/modules/projects/model/session.dart';
+import 'package:keel_ui/src/modules/projects/model/session_decision.dart';
 import 'package:keel_ui/src/modules/workflows/model/workflow.dart';
 
 void main() {
@@ -80,4 +81,38 @@ void main() {
     });
     expect(session.toJson().containsKey('sessionsByProfileId'), isFalse);
   });
+
+  test('las decisiones pendientes sobreviven al disco y marcan la espera', () {
+    final decision = SessionDecision(
+      id: 'd1',
+      kind: SessionDecisionKind.question,
+      profileId: 'p1',
+      workNodeId: 'implementation',
+      title: 'Necesita una decisión tuya',
+      detail: '¿main o develop?',
+      createdAt: DateTime(2026),
+    );
+    final session = Session(
+      id: 's',
+      title: 'Sesión',
+      createdAt: DateTime(2026),
+      decisions: [decision],
+    );
+
+    final restored = Session.fromJson(session.toJson());
+
+    expect(restored.decisions, [decision]);
+    expect(restored.waitingForUser, isTrue);
+    expect(
+      restored
+          .copyWith(
+            decisions: [
+              decision.copyWith(status: SessionDecisionStatus.answered),
+            ],
+          )
+          .waitingForUser,
+      isFalse,
+    );
+  });
+
 }

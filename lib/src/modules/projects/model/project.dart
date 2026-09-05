@@ -61,6 +61,9 @@ class Project {
   final bool maintained;
 
   final Map<String, MemberTuning> memberTuning;
+
+  /// Tools que concediste «para este agente en este proyecto» desde el gate.
+  final Map<String, List<String>> grantedToolsByProfileId;
   final Map<String, Map<String, String>> workflowNodeAssignments;
   final String? activeWorkflowId;
   final List<Session> sessions;
@@ -80,6 +83,7 @@ class Project {
     this.knowledgeBaseNames = const [],
     this.maintained = true,
     this.memberTuning = const {},
+    this.grantedToolsByProfileId = const {},
     this.workflowNodeAssignments = const {},
     this.activeWorkflowId,
     this.sessions = const [],
@@ -174,6 +178,7 @@ class Project {
     List<String>? knowledgeBaseNames,
     bool? maintained,
     Map<String, MemberTuning>? memberTuning,
+    Map<String, List<String>>? grantedToolsByProfileId,
     Map<String, Map<String, String>>? workflowNodeAssignments,
     String? activeWorkflowId,
     bool clearActiveWorkflow = false,
@@ -193,6 +198,8 @@ class Project {
       knowledgeBaseNames: knowledgeBaseNames ?? this.knowledgeBaseNames,
       maintained: maintained ?? this.maintained,
       memberTuning: memberTuning ?? this.memberTuning,
+      grantedToolsByProfileId:
+          grantedToolsByProfileId ?? this.grantedToolsByProfileId,
       workflowNodeAssignments:
           workflowNodeAssignments ?? this.workflowNodeAssignments,
       activeWorkflowId: clearActiveWorkflow
@@ -220,6 +227,7 @@ class Project {
     'memberTuning': {
       for (final entry in memberTuning.entries) entry.key: entry.value.toJson(),
     },
+    'grantedToolsByProfileId': grantedToolsByProfileId,
     'workflowNodeAssignments': workflowNodeAssignments,
     'activeWorkflowId': activeWorkflowId,
     'sessions': sessions.map((session) => session.toJson()).toList(),
@@ -241,6 +249,12 @@ class Project {
           (json['knowledgeBaseNames'] as List?)?.cast<String>() ?? const [],
       maintained: json['maintained'] as bool? ?? true,
       memberTuning: _memberTuningFromJson(json['memberTuning']),
+      grantedToolsByProfileId: {
+        for (final entry
+            in ((json['grantedToolsByProfileId'] as Map?) ?? const {}).entries)
+          entry.key.toString(): (entry.value as List?)?.cast<String>() ??
+              const <String>[],
+      },
       workflowNodeAssignments: _workflowNodeAssignmentsFromJson(
         json['workflowNodeAssignments'],
       ),

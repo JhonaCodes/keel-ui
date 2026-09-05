@@ -45,6 +45,9 @@ TurnHooks prepareTurnHooks({
   /// El gate de permisos de Keel, si el turno lo lleva. Va como un hook
   /// más del turno, después de los del usuario.
   DecisionGateSpec? gate,
+
+  /// El cupo de subagentes del nodo, si el turno lo aplica. Null: sin hook.
+  int? subagentCap,
 }) {
   final resolved = resolveHooks(
     catalog: catalog,
@@ -55,6 +58,7 @@ TurnHooks prepareTurnHooks({
   final withGate = [
     ...resolved.hooks,
     if (gate != null) decisionGateHook(gate),
+    if (subagentCap != null) subagentGuardHook(subagentCap),
   ];
   if (withGate.isEmpty) {
     return TurnHooks(notes: resolved.notes);

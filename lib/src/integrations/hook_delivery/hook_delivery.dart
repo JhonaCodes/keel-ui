@@ -26,3 +26,4 @@ part 'src/hook_turn.dart';
 part 'src/hook_render.dart';
 part 'src/hook_wrappers.dart';
 part 'src/decision_gate.dart';
+part 'src/subagent_guard.dart';

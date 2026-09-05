@@ -234,3 +234,147 @@ class WorkflowCapability {
     approvalRequired,
   );
 }
+
+enum WorkflowLintSeverity { error, warning, info }
+
+/// Un hallazgo del lint de workflows. Error bloquea crear/actualizar;
+/// warning e info se muestran.
+class WorkflowLint {
+  final WorkflowLintSeverity severity;
+  final String message;
+
+  const WorkflowLint(this.severity, this.message);
+
+  @override
+  String toString() => '${severity.name}: $message';
+}
+
+/// Cuántos nodos requeridos puede tener un workflow antes de ser un error:
+/// cada nodo es un arranque que se paga; la plantilla vieja traía once.
+const kMaxRequiredWorkflowNodes = 8;
+
+/// A partir de cuántos nodos en total se avisa.
+const kWorkflowNodeCountWarning = 6;
+
+/// Lo que `validateWorkflowCapabilities` no mira: forma, no consistencia.
+///
+/// Existe porque Keel AI (y la gente) armaba workflows de once nodos con dos
+/// auditorías del mismo contrato, una aprobación manual opcional que nunca
+/// se instanciaba y auditorías sin contrato de salida que el motor no podía
+/// leer. Las invariantes vivían en el prompt; acá viven en código.
+List<WorkflowLint> lintWorkflowCapabilities(
+  List<WorkflowCapability> capabilities,
+) {
+  final lints = <WorkflowLint>[];
+  final required = capabilities
+      .where((c) => c.activation == WorkflowCapabilityActivation.required)
+      .length;
+  if (required > kMaxRequiredWorkflowNodes) {
+    lints.add(
+      WorkflowLint(
+        WorkflowLintSeverity.error,
+        'Más de $kMaxRequiredWorkflowNodes nodos requeridos ($required): cada '
+        'nodo es un arranque que se paga. Con el bloque de cierre y el NO-GO '
+        'automático, corrección y verificación no necesitan nodo propio.',
+      ),
+    );
+  } else if (capabilities.length > kWorkflowNodeCountWarning) {
+    lints.add(
+      WorkflowLint(
+        WorkflowLintSeverity.warning,
+        '${capabilities.length} nodos: revisá cuáles justifican su arranque.',
+      ),
+    );
+  }
+
+  final byId = {for (final c in capabilities) c.id: c};
+  bool writes(WorkflowCapability c) =>
+      !c.readOnly && c.executor != WorkflowExecutor.manualApproval;
+  bool auditLike(WorkflowCapability c) {
+    final role = c.role.toLowerCase();
+    final roleSaysSo = role.contains('audit') ||
+        role.contains('revis') ||
+        role.contains('review');
+    final readsAWriter = c.readOnly &&
+        c.dependencyIds.any((id) => byId[id] != null && writes(byId[id]!));
+    return roleSaysSo || readsAWriter;
+  }
+
+  for (final c in capabilities) {
+    if (c.executor == WorkflowExecutor.manualApproval &&
+        c.activation == WorkflowCapabilityActivation.optional) {
+      lints.add(
+        WorkflowLint(
+          WorkflowLintSeverity.error,
+          "'${c.id}' es una aprobación manual OPCIONAL: el motor solo "
+          'instancia nodos requeridos, así que nunca dispara. Marcá '
+          "approvalRequired en el paso que la necesita.",
+        ),
+      );
+    }
+    if (auditLike(c) && c.outputContract != 'audit-feedback') {
+      lints.add(
+        WorkflowLint(
+          WorkflowLintSeverity.error,
+          "'${c.id}' audita (rol o solo lectura sobre un nodo que escribe) "
+          "sin outputContract 'audit-feedback': el motor no leería su "
+          'veredicto ni le pasaría el informe al nodo siguiente.',
+        ),
+      );
+    }
+    if (writes(c) && c.maxAgenticTurns == 0) {
+      lints.add(
+        WorkflowLint(
+          WorkflowLintSeverity.warning,
+          "'${c.id}' escribe sin tope declarado: corre con el default de "
+          '$kDefaultWriteNodeTurns turnos.',
+        ),
+      );
+    }
+  }
+
+  for (var i = 0; i < capabilities.length; i++) {
+    for (var j = i + 1; j < capabilities.length; j++) {
+      final a = capabilities[i];
+      final b = capabilities[j];
+      if (a.role.trim().toLowerCase() != b.role.trim().toLowerCase()) continue;
+      if (_jaccard(a.instruction, b.instruction) < 0.8) continue;
+      lints.add(
+        WorkflowLint(
+          WorkflowLintSeverity.warning,
+          "'${a.id}' y '${b.id}': mismo rol y contrato casi idéntico. "
+          'Un solo nodo con el contrato completo cuesta la mitad.',
+        ),
+      );
+    }
+  }
+
+  for (var i = 1; i < capabilities.length; i++) {
+    final c = capabilities[i];
+    if (c.dependencyIds.isEmpty &&
+        c.activation == WorkflowCapabilityActivation.required) {
+      lints.add(
+        WorkflowLint(
+          WorkflowLintSeverity.info,
+          "'${c.id}' no depende de nada: corre apenas arranca el caso, en "
+          'paralelo con el primero.',
+        ),
+      );
+    }
+  }
+  return lints;
+}
+
+double _jaccard(String a, String b) {
+  Set<String> tokens(String text) => text
+      .toLowerCase()
+      .split(RegExp(r'[^a-záéíóúñü0-9]+'))
+      .where((token) => token.length > 2)
+      .toSet();
+  final left = tokens(a);
+  final right = tokens(b);
+  if (left.isEmpty && right.isEmpty) return 1;
+  final union = {...left, ...right}.length;
+  if (union == 0) return 0;
+  return left.intersection(right).length / union;
+}

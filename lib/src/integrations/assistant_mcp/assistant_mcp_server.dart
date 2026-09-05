@@ -49,6 +49,8 @@ import 'package:keel_ui/src/modules/workflows/model/workflow.dart';
 import 'package:keel_ui/src/modules/workflows/service/workflow_deletion_service.dart';
 import 'package:keel_ui/src/modules/workflows/viewmodel/workflows_viewmodel.dart';
 import 'package:keel_ui/src/integrations/system_prompt/system_prompt.dart';
+import 'package:keel_ui/src/modules/projects/service/node_context.dart';
+import 'package:keel_ui/src/modules/projects/model/turn_outcome_report.dart';
 
 part 'src/tool_definitions.dart';
 part 'src/tool_handlers.dart';
@@ -82,6 +84,10 @@ const kKeelAiMcpToolNames = [
   'mcp__keelai-actions__read_session_thread',
   'mcp__keelai-actions__resolve_message_reference',
   'mcp__keelai-actions__reply_in_session',
+  'mcp__keelai-actions__inspect_session',
+  'mcp__keelai-actions__intervene',
+  'mcp__keelai-actions__answer_decision',
+  'mcp__keelai-actions__lint_workflow',
   'mcp__keelai-actions__register_mcp_server',
   'mcp__keelai-actions__list_mcp_catalog',
   'mcp__keelai-actions__install_mcp_integration',

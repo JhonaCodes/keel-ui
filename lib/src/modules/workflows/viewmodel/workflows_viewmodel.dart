@@ -50,9 +50,9 @@ class WorkflowsViewModel extends ViewModel<WorkflowsState> {
     final resolvedCapabilities =
         capabilities ??
         defaultWorkflowCapabilities(kind, policy.resolutionRole);
-    final capabilitiesError = validateWorkflowCapabilities(
-      resolvedCapabilities,
-    );
+    final capabilitiesError =
+        validateWorkflowCapabilities(resolvedCapabilities) ??
+        _lintErrors(resolvedCapabilities);
     if (capabilitiesError != null) return capabilitiesError;
 
     final workflow = Workflow(
@@ -77,6 +77,15 @@ class WorkflowsViewModel extends ViewModel<WorkflowsState> {
   /// Lo que no se pasa NO se toca. `buildsRoadmap` no está en ningún
   /// formulario —lo pone el sistema en el workflow que arma la carpeta— y un
   /// `required` acá lo habría borrado en cada edición de nombre.
+  /// Los errores del lint, en un solo mensaje. Los warnings no frenan.
+  String? _lintErrors(List<WorkflowCapability> capabilities) {
+    final errors = lintWorkflowCapabilities(capabilities)
+        .where((lint) => lint.severity == WorkflowLintSeverity.error)
+        .map((lint) => lint.message)
+        .toList();
+    return errors.isEmpty ? null : errors.join(' ');
+  }
+
   String? updateWorkflow(
     String id, {
     required String name,
@@ -90,7 +99,9 @@ class WorkflowsViewModel extends ViewModel<WorkflowsState> {
     final error = _validateName(name, excludingId: id);
     if (error != null) return error;
     if (capabilities != null) {
-      final capabilitiesError = validateWorkflowCapabilities(capabilities);
+      final capabilitiesError =
+          validateWorkflowCapabilities(capabilities) ??
+          _lintErrors(capabilities);
       if (capabilitiesError != null) return capabilitiesError;
     }
 

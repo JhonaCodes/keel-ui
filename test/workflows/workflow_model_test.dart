@@ -226,17 +226,12 @@ void main() {
         'implementador',
       );
 
+      final audits = capabilities.where((entry) => entry.id == 'audit');
+      expect(audits, isNotEmpty);
+      expect(audits.every((entry) => entry.requiresIndependentOwner), isTrue);
       expect(
         capabilities
-            .where(
-              (entry) => entry.id == 'code-audit' || entry.id == 'test-audit',
-            )
-            .every((entry) => entry.requiresIndependentOwner),
-        isTrue,
-      );
-      expect(
-        capabilities
-            .firstWhere((entry) => entry.id == 'implementation')
+            .firstWhere((entry) => entry.id == 'implement')
             .requiresIndependentOwner,
         isFalse,
       );

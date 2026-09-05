@@ -6,21 +6,11 @@ import 'package:logger_rs/logger_rs.dart';
 
 import 'package:keel_ui/src/integrations/llm/llm.dart';
 import 'package:keel_ui/src/integrations/system_prompt/system_prompt.dart';
+import 'package:keel_ui/src/integrations/llm/openai_compatible/openai_model_profile.dart';
 import 'package:keel_ui/src/integrations/llm/openai_compatible/openai_tool_bridge.dart';
 import 'package:keel_ui/src/modules/secrets/viewmodel/secrets_viewmodel.dart';
 
 typedef LlmSecretResolver = Future<String?> Function(String secretRef);
-
-/// Rondas de herramientas por turno de un proveedor por API.
-///
-/// Cada ronda vuelve a mandar el historial COMPLETO del turno: a 200 rondas
-/// un nodo largo subía la misma conversación doscientas veces, y ese era el
-/// multiplicador de costo, no el trabajo. Estuvo en 200 mientras cortar un
-/// nodo significaba relanzarlo entero; con el tope de turnos por nodo y la
-/// continuación ordenada del motor, un turno cortado se retoma en vez de
-/// repetirse, y el tope puede ser un presupuesto. El constructor lo deja
-/// subir para el caso que de verdad lo necesite.
-const kDefaultOpenAiCompatibleMaxToolRounds = 40;
 
 /// Techo de salida por turno, en tokens.
 ///
@@ -51,8 +41,8 @@ const kDefaultOpenAiCompatibleMaxToolRounds = 40;
 /// menos, así que 32.000 ya deja varias veces el aire necesario, y recortar más
 /// solo arriesga cortar una respuesta a mitad de camino — lo que obliga a
 /// relanzar el nodo entero y sale más caro que los tokens reservados de más.
-/// Es el mismo razonamiento que mantiene alto a
-/// [kDefaultOpenAiCompatibleMaxToolRounds].
+/// Es el mismo razonamiento que le deja aire al presupuesto de rondas de
+/// [OpenAiModelProfile.maxToolRounds].
 const kOpenAiCompatibleOutputTokenMax = 32000;
 
 /// El techo efectivo: el menor entre lo que el modelo declara poder emitir y
@@ -64,10 +54,13 @@ const kOpenAiCompatibleOutputTokenMax = 32000;
 /// dispara el `||`— el resultado es el techo, nunca cero. Un cero acá volvería
 /// a dejar el request sin límite útil y traería de vuelta el `402`.
 ///
-/// Hoy [modelOutputLimit] llega nulo: `RemoteModelCatalog` pide el catálogo de
-/// OpenRouter pero solo conserva `id` y `name`. Cuando ese catálogo capture
-/// también `top_provider.max_completion_tokens`, pasarlo acá recorta el techo
-/// por modelo sin tocar nada más.
+/// keel-debt: hoy [modelOutputLimit] llega nulo, así que el techo es siempre el
+/// plano. Techo del atajo: un modelo que emite menos de 32.000 reserva de más y
+/// paga esa reserva. Ruta de upgrade: `RemoteModelCatalog` capturaría
+/// `top_provider.max_completion_tokens` en `AgentModelOption`, y ese número
+/// tendría que llegar hasta acá cruzando el SendPort — o sea campo nuevo en
+/// `TaskRunSpec` con su serialización y en `LlmTurnSpec`. Se dejó afuera a
+/// propósito: capturar el campo sin usarlo parece hecho y no lo está.
 int openAiCompatibleMaxOutputTokens({
   int? modelOutputLimit,
   int outputTokenMax = kOpenAiCompatibleOutputTokenMax,
@@ -91,20 +84,28 @@ const kOpenAiCompatibleTransientRetries = 3;
 class OpenAiCompatibleApiRunner implements LlmRunner {
   final String baseUrl;
   final String secretRef;
+
+  /// Qué forma tiene el body de este proveedor. Viene del target, no de mirar
+  /// [baseUrl]: ver [OpenAiCompatibleDialect].
+  final OpenAiCompatibleDialect dialect;
   final String? _apiKey;
   final http.Client? _client;
   final LlmSecretResolver? _resolveSecret;
   final OpenAiToolBridge? _toolBridge;
-  final int maxToolRounds;
+
+  /// Override del presupuesto de rondas. Nulo —lo normal— deja que lo decida
+  /// el perfil del modelo, que recién se conoce con el `spec` del turno.
+  final int? maxToolRounds;
 
   const OpenAiCompatibleApiRunner({
     required this.baseUrl,
     required this.secretRef,
+    required this.dialect,
     String? apiKey,
     http.Client? client,
     LlmSecretResolver? resolveSecret,
     OpenAiToolBridge? toolBridge,
-    this.maxToolRounds = kDefaultOpenAiCompatibleMaxToolRounds,
+    this.maxToolRounds,
   }) : // Public constructor names keep infrastructure injectable in tests.
        // ignore: prefer_initializing_formals
        _apiKey = apiKey,
@@ -123,6 +124,8 @@ class OpenAiCompatibleApiRunner implements LlmRunner {
     void Function(int pid)? onPidKnown,
   }) async* {
     final started = Stopwatch()..start();
+    final profile = OpenAiModelProfile.fromModel(spec.model);
+    final rounds = maxToolRounds ?? profile.maxToolRounds;
     var cancelled = false;
     final client = _client ?? http.Client();
     final toolBridge = _toolBridge ?? DefaultOpenAiToolBridge();
@@ -176,7 +179,7 @@ class OpenAiCompatibleApiRunner implements LlmRunner {
       String? lastSuccessfulToolSignature;
       String? warnedSterileToolSignature;
 
-      for (var round = 0; round <= maxToolRounds; round++) {
+      for (var round = 0; round <= rounds; round++) {
         // Un 429 o un 5xx no significan que el trabajo esté mal: significan
         // que el proveedor está ocupado. Sin reintento, cada uno mataba el
         // nodo y obligaba a pagarlo dos veces.
@@ -189,6 +192,7 @@ class OpenAiCompatibleApiRunner implements LlmRunner {
             client: client,
             secret: secret,
             spec: spec,
+            profile: profile,
             messages: messages,
             functions: functions,
           );
@@ -269,8 +273,8 @@ class OpenAiCompatibleApiRunner implements LlmRunner {
           yield _completed(spec, started, isError: false, usage: usage);
           return;
         }
-        if (round == maxToolRounds) {
-          final roundsLabel = maxToolRounds == 1 ? 'ronda' : 'rondas';
+        if (round == rounds) {
+          final roundsLabel = rounds == 1 ? 'ronda' : 'rondas';
           // Agotar la red de seguridad NO es un fallo del turno. Marcarlo como
           // error tiraba TODO lo que el nodo ya había producido y obligaba a
           // relanzarlo desde cero: el corte terminaba costando más que las
@@ -280,7 +284,7 @@ class OpenAiCompatibleApiRunner implements LlmRunner {
             'type': 'assistantText',
             'text':
                 '\n\n[keel] Corté el ciclo de herramientas al llegar a '
-                '$maxToolRounds $roundsLabel. Lo de arriba es el trabajo '
+                '$rounds $roundsLabel. Lo de arriba es el trabajo '
                 'hecho hasta ese punto y puede estar incompleto: continualo, '
                 'no lo repitas desde cero.',
           };
@@ -373,6 +377,7 @@ class OpenAiCompatibleApiRunner implements LlmRunner {
     required http.Client client,
     required String secret,
     required LlmTurnSpec spec,
+    required OpenAiModelProfile profile,
     required List<Map<String, dynamic>> messages,
     required List<OpenAiFunctionDefinition> functions,
   }) {
@@ -381,12 +386,17 @@ class OpenAiCompatibleApiRunner implements LlmRunner {
         'Authorization': 'Bearer $secret',
         'Content-Type': 'application/json',
         'Accept': 'text/event-stream',
+        ...dialect.attributionHeaders,
       })
       ..body = jsonEncode({
         'model': spec.model,
         'stream': true,
         'stream_options': {'include_usage': true},
         'max_tokens': openAiCompatibleMaxOutputTokens(),
+        // El esfuerzo que el usuario eligió por agente. La CLASE del modelo
+        // decide cuánto se pide y el DIALECTO decide con qué forma viaja:
+        // plano o anidado. Sin las dos cosas el campo se ignora en silencio.
+        ...dialect.reasoningEffortField(profile.reasoningEffortFor(spec.effort)),
         'messages': messages,
         if (functions.isNotEmpty) ...{
           'tools': functions.map((function) => function.toJson()).toList(),

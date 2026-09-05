@@ -135,6 +135,10 @@ Mapa de lo que existe en esta app y cómo se relaciona:
   después skills globales de más; identidad, reglas y contratos nunca. Codex
   recibe en cada resume la versión compacta del prompt y su sandbox y perfil
   de hooks por `-c`.
+  CUPO DE SUBAGENTES EN CÓDIGO: `max_subagents` de la policy se aplica con
+  un hook interno `keel-subagent-guard` (PreToolUse sobre `Task`) que deniega
+  la tarea de más; cero deniega desde la primera. Solo aplica a agentes
+  claude, que son los únicos con esa tool.
 - **Requerimientos internos**: lo que un proyecto le pide a OTRO proyecto
   (`REQ-0007`). Existen porque dos proyectos no comparten nada: el
   requerimiento es lo ÚNICO que cruza la frontera —necesidad, contexto,

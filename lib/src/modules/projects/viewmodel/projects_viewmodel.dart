@@ -4083,7 +4083,18 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     // Los guardarraíles del turno. Se resuelven de este lado: el isolate del
     // session runner no alcanza ni el catálogo ni los secrets, así que lo que
     // cruza son archivos ya renderizados.
-    final turnHooks = await _resolveTurnHooks(project, engine, gate: gate);
+    // El cupo de subagentes se aplica en código: un hook sobre `Task` que
+    // deniega la tarea de más. Solo claude tiene esa tool; para el resto no
+    // hay nada que frenar.
+    final subagentCap = engine.provider == AgentProvider.claude
+        ? (_workflowRunning(project, sessionId)?.policy.maxSubagents ?? 0)
+        : null;
+    final turnHooks = await _resolveTurnHooks(
+      project,
+      engine,
+      gate: gate,
+      subagentCap: subagentCap,
+    );
     for (final note in turnHooks.notes) {
       _appendMessage(
         projectId,
@@ -5718,10 +5729,13 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     Project project,
     AgentProfile member, {
     DecisionGateSpec? gate,
+    int? subagentCap,
   }) async {
     await HooksService.instance.notifier.ready;
     final catalog = HooksService.instance.notifier.data.hooks;
-    if (catalog.isEmpty && gate == null) return TurnHooks.none;
+    if (catalog.isEmpty && gate == null && subagentCap == null) {
+      return TurnHooks.none;
+    }
 
     final tools = ToolsService.instance.notifier.data.tools;
     return prepareTurnHooks(
@@ -5736,6 +5750,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
       profile: member,
       project: project,
       gate: gate,
+      subagentCap: subagentCap,
     );
   }
 

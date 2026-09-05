@@ -40,5 +40,8 @@ String subagentPolicyPrompt({
                 'lo que una sola pasada no ve.' : ''}'
       ' Sus resultados quedan visibles en el mapa. No les delegues '
       'implementación ni escritura: vos sos el único escritor y debés '
-      'sintetizar su evidencia antes de cerrar el nodo.';
+      'sintetizar su evidencia antes de cerrar el nodo. El cupo se aplica '
+      'en código: la tarea $maxSubagents+1 se deniega, así que cada una '
+      'tiene que llevar una pregunta concreta y un contrato de salida '
+      '(qué tiene que devolver) — una tarea sin pregunta es cupo tirado.';
 }

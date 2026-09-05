@@ -407,6 +407,65 @@ List<WorkflowCapability> defaultWorkflowCapabilities(
       ),
     ];
   }
+  if (kind != WorkflowKind.migration) {
+    // Cuatro nodos. La plantilla vieja traía once: con el bloque de cierre
+    // (F44) un NO-GO devuelve el nodo auditado solo, y la aprobación es una
+    // decisión sobre el paso de entrega (F44), no un nodo aparte.
+    return [
+      WorkflowCapability(
+        id: 'plan',
+        title: l10n?.workflowTitlePlanAndScope ?? 'Plan and scope',
+        instruction:
+            'Leer lo justo del repo y definir alcance, riesgos, criterios de '
+            'aceptación observables y un plan por pasos con los archivos que '
+            'se van a tocar. No escribir código.',
+        role: fallback,
+        readOnly: true,
+        maxAgenticTurns: 6,
+      ),
+      WorkflowCapability(
+        id: 'implement',
+        title: l10n?.workflowTitleImplement ?? 'Implement with evidence',
+        instruction:
+            'Implementar el plan con el cambio mínimo y su test de núcleo '
+            '(rojo antes, verde después), con el análisis estático y la suite '
+            'afectada corriendo. Dejar en summary qué corriste y qué dio.',
+        role: fallback,
+        dependencyIds: const ['plan'],
+        maxAgenticTurns: 20,
+      ),
+      WorkflowCapability(
+        id: 'audit',
+        title: l10n?.workflowTitleCodeAudit ?? 'Audit code',
+        instruction:
+            'Auditar el cambio contra el plan y los estándares del proyecto: '
+            'correctitud, tests con oráculo real, riesgos. Cada hallazgo con '
+            'archivo y línea. Cerrar con verdict GO o NO-GO.',
+        role: 'auditor',
+        dependencyIds: const ['implement'],
+        readOnly: true,
+        maxAgenticTurns: 6,
+        outputContract: 'audit-feedback',
+        requiresIndependentOwner: true,
+      ),
+      WorkflowCapability(
+        id: 'deliver',
+        title: 'Deliver',
+        instruction:
+            'Con el GO de la auditoría: un commit, push y PR en draft con '
+            'resumen y plan de pruebas. Nada más que eso.',
+        role: fallback,
+        dependencyIds: const ['audit'],
+        executor: WorkflowExecutor.resumeParent,
+        parentCapabilityId: 'implement',
+        maxAgenticTurns: 6,
+        approvalRequired: true,
+      ),
+    ];
+  }
+  // Migración: conserva el inventario de impacto y la matriz de cobertura.
+  // Sin nodos de corrección: el NO-GO de una auditoría devuelve el nodo
+  // auditado solo. La publicación es la aprobación del cierre.
   return [
     WorkflowCapability(
       id: 'planner',
@@ -414,43 +473,43 @@ List<WorkflowCapability> defaultWorkflowCapabilities(
       instruction: 'Definir alcance, riesgos y criterios de aceptación.',
       role: fallback,
       readOnly: true,
-      maxAgenticTurns: 4,
+      maxAgenticTurns: 6,
     ),
-    if (kind == WorkflowKind.migration)
-      WorkflowCapability(
-        id: 'impact',
-        title:
-            l10n?.workflowTitleSingleEntryPoint ??
-            'Design the single entry point',
-        instruction: 'Inventariar impacto end-to-end y compatibilidad.',
-        role: fallback,
-        dependencyIds: const ['planner'],
-      ),
+    WorkflowCapability(
+      id: 'impact',
+      title:
+          l10n?.workflowTitleSingleEntryPoint ??
+          'Design the single entry point',
+      instruction: 'Inventariar impacto end-to-end y compatibilidad.',
+      role: fallback,
+      dependencyIds: const ['planner'],
+      maxAgenticTurns: 8,
+    ),
     WorkflowCapability(
       id: 'implementation',
       title: l10n?.workflowTitleImplement ?? 'Implement with evidence',
       instruction: 'Aplicar la corrección mínima integrada y verificable.',
       role: fallback,
-      dependencyIds: [kind == WorkflowKind.migration ? 'impact' : 'planner'],
-      maxAgenticTurns: 12,
+      dependencyIds: const ['impact'],
+      maxAgenticTurns: 20,
     ),
     WorkflowCapability(
       id: 'code-audit',
       title: l10n?.workflowTitleCodeAudit ?? 'Audit code',
-      instruction: 'Revisar calidad, invariantes y riesgos del cambio.',
+      instruction:
+          'Revisar calidad, invariantes y riesgos del cambio. Cerrar con '
+          'verdict GO o NO-GO.',
       role: 'auditor',
       dependencyIds: const ['implementation'],
-      executor: WorkflowExecutor.providerSubagent,
-      parentCapabilityId: 'implementation',
-      maxAgenticTurns: 3,
       readOnly: true,
+      maxAgenticTurns: 6,
       outputContract: 'audit-feedback',
       requiresIndependentOwner: true,
     ),
     WorkflowCapability(
-      id: 'code-correction',
-      title: l10n?.workflowTitleCodeCorrection ?? 'Fix code findings',
-      instruction: 'Resolver los hallazgos válidos de la auditoría de código.',
+      id: 'tests',
+      title: l10n?.workflowTitleTests ?? 'Create and adjust tests',
+      instruction: 'Crear o ajustar pruebas de la implementación.',
       role: fallback,
       dependencyIds: const ['code-audit'],
       executor: WorkflowExecutor.resumeParent,
@@ -458,75 +517,40 @@ List<WorkflowCapability> defaultWorkflowCapabilities(
       maxAgenticTurns: 8,
     ),
     WorkflowCapability(
-      id: 'tests',
-      title: l10n?.workflowTitleTests ?? 'Create and adjust tests',
-      instruction: 'Crear o ajustar pruebas de la implementación.',
-      role: fallback,
-      dependencyIds: const ['code-correction'],
-      executor: WorkflowExecutor.resumeParent,
-      parentCapabilityId: 'implementation',
-      maxAgenticTurns: 8,
-    ),
-    WorkflowCapability(
       id: 'test-audit',
       title: l10n?.workflowTitleTestAudit ?? 'Audit tests',
-      instruction: 'Comprobar cobertura y valor contrafactual de las pruebas.',
+      instruction:
+          'Comprobar cobertura y valor contrafactual de las pruebas. Cerrar '
+          'con verdict GO o NO-GO.',
       role: 'test-auditor',
       dependencyIds: const ['tests'],
-      executor: WorkflowExecutor.providerSubagent,
-      parentCapabilityId: 'implementation',
-      maxAgenticTurns: 3,
       readOnly: true,
+      maxAgenticTurns: 6,
       outputContract: 'audit-feedback',
       requiresIndependentOwner: true,
-    ),
-    WorkflowCapability(
-      id: 'test-correction',
-      title: l10n?.workflowTitleTestCorrection ?? 'Fix test findings',
-      instruction: 'Resolver los hallazgos válidos de la auditoría de pruebas.',
-      role: fallback,
-      dependencyIds: const ['test-audit'],
-      executor: WorkflowExecutor.resumeParent,
-      parentCapabilityId: 'implementation',
-      maxAgenticTurns: 8,
     ),
     WorkflowCapability(
       id: 'device-e2e',
       title: l10n?.workflowTitleDeviceE2e ?? 'End-to-end verification on device',
       instruction: 'Validar el comportamiento completo en el entorno real.',
       role: 'verifier',
-      dependencyIds: const ['test-correction'],
+      dependencyIds: const ['test-audit'],
       activation: WorkflowCapabilityActivation.optional,
+      maxAgenticTurns: 8,
       requiresIndependentOwner: true,
     ),
     WorkflowCapability(
       id: 'verification',
       title: l10n?.workflowTitleVerification ?? 'Closing verification',
-      instruction: 'Ejecutar gates y cerrar solo con evidencia suficiente.',
+      instruction:
+          'Ejecutar gates, cerrar la matriz de cobertura con evidencia y, '
+          'con aprobación, publicar.',
       role: fallback,
-      dependencyIds: const ['test-correction'],
+      dependencyIds: const ['test-audit'],
       executor: WorkflowExecutor.resumeParent,
       parentCapabilityId: 'implementation',
       maxAgenticTurns: 6,
-    ),
-    WorkflowCapability(
-      id: 'publish-approval',
-      title: l10n?.workflowTitlePublishApproval ?? 'Approve publication',
-      instruction: 'Esperar aprobación explícita antes de publicar.',
-      role: fallback,
-      dependencyIds: const ['verification'],
-      executor: WorkflowExecutor.manualApproval,
-      readOnly: true,
-    ),
-    WorkflowCapability(
-      id: 'publish',
-      title: 'Publicar',
-      instruction: 'Publicar únicamente después de aprobación explícita.',
-      role: fallback,
-      dependencyIds: const ['publish-approval'],
-      executor: WorkflowExecutor.resumeParent,
-      parentCapabilityId: 'implementation',
-      maxAgenticTurns: 4,
+      approvalRequired: true,
     ),
   ];
 }

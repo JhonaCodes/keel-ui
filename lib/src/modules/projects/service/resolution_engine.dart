@@ -388,10 +388,10 @@ class ResolutionEngine {
 const kLegacyCapabilityIds = <String, String>{'planner': 'triage'};
 
 WorkNodeKind _kindFor(String capabilityId) => switch (capabilityId) {
-  'planner' => WorkNodeKind.triage,
+  'planner' || 'plan' => WorkNodeKind.triage,
   'triage' => WorkNodeKind.triage,
   'impact' => WorkNodeKind.impact,
-  'implementation' => WorkNodeKind.implementation,
+  'implementation' || 'implement' => WorkNodeKind.implementation,
   'verification' => WorkNodeKind.verification,
   _ => WorkNodeKind.custom,
 };

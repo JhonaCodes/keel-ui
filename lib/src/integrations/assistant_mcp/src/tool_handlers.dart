@@ -101,6 +101,8 @@ const _readOnlyTools = {
   'list_project_sessions',
   'read_session_thread',
   'resolve_message_reference',
+  'inspect_session',
+  'lint_workflow',
 };
 
 typedef _LockedTarget = ({CatalogLockKind kind, String name});
@@ -610,6 +612,33 @@ Future<(bool, String)> _runKeelAiTool(
         rawReference: (arguments['reference'] as String? ?? '').trim(),
         text: (arguments['text'] as String? ?? '').trim(),
       );
+
+    case 'inspect_session':
+      return _inspectSession(
+        project: (arguments['project'] as String? ?? '').trim(),
+        session: (arguments['session'] as String? ?? '').trim(),
+        full: arguments['full'] as bool? ?? false,
+      );
+
+    case 'intervene':
+      return _intervene(
+        project: (arguments['project'] as String? ?? '').trim(),
+        session: (arguments['session'] as String? ?? '').trim(),
+        text: (arguments['text'] as String? ?? '').trim(),
+      );
+
+    case 'answer_decision':
+      return _answerDecision(
+        project: (arguments['project'] as String? ?? '').trim(),
+        session: (arguments['session'] as String? ?? '').trim(),
+        decisionId: (arguments['decision_id'] as String? ?? '').trim(),
+        answer: (arguments['answer'] as String? ?? '').trim(),
+        approve: arguments['approve'] as bool?,
+        scope: (arguments['scope'] as String? ?? 'once').trim(),
+      );
+
+    case 'lint_workflow':
+      return _lintWorkflow(arguments['capabilities']);
 
     case 'list_secret_names':
       final secrets = SecretsService.instance.notifier.data.secrets;
@@ -2011,4 +2040,243 @@ String _describeMcpCatalog() {
     }
   }
   return buffer.toString();
+}
+
+
+// ── supervisión de sesiones (solo a pedido del usuario) ─────────────────
+
+String _profileHandle(String profileId) {
+  final profile = AgentProfilesService.instance.notifier.data.profiles
+      .where((entry) => entry.id == profileId)
+      .firstOrNull;
+  return profile?.name ?? (profileId.isEmpty ? 'sin dueño' : profileId);
+}
+
+(bool, String) _inspectSession({
+  required String project,
+  required String session,
+  required bool full,
+}) {
+  final target = _projectNamed(project);
+  if (target == null) return (false, 'No existe el proyecto "$project".');
+  final open = _sessionOf(target, session);
+  if (open == null) {
+    return (false, 'No encontré esa sesión en "${target.name}".');
+  }
+  final projects = ProjectsService.instance.notifier;
+  final workflow = projects.workflowOf(open);
+  final resolution = open.resolutionCase;
+  final buffer = StringBuffer()
+    ..writeln('SESIÓN "${open.title}" (id: ${open.id}) en "${target.name}"')
+    ..writeln(
+      'estado: ${open.status.name}'
+      '${open.isRunning ? ' · corriendo' : ''}'
+      '${open.waitingForUser ? ' · ESPERANDO AL USUARIO' : ''}'
+      ' · workflow: ${workflow?.name ?? 'ninguno'}'
+      ' · costo reportado: US\$ ${open.usage.reportedCostUsd.toStringAsFixed(2)}'
+      ' · turnos: ${open.usage.turns}',
+    )
+    ..writeln('pedido: ${open.request.isEmpty ? '(vacío)' : open.request}');
+
+  if (resolution != null) {
+    buffer
+      ..writeln()
+      ..writeln(
+        'CASO: ${resolution.status.name} · replans ${resolution.replanCount} '
+        '· ciclos de auditoría ${resolution.reviewCycleCount}',
+      )
+      ..writeln('NODOS:');
+    for (final node in resolution.nodes) {
+      final cost = open.usage.byWorkNodeId[node.id];
+      final output = node.output;
+      final verdict = switch (output?.verdict) {
+        TurnVerdict.go => ' · GO',
+        TurnVerdict.noGo => ' · NO-GO',
+        null => '',
+      };
+      buffer.writeln(
+        '- ${node.id} · ${node.title.isEmpty ? node.id : node.title} · '
+        '${node.status.name} · dueño @${_profileHandle(node.ownerProfileId)} · '
+        'intentos ${node.attempts} · US\$ '
+        '${(cost?.reportedCostUsd ?? 0).toStringAsFixed(2)}'
+        '${output == null ? '' : '\n  cierre: ${output.status.name}$verdict · ${_clipText(output.summary, 400)}'}',
+      );
+    }
+    final digest = sessionDigest(resolution);
+    if (digest.isNotEmpty) {
+      buffer
+        ..writeln()
+        ..writeln('RESUMEN DEL CASO:')
+        ..writeln(digest);
+    }
+    final findings = resolution.findings
+        .where((finding) => finding.status.name != 'resolved')
+        .toList();
+    if (findings.isNotEmpty) {
+      buffer
+        ..writeln()
+        ..writeln('HALLAZGOS ABIERTOS:');
+      for (final finding in findings) {
+        buffer.writeln(
+          '- [${finding.status.name}] ${finding.evidence.source.name} sobre '
+          '${finding.affectedNodeId}: ${_clipText(finding.evidence.summary, 300)}',
+        );
+      }
+    }
+  }
+
+  final pending = open.pendingDecisions;
+  if (pending.isNotEmpty) {
+    buffer
+      ..writeln()
+      ..writeln('DECISIONES PENDIENTES (contestables con answer_decision):');
+    for (final decision in pending) {
+      buffer.writeln(
+        '- id ${decision.id} · ${decision.kind.name} · '
+        '@${_profileHandle(decision.profileId)} · ${decision.title}'
+        '${decision.detail.isEmpty ? '' : ': ${_clipText(decision.detail, 300)}'}'
+        '${decision.options.isEmpty ? '' : ' · opciones: ${decision.options.join(' | ')}'}'
+        '${decision.blocking ? ' · turno vivo esperando' : ''}',
+      );
+    }
+  }
+
+  if (full) {
+    final messages = open.messages.length <= 20
+        ? open.messages
+        : open.messages.sublist(open.messages.length - 20);
+    buffer
+      ..writeln()
+      ..writeln('ÚLTIMOS ${messages.length} MENSAJES:');
+    for (final message in messages) {
+      final author = message.role == ChatRole.assistant
+          ? '@${_profileHandle(message.authorProfileId ?? '')}'
+          : message.role.name;
+      buffer.writeln(
+        '[${message.timestamp.toIso8601String()}] $author'
+        '${message.workNodeId == null ? '' : ' · nodo ${message.workNodeId}'}: '
+        '${message.text}',
+      );
+    }
+    if (open.subagents.isNotEmpty) {
+      buffer
+        ..writeln()
+        ..writeln('SUBAGENTES:');
+      for (final subagent in open.subagents) {
+        buffer.writeln(
+          '- ${subagent.phase.name} · ${_clipText(subagent.ask, 200)}'
+          '${subagent.result.isEmpty ? '' : '\n  resultado: ${_clipText(subagent.result, 600)}'}',
+        );
+      }
+    }
+  }
+  return (true, buffer.toString().trimRight());
+}
+
+(bool, String) _intervene({
+  required String project,
+  required String session,
+  required String text,
+}) {
+  if (text.isEmpty) return (false, 'La instrucción no puede ir vacía.');
+  final target = _projectNamed(project);
+  if (target == null) return (false, 'No existe el proyecto "$project".');
+  final open = _sessionOf(target, session);
+  if (open == null) {
+    return (false, 'No encontré esa sesión en "${target.name}".');
+  }
+  final projects = ProjectsService.instance.notifier;
+  if (open.isRunning) {
+    // Sin await: interrumpir dispara el turno siguiente, que dura lo que
+    // dure. Lo único que hay que confirmar es que el mensaje entró.
+    unawaited(() async {
+      final id = await projects.queueSessionMessage(
+        target.id,
+        open.id,
+        text,
+        viaKeelAi: true,
+      );
+      if (id != null) {
+        await projects.sendQueuedSessionMessageNow(target.id, open.id, id);
+      }
+    }());
+    return (
+      true,
+      'Interrumpí "${open.title}" en "${target.name}" con tu instrucción; '
+          'el nodo en curso vuelve a pendiente y el workflow lo retoma después '
+          'de atenderla.',
+    );
+  }
+  unawaited(projects.replyInSession(target.id, open.id, text));
+  return (
+    true,
+    'Mandé la instrucción al canal de "${open.title}" en "${target.name}"; '
+        'abre el turno siguiente.',
+  );
+}
+
+Future<(bool, String)> _answerDecision({
+  required String project,
+  required String session,
+  required String decisionId,
+  required String answer,
+  required bool? approve,
+  required String scope,
+}) async {
+  final target = _projectNamed(project);
+  if (target == null) return (false, 'No existe el proyecto "$project".');
+  final open = _sessionOf(target, session);
+  if (open == null) {
+    return (false, 'No encontré esa sesión en "${target.name}".');
+  }
+  final decision = open.decisions
+      .where((entry) => entry.id == decisionId && entry.isPending)
+      .firstOrNull;
+  if (decision == null) {
+    return (false, 'No hay una decisión pendiente con id $decisionId.');
+  }
+  final error = await ProjectsService.instance.notifier.answerSessionDecision(
+    target.id,
+    open.id,
+    decisionId,
+    answer: answer,
+    approve: approve,
+    scope: scope,
+  );
+  if (error != null) return (false, error);
+  return (
+    true,
+    'Contesté la decisión "${decision.title}" de '
+        '@${_profileHandle(decision.profileId)}'
+        '${decision.blocking ? '; el turno sigue.' : '; el nodo retoma.'}',
+  );
+}
+
+(bool, String) _lintWorkflow(Object? rawCapabilities) {
+  final capabilities = _workflowCapabilities(rawCapabilities) ?? const [];
+  if (capabilities.isEmpty) {
+    return (false, 'No hay capacidades válidas que revisar.');
+  }
+  final structural = validateWorkflowCapabilities(capabilities);
+  final lints = lintWorkflowCapabilities(capabilities);
+  if (structural == null && lints.isEmpty) {
+    return (true, 'Sin observaciones: ${capabilities.length} nodos.');
+  }
+  final lines = [
+    if (structural != null) 'error: $structural',
+    for (final lint in lints) lint.toString(),
+  ];
+  final hasErrors =
+      structural != null ||
+      lints.any((lint) => lint.severity == WorkflowLintSeverity.error);
+  return (
+    true,
+    '${hasErrors ? 'HAY ERRORES (create_workflow los rechazaría):' : 'Solo avisos:'}\n'
+        '${lines.join('\n')}',
+  );
+}
+
+String _clipText(String text, int max) {
+  final trimmed = text.trim();
+  return trimmed.length <= max ? trimmed : '${trimmed.substring(0, max)}…';
 }

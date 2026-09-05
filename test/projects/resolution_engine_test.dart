@@ -35,10 +35,8 @@ void main() {
         'impact',
         'implementation',
         'code-audit',
-        'code-correction',
         'tests',
         'test-audit',
-        'test-correction',
         'verification',
       ]),
     );
@@ -46,9 +44,12 @@ void main() {
       resolution.nodes.firstWhere((node) => node.id == 'implementation').dependencyIds,
       ['impact'],
     );
+    // Sin nodos de corrección: el NO-GO de una auditoría devuelve el nodo
+    // auditado solo (ver applyOutcome).
+    expect(resolution.nodes.any((node) => node.id == 'code-correction'), isFalse);
     expect(
       resolution.nodes.firstWhere((node) => node.id == 'verification').dependencyIds,
-      ['test-correction'],
+      ['test-audit'],
     );
     expect(resolution.coverage, hasLength(MigrationCoverageArea.values.length));
   });
@@ -126,22 +127,22 @@ void main() {
     final first = ResolutionEngine.reportFinding(
       resolution,
       evidence: evidence,
-      affectedNodeId: 'implementation',
+      affectedNodeId: 'implement',
       maxReplans: 2,
     );
     final repeated = ResolutionEngine.reportFinding(
       first.resolution,
       evidence: evidence,
-      affectedNodeId: 'implementation',
+      affectedNodeId: 'implement',
       maxReplans: 2,
     );
 
     expect(first.accepted, isTrue);
     expect(first.resolution.status, ResolutionCaseStatus.replanning);
-    expect(first.resolution.findings.single.affectedNodeId, 'implementation');
+    expect(first.resolution.findings.single.affectedNodeId, 'implement');
     expect(
       first.resolution.nodes
-          .firstWhere((node) => node.id == 'implementation')
+          .firstWhere((node) => node.id == 'implement')
           .status,
       WorkNodeStatus.paused,
     );
@@ -270,7 +271,7 @@ void main() {
       return started.copyWith(
         nodes: [
           for (final node in started.nodes)
-            node.id == 'planner' || node.id == 'implementation'
+            node.id == 'plan' || node.id == 'implement'
                 ? node.copyWith(status: WorkNodeStatus.done)
                 : node,
         ],
@@ -283,14 +284,14 @@ void main() {
         'deja el hallazgo asignado y re-abre la auditoría', () {
       final noGo = ResolutionEngine.applyOutcome(
         graph(),
-        nodeId: 'code-audit',
+        nodeId: 'audit',
         report: const TurnOutcomeReport(
           status: TurnOutcomeStatus.done,
           summary: 'unwrap en lib/a.dart:12',
           verdict: TurnVerdict.noGo,
         ),
         isAudit: true,
-        parentNodeId: 'implementation',
+        parentNodeId: 'implement',
         maxReplans: 2,
         profileId: 'auditor',
         now: DateTime(2026),
@@ -301,13 +302,13 @@ void main() {
       WorkNodeStatus statusOf(String id) =>
           resolution.nodes.firstWhere((node) => node.id == id).status;
 
-      expect(statusOf('implementation'), WorkNodeStatus.pending);
-      expect(statusOf('code-audit'), WorkNodeStatus.pending);
+      expect(statusOf('implement'), WorkNodeStatus.pending);
+      expect(statusOf('audit'), WorkNodeStatus.pending);
       expect(resolution.status, ResolutionCaseStatus.active);
       expect(resolution.reviewCycleCount, 1);
       expect(resolution.findings, hasLength(1));
       expect(resolution.findings.single.status, ResolutionFindingStatus.assigned);
-      expect(resolution.findings.single.affectedNodeId, 'implementation');
+      expect(resolution.findings.single.affectedNodeId, 'implement');
       expect(
         resolution.findings.single.evidence.source,
         ResolutionEvidenceSource.review,
@@ -319,7 +320,7 @@ void main() {
       // resuelto y el caso puede cerrar cuando el resto termine.
       final fixed = ResolutionEngine.applyOutcome(
         resolution,
-        nodeId: 'implementation',
+        nodeId: 'implement',
         report: const TurnOutcomeReport(
           status: TurnOutcomeStatus.done,
           summary: 'unwrap reemplazado por ?',
@@ -332,14 +333,14 @@ void main() {
       ).resolution;
       final go = ResolutionEngine.applyOutcome(
         fixed,
-        nodeId: 'code-audit',
+        nodeId: 'audit',
         report: const TurnOutcomeReport(
           status: TurnOutcomeStatus.done,
           summary: 'sin hallazgos',
           verdict: TurnVerdict.go,
         ),
         isAudit: true,
-        parentNodeId: 'implementation',
+        parentNodeId: 'implement',
         maxReplans: 2,
         profileId: 'auditor',
         now: DateTime(2026),
@@ -351,11 +352,11 @@ void main() {
         ResolutionFindingStatus.resolved,
       );
       expect(
-        go.nodes.firstWhere((node) => node.id == 'code-audit').status,
+        go.nodes.firstWhere((node) => node.id == 'audit').status,
         WorkNodeStatus.done,
       );
       expect(
-        go.nodes.firstWhere((node) => node.id == 'code-audit').output?.verdict,
+        go.nodes.firstWhere((node) => node.id == 'audit').output?.verdict,
         TurnVerdict.go,
       );
     });
@@ -363,14 +364,14 @@ void main() {
     test('needs_user pausa el nodo y deja una decisión pendiente', () {
       final application = ResolutionEngine.applyOutcome(
         graph(),
-        nodeId: 'code-audit',
+        nodeId: 'audit',
         report: const TurnOutcomeReport(
           status: TurnOutcomeStatus.needsUser,
           summary: 'no sé qué rama auditar',
           question: '¿main o develop?',
         ),
         isAudit: true,
-        parentNodeId: 'implementation',
+        parentNodeId: 'implement',
         maxReplans: 2,
         profileId: 'auditor',
         now: DateTime(2026),
@@ -379,7 +380,7 @@ void main() {
 
       expect(
         application.resolution.nodes
-            .firstWhere((node) => node.id == 'code-audit')
+            .firstWhere((node) => node.id == 'audit')
             .status,
         WorkNodeStatus.paused,
       );
@@ -387,7 +388,7 @@ void main() {
       final decision = application.decision;
       expect(decision, isNotNull);
       expect(decision!.kind, SessionDecisionKind.question);
-      expect(decision.workNodeId, 'code-audit');
+      expect(decision.workNodeId, 'audit');
       expect(decision.profileId, 'auditor');
       expect(decision.detail, '¿main o develop?');
       expect(decision.status, SessionDecisionStatus.pending);
@@ -396,7 +397,7 @@ void main() {
     test('next activa una capacidad opcional sin tocar el resto', () {
       final application = ResolutionEngine.applyOutcome(
         graph(),
-        nodeId: 'code-audit',
+        nodeId: 'audit',
         report: const TurnOutcomeReport(
           status: TurnOutcomeStatus.done,
           summary: 'ok',
@@ -404,7 +405,7 @@ void main() {
           next: 'device-e2e',
         ),
         isAudit: true,
-        parentNodeId: 'implementation',
+        parentNodeId: 'implement',
         maxReplans: 2,
         profileId: 'auditor',
         now: DateTime(2026),
@@ -417,13 +418,13 @@ void main() {
     test('blocked registra un hallazgo de contrato y reintenta el nodo', () {
       final application = ResolutionEngine.applyOutcome(
         graph(),
-        nodeId: 'code-audit',
+        nodeId: 'audit',
         report: const TurnOutcomeReport(
           status: TurnOutcomeStatus.blocked,
           summary: 'el repo no compila por un cambio ajeno',
         ),
         isAudit: true,
-        parentNodeId: 'implementation',
+        parentNodeId: 'implement',
         maxReplans: 2,
         profileId: 'auditor',
         now: DateTime(2026),
@@ -434,7 +435,7 @@ void main() {
       expect(resolution.findings.single.evidence.source,
           ResolutionEvidenceSource.contract);
       expect(
-        resolution.nodes.firstWhere((node) => node.id == 'code-audit').status,
+        resolution.nodes.firstWhere((node) => node.id == 'audit').status,
         WorkNodeStatus.pending,
       );
       expect(resolution.status, ResolutionCaseStatus.active);

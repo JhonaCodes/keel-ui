@@ -791,6 +791,96 @@ final List<Tool> keelAiTools = _withCatalogChangeParameters([
     ),
   ),
   Tool(
+    name: 'inspect_session',
+    description:
+        'El ESTADO de una sesión de proyecto para opinar sobre ella: resumen '
+        'del caso, tabla de nodos (id, título, estado, dueño, intentos, '
+        'costo, último cierre), decisiones pendientes con su id, hallazgos '
+        'abiertos y, con `full`, los últimos mensajes sin recortar y los '
+        'subagentes con su resultado. Usala PRIMERO cuando el usuario te pide '
+        'revisar una sesión; nunca por tu cuenta.',
+    inputSchema: ObjectSchema(
+      properties: {
+        'project': Schema.string(description: 'Nombre del proyecto.'),
+        'session': Schema.string(
+          description: 'Id o título exacto de la sesión. Vacío = la activa.',
+        ),
+        'full': Schema.bool(
+          description:
+              'True para incluir los últimos 20 mensajes completos y los '
+              'subagentes. Por defecto false.',
+        ),
+      },
+      required: ['project'],
+    ),
+  ),
+  Tool(
+    name: 'intervene',
+    description:
+        'Manda una instrucción AL CANAL de una sesión, en nombre del '
+        'usuario. Si la sesión está corriendo interrumpe el turno actual (el '
+        'nodo retoma después); si no, abre el turno siguiente. LLAMALA SOLO '
+        'cuando el usuario te pidió intervenir y con una instrucción '
+        'concreta que salga de lo que viste en inspect_session.',
+    inputSchema: ObjectSchema(
+      properties: {
+        'project': Schema.string(description: 'Nombre del proyecto.'),
+        'session': Schema.string(
+          description: 'Id o título exacto de la sesión. Vacío = la activa.',
+        ),
+        'text': Schema.string(
+          description: 'La instrucción, escrita para el agente que la lee.',
+        ),
+      },
+      required: ['project', 'text'],
+    ),
+  ),
+  Tool(
+    name: 'answer_decision',
+    description:
+        'Contesta una decisión pendiente de una sesión (una pregunta, un '
+        'permiso o una aprobación que un agente le pidió al usuario), con el '
+        'id que devuelve inspect_session. SOLO cuando el usuario te dijo qué '
+        'contestar: vos no decidís por él.',
+    inputSchema: ObjectSchema(
+      properties: {
+        'project': Schema.string(description: 'Nombre del proyecto.'),
+        'session': Schema.string(description: 'Id o título de la sesión.'),
+        'decision_id': Schema.string(description: 'Id de la decisión.'),
+        'answer': Schema.string(
+          description: 'La respuesta, para una pregunta.',
+        ),
+        'approve': Schema.bool(
+          description: 'True/false para un permiso o una aprobación.',
+        ),
+        'scope': Schema.string(
+          description:
+              'Alcance de un permiso concedido: once | session | profile | '
+              'app. Por defecto once.',
+        ),
+      },
+      required: ['project', 'decision_id'],
+    ),
+  ),
+  Tool(
+    name: 'lint_workflow',
+    description:
+        'Revisa un conjunto de capacidades ANTES de crear o actualizar un '
+        'workflow: cantidad de nodos, aprobaciones manuales opcionales que '
+        'nunca disparan, auditorías sin contrato de salida, nodos duplicados, '
+        'nodos sin tope. Devuelve errores (bloquean) y avisos. Mismo formato '
+        'de `capabilities` que create_workflow.',
+    inputSchema: ObjectSchema(
+      properties: {
+        'capabilities': Schema.list(
+          items: ObjectSchema(properties: {}),
+          description: 'Las capacidades, como en create_workflow.',
+        ),
+      },
+      required: ['capabilities'],
+    ),
+  ),
+  Tool(
     name: 'describe_system',
     description:
         'Estado actual del sistema: qué está configurado (repos de catálogo '

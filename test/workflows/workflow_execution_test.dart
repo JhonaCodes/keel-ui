@@ -44,27 +44,32 @@ void main() {
     );
   });
 
-  test('los workflows nuevos encadenan auditorías al implementador', () {
+  test('los workflows nuevos auditan en sesión propia y entregan sobre la '
+      'sesión del implementador, con aprobación', () {
     final capabilities = defaultWorkflowCapabilities(
       WorkflowKind.bug,
       'implementador',
     );
 
-    final implementation = capabilities.firstWhere(
-      (capability) => capability.id == 'implementation',
+    final implement = capabilities.firstWhere(
+      (capability) => capability.id == 'implement',
     );
     final audit = capabilities.firstWhere(
-      (capability) => capability.id == 'code-audit',
+      (capability) => capability.id == 'audit',
     );
-    final correction = capabilities.firstWhere(
-      (capability) => capability.id == 'code-correction',
+    final deliver = capabilities.firstWhere(
+      (capability) => capability.id == 'deliver',
     );
 
-    expect(implementation.executor, WorkflowExecutor.newSession);
-    expect(audit.executor, WorkflowExecutor.providerSubagent);
-    expect(audit.parentCapabilityId, 'implementation');
-    expect(correction.executor, WorkflowExecutor.resumeParent);
-    expect(correction.parentCapabilityId, 'implementation');
+    expect(implement.executor, WorkflowExecutor.newSession);
+    // Sesión propia y no subagente: el subagente nativo fallaba en 149
+    // corridas y el fallback era el que auditaba de verdad.
+    expect(audit.executor, WorkflowExecutor.newSession);
+    expect(audit.requiresIndependentOwner, isTrue);
+    expect(audit.outputContract, 'audit-feedback');
+    expect(deliver.executor, WorkflowExecutor.resumeParent);
+    expect(deliver.parentCapabilityId, 'implement');
+    expect(deliver.approvalRequired, isTrue);
   });
 
   test('migra sesiones antiguas de perfil a claves de ejecución', () {

@@ -139,6 +139,17 @@ Mapa de lo que existe en esta app y cómo se relaciona:
   un hook interno `keel-subagent-guard` (PreToolUse sobre `Task`) que deniega
   la tarea de más; cero deniega desde la primera. Solo aplica a agentes
   claude, que son los únicos con esa tool.
+  SUPERVISIÓN A PEDIDO: `inspect_session` (estado completo de una sesión:
+  nodos, cierres, hallazgos, decisiones pendientes, costo; `full` agrega los
+  últimos mensajes y subagentes), `intervene` (instrucción al canal; si
+  corre, interrumpe y el nodo retoma), `answer_decision` (contesta una
+  decisión pendiente por id). Solo cuando el usuario lo pide. LINT:
+  `lint_workflow` y el propio `create_workflow`/`update_workflow` rechazan
+  más de 8 nodos requeridos, aprobaciones manuales opcionales y auditorías
+  sin `audit-feedback`; avisan por nodos duplicados o sin tope. La plantilla
+  por defecto es plan → implement → audit → deliver (approval_required); la
+  de migración conserva impacto y matriz de cobertura, sin nodos de
+  corrección.
 - **Requerimientos internos**: lo que un proyecto le pide a OTRO proyecto
   (`REQ-0007`). Existen porque dos proyectos no comparten nada: el
   requerimiento es lo ÚNICO que cruza la frontera —necesidad, contexto,

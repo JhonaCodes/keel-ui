@@ -18,6 +18,7 @@ class SessionDecisionCard extends StatefulWidget {
     required this.onAnswer,
     required this.onApprove,
     required this.onReject,
+    required this.onPermission,
   });
 
   final SessionDecision decision;
@@ -25,6 +26,10 @@ class SessionDecisionCard extends StatefulWidget {
   final ValueChanged<String> onAnswer;
   final VoidCallback onApprove;
   final VoidCallback onReject;
+
+  /// Un permiso concedido ([grant] true) o rechazado, con hasta dónde vale:
+  /// once | session | profile | app.
+  final void Function(bool grant, String scope) onPermission;
 
   @override
   State<SessionDecisionCard> createState() => _SessionDecisionCardState();
@@ -52,6 +57,14 @@ class _SessionDecisionCardState extends State<SessionDecisionCard> {
     final scheme = Theme.of(context).colorScheme;
     final decision = widget.decision;
     final isApproval = decision.kind == SessionDecisionKind.approval;
+    final isPermission =
+        decision.kind == SessionDecisionKind.permission && decision.blocking;
+
+    void permit(bool grant, String scope) {
+      if (_answered) return;
+      setState(() => _answered = true);
+      widget.onPermission(grant, scope);
+    }
 
     return Material(
       color: scheme.tertiaryContainer.withValues(alpha: 0.35),
@@ -105,7 +118,38 @@ class _SessionDecisionCardState extends State<SessionDecisionCard> {
               ),
             ],
             const SizedBox(height: 8),
-            if (isApproval)
+            if (isPermission)
+              Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                children: [
+                  OutlinedButton(
+                    onPressed: _answered ? null : () => permit(false, 'once'),
+                    child: const Text('Rechazar'),
+                  ),
+                  FilledButton.tonal(
+                    onPressed: _answered ? null : () => permit(true, 'once'),
+                    child: const Text('Solo esta vez'),
+                  ),
+                  FilledButton.tonal(
+                    onPressed: _answered
+                        ? null
+                        : () => permit(true, 'session'),
+                    child: const Text('Esta sesión'),
+                  ),
+                  FilledButton.tonal(
+                    onPressed: _answered
+                        ? null
+                        : () => permit(true, 'profile'),
+                    child: const Text('Este agente acá'),
+                  ),
+                  FilledButton(
+                    onPressed: _answered ? null : () => permit(true, 'app'),
+                    child: const Text('Siempre'),
+                  ),
+                ],
+              )
+            else if (isApproval)
               Row(
                 children: [
                   FilledButton.tonal(

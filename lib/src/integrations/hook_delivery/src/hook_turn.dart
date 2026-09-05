@@ -41,6 +41,10 @@ TurnHooks prepareTurnHooks({
   required HookProvider provider,
   AgentProfile? profile,
   Project? project,
+
+  /// El gate de permisos de Keel, si el turno lo lleva. Va como un hook
+  /// más del turno, después de los del usuario.
+  DecisionGateSpec? gate,
 }) {
   final resolved = resolveHooks(
     catalog: catalog,
@@ -48,12 +52,16 @@ TurnHooks prepareTurnHooks({
     profile: profile,
     project: project,
   );
-  if (resolved.hooks.isEmpty) {
+  final withGate = [
+    ...resolved.hooks,
+    if (gate != null) decisionGateHook(gate),
+  ];
+  if (withGate.isEmpty) {
     return TurnHooks(notes: resolved.notes);
   }
 
   final rendered = renderHookFiles(
-    resolved.hooks,
+    withGate,
     toolsByName: {for (final tool in tools) tool.name: tool},
     secretValues: secretValues,
   );
@@ -62,7 +70,7 @@ TurnHooks prepareTurnHooks({
   // config apuntando a un wrapper que no existe, el CLI fallaría en cada
   // evento y el usuario vería ruido en vez del problema real.
   final broken = rendered.issues.map((issue) => issue.hookName).toSet();
-  final usable = resolved.hooks
+  final usable = withGate
       .where((hook) => !broken.contains(hook.name))
       .toList();
 

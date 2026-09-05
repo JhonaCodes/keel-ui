@@ -195,6 +195,16 @@ class _ProjectChannel extends StatelessWidget {
                         session.pendingDecisions.first.id,
                         approve: false,
                       ),
+                  onPermission: (grant, scope) => ProjectsService
+                      .instance
+                      .notifier
+                      .answerSessionDecision(
+                        project.id,
+                        session.id,
+                        session.pendingDecisions.first.id,
+                        approve: grant,
+                        scope: scope,
+                      ),
                 ),
               if (tab == SessionTab.chat &&
                   session != null &&

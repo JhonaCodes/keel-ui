@@ -1,5 +1,14 @@
 part of '../system_prompt.dart';
 
+/// keel-decisions: preguntarle a la persona sin cerrar el turno.
+const kDecisionsMcpInstructions =
+    'Preguntas a la persona. `ask_user` suspende tu turno hasta que '
+    'contesta y te devuelve la respuesta: usala cuando te falta una decisión '
+    'o un dato que solo ella tiene, en vez de cerrar el turno con la '
+    'pregunta suelta. Una pregunta por vez, concreta. Los permisos sobre '
+    'tools no se piden acá: el gate de Keel te los pregunta solo cuando '
+    'intentás usarlas.';
+
 /// LAS `instructions` DE CADA SERVIDOR MCP PROPIO DE KEEL.
 ///
 /// Qué dicen: una o dos frases por servidor, que el cliente MCP le muestra

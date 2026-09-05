@@ -41,6 +41,12 @@ class SessionDecision {
   /// Alcance con el que se concedió un permiso: once | session | profile |
   /// app. Lo consume la fase de permisos bloqueantes.
   final String scope;
+
+  /// Hay un turno VIVO suspendido esperando esto (gate o `ask_user`). Muere
+  /// con la app: al reabrir se cancela, porque el proceso que esperaba ya
+  /// no existe. Una decisión no bloqueante (el nodo cerró con `needs_user`)
+  /// sobrevive: el nodo está pausado en disco y sigue esperando.
+  final bool blocking;
   final SessionDecisionStatus status;
   final String answer;
   final DateTime createdAt;
@@ -58,6 +64,7 @@ class SessionDecision {
     this.toolName = '',
     this.toolInput = '',
     this.scope = 'once',
+    this.blocking = false,
     this.status = SessionDecisionStatus.pending,
     this.answer = '',
     this.resolvedAt,
@@ -81,6 +88,7 @@ class SessionDecision {
     toolName: toolName,
     toolInput: toolInput,
     scope: scope ?? this.scope,
+    blocking: blocking,
     status: status ?? this.status,
     answer: answer ?? this.answer,
     createdAt: createdAt,
@@ -98,6 +106,7 @@ class SessionDecision {
     'toolName': toolName,
     'toolInput': toolInput,
     'scope': scope,
+    'blocking': blocking,
     'status': status.name,
     'answer': answer,
     'createdAt': createdAt.toIso8601String(),
@@ -118,6 +127,7 @@ class SessionDecision {
         toolName: json['toolName'] as String? ?? '',
         toolInput: json['toolInput'] as String? ?? '',
         scope: json['scope'] as String? ?? 'once',
+        blocking: json['blocking'] as bool? ?? false,
         status: SessionDecisionStatus.values.byName(
           json['status'] as String? ?? SessionDecisionStatus.pending.name,
         ),
@@ -142,6 +152,7 @@ class SessionDecision {
           toolName == other.toolName &&
           toolInput == other.toolInput &&
           scope == other.scope &&
+          blocking == other.blocking &&
           status == other.status &&
           answer == other.answer &&
           createdAt == other.createdAt &&
@@ -159,6 +170,7 @@ class SessionDecision {
     toolName,
     toolInput,
     scope,
+    blocking,
     status,
     answer,
     createdAt,

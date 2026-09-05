@@ -113,6 +113,17 @@ Mapa de lo que existe en esta app y cómo se relaciona:
   publicar, en lugar de un nodo aparte con executor `manualApproval`. Un
   nodo de auditoría es el que tiene `output_contract: audit-feedback`; ahí
   el verdict es obligatorio.
+  PERMISOS BLOQUEANTES: antes de cada tool que escribe (Bash, Edit, Write,
+  MultiEdit, NotebookEdit) corre un hook interno `keel-decision-gate` que
+  suspende el proceso hasta que el usuario decide desde la tarjeta
+  ESPERÁNDOTE, con alcance: solo esta vez, esta sesión (Session.grantedTools),
+  este agente en este proyecto (Project.grantedToolsByProfileId) o siempre
+  (AppSettings.extraAllowedTools). Vale para claude, codex (solo el primer
+  turno de una sesión, hasta que el resume pase los hooks por `-c`) y las
+  APIs. Los agentes con MCP tienen además `ask_user` (servidor
+  `keel-decisions`) para preguntar sin cerrar el turno. Detener la sesión
+  cancela lo pendiente; reabrir la app cancela solo las decisiones que
+  esperaban a un proceso vivo. A vos, Keel AI, el gate no se te aplica.
 - **Requerimientos internos**: lo que un proyecto le pide a OTRO proyecto
   (`REQ-0007`). Existen porque dos proyectos no comparten nada: el
   requerimiento es lo ÚNICO que cruza la frontera —necesidad, contexto,

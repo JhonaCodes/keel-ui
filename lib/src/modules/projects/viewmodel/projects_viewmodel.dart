@@ -13,6 +13,7 @@ import 'package:keel_ui/src/integrations/task_runner/task_runner.dart';
 import 'package:keel_ui/src/integrations/machine/machine.dart';
 import 'package:keel_ui/src/integrations/usage_ledger/usage_ledger.dart';
 import 'package:keel_ui/src/integrations/session_plan_mcp/session_plan_mcp_server.dart';
+import 'package:keel_ui/src/integrations/decisions_mcp/decisions_mcp_server.dart';
 import 'package:keel_ui/src/integrations/user_tools_mcp/user_tools_mcp_server.dart';
 import 'package:keel_ui/src/integrations/hook_delivery/hook_delivery.dart';
 import 'package:keel_ui/src/integrations/project_radar/project_radar.dart';
@@ -136,6 +137,10 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
   /// Los vigilantes de los turnos vivos, por sesión. Una decisión pendiente
   /// los pausa (la espera humana no es inactividad del agente).
   final Map<String, Set<TurnWatchdog>> _turnWatchdogs = {};
+
+  /// Los turnos VIVOS suspendidos esperando una decisión, por id de
+  /// decisión. Completar uno destraba el hook o la tool que esperaba.
+  final Map<String, Completer<SessionDecision>> _gateCompleters = {};
 
   /// Reference resolution may touch the filesystem before a turn owns a CLI.
   /// This closes that short gap so two fast sends cannot start two turns for
@@ -265,9 +270,13 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     final hasDeliveryWaitingForDeadRun = session.queuedMessages.any(
       (message) => message.delivery != SessionQueuedDelivery.standby,
     );
+    final hasBlockingDecision = session.decisions.any(
+      (decision) => decision.isPending && decision.blocking,
+    );
     if (!session.isRunning &&
         workflowId == session.workflowId &&
-        !hasDeliveryWaitingForDeadRun) {
+        !hasDeliveryWaitingForDeadRun &&
+        !hasBlockingDecision) {
       return session;
     }
     return session.copyWith(
@@ -276,6 +285,17 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
       queuedMessages: [
         for (final message in session.queuedMessages)
           message.copyWith(delivery: SessionQueuedDelivery.standby),
+      ],
+      // Una decisión bloqueante esperaba a un proceso que murió con la app:
+      // se cancela para que la tarjeta no prometa destrabar nada.
+      decisions: [
+        for (final decision in session.decisions)
+          decision.isPending && decision.blocking
+              ? decision.copyWith(
+                  status: SessionDecisionStatus.cancelled,
+                  resolvedAt: DateTime.now(),
+                )
+              : decision,
       ],
     );
   }
@@ -1466,6 +1486,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     if (run == null && !(session?.isRunning ?? false)) return;
 
     _stoppedSessionIds.add(sessionId);
+    _cancelBlockingDecisions(projectId, sessionId);
     run?.cancel();
     _releaseRunningNodes(projectId, sessionId);
 
@@ -2109,14 +2130,223 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     );
   }
 
-  /// Tu respuesta a una decisión pendiente. Destraba el nodo y retoma el
-  /// workflow; el agente recibe la respuesta en su próxima instrucción.
+  // ── decisiones bloqueantes: gate de permisos y ask_user ─────────────
+
+  /// Lo que contesta el gate antes de una tool que escribe. Si el permiso ya
+  /// está concedido —para la app, para este agente acá, o para esta
+  /// sesión— contesta al instante; si no, encola una decisión y ESPERA a
+  /// que la persona la conteste. El proceso del CLI queda suspendido en el
+  /// hook mientras tanto; el vigilante del turno se pausa.
+  Future<({bool allow, String reason})> decideToolUse({
+    required String projectId,
+    required String sessionId,
+    required String profileId,
+    required String toolName,
+    required String toolInput,
+  }) async {
+    final project = _projectById(projectId);
+    final session = project == null ? null : _sessionById(project, sessionId);
+    if (project == null || session == null) {
+      return (allow: false, reason: 'Keel no reconoce esta sesión.');
+    }
+    if (_isToolGranted(project, session, profileId, toolName)) {
+      return (allow: true, reason: '');
+    }
+    if (_stoppedSessionIds.contains(sessionId)) {
+      return (allow: false, reason: 'El turno fue detenido.');
+    }
+    final member = membersOf(project, session: session)
+        .where((entry) => entry.id == profileId)
+        .firstOrNull;
+    final resolved = await _awaitDecision(
+      projectId,
+      sessionId,
+      SessionDecision(
+        id: generateUuidV4(),
+        kind: SessionDecisionKind.permission,
+        profileId: profileId,
+        workNodeId: _activeWorkNodeId(session) ?? '',
+        title: 'Quiere usar $toolName',
+        detail: toolInput,
+        toolName: toolName,
+        toolInput: toolInput,
+        blocking: true,
+        createdAt: DateTime.now(),
+      ),
+      memberName: member?.name ?? 'agente',
+    );
+    return switch (resolved.status) {
+      SessionDecisionStatus.granted => (allow: true, reason: ''),
+      SessionDecisionStatus.cancelled => (
+        allow: false,
+        reason: 'El turno fue detenido antes de que se decidiera.',
+      ),
+      _ => (
+        allow: false,
+        reason:
+            'La persona rechazó $toolName'
+            '${resolved.answer.isEmpty ? '.' : ': ${resolved.answer}'}',
+      ),
+    };
+  }
+
+  /// `ask_user`: una pregunta que suspende el turno hasta la respuesta.
+  Future<String> askUser({
+    required String projectId,
+    required String sessionId,
+    required String profileId,
+    required String question,
+    List<String> options = const [],
+  }) async {
+    final project = _projectById(projectId);
+    final session = project == null ? null : _sessionById(project, sessionId);
+    if (project == null || session == null) {
+      return 'Keel no reconoce esta sesión; no hay a quién preguntarle.';
+    }
+    if (_stoppedSessionIds.contains(sessionId)) {
+      return 'El turno fue detenido.';
+    }
+    final member = membersOf(project, session: session)
+        .where((entry) => entry.id == profileId)
+        .firstOrNull;
+    final resolved = await _awaitDecision(
+      projectId,
+      sessionId,
+      SessionDecision(
+        id: generateUuidV4(),
+        kind: SessionDecisionKind.question,
+        profileId: profileId,
+        workNodeId: _activeWorkNodeId(session) ?? '',
+        title: 'Necesita una decisión tuya',
+        detail: question,
+        options: options,
+        blocking: true,
+        createdAt: DateTime.now(),
+      ),
+      memberName: member?.name ?? 'agente',
+    );
+    return switch (resolved.status) {
+      SessionDecisionStatus.answered => resolved.answer,
+      SessionDecisionStatus.cancelled =>
+        'La persona detuvo el turno sin contestar.',
+      _ => 'La persona no contestó (${resolved.status.name}).',
+    };
+  }
+
+  bool _isToolGranted(
+    Project project,
+    Session session,
+    String profileId,
+    String toolName,
+  ) =>
+      SettingsService.instance.notifier.data.extraAllowedTools.contains(
+        toolName,
+      ) ||
+      (project.grantedToolsByProfileId[profileId] ?? const []).contains(
+        toolName,
+      ) ||
+      session.grantedTools.contains(toolName);
+
+  Future<SessionDecision> _awaitDecision(
+    String projectId,
+    String sessionId,
+    SessionDecision decision, {
+    required String memberName,
+  }) async {
+    final completer = Completer<SessionDecision>();
+    _gateCompleters[decision.id] = completer;
+    _enqueueDecision(projectId, sessionId, decision, memberName: memberName);
+    // Esperar a una persona no es inactividad del agente.
+    for (final watchdog in _turnWatchdogs[sessionId] ?? const <TurnWatchdog>{}) {
+      watchdog.pause();
+    }
+    unawaited(_persist());
+    try {
+      return await completer.future;
+    } finally {
+      _gateCompleters.remove(decision.id);
+      for (final watchdog
+          in _turnWatchdogs[sessionId] ?? const <TurnWatchdog>{}) {
+        watchdog.resume();
+      }
+    }
+  }
+
+  void _cancelBlockingDecisions(String projectId, String sessionId) {
+    final project = _projectById(projectId);
+    final session = project == null ? null : _sessionById(project, sessionId);
+    if (session == null) return;
+    final cancelled = <SessionDecision>[];
+    _updateSession(
+      projectId,
+      sessionId,
+      (open) => open.copyWith(
+        decisions: [
+          for (final decision in open.decisions)
+            if (decision.isPending && _gateCompleters.containsKey(decision.id))
+              (() {
+                final done = decision.copyWith(
+                  status: SessionDecisionStatus.cancelled,
+                  resolvedAt: DateTime.now(),
+                );
+                cancelled.add(done);
+                return done;
+              })()
+            else
+              decision,
+        ],
+      ),
+    );
+    for (final decision in cancelled) {
+      _gateCompleters.remove(decision.id)?.complete(decision);
+    }
+  }
+
+  void _recordGrant(
+    String projectId,
+    String sessionId,
+    String profileId,
+    String toolName,
+    String scope,
+  ) {
+    switch (scope) {
+      case 'session':
+        _updateSession(
+          projectId,
+          sessionId,
+          (open) => open.copyWith(
+            grantedTools: {...open.grantedTools, toolName}.toList(),
+          ),
+        );
+      case 'profile':
+        _updateProject(projectId, (project) {
+          final grants = Map<String, List<String>>.from(
+            project.grantedToolsByProfileId,
+          );
+          grants[profileId] = {...?grants[profileId], toolName}.toList();
+          return project.copyWith(grantedToolsByProfileId: grants);
+        });
+      case 'app':
+        SettingsService.instance.notifier.setExtraToolEnabled(toolName, true);
+      default:
+        break;
+    }
+  }
+
+  /// Tu respuesta a una decisión pendiente.
+  ///
+  /// Dos caminos según quién espera. Si hay un turno VIVO suspendido (gate o
+  /// `ask_user`), se le completa la espera y el proceso sigue; [scope] dice
+  /// hasta dónde vale un permiso concedido: once | session | profile | app.
+  /// Si no —el nodo cerró con `needs_user` o pide aprobación— se destraba el
+  /// nodo, se deja la respuesta en el hilo y se retoma el workflow.
   Future<String?> answerSessionDecision(
     String projectId,
     String sessionId,
     String decisionId, {
     String answer = '',
     bool? approve,
+    String scope = 'once',
   }) async {
     final project = _projectById(projectId);
     final session = project == null ? null : _sessionById(project, sessionId);
@@ -2126,6 +2356,62 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     if (project == null || session == null || decision == null) {
       return 'Esa decisión ya no está pendiente.';
     }
+
+    final waiting = _gateCompleters[decisionId];
+    if (waiting != null) {
+      final isPermission = decision.kind == SessionDecisionKind.permission;
+      if (isPermission && approve == null) return 'Falta conceder o rechazar.';
+      if (!isPermission && answer.trim().isEmpty) {
+        return 'La respuesta está vacía.';
+      }
+      final resolved = decision.copyWith(
+        status: isPermission
+            ? (approve!
+                  ? SessionDecisionStatus.granted
+                  : SessionDecisionStatus.denied)
+            : SessionDecisionStatus.answered,
+        answer: answer.trim(),
+        scope: scope,
+        resolvedAt: DateTime.now(),
+      );
+      _updateSession(
+        projectId,
+        sessionId,
+        (open) => open.copyWith(
+          decisions: [
+            for (final entry in open.decisions)
+              entry.id == decisionId ? resolved : entry,
+          ],
+        ),
+      );
+      if (isPermission && approve!) {
+        _recordGrant(
+          projectId,
+          sessionId,
+          decision.profileId,
+          decision.toolName,
+          scope,
+        );
+      }
+      _appendMessage(
+        projectId,
+        sessionId,
+        ChatMessage(
+          role: ChatRole.user,
+          text: isPermission
+              ? (approve!
+                    ? 'Permitido ${decision.toolName} (${_scopeLabel(scope)}).'
+                    : 'Rechazado ${decision.toolName}.')
+              : answer.trim(),
+          timestamp: DateTime.now(),
+          workNodeId: decision.workNodeId.isEmpty ? null : decision.workNodeId,
+        ),
+      );
+      await _persist();
+      waiting.complete(resolved);
+      return null;
+    }
+
     final isApproval = decision.kind == SessionDecisionKind.approval;
     if (isApproval && approve == null) return 'Falta aprobar o rechazar.';
     if (!isApproval && answer.trim().isEmpty) return 'La respuesta está vacía.';
@@ -2201,6 +2487,13 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     await resumeWorkflow(projectId, sessionId);
     return null;
   }
+
+  static String _scopeLabel(String scope) => switch (scope) {
+    'session' => 'esta sesión',
+    'profile' => 'este agente en este proyecto',
+    'app' => 'siempre',
+    _ => 'solo esta vez',
+  };
 
   WorkflowCapability _capabilityFor(Workflow workflow, String nodeId) {
     final capabilities = workflow.capabilities.isEmpty
@@ -3584,6 +3877,26 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
             sessionId: sessionId,
             profileId: member.id,
           );
+    // El gate de permisos: un hook PreToolUse que suspende el proceso hasta
+    // que la persona decide. Con el gate puesto, las tools que escriben
+    // entran a la allow-list del CLI —si no, el CLI las deniega solo, sin
+    // preguntar— y es el gate el que decide. Un proyecto que no mantenés
+    // sigue sin tools de escritura, y una consulta también.
+    await DecisionGateServer.ensureStarted();
+    final gate = (consultOfProfileId != null || !project.maintained)
+        ? null
+        : DecisionGateServer.gateSpecFor(
+            projectId: projectId,
+            sessionId: sessionId,
+            profileId: member.id,
+          );
+    final askEntry = (isCodex || consultOfProfileId != null)
+        ? null
+        : DecisionGateServer.mcpServerEntryFor(
+            projectId: projectId,
+            sessionId: sessionId,
+            profileId: member.id,
+          );
     // El roadmap del PROYECTO, distinto del plan de la sesión: uno dura meses
     // y vive en el repo, el otro dura una tarde y vive en el canal. Solo
     // aparece si el proyecto tiene carpeta TASKS/ — sin eso, tres tools que
@@ -3632,6 +3945,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     final mcpServers = <String, dynamic>{
       kUserToolsMcpServerKey: ?toolsEntry,
       kSessionPlanMcpServerKey: ?planEntry,
+      kDecisionsMcpServerKey: ?askEntry,
       kRoadmapMcpServerKey: ?roadmapEntry,
       kRequirementsMcpServerKey: ?requirementsEntry,
       kBoardsMcpServerKey: ?boardsEntry,
@@ -3670,7 +3984,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     // Los guardarraíles del turno. Se resuelven de este lado: el isolate del
     // session runner no alcanza ni el catálogo ni los secrets, así que lo que
     // cruza son archivos ya renderizados.
-    final turnHooks = await _resolveTurnHooks(project, engine);
+    final turnHooks = await _resolveTurnHooks(project, engine, gate: gate);
     for (final note in turnHooks.notes) {
       _appendMessage(
         projectId,
@@ -3702,6 +4016,8 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
           // proyecto como ajeno no dice nada sobre ellas.
           if (project.maintained)
             ...SettingsService.instance.notifier.data.extraAllowedTools,
+          if (gate != null) ...kDecisionGateTools,
+          if (askEntry != null) ...kDecisionsMcpToolNames,
           if (planEntry != null) ...kSessionPlanMcpToolNames,
           if (roadmapEntry != null)
             ...(isConsult
@@ -5255,11 +5571,12 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
   /// guardarraíles lleva.
   Future<TurnHooks> _resolveTurnHooks(
     Project project,
-    AgentProfile member,
-  ) async {
+    AgentProfile member, {
+    DecisionGateSpec? gate,
+  }) async {
     await HooksService.instance.notifier.ready;
     final catalog = HooksService.instance.notifier.data.hooks;
-    if (catalog.isEmpty) return TurnHooks.none;
+    if (catalog.isEmpty && gate == null) return TurnHooks.none;
 
     final tools = ToolsService.instance.notifier.data.tools;
     return prepareTurnHooks(
@@ -5273,6 +5590,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
           : HookProvider.claude,
       profile: member,
       project: project,
+      gate: gate,
     );
   }
 

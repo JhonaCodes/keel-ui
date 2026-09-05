@@ -119,6 +119,10 @@ class Session {
   /// permisos, aprobaciones. Una cola, persistida. Ver [SessionDecision].
   final List<SessionDecision> decisions;
 
+  /// Tools que concediste «para esta sesión» desde el gate. Persistido: el
+  /// permiso es de la sesión, no del proceso que lo pidió.
+  final List<String> grantedTools;
+
   const Session({
     required this.id,
     required this.title,
@@ -140,6 +144,7 @@ class Session {
     this.subagents = const [],
     this.queuedMessages = const [],
     this.decisions = const [],
+    this.grantedTools = const [],
   });
 
   /// Hay algo que solo el usuario puede destrabar.
@@ -178,6 +183,7 @@ class Session {
     List<SessionSubagent>? subagents,
     List<SessionQueuedMessage>? queuedMessages,
     List<SessionDecision>? decisions,
+    List<String>? grantedTools,
   }) {
     return Session(
       id: id,
@@ -205,6 +211,7 @@ class Session {
       subagents: subagents ?? this.subagents,
       queuedMessages: queuedMessages ?? this.queuedMessages,
       decisions: decisions ?? this.decisions,
+      grantedTools: grantedTools ?? this.grantedTools,
     );
   }
 
@@ -226,6 +233,7 @@ class Session {
     'subagents': [for (final subagent in subagents) subagent.toJson()],
     'queuedMessages': [for (final message in queuedMessages) message.toJson()],
     'decisions': [for (final decision in decisions) decision.toJson()],
+    'grantedTools': grantedTools,
   };
 
   factory Session.fromJson(Map<String, dynamic> json) {
@@ -283,6 +291,8 @@ class Session {
         for (final entry in json['decisions'] as List? ?? const [])
           SessionDecision.fromJson((entry as Map).cast<String, dynamic>()),
       ],
+      grantedTools:
+          (json['grantedTools'] as List?)?.cast<String>() ?? const [],
     );
   }
 

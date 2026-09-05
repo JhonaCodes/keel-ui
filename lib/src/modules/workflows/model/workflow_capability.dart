@@ -100,6 +100,11 @@ class WorkflowCapability {
   /// semantic constraint, not another mandatory workflow stage.
   final bool requiresIndependentOwner;
 
+  /// Antes de correr este nodo el motor pide la aprobación del usuario y
+  /// espera. Reemplaza al nodo aparte con executor `manualApproval`: la
+  /// aprobación es una decisión sobre el paso, no un paso más.
+  final bool approvalRequired;
+
   const WorkflowCapability({
     required this.id,
     required this.title,
@@ -113,6 +118,7 @@ class WorkflowCapability {
     this.readOnly = false,
     this.outputContract = '',
     this.requiresIndependentOwner = false,
+    this.approvalRequired = false,
   });
 
   /// El tope que corre de verdad: el declarado, o el default según el nodo
@@ -134,6 +140,7 @@ class WorkflowCapability {
     bool? readOnly,
     String? outputContract,
     bool? requiresIndependentOwner,
+    bool? approvalRequired,
   }) => WorkflowCapability(
     id: id,
     title: title ?? this.title,
@@ -148,6 +155,7 @@ class WorkflowCapability {
     outputContract: outputContract ?? this.outputContract,
     requiresIndependentOwner:
         requiresIndependentOwner ?? this.requiresIndependentOwner,
+    approvalRequired: approvalRequired ?? this.approvalRequired,
   );
 
   Map<String, Object> toJson() => {
@@ -163,6 +171,7 @@ class WorkflowCapability {
     'readOnly': readOnly,
     'outputContract': outputContract,
     'requiresIndependentOwner': requiresIndependentOwner,
+    'approvalRequired': approvalRequired,
   };
 
   factory WorkflowCapability.fromJson(Map<String, dynamic> json) =>
@@ -187,6 +196,7 @@ class WorkflowCapability {
         outputContract: json['outputContract'] as String? ?? '',
         requiresIndependentOwner:
             json['requiresIndependentOwner'] as bool? ?? false,
+        approvalRequired: json['approvalRequired'] as bool? ?? false,
       );
 
   @override
@@ -204,7 +214,8 @@ class WorkflowCapability {
           maxAgenticTurns == other.maxAgenticTurns &&
           readOnly == other.readOnly &&
           outputContract == other.outputContract &&
-          requiresIndependentOwner == other.requiresIndependentOwner;
+          requiresIndependentOwner == other.requiresIndependentOwner &&
+          approvalRequired == other.approvalRequired;
 
   @override
   int get hashCode => Object.hash(
@@ -220,5 +231,6 @@ class WorkflowCapability {
     readOnly,
     outputContract,
     requiresIndependentOwner,
+    approvalRequired,
   );
 }

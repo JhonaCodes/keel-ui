@@ -459,6 +459,7 @@ class _CapabilityEditorTileState extends State<_CapabilityEditorTile> {
     WorkflowExecutor? executor,
     bool? readOnly,
     bool? requiresIndependentOwner,
+    bool? approvalRequired,
   }) {
     final dependencies = _dependencies.text
         .split(',')
@@ -484,6 +485,7 @@ class _CapabilityEditorTileState extends State<_CapabilityEditorTile> {
         readOnly: readOnly,
         outputContract: _outputContract.text.trim(),
         requiresIndependentOwner: requiresIndependentOwner,
+        approvalRequired: approvalRequired,
       ),
     );
   }
@@ -617,6 +619,15 @@ class _CapabilityEditorTileState extends State<_CapabilityEditorTile> {
             ),
             value: widget.capability.requiresIndependentOwner,
             onChanged: (value) => _emit(requiresIndependentOwner: value),
+          ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Pide tu aprobación antes de correr'),
+            subtitle: const Text(
+              'El paso queda esperándote hasta que lo aprobás (p. ej. publicar).',
+            ),
+            value: widget.capability.approvalRequired,
+            onChanged: (value) => _emit(approvalRequired: value),
           ),
         ],
       ),

@@ -7,6 +7,7 @@ import 'package:keel_ui/src/modules/agents/ui/widget/markdown_text.dart';
 import 'package:keel_ui/src/modules/projects/model/project.dart';
 import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
 import 'package:keel_ui/src/modules/requirements/model/internal_requirement.dart';
+import 'package:keel_ui/src/modules/requirements/service/requirement_target_activity.dart';
 import 'package:keel_ui/src/modules/requirements/viewmodel/requirements_viewmodel.dart';
 import 'package:keel_ui/src/modules/workflows/ui/screen/workflow_picker_panel.dart';
 import 'package:keel_ui/src/modules/workspace/viewmodel/workspace_viewmodel.dart';
@@ -236,6 +237,15 @@ class _Header extends StatelessWidget {
                   style: text.bodySmall,
                   overflow: TextOverflow.ellipsis,
                 ),
+                // Qué está haciendo el destino de verdad: el que pide veía
+                // «tomado» y nada más, sin saber si había alguien del otro
+                // lado.
+                if (_targetActivity case final activity?)
+                  Text(
+                    'destino: $activity',
+                    style: text.bodySmall?.copyWith(color: _kDestino),
+                    overflow: TextOverflow.ellipsis,
+                  ),
               ],
             ),
           ),
@@ -243,6 +253,15 @@ class _Header extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  String? get _targetActivity {
+    final sessionId = requirement.takenInSessionId;
+    if (sessionId == null) return null;
+    final session = to?.sessions
+        .where((entry) => entry.id == sessionId)
+        .firstOrNull;
+    return requirementTargetActivity(session);
   }
 
   static String _edad(AppLocalizations t, Duration age) {

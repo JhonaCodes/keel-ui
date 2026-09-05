@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
+
 import 'package:keel_ui/src/core/services/local_database.dart';
 import 'package:keel_ui/src/modules/projects/model/project.dart';
 import 'package:keel_ui/src/modules/projects/model/session.dart';
+import 'package:keel_ui/src/modules/projects/model/session_decision.dart';
+import 'package:keel_ui/src/modules/projects/model/session_live_turn.dart';
+import 'package:keel_ui/src/modules/requirements/service/requirement_target_activity.dart';
 import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
 import 'package:keel_ui/src/modules/requirements/model/internal_requirement.dart';
 import 'package:keel_ui/src/modules/requirements/ui/view/requirement_thread_view.dart';
@@ -178,4 +183,88 @@ void main() {
       expect(find.text('Ir a la sesión'), findsNothing);
     });
   });
+
+  group('actividad del destino', () {
+    test('describe si la sesión que tomó el requerimiento está actuando', () {
+      final base = Session(
+        id: 's-req',
+        title: 'REQ-0001',
+        createdAt: DateTime(2026, 8, 23),
+      );
+      expect(requirementTargetActivity(null), isNull);
+      expect(
+        requirementTargetActivity(
+          base.copyWith(
+            isRunning: true,
+            liveTurn: const SessionLiveTurn(
+              profileId: 'p',
+              phase: TurnPhase.thinking,
+            ),
+          ),
+        ),
+        contains('pensando'),
+      );
+      expect(
+        requirementTargetActivity(
+          base.copyWith(
+            decisions: [
+              SessionDecision(
+                id: 'd',
+                kind: SessionDecisionKind.question,
+                profileId: 'p',
+                workNodeId: '',
+                title: 'x',
+                createdAt: DateTime(2026),
+              ),
+            ],
+          ),
+        ),
+        contains('esperándote'),
+      );
+      expect(
+        requirementTargetActivity(
+          base.copyWith(status: SessionStatus.finished),
+        ),
+        contains('terminó'),
+      );
+      expect(requirementTargetActivity(base), contains('sin turno'));
+    });
+
+    testWidgets('el header dice qué está haciendo la sesión destino', (
+      tester,
+    ) async {
+      _conDestino(
+        sessions: [
+          _sesion('s-req').copyWith(
+            isRunning: true,
+            liveTurn: const SessionLiveTurn(
+              profileId: 'p',
+              phase: TurnPhase.working,
+            ),
+          ),
+        ],
+      );
+      // Con localización de verdad: el header la usa, y el harness viejo
+      // de este archivo no la trae (por eso otros tests suyos fallan).
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(
+            body: RequirementThreadView(
+              requirement: _requerimiento(
+                status: RequirementStatus.tomado,
+                takenInSessionId: 's-req',
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(tester.takeException(), isNull);
+      expect(find.textContaining('trabajando'), findsOneWidget);
+    });
+  });
+
 }

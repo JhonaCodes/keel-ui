@@ -72,6 +72,7 @@ Future<void> _runInIsolate({
     conversationHistory: spec.conversationHistory,
     planMode: spec.planMode,
     maxTurns: spec.maxTurns,
+    maxBudgetUsd: spec.maxBudgetUsd,
   );
 
   final events =

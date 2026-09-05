@@ -97,4 +97,47 @@ void main() {
       await subscription.cancel();
     });
   });
+
+  group('ClaudeCliRunner — stdin', () {
+    late Directory fakeBin;
+
+    tearDown(() {
+      if (fakeBin.existsSync()) fakeBin.deleteSync(recursive: true);
+    });
+
+    test('cierra el stdin del CLI: sin la espera de 3s ni su aviso en stderr',
+        () async {
+      // `claude -p` con stdin que no es TTY espera datos unos segundos y, al
+      // vencer, escribe "Warning: no stdin data received..." en stderr. Con
+      // un exit distinto de cero, ese stderr era el "error" que veía el
+      // usuario en el hilo, y cada turno pagaba la espera.
+      // POSIX a propósito: el `read -t` de bash devuelve >128 al vencer en
+      // bash 5 y 1 en el bash 3.2 de macOS, así que un fake con `-t` pasaba
+      // sin probar nada. Acá se mira si un `read` en segundo plano sigue
+      // vivo tras un segundo: con stdin cerrado termina al instante.
+      fakeBin = createFakeCliBin('claude', '''#!/bin/sh
+exec 3<&0
+( read -r _line <&3 ) &
+pid=\$!
+sleep 1
+if kill -0 "\$pid" 2>/dev/null; then
+  echo "Warning: no stdin data received in 1s, proceeding without it." >&2
+  kill "\$pid" 2>/dev/null
+fi
+exit 1
+''');
+      const runner = ClaudeCliRunner();
+
+      final events = await runner
+          .run(
+            _spec,
+            userPath: fakeCliUserPath(fakeBin),
+            cancel: const Stream<void>.empty(),
+          )
+          .toList();
+
+      final failure = events.singleWhere((event) => event['type'] == 'failure');
+      expect(failure['message'], isNot(contains('no stdin data')));
+    });
+  });
 }

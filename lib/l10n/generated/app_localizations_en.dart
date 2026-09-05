@@ -1346,6 +1346,21 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String labelIdleTimeoutLimit(int count) {
+    return 'Minutes without provider activity before a step is cut: $count';
+  }
+
+  @override
+  String labelNodeTimeoutLimit(int count) {
+    return 'Maximum minutes per step: $count';
+  }
+
+  @override
+  String labelSessionCostLimit(int amount) {
+    return 'Session cost ceiling in USD (0 = no ceiling): $amount';
+  }
+
+  @override
   String get labelNoBoardsYet => 'No boards yet';
 
   @override

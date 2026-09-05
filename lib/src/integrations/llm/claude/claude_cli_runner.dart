@@ -64,6 +64,7 @@ class ClaudeCliRunner implements LlmRunner {
         fullFileSystemAccess: spec.fullFileSystemAccess,
         planMode: spec.planMode,
         maxTurns: spec.maxTurns,
+        maxBudgetUsd: spec.maxBudgetUsd,
         sessionId: spec.sessionId,
       );
 
@@ -94,6 +95,13 @@ class ClaudeCliRunner implements LlmRunner {
       }
       cancelGuard.attach(process);
       onPidKnown?.call(process.pid);
+      // `claude -p` con un stdin que no es TTY espera unos segundos por si
+      // le llega el prompt por ahí, y al vencer escribe «Warning: no stdin
+      // data received…» en stderr. El prompt ya va por argumento: cerrar el
+      // stdin le ahorra la espera a CADA turno y saca ese aviso del stderr,
+      // que es lo que se muestra como error cuando el turno sale con código
+      // distinto de cero (por ejemplo, al tope de turnos).
+      await process.stdin.close();
 
       // Uno por corrida: se acuerda de los `Task` que abrió este turno, que
       // es cómo reconoce después cuál `tool_result` es la devolución de un

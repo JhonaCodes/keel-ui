@@ -39,6 +39,13 @@ class _WorkflowFormScreenState extends State<WorkflowFormScreen> {
   late int _maxReplans = widget.initial?.policy.maxReplans ?? 2;
   late int _maxSubagents = widget.initial?.policy.maxSubagents ?? 1;
   late int _maxReviewCycles = widget.initial?.policy.maxReviewCycles ?? 4;
+  late int _idleTimeoutMinutes =
+      widget.initial?.policy.idleTimeoutMinutes ?? kDefaultIdleTimeoutMinutes;
+  late int _nodeTimeoutMinutes =
+      widget.initial?.policy.nodeTimeoutMinutes ?? kDefaultNodeTimeoutMinutes;
+  late int _maxSessionCostUsd =
+      widget.initial?.policy.maxSessionCostUsd.round() ??
+      kDefaultMaxSessionCostUsd.round();
   late List<String> _skills = [...?widget.initial?.policy.requiredSkillNames];
   late List<WorkflowCapability> _capabilities = [
     ...(widget.initial?.capabilities.isNotEmpty == true
@@ -90,6 +97,9 @@ class _WorkflowFormScreenState extends State<WorkflowFormScreen> {
       maxReplans: _maxReplans,
       maxSubagents: _maxSubagents,
       maxReviewCycles: _maxReviewCycles,
+      idleTimeoutMinutes: _idleTimeoutMinutes,
+      nodeTimeoutMinutes: _nodeTimeoutMinutes,
+      maxSessionCostUsd: _maxSessionCostUsd.toDouble(),
     );
     final workflows = WorkflowsService.instance.notifier;
     final initial = widget.initial;
@@ -251,6 +261,48 @@ class _WorkflowFormScreenState extends State<WorkflowFormScreen> {
             label: '$_maxReviewCycles',
             onChanged: (value) =>
                 setState(() => _maxReviewCycles = value.round()),
+          ),
+          Text(
+            AppLocalizations.of(
+              context,
+            ).labelIdleTimeoutLimit(_idleTimeoutMinutes),
+          ),
+          Slider(
+            value: _idleTimeoutMinutes.toDouble(),
+            min: 1,
+            max: 60,
+            divisions: 59,
+            label: '$_idleTimeoutMinutes',
+            onChanged: (value) =>
+                setState(() => _idleTimeoutMinutes = value.round()),
+          ),
+          Text(
+            AppLocalizations.of(
+              context,
+            ).labelNodeTimeoutLimit(_nodeTimeoutMinutes),
+          ),
+          Slider(
+            value: _nodeTimeoutMinutes.toDouble(),
+            min: 5,
+            max: 240,
+            divisions: 47,
+            label: '$_nodeTimeoutMinutes',
+            onChanged: (value) =>
+                setState(() => _nodeTimeoutMinutes = value.round()),
+          ),
+          Text(
+            AppLocalizations.of(
+              context,
+            ).labelSessionCostLimit(_maxSessionCostUsd),
+          ),
+          Slider(
+            value: _maxSessionCostUsd.toDouble(),
+            min: 0,
+            max: 200,
+            divisions: 40,
+            label: _maxSessionCostUsd == 0 ? '∞' : '$_maxSessionCostUsd',
+            onChanged: (value) =>
+                setState(() => _maxSessionCostUsd = value.round()),
           ),
           if (_error != null) ...[
             const SizedBox(height: 12),

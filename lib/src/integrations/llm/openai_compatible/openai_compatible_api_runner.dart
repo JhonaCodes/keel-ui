@@ -11,14 +11,16 @@ import 'package:keel_ui/src/modules/secrets/viewmodel/secrets_viewmodel.dart';
 
 typedef LlmSecretResolver = Future<String?> Function(String secretRef);
 
-/// Red contra un bucle infinito de herramientas, no un presupuesto de trabajo.
+/// Rondas de herramientas por turno de un proveedor por API.
 ///
-/// Vive alto a propósito. A los proveedores por CLI nadie les corta el ciclo,
-/// así que un tope bajo acá no ahorraba nada: cortaba el nodo a mitad de
-/// camino y obligaba a relanzarlo entero, que sale MÁS caro que las rondas
-/// que evitó. Un nodo de migración con inventario de impacto pasa de 40 sin
-/// esfuerzo.
-const kDefaultOpenAiCompatibleMaxToolRounds = 200;
+/// Cada ronda vuelve a mandar el historial COMPLETO del turno: a 200 rondas
+/// un nodo largo subía la misma conversación doscientas veces, y ese era el
+/// multiplicador de costo, no el trabajo. Estuvo en 200 mientras cortar un
+/// nodo significaba relanzarlo entero; con el tope de turnos por nodo y la
+/// continuación ordenada del motor, un turno cortado se retoma en vez de
+/// repetirse, y el tope puede ser un presupuesto. El constructor lo deja
+/// subir para el caso que de verdad lo necesite.
+const kDefaultOpenAiCompatibleMaxToolRounds = 40;
 
 /// Techo de salida por turno, en tokens.
 ///

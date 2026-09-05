@@ -286,4 +286,52 @@ void main() {
       contains('ciclo'),
     );
   });
+
+  group('topes por defecto', () {
+    test('un nodo de escritura sin tope declarado corre con el default', () {
+      // 26 de 31 workflows guardados tenían `maxAgenticTurns: 0`: "sin
+      // tope" significaba turnos ilimitados, no "el default".
+      const writes = WorkflowCapability(
+        id: 'implement',
+        title: 'Implementar',
+        instruction: 'Implementar.',
+        role: 'implementador',
+      );
+      const reads = WorkflowCapability(
+        id: 'plan',
+        title: 'Planificar',
+        instruction: 'Planificar.',
+        role: 'planificador',
+        readOnly: true,
+      );
+      const explicit = WorkflowCapability(
+        id: 'audit',
+        title: 'Auditar',
+        instruction: 'Auditar.',
+        role: 'auditor',
+        maxAgenticTurns: 3,
+      );
+
+      expect(writes.effectiveMaxAgenticTurns, kDefaultWriteNodeTurns);
+      expect(reads.effectiveMaxAgenticTurns, kDefaultReadOnlyNodeTurns);
+      expect(explicit.effectiveMaxAgenticTurns, 3);
+    });
+
+    test('la policy trae plazos y techo de costo, y sobreviven al disco', () {
+      const policy = WorkflowPolicy();
+      expect(policy.idleTimeoutMinutes, 10);
+      expect(policy.nodeTimeoutMinutes, 45);
+      expect(policy.maxSessionCostUsd, 20);
+
+      final custom = policy.copyWith(
+        idleTimeoutMinutes: 3,
+        nodeTimeoutMinutes: 90,
+        maxSessionCostUsd: 5.5,
+      );
+      expect(WorkflowPolicy.fromJson(custom.toJson()), custom);
+
+      // Un registro anterior a estos campos lee los defaults, no cero.
+      expect(WorkflowPolicy.fromJson({'maxReplans': 1}).idleTimeoutMinutes, 10);
+    });
+  });
 }

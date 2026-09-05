@@ -78,6 +78,27 @@ class ResolutionEngine {
     );
   }
 
+  /// Devuelve a `pending` todo nodo que quedó `running`.
+  ///
+  /// Un Stop —o una interrupción con mensaje— corta el turno a mitad de nodo.
+  /// Sin esto el nodo quedaba `running` para siempre: `_nextReadyNode` solo
+  /// mira `pending`, así que al retomar no había nodo listo y el caso «no
+  /// cerraba». El caso vuelve a `active` para que se lo pueda retomar.
+  static ResolutionCase releaseRunningNodes(ResolutionCase resolution) {
+    final released = [
+      for (final node in resolution.nodes)
+        node.status == WorkNodeStatus.running
+            ? node.copyWith(status: WorkNodeStatus.pending)
+            : node,
+    ];
+    return resolution.copyWith(
+      nodes: released,
+      status: resolution.status == ResolutionCaseStatus.blocked
+          ? resolution.status
+          : ResolutionCaseStatus.active,
+    );
+  }
+
   static bool canComplete(ResolutionCase resolution) {
     final nodesDone = resolution.nodes.every(
       (node) => node.status == WorkNodeStatus.done,

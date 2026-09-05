@@ -72,6 +72,15 @@ String? validateWorkflowCapabilities(List<WorkflowCapability> capabilities) {
   return null;
 }
 
+/// Turnos agénticos de un nodo que escribe cuando el workflow no declara un
+/// tope. Antes `0` significaba «ilimitado», y 26 de 31 workflows guardados
+/// corrían así: un nodo llegó a 577 turnos. Veinte alcanza para implementar
+/// y probar; el que necesite más lo declara en el nodo.
+const int kDefaultWriteNodeTurns = 20;
+
+/// Lo mismo para un nodo de solo lectura (planificar, auditar).
+const int kDefaultReadOnlyNodeTurns = 8;
+
 @immutable
 class WorkflowCapability {
   final String id;
@@ -105,6 +114,13 @@ class WorkflowCapability {
     this.outputContract = '',
     this.requiresIndependentOwner = false,
   });
+
+  /// El tope que corre de verdad: el declarado, o el default según el nodo
+  /// escriba o no. Es lo que llega a `--max-turns`; [maxAgenticTurns] queda
+  /// como lo que el usuario escribió.
+  int get effectiveMaxAgenticTurns => maxAgenticTurns > 0
+      ? maxAgenticTurns
+      : (readOnly ? kDefaultReadOnlyNodeTurns : kDefaultWriteNodeTurns);
 
   WorkflowCapability copyWith({
     String? title,

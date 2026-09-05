@@ -46,6 +46,10 @@ class TaskRunSpec {
   final bool planMode;
   final int maxTurns;
 
+  /// Techo en dólares para este turno. Cero: sin techo. Solo claude lo
+  /// aplica (`--max-budget-usd`); los demás lo ignoran y el preflight lo dice.
+  final double maxBudgetUsd;
+
   const TaskRunSpec({
     required this.prompt,
     required this.workingDirectory,
@@ -62,6 +66,7 @@ class TaskRunSpec {
     this.conversationHistory = const [],
     this.planMode = false,
     this.maxTurns = 0,
+    this.maxBudgetUsd = 0,
     this.provider = 'claude',
     this.providerApiKey,
   });
@@ -84,6 +89,7 @@ class TaskRunSpec {
         .toList(),
     'planMode': planMode,
     'maxTurns': maxTurns,
+    'maxBudgetUsd': maxBudgetUsd,
     'provider': provider,
     'providerApiKey': providerApiKey,
   };
@@ -115,6 +121,7 @@ class TaskRunSpec {
       // existiera no trae la clave, y eso no es un turno roto.
       planMode: message['planMode'] as bool? ?? false,
       maxTurns: message['maxTurns'] as int? ?? 0,
+      maxBudgetUsd: (message['maxBudgetUsd'] as num?)?.toDouble() ?? 0,
       provider: message['provider'] as String? ?? 'claude',
       providerApiKey: message['providerApiKey'] as String?,
     );

@@ -12,6 +12,7 @@ List<String> buildClaudeArguments({
   required String? sessionId,
   required bool planMode,
   required int maxTurns,
+  double maxBudgetUsd = 0,
 }) {
   return [
     '-p',
@@ -28,6 +29,9 @@ List<String> buildClaudeArguments({
     '--effort',
     effort,
     if (maxTurns > 0) ...['--max-turns', '$maxTurns'],
+    // Lo que le queda a la sesión antes de su techo: el CLI corta solo, sin
+    // esperar a que Keel lo vea en el `result` del turno siguiente.
+    if (maxBudgetUsd > 0) ...['--max-budget-usd', '$maxBudgetUsd'],
     // El modo plan del propio CLI: trae su system prompt de planificación y
     // frena las escrituras aunque las tools estén permitidas. Por eso
     // `--allowedTools` NO se recorta acá — la superficie de tools tiene que

@@ -11,6 +11,7 @@ void main() {
       String? sessionId,
       bool planMode = false,
       int maxTurns = 0,
+      double maxBudgetUsd = 0,
     }) => buildClaudeArguments(
       prompt: 'Hola',
       model: 'sonnet',
@@ -23,6 +24,7 @@ void main() {
       sessionId: sessionId,
       planMode: planMode,
       maxTurns: maxTurns,
+      maxBudgetUsd: maxBudgetUsd,
     );
 
     test('turno mínimo: sin mcp, sin hooks, sin resume', () {
@@ -130,6 +132,14 @@ void main() {
         expect(args, containsAllInOrder(['--permission-mode', 'plan']));
         expect(args, containsAllInOrder(['--add-dir', '/']));
       });
+    });
+
+    test('con techo de costo agrega --max-budget-usd; sin techo, nada', () {
+      expect(
+        minimal(maxBudgetUsd: 12.5),
+        containsAllInOrder(['--max-budget-usd', '12.5']),
+      );
+      expect(minimal(), isNot(contains('--max-budget-usd')));
     });
 
     test('el prompt siempre va justo después de -p', () {

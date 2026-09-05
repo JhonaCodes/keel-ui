@@ -2373,6 +2373,24 @@ abstract class AppLocalizations {
   /// **'Read/verification subagents: {count}'**
   String labelMaxSubagentsLimit(int count);
 
+  /// No description provided for @labelIdleTimeoutLimit.
+  ///
+  /// In en, this message translates to:
+  /// **'Minutes without provider activity before a step is cut: {count}'**
+  String labelIdleTimeoutLimit(int count);
+
+  /// No description provided for @labelNodeTimeoutLimit.
+  ///
+  /// In en, this message translates to:
+  /// **'Maximum minutes per step: {count}'**
+  String labelNodeTimeoutLimit(int count);
+
+  /// No description provided for @labelSessionCostLimit.
+  ///
+  /// In en, this message translates to:
+  /// **'Session cost ceiling in USD (0 = no ceiling): {amount}'**
+  String labelSessionCostLimit(int amount);
+
   /// No description provided for @labelNoBoardsYet.
   ///
   /// In en, this message translates to:

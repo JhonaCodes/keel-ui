@@ -230,4 +230,30 @@ void main() {
     expect(restored.preflight.missingSecrets, ['OPENROUTER_API_KEY']);
     expect(restored.preflight.ready, isFalse);
   });
+
+  test('interrumpir devuelve el nodo en curso a pendiente, el caso sigue', () {
+    // Sin esto, un Stop a mitad de nodo dejaba el nodo en `running` para
+    // siempre: `_nextReadyNode` lo salteaba y el caso "no cerraba".
+    final started = ResolutionEngine.start(
+      id: 'case-1',
+      kind: WorkflowKind.general,
+      ownerRole: 'implementador',
+    );
+    final first = started.nodes.first.id;
+    final running = started.copyWith(
+      nodes: [
+        for (final node in started.nodes)
+          node.id == first ? node.copyWith(status: WorkNodeStatus.running) : node,
+      ],
+    );
+
+    final released = ResolutionEngine.releaseRunningNodes(running);
+
+    expect(
+      released.nodes.firstWhere((node) => node.id == first).status,
+      WorkNodeStatus.pending,
+    );
+    expect(released.status, ResolutionCaseStatus.active);
+    expect(released.nodes.where((n) => n.status == WorkNodeStatus.running), isEmpty);
+  });
 }

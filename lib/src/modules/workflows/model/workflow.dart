@@ -12,6 +12,17 @@ export 'package:keel_ui/src/modules/workflows/model/workflow_capability.dart';
 /// en paralelo, que es el caso que justifica pasar de uno.
 const int kMaxSubagentsPerNode = 6;
 
+/// Minutos sin un solo evento del proveedor antes de cortar el turno. Diez
+/// es el piso: un `flutter build` o una suite larga pueden callar varios
+/// minutos sin estar colgados.
+const int kDefaultIdleTimeoutMinutes = 10;
+
+/// Minutos que puede durar un turno de nodo, con o sin actividad.
+const int kDefaultNodeTimeoutMinutes = 45;
+
+/// Techo de gasto reportado por sesión, en dólares. Cero es «sin techo».
+const double kDefaultMaxSessionCostUsd = 20;
+
 enum WorkflowKind { general, bug, migration, roadmap }
 
 enum WorkflowQualityGate { analysis, focusedTests, compatibility, regression }
@@ -28,6 +39,17 @@ class WorkflowPolicy {
   final int maxSubagents;
   final int maxReviewCycles;
 
+  /// Plazo de inactividad de un turno, en minutos. Ver [TurnWatchdog].
+  final int idleTimeoutMinutes;
+
+  /// Plazo duro de un turno de nodo, en minutos.
+  final int nodeTimeoutMinutes;
+
+  /// Techo de gasto reportado de la sesión, en dólares. Cero: sin techo. Solo
+  /// cuenta lo que el proveedor informa; codex no informa costo y por eso el
+  /// techo no lo frena — el preflight lo dice.
+  final double maxSessionCostUsd;
+
   const WorkflowPolicy({
     this.resolutionRole = '',
     this.requiredSkillNames = const [],
@@ -40,6 +62,9 @@ class WorkflowPolicy {
     this.maxReplans = 2,
     this.maxSubagents = 1,
     this.maxReviewCycles = 4,
+    this.idleTimeoutMinutes = kDefaultIdleTimeoutMinutes,
+    this.nodeTimeoutMinutes = kDefaultNodeTimeoutMinutes,
+    this.maxSessionCostUsd = kDefaultMaxSessionCostUsd,
   });
 
   WorkflowPolicy copyWith({
@@ -51,6 +76,9 @@ class WorkflowPolicy {
     int? maxReplans,
     int? maxSubagents,
     int? maxReviewCycles,
+    int? idleTimeoutMinutes,
+    int? nodeTimeoutMinutes,
+    double? maxSessionCostUsd,
   }) => WorkflowPolicy(
     resolutionRole: resolutionRole ?? this.resolutionRole,
     requiredSkillNames: requiredSkillNames ?? this.requiredSkillNames,
@@ -61,6 +89,9 @@ class WorkflowPolicy {
     maxReplans: maxReplans ?? this.maxReplans,
     maxSubagents: maxSubagents ?? this.maxSubagents,
     maxReviewCycles: maxReviewCycles ?? this.maxReviewCycles,
+    idleTimeoutMinutes: idleTimeoutMinutes ?? this.idleTimeoutMinutes,
+    nodeTimeoutMinutes: nodeTimeoutMinutes ?? this.nodeTimeoutMinutes,
+    maxSessionCostUsd: maxSessionCostUsd ?? this.maxSessionCostUsd,
   );
 
   Map<String, dynamic> toJson() => {
@@ -72,6 +103,9 @@ class WorkflowPolicy {
     'maxReplans': maxReplans,
     'maxSubagents': maxSubagents,
     'maxReviewCycles': maxReviewCycles,
+    'idleTimeoutMinutes': idleTimeoutMinutes,
+    'nodeTimeoutMinutes': nodeTimeoutMinutes,
+    'maxSessionCostUsd': maxSessionCostUsd,
   };
 
   factory WorkflowPolicy.fromJson(Map<String, dynamic>? json) {
@@ -98,6 +132,16 @@ class WorkflowPolicy {
         kMaxSubagentsPerNode,
       ),
       maxReviewCycles: (data['maxReviewCycles'] as int? ?? 4).clamp(1, 4),
+      idleTimeoutMinutes:
+          (data['idleTimeoutMinutes'] as int? ?? kDefaultIdleTimeoutMinutes)
+              .clamp(1, 240),
+      nodeTimeoutMinutes:
+          (data['nodeTimeoutMinutes'] as int? ?? kDefaultNodeTimeoutMinutes)
+              .clamp(1, 1440),
+      maxSessionCostUsd:
+          ((data['maxSessionCostUsd'] as num?)?.toDouble() ??
+                  kDefaultMaxSessionCostUsd)
+              .clamp(0, double.infinity),
     );
   }
 
@@ -116,7 +160,10 @@ class WorkflowPolicy {
           listEquals(qualityGates, other.qualityGates) &&
           maxReplans == other.maxReplans &&
           maxSubagents == other.maxSubagents &&
-          maxReviewCycles == other.maxReviewCycles;
+          maxReviewCycles == other.maxReviewCycles &&
+          idleTimeoutMinutes == other.idleTimeoutMinutes &&
+          nodeTimeoutMinutes == other.nodeTimeoutMinutes &&
+          maxSessionCostUsd == other.maxSessionCostUsd;
 
   @override
   int get hashCode => Object.hash(
@@ -128,6 +175,9 @@ class WorkflowPolicy {
     maxReplans,
     maxSubagents,
     maxReviewCycles,
+    idleTimeoutMinutes,
+    nodeTimeoutMinutes,
+    maxSessionCostUsd,
   );
 }
 

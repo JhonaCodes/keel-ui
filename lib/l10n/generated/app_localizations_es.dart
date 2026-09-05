@@ -1350,6 +1350,21 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
+  String labelIdleTimeoutLimit(int count) {
+    return 'Minutos sin actividad del proveedor antes de cortar un paso: $count';
+  }
+
+  @override
+  String labelNodeTimeoutLimit(int count) {
+    return 'Minutos máximos por paso: $count';
+  }
+
+  @override
+  String labelSessionCostLimit(int amount) {
+    return 'Techo de costo de la sesión en USD (0 = sin techo): $amount';
+  }
+
+  @override
   String get labelNoBoardsYet => 'Todavía no hay tableros';
 
   @override
@@ -3031,6 +3046,21 @@ class AppLocalizationsEsCo extends AppLocalizationsEs {
   @override
   String labelMaxSubagentsLimit(int count) {
     return 'Subagentes de lectura/verificación: $count';
+  }
+
+  @override
+  String labelIdleTimeoutLimit(int count) {
+    return 'Minutos sin actividad del proveedor antes de cortar un paso: $count';
+  }
+
+  @override
+  String labelNodeTimeoutLimit(int count) {
+    return 'Minutos máximos por paso: $count';
+  }
+
+  @override
+  String labelSessionCostLimit(int amount) {
+    return 'Techo de costo de la sesión en USD (0 = sin techo): $amount';
   }
 
   @override

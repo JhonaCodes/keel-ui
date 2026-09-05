@@ -37,6 +37,9 @@ class LlmTurnSpec {
   /// their provider exposes a real agentic-turn limit.
   final int maxTurns;
 
+  /// Techo en dólares del turno. Cero: sin techo. Hoy solo claude lo aplica.
+  final double maxBudgetUsd;
+
   const LlmTurnSpec({
     required this.prompt,
     required this.workingDirectory,
@@ -53,5 +56,6 @@ class LlmTurnSpec {
     this.conversationHistory = const [],
     this.planMode = false,
     this.maxTurns = 0,
+    this.maxBudgetUsd = 0,
   });
 }

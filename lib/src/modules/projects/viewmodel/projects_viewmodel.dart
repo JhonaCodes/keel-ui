@@ -61,6 +61,7 @@ import 'package:keel_ui/src/modules/projects/repository/projects_repository.dart
 import 'package:keel_ui/src/integrations/chat_references/chat_references.dart';
 import 'package:keel_ui/src/modules/projects/service/resolution_engine.dart';
 import 'package:keel_ui/src/modules/projects/service/subagent_budget.dart';
+import 'package:keel_ui/src/modules/projects/service/turn_watchdog.dart';
 import 'package:keel_ui/src/modules/projects/service/turn_prompt.dart';
 import 'package:keel_ui/src/modules/tools/model/tool.dart';
 import 'package:keel_ui/src/modules/tools/viewmodel/tools_viewmodel.dart';
@@ -129,6 +130,10 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
   /// so "send now" uses this set before deciding whether it is safe to start
   /// the queued follow-up.
   final Set<String> _activeSessionRuns = {};
+
+  /// Los vigilantes de los turnos vivos, por sesión. Una decisión pendiente
+  /// los pausa (la espera humana no es inactividad del agente).
+  final Map<String, Set<TurnWatchdog>> _turnWatchdogs = {};
 
   /// Reference resolution may touch the filesystem before a turn owns a CLI.
   /// This closes that short gap so two fast sends cannot start two turns for
@@ -1440,7 +1445,16 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
   bool isSessionStopped(String sessionId) =>
       _stoppedSessionIds.contains(sessionId);
 
-  void stopSession(String projectId, String sessionId) {
+  /// Frena el turno en curso. Con [interrupting] la sesión NO se sella como
+  /// fallida: es un mensaje del usuario que entra a mitad de nodo, y el
+  /// workflow retoma ese nodo cuando el mensaje se atendió. Sin esto un
+  /// mensaje de interrupción sellaba `failed`, dejaba el nodo `running` y
+  /// nadie volvía a `_runWorkflow`: el flujo moría por escribirle.
+  void stopSession(
+    String projectId,
+    String sessionId, {
+    bool interrupting = false,
+  }) {
     final run = _runningSessions.remove(sessionId);
     final project = _projectById(projectId);
     final session = project == null ? null : _sessionById(project, sessionId);
@@ -1451,6 +1465,22 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
 
     _stoppedSessionIds.add(sessionId);
     run?.cancel();
+    _releaseRunningNodes(projectId, sessionId);
+
+    if (interrupting) {
+      _appendMessage(
+        projectId,
+        sessionId,
+        ChatMessage(
+          role: ChatRole.system,
+          text:
+              'Turno interrumpido para atender tu mensaje. El workflow '
+              'retoma el paso en curso cuando lo haya atendido.',
+          timestamp: DateTime.now(),
+        ),
+      );
+      return;
+    }
 
     _appendMessage(
       projectId,
@@ -1462,6 +1492,33 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
       ),
     );
     _finishSession(projectId, sessionId, SessionStatus.failed);
+  }
+
+  void _releaseRunningNodes(String projectId, String sessionId) {
+    final project = _projectById(projectId);
+    final resolution = project == null
+        ? null
+        : _sessionById(project, sessionId)?.resolutionCase;
+    if (resolution == null) return;
+    _storeResolution(
+      projectId,
+      sessionId,
+      ResolutionEngine.releaseRunningNodes(resolution),
+    );
+  }
+
+  /// Retoma un workflow que quedó a mitad —por una interrupción con mensaje
+  /// o por una decisión que ya se contestó— si tiene un nodo listo.
+  Future<void> resumeWorkflow(String projectId, String sessionId) async {
+    final project = _projectById(projectId);
+    final session = project == null ? null : _sessionById(project, sessionId);
+    final resolution = session?.resolutionCase;
+    if (session == null || resolution == null) return;
+    if (session.isRunning || _activeSessionRuns.contains(sessionId)) return;
+    if (!resolution.preflight.ready) return;
+    if (resolution.status != ResolutionCaseStatus.active) return;
+    if (_nextReadyNode(resolution) == null) return;
+    await _runWorkflow(projectId, sessionId, session.request);
   }
 
   /// Runs an adaptive workflow. Nodes are selected by dependencies and fresh
@@ -1573,6 +1630,42 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     final workflowTurnId = generateUuidV4();
     try {
       while (!_stoppedSessionIds.contains(sessionId)) {
+        // El techo de costo se mira ANTES de elegir nodo: un nodo que ya no
+        // entra en el presupuesto no arranca, y lo que le queda al que sí
+        // arranca viaja al CLI para que corte solo.
+        final costCeiling = workflow.policy.maxSessionCostUsd;
+        final spentUsd =
+            _sessionById(
+              _projectById(projectId) ?? project,
+              sessionId,
+            )?.usage.reportedCostUsd ??
+            0;
+        if (costCeiling > 0 && spentUsd >= costCeiling) {
+          resolution = resolution.copyWith(
+            status: ResolutionCaseStatus.blocked,
+          );
+          _storeResolution(projectId, sessionId, resolution);
+          _appendMessage(
+            projectId,
+            sessionId,
+            ChatMessage(
+              role: ChatRole.error,
+              text:
+                  'Techo de costo de la sesión alcanzado: US\$ '
+                  '${spentUsd.toStringAsFixed(2)} de '
+                  '${costCeiling.toStringAsFixed(2)}. El caso queda '
+                  'bloqueado; subí el techo en la policy del workflow o '
+                  'abrí una sesión nueva.',
+              timestamp: DateTime.now(),
+            ),
+          );
+          _finishSession(projectId, sessionId, SessionStatus.failed);
+          break;
+        }
+        final remainingBudgetUsd = costCeiling > 0
+            ? costCeiling - spentUsd
+            : 0.0;
+
         final node = _nextReadyNode(resolution);
         if (node == null) {
           if (ResolutionEngine.canComplete(resolution)) {
@@ -1645,6 +1738,9 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
                 workNodeId: node.id,
               ),
             );
+            // Sellado: antes salía con la sesión en `running` y nada
+            // corriendo, que es una sesión trabada sin señal.
+            _finishSession(projectId, sessionId, SessionStatus.failed);
             return;
           }
           resolution = resolution.copyWith(
@@ -1682,7 +1778,13 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
           instruction: baseInstruction,
           turnId: workflowTurnId,
           preflight: preflight,
+          maxBudgetUsd: remainingBudgetUsd,
         );
+        // Un Stop o una interrupción a mitad de nodo no es evidencia de
+        // nada: el nodo ya volvió a `pending` y el caso sigue activo. Seguir
+        // acá lo registraba como hallazgo del compilador y lo pausaba, con
+        // lo que ni el retome lo encontraba listo.
+        if (_stoppedSessionIds.contains(sessionId)) break;
         // A turn may have registered migration coverage while it ran. Reload
         // the graph so a stale local snapshot cannot overwrite that evidence.
         resolution =
@@ -1775,6 +1877,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     required String instruction,
     required String turnId,
     required _AdaptivePreflightResult preflight,
+    double maxBudgetUsd = 0,
   }) async {
     final project = _projectById(projectId);
     if (project == null) return (ok: false, answer: 'Proyecto no disponible.');
@@ -1811,7 +1914,8 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
           turnId: turnId,
           depth: 0,
           executionId: _workflowExecutionId(sessionId, capability.id),
-          maxTurns: capability.maxAgenticTurns,
+          maxTurns: capability.effectiveMaxAgenticTurns,
+          maxBudgetUsd: maxBudgetUsd,
           planMode: capability.readOnly,
         );
       case WorkflowExecutor.resumeParent:
@@ -1828,7 +1932,8 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
           turnId: turnId,
           depth: 0,
           executionId: _workflowExecutionId(sessionId, parentId),
-          maxTurns: capability.maxAgenticTurns,
+          maxTurns: capability.effectiveMaxAgenticTurns,
+          maxBudgetUsd: maxBudgetUsd,
         );
       case WorkflowExecutor.providerSubagent:
         if (parentOwner == null) {
@@ -1859,7 +1964,8 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
             depth: 0,
             allowConsults: false,
             executionId: _workflowExecutionId(sessionId, parentId),
-            maxTurns: capability.maxAgenticTurns,
+            maxTurns: capability.effectiveMaxAgenticTurns,
+          maxBudgetUsd: maxBudgetUsd,
           );
           final after = _sessionById(project, sessionId)?.subagents.length ?? 0;
           if (after > before) return native;
@@ -1887,8 +1993,12 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
           depth: 0,
           allowConsults: false,
           executionId: _workflowExecutionId(sessionId, capability.id),
-          maxTurns: capability.maxAgenticTurns,
-          planMode: true,
+          maxTurns: capability.effectiveMaxAgenticTurns,
+          maxBudgetUsd: maxBudgetUsd,
+          // El modo del NODO, no «plan» a secas: con `planMode: true` fijo,
+          // un nodo de entrega (commit, push, PR) que cayera en esta rama no
+          // podía escribir nunca y quemaba su tope explicando por qué.
+          planMode: capability.readOnly,
         );
       case WorkflowExecutor.manualApproval:
         return (ok: false, answer: 'El paso requiere aprobación manual.');
@@ -2111,7 +2221,20 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
         '· reglas ${ruleNames.isEmpty ? 'ninguna' : ruleNames} '
         '· conocimiento ${knowledgeNames.isEmpty ? 'ninguno' : knowledgeNames} '
         '· gates '
-        '${workflow.policy.qualityGates.map((gate) => gate.name).join(', ')}.';
+        '${workflow.policy.qualityGates.map((gate) => gate.name).join(', ')} '
+        '· topes ${_policyLimitsSummary(workflow.policy)}.';
+  }
+
+  /// Los topes con los que corre la sesión, dichos de entrada: que un nodo se
+  /// corte a los N minutos no puede ser una sorpresa al final.
+  String _policyLimitsSummary(WorkflowPolicy policy) {
+    final ceiling = policy.maxSessionCostUsd > 0
+        ? 'US\$ ${policy.maxSessionCostUsd.toStringAsFixed(0)} por sesión '
+              '(solo cuenta el costo que el proveedor informa; codex no lo '
+              'informa)'
+        : 'sin techo de costo';
+    return '${policy.idleTimeoutMinutes} min sin actividad · '
+        '${policy.nodeTimeoutMinutes} min por paso · $ceiling';
   }
 
   WorkNode? _nextReadyNode(ResolutionCase resolution) {
@@ -2369,6 +2492,9 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
       workNodeId: _activeWorkNodeId(session),
       instruction: prompt,
     );
+    // Si el mensaje interrumpió un nodo, el nodo volvió a `pending` y el
+    // caso sigue activo: el workflow lo retoma acá, no lo hace nadie más.
+    await resumeWorkflow(projectId, session.id);
   }
 
   /// Guarda un mensaje bajo control del usuario mientras la sesión trabaja.
@@ -2499,7 +2625,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     if (isStillQueued != true) return;
     if (session?.isRunning ?? false) {
       final activeRunWillDispatch = _activeSessionRuns.contains(sessionId);
-      stopSession(projectId, sessionId);
+      stopSession(projectId, sessionId, interrupting: true);
       if (activeRunWillDispatch) return;
     }
     await _dispatchNextQueuedMessage(projectId, sessionId);
@@ -2946,6 +3072,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     required int depth,
     String? executionId,
     int maxTurns = 0,
+    double maxBudgetUsd = 0,
     bool allowConsults = true,
     bool retriedWithoutSession = false,
 
@@ -3198,6 +3325,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
         conversationHistory: conversationHistory,
         planMode: planMode,
         maxTurns: maxTurns,
+        maxBudgetUsd: maxBudgetUsd,
         provider: engine.provider.alias,
         providerApiKey: providerApiKey,
       ),
@@ -3220,8 +3348,21 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     // terminar: una lista que no se limpia es una lista que miente.
     var livePid = 0;
     final streamTimestamp = DateTime.now();
-    final maxSubagents =
-        _workflowRunning(project, sessionId)?.policy.maxSubagents ?? 0;
+    final runPolicy = _workflowRunning(project, sessionId)?.policy;
+    final maxSubagents = runPolicy?.maxSubagents ?? 0;
+    // Un CLI mudo no termina solo. El vigilante corta el proceso y cierra el
+    // stream: el `await for` de abajo sale como si el proveedor hubiera
+    // terminado, y el turno se marca fallido con el motivo puesto.
+    final watchdog = TurnWatchdog(
+      idle: Duration(
+        minutes: runPolicy?.idleTimeoutMinutes ?? kDefaultIdleTimeoutMinutes,
+      ),
+      hard: Duration(
+        minutes: runPolicy?.nodeTimeoutMinutes ?? kDefaultNodeTimeoutMinutes,
+      ),
+      onTrip: (_) => run.cancel(),
+    );
+    _turnWatchdogs.putIfAbsent(sessionId, () => {}).add(watchdog);
     var subagentLimitExceeded = false;
     // Ver la fila sin medición más abajo: [turnMeasured] evita anotar dos
     // veces y [providerEngaged] evita anotar un turno que murió antes de
@@ -3230,7 +3371,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     var providerEngaged = false;
     final turnStartedAt = DateTime.now();
 
-    await for (final event in run.events) {
+    await for (final event in watchdog.guard(run.events)) {
       if (_stoppedSessionIds.contains(sessionId)) break;
 
       switch (event) {
@@ -3569,6 +3710,34 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
       }
     }
     if (livePid != 0) RunningProcesses.unregister(livePid);
+    _turnWatchdogs[sessionId]?.remove(watchdog);
+    if (_turnWatchdogs[sessionId]?.isEmpty ?? false) {
+      _turnWatchdogs.remove(sessionId);
+    }
+    if (watchdog.tripped && !_stoppedSessionIds.contains(sessionId)) {
+      turnFailed = true;
+      final minutes = watchdog.trip == TurnWatchdogTrip.idle
+          ? watchdog.idle.inMinutes
+          : watchdog.hard.inMinutes;
+      final reason = watchdog.trip == TurnWatchdogTrip.idle
+          ? 'Sin actividad del proveedor durante $minutes min: el paso se '
+                'cortó. Si el trabajo legítimamente calla tanto (builds, '
+                'suites largas), subí el plazo de inactividad en la policy '
+                'del workflow.'
+          : 'El paso superó el plazo de $minutes min y se cortó. Partí el '
+                'paso en dos o subí el plazo en la policy del workflow.';
+      Log.w('Turno cortado por el vigilante: ${watchdog.trip?.name}');
+      _appendMessage(
+        projectId,
+        sessionId,
+        ChatMessage(
+          role: ChatRole.error,
+          text: reason,
+          timestamp: DateTime.now(),
+          workNodeId: workNodeId,
+        ),
+      );
+    }
 
     // Un turno parado, caído o con la sesión muerta no llega al evento
     // `result`: sin esta fila, el intento que igual gastó no existe para la
@@ -3629,6 +3798,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
         planMode: planMode,
         executionId: effectiveExecutionId,
         maxTurns: maxTurns,
+        maxBudgetUsd: maxBudgetUsd,
         retriedWithoutSession: true,
       );
     }

@@ -89,6 +89,14 @@ Mapa de lo que existe en esta app y cómo se relaciona:
   un workflow demasiado amplio que sirva para todo.
   Un workflow puede sumar SKILLS a todos sus turnos: las del agente son quién
   es y viajan a todos lados, las del workflow son qué está haciendo ahora.
+  La policy del workflow trae además TOPES que el motor aplica en código, no
+  por prompt: minutos sin actividad del proveedor antes de cortar un paso
+  (default 10), minutos máximos por paso (default 45) y techo de costo de la
+  sesión en dólares (default 20; 0 = sin techo, y solo cuenta el costo que el
+  proveedor informa — codex no lo informa). Un nodo sin `maxAgenticTurns`
+  declarado corre con 20 turnos si escribe y 8 si es de solo lectura, nunca
+  ilimitado. Se editan en el formulario del workflow; `create_workflow` y
+  `update_workflow` todavía no los exponen.
 - **Requerimientos internos**: lo que un proyecto le pide a OTRO proyecto
   (`REQ-0007`). Existen porque dos proyectos no comparten nada: el
   requerimiento es lo ÚNICO que cruza la frontera —necesidad, contexto,

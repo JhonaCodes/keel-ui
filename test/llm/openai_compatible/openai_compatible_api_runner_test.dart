@@ -21,17 +21,18 @@ const _spec = LlmTurnSpec(
 
 void main() {
   group('OpenAiCompatibleApiRunner', () {
-    test('la red contra bucles vive alta, no como presupuesto de trabajo', () {
+    test('el tope de rondas es un presupuesto de trabajo, no solo una red', () {
       final runner = OpenAiCompatibleApiRunner(
         baseUrl: 'https://api.deepseek.com',
         secretRef: 'DEEPSEEK_API_KEY',
         resolveSecret: (_) async => 'test-token-deepseek',
       );
 
-      // A los proveedores por CLI nadie les corta el ciclo. Un tope bajo acá
-      // no ahorraba: cortaba el nodo a media tarea y obligaba a relanzarlo.
+      // Cada ronda reenvía el historial completo: 200 rondas por nodo eran
+      // el multiplicador de costo, no una red. Con el bloque de cierre de
+      // turno un nodo cortado se retoma; el tope puede ser un presupuesto.
       expect(runner.maxToolRounds, kDefaultOpenAiCompatibleMaxToolRounds);
-      expect(runner.maxToolRounds, greaterThanOrEqualTo(200));
+      expect(runner.maxToolRounds, 40);
     });
 
     test('sin límite declarado el techo es el tope, nunca cero', () {

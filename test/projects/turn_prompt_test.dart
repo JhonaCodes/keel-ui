@@ -49,4 +49,37 @@ void main() {
     expect(prompt, contains('SABER-DINAMICO'));
     expect(prompt, isNot(contains('PLAN-DINAMICO')));
   });
+
+  group('budgetTurnSystemPrompt', () {
+    const sections = [
+      PromptSection(name: 'skill-global', text: 'GLOBAL-1', dropPriority: 1),
+      PromptSection(name: 'identidad', text: 'IDENTIDAD'),
+      PromptSection(name: 'skill-asignada', text: 'ASIGNADA', dropPriority: 2),
+      PromptSection(name: 'reglas', text: 'REGLA-MARCADOR'),
+      PromptSection(name: 'saber', text: 'SABER-BRIEF', dropPriority: 3),
+    ];
+
+    test('con presupuesto de sobra no recorta nada', () {
+      final budgeted = budgetTurnSystemPrompt(sections, maxChars: 10000);
+
+      expect(budgeted.dropped, isEmpty);
+      expect(budgeted.text, contains('SABER-BRIEF'));
+    });
+
+    test('recorta primero el saber, después las skills; las reglas y la '
+        'identidad nunca', () {
+      final total = sections.fold<int>(0, (sum, s) => sum + s.text.length);
+      final budgeted = budgetTurnSystemPrompt(sections, maxChars: total - 1);
+
+      expect(budgeted.dropped, ['saber']);
+      expect(budgeted.text, contains('REGLA-MARCADOR'));
+      expect(budgeted.text, isNot(contains('SABER-BRIEF')));
+
+      final tight = budgetTurnSystemPrompt(sections, maxChars: 30);
+      expect(tight.dropped, ['saber', 'skill-asignada', 'skill-global']);
+      expect(tight.text, contains('REGLA-MARCADOR'));
+      expect(tight.text, contains('IDENTIDAD'));
+    });
+  });
+
 }

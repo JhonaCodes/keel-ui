@@ -33,43 +33,31 @@ String renderClaudeSettings(List<Hook> hooks, {required String scriptDir}) {
   return const JsonEncoder.withIndent('  ').convert({'hooks': byEvent});
 }
 
-/// El perfil TOML que se le capa a codex con `-p`.
+/// Los hooks de codex como overrides `-c hooks.<Evento>=[...]`, uno por
+/// línea, uno por evento.
 ///
-/// Se escribe como perfil y no en `~/.codex/config.toml` para no tocar la
-/// configuración del usuario: el perfil se capa encima, vale para esta
-/// invocación, y se borra después.
-String renderCodexConfig(List<Hook> hooks, {required String scriptDir}) {
-  final buffer = StringBuffer()
-    ..writeln('# Generado por keel-ui para un turno. No editar a mano.')
-    ..writeln('# Se borra cuando el turno termina.');
-
+/// Por evento y no por hook: dos `-c` sobre la misma clave se pisan, así
+/// que todos los hooks de `PreToolUse` van en un solo valor. Antes esto era
+/// un perfil TOML en `$CODEX_HOME` cargado con `-p`; codex 0.153 no acepta
+/// `-p` en `exec resume`, y sin hooks al reanudar el gate de permisos no
+/// cubría más que el primer turno de cada sesión.
+String renderCodexOverrides(List<Hook> hooks, {required String scriptDir}) {
+  final byEvent = <String, List<String>>{};
   for (final hook in hooks) {
-    buffer
-      ..writeln()
-      ..writeln('[[hooks.${hook.event.alias}]]');
-    if (hook.matcher.isNotEmpty) {
-      buffer.writeln('matcher = ${_tomlString(hook.matcher)}');
-    }
-    buffer
-      ..writeln()
-      ..writeln('[[hooks.${hook.event.alias}.hooks]]')
-      ..writeln('type = "command"')
-      ..writeln('command = ${_tomlString(hookInvocation(hook, scriptDir))}')
-      ..writeln('timeout = ${hook.timeoutSeconds}')
-      ..writeln('statusMessage = ${_tomlString('Hook: ${hook.name}')}');
+    final matcher = hook.matcher.isNotEmpty
+        ? 'matcher=${tomlString(hook.matcher)},'
+        : '';
+    final command = tomlString(hookInvocation(hook, scriptDir));
+    byEvent.putIfAbsent(hook.event.alias, () => []).add(
+      '{${matcher}hooks=[{type="command",command=$command,'
+      'timeout=${hook.timeoutSeconds},'
+      'statusMessage=${tomlString('Hook: ${hook.name}')}}]}',
+    );
   }
-  return buffer.toString();
-}
-
-/// Una cadena TOML básica, con lo mínimo escapado. Los matchers traen `|` y
-/// `.*`, que no necesitan nada; las rutas tampoco. Se escapa igual para que
-/// un nombre raro no rompa el archivo entero.
-String _tomlString(String value) {
-  final escaped = value
-      .replaceAll(r'\', r'\\')
-      .replaceAll('"', r'\"')
-      .replaceAll('\n', r'\n');
-  return '"$escaped"';
+  return [
+    for (final entry in byEvent.entries)
+      'hooks.${entry.key}=[${entry.value.join(',')}]',
+  ].join('\n');
 }
 
 /// [value] entre comillas simples para shell, con las comillas simples de

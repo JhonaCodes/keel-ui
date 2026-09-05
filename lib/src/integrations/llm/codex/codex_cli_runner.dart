@@ -7,6 +7,7 @@ import 'package:logger_rs/logger_rs.dart';
 import 'package:keel_ui/src/core/services/cli_turn_workspace.dart';
 import 'package:keel_ui/src/integrations/llm/llm.dart';
 import 'package:keel_ui/src/integrations/llm/codex/codex_arguments.dart';
+import 'package:keel_ui/src/integrations/llm/codex/codex_config_overrides.dart';
 import 'package:keel_ui/src/integrations/llm/codex/codex_stream_reader.dart';
 import 'package:keel_ui/src/integrations/llm/src/cli_cancel_guard.dart';
 
@@ -34,17 +35,19 @@ class CodexCliRunner implements LlmRunner {
       // legible con `ps` — misma regla que CodexCliService. El temporal
       // 0700 muere con el turno.
       workspace = await CliTurnWorkspace.create(
-        mcpConfig: spec.mcpConfig,
         codexHooksConfig: spec.hooksConfig,
         hookFiles: spec.hookFiles,
       );
 
       if (cancelGuard.cancelled) return;
 
+      // Los MCP van por `-c` con los secrets en el entorno; los hooks, por
+      // `-c` apuntando a los wrappers del workspace. Nada de esto vive en
+      // un perfil de `$CODEX_HOME`, que `exec resume` no puede cargar.
+      final mcp = codexMcpConfig(spec.mcpConfig);
+      final hookOverrides = workspace.codexConfigOverrides;
       final prompt = buildCodexPrompt(
         prompt: spec.prompt,
-        sessionId: spec.sessionId,
-        additionalSystemPrompt: spec.additionalSystemPrompt,
         planMode: spec.planMode,
       );
       final arguments = buildCodexArguments(
@@ -52,11 +55,11 @@ class CodexCliRunner implements LlmRunner {
         sessionId: spec.sessionId,
         model: spec.model,
         fullFileSystemAccess: spec.fullFileSystemAccess,
-        codexProfileName: workspace.codexProfileName,
         planMode: spec.planMode,
+        developerInstructions: spec.additionalSystemPrompt,
+        configOverrides: [...mcp.overrides, ...hookOverrides],
+        bypassHookTrust: hookOverrides.isNotEmpty,
       );
-      // El sandbox y el perfil viajan por `-c` al reanudar (ver
-      // buildCodexArguments): ya no hay nada que avisar en ese caso.
       Process process;
       try {
         process = await Process.start(
@@ -65,7 +68,7 @@ class CodexCliRunner implements LlmRunner {
           workingDirectory: spec.workingDirectory,
           // El PATH va explícito porque el heredado es el de `launchd`, no
           // el de la terminal.
-          environment: {'PATH': userPath},
+          environment: {'PATH': userPath, ...mcp.environment},
           runInShell: true,
         );
       } catch (error) {

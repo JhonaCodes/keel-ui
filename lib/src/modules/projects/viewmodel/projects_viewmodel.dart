@@ -16,6 +16,8 @@ import 'package:keel_ui/src/integrations/session_plan_mcp/session_plan_mcp_serve
 import 'package:keel_ui/src/integrations/decisions_mcp/decisions_mcp_server.dart';
 import 'package:keel_ui/src/integrations/user_tools_mcp/user_tools_mcp_server.dart';
 import 'package:keel_ui/src/integrations/hook_delivery/hook_delivery.dart';
+import 'package:keel_ui/src/integrations/llm/codex/codex_arguments.dart'
+    show kCodexToolCallsPerTurn;
 import 'package:keel_ui/src/integrations/project_radar/project_radar.dart';
 import 'package:keel_ui/src/modules/requirements/model/internal_requirement.dart';
 import 'package:keel_ui/src/modules/requirements/viewmodel/requirements_viewmodel.dart';
@@ -37,7 +39,6 @@ import 'package:keel_ui/src/modules/agents/model/effort_level.dart';
 import 'package:keel_ui/src/modules/agents/model/agent_model_option.dart';
 import 'package:keel_ui/src/modules/agents/model/permission_request.dart';
 import 'package:keel_ui/src/modules/knowledge/viewmodel/knowledge_viewmodel.dart';
-import 'package:keel_ui/src/modules/mcp_servers/model/mcp_server_config.dart';
 import 'package:keel_ui/src/modules/mcp_servers/viewmodel/mcp_servers_viewmodel.dart';
 import 'package:keel_ui/src/modules/rules/viewmodel/rules_viewmodel.dart';
 import 'package:keel_ui/src/modules/secrets/viewmodel/secrets_viewmodel.dart';
@@ -67,7 +68,6 @@ import 'package:keel_ui/src/modules/projects/service/node_context.dart';
 import 'package:keel_ui/src/modules/projects/service/subagent_budget.dart';
 import 'package:keel_ui/src/modules/projects/service/turn_watchdog.dart';
 import 'package:keel_ui/src/modules/projects/service/turn_prompt.dart';
-import 'package:keel_ui/src/modules/tools/model/tool.dart';
 import 'package:keel_ui/src/modules/tools/viewmodel/tools_viewmodel.dart';
 import 'package:keel_ui/src/modules/workflows/model/workflow.dart';
 import 'package:keel_ui/src/modules/workflows/viewmodel/workflows_viewmodel.dart';
@@ -81,11 +81,6 @@ final RegExp _mentionPattern = RegExp(r'@([a-z0-9_-]{1,16})');
 /// shared [parseFencedBlocks] — kept deliberately rigid so reading it is a
 /// decision, not a guess about prose.
 const _agentDeclarationKeys = {'handle', 'rol', 'proposito', 'instrucciones'};
-
-/// Las claves de los bloques ```plan y ```cumplido con los que un miembro
-/// codex escribe y marca el plan. Codex no recibe servidores MCP, así que
-/// las tools del plan no existen para él — mismo patrón que ```agente.
-const _planBlockKeys = {'puntos'};
 
 const _coverageBlockKeys = {'area', 'estado', 'motivo'};
 
@@ -3084,7 +3079,9 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
               'informa)'
         : 'sin techo de costo';
     return '${policy.idleTimeoutMinutes} min sin actividad · '
-        '${policy.nodeTimeoutMinutes} min por paso · $ceiling';
+        '${policy.nodeTimeoutMinutes} min por paso · $ceiling · en codex el '
+        'tope de turnos de cada paso se aplica como tope de herramientas '
+        '(×$kCodexToolCallsPerTurn)';
   }
 
   WorkNode? _nextReadyNode(ResolutionCase resolution) {
@@ -4007,20 +4004,23 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     // proveedor, porque cambiarlo cambia qué superficie tiene el turno.
     final engine = project.tuned(member);
 
-    // Codex has no per-turn tools/MCP surface — those stay empty for it.
+    // Codex recibe la misma superficie de MCP que claude: sus servidores
+    // van por `-c mcp_servers.*` con los secrets en el entorno (ver
+    // `codex_config_overrides.dart`). Antes no recibía ninguno, y el plan,
+    // las decisiones y los requerimientos no existían para un nodo codex.
     final isCodex = engine.provider == AgentProvider.codex;
-    final memberTools = isCodex
-        ? const <Tool>[]
-        : ToolsService.instance.notifier.toolsByNames(member.tools);
+    final memberTools = ToolsService.instance.notifier.toolsByNames(
+      member.tools,
+    );
     final toolsEntry = memberTools.isEmpty
         ? null
         : UserToolsMcpServer.mcpServerEntryFor(
             member.id,
             workingDirectory: project.workingDirectory,
           );
-    final externalServers = isCodex
-        ? const <McpServerConfig>[]
-        : McpServersService.instance.notifier.serversByNames(member.mcpServers);
+    final externalServers = McpServersService.instance.notifier.serversByNames(
+      member.mcpServers,
+    );
     final externalSecretValues = SecretsService.instance.notifier.valuesFor([
       for (final server in externalServers) ...server.secretNames,
     ]);
@@ -4029,7 +4029,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     // un turno de consulta — el consultado lo ve como contexto y lo marca
     // quien ejecuta el paso; darle las tools de verdad dejaba que reescriba
     // el plan de otro con una línea de prosa como único freno.
-    final planEntry = (isCodex || consultOfProfileId != null)
+    final planEntry = consultOfProfileId != null
         ? null
         : SessionPlanMcpServer.mcpServerEntryFor(
             projectId: projectId,
@@ -4049,7 +4049,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
             sessionId: sessionId,
             profileId: member.id,
           );
-    final askEntry = (isCodex || consultOfProfileId != null)
+    final askEntry = consultOfProfileId != null
         ? null
         : DecisionGateServer.mcpServerEntryFor(
             projectId: projectId,
@@ -4061,8 +4061,8 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     // aparece si el proyecto tiene carpeta TASKS/ — sin eso, tres tools que
     // no aplican.
     // Los requerimientos hacia otros proyectos. Igual que el roadmap: no van
-    // a codex (no recibe MCPs) ni a un turno de consulta, que contesta y se va.
-    final requirementsEntry = (isCodex || consultOfProfileId != null)
+    // a un turno de consulta, que contesta y se va.
+    final requirementsEntry = consultOfProfileId != null
         ? null
         : RequirementsMcpServer.mcpServerEntryFor(
             projectId: projectId,
@@ -4077,9 +4077,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     // honesto que podía: que no tenía con qué.
     final isConsult = consultOfProfileId != null;
     final turnWorkflow = _workflowRunning(project, sessionId);
-    final roadmapEntry = isCodex
-        ? null
-        : RoadmapMcpServer.mcpServerEntryFor(
+    final roadmapEntry = RoadmapMcpServer.mcpServerEntryFor(
             sessionId: sessionId,
             projectId: projectId,
             profileId: member.id,
@@ -4093,7 +4091,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     // a contestar una pregunta y se va, y dejarle armar una UI en el
     // proyecto de otro es exactamente la clase de efecto lateral que una
     // consulta no debería tener.
-    final boardsEntry = (isCodex || isConsult)
+    final boardsEntry = isConsult
         ? null
         : BoardsMcpServer.mcpServerEntryFor(
             projectId: projectId,
@@ -4126,15 +4124,16 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     );
     final usesGit = place.isRepo;
 
-    // Codex recibe el system prompt solo en el PRIMER turno de su sesión: en
-    // turnos resumidos el estado del plan quedaría congelado en el turno 1.
-    // El estado vivo viaja antepuesto al pedido, que sí llega siempre.
+    // Codex recibe el system prompt solo en el PRIMER turno de su sesión
+    // (queda en el hilo como mensaje de desarrollador): en turnos resumidos
+    // el estado del plan quedaría congelado en el turno 1. El estado vivo
+    // viaja antepuesto al pedido, que sí llega siempre.
     final effectiveInstruction = (isCodex && cliSessionId != null)
         ? [
             planSectionPrompt(
               _sessionById(project, sessionId),
               isConsult: consultOfProfileId != null,
-              hasPlanTools: false,
+              hasPlanTools: planEntry != null,
             ),
             instruction,
           ].where((part) => part.isNotEmpty).join('\n\n')
@@ -4149,11 +4148,17 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     final subagentCap = engine.provider == AgentProvider.claude
         ? (_workflowRunning(project, sessionId)?.policy.maxSubagents ?? 0)
         : null;
+    // El tope de turnos de un nodo codex también es un hook: codex no tiene
+    // `--max-turns`, así que se cuentan llamadas a herramientas.
+    final toolCallCap = isCodex && maxTurns > 0
+        ? maxTurns * kCodexToolCallsPerTurn
+        : null;
     final turnHooks = await _resolveTurnHooks(
       project,
       engine,
       gate: gate,
       subagentCap: subagentCap,
+      toolCallCap: toolCallCap,
     );
     for (final note in turnHooks.notes) {
       _appendMessage(
@@ -4202,20 +4207,21 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
           ...externalServers.map((server) => 'mcp__${server.name}'),
         ],
         sessionId: cliSessionId,
-        additionalSystemPrompt: _turnSystemPrompt(
-          project,
-          member,
-          session: _sessionById(project, sessionId),
-          isConsult: consultOfProfileId != null,
-          hasPlanTools: planEntry != null,
-          usesGit: usesGit,
-          place: place,
-          usesGithubMcp: externalServers.any(isGithubMcpServer),
-          // Codex no tiene system prompt: en un resume el preámbulo se
-          // repite, así que va la versión compacta (identidad, reglas,
-          // contratos) y no las skills ni el saber, que ya están en su hilo.
-          compact: isCodex && cliSessionId != null,
-        ),
+        // Un resume de codex no lleva system prompt: el del primer turno
+        // quedó en el hilo como mensaje de desarrollador y codex lo reenvía
+        // solo. Mandarlo de nuevo era pagarlo dos veces.
+        additionalSystemPrompt: (isCodex && cliSessionId != null)
+            ? null
+            : _turnSystemPrompt(
+                project,
+                member,
+                session: _sessionById(project, sessionId),
+                isConsult: consultOfProfileId != null,
+                hasPlanTools: planEntry != null,
+                usesGit: usesGit,
+                place: place,
+                usesGithubMcp: externalServers.any(isGithubMcpServer),
+              ),
         mcpConfig: mcpServers.isEmpty
             ? null
             : jsonEncode({'mcpServers': mcpServers}),
@@ -4727,17 +4733,6 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
       workNodeId: workNodeId,
     );
 
-    // El espejo de las tools del plan para codex: sin esto, un plan cuyo
-    // paso 1 cae en un miembro codex no existía nunca, y el cierre sellaba
-    // "terminada" una sesión sin contrato.
-    if (isCodex) {
-      _applyDeclaredPlanBlocks(
-        projectId: projectId,
-        sessionId: sessionId,
-        author: member,
-        text: answer.toString(),
-      );
-    }
     _applyDeclaredCoverageBlocks(
       projectId: projectId,
       sessionId: sessionId,
@@ -4978,62 +4973,6 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     };
   }
 
-  /// Aplica los bloques ```plan y ```cumplido que [author] —un miembro
-  /// codex— dejó en [text]. Es el espejo de `set_session_plan` y
-  /// `complete_plan_items` para el proveedor que no puede llamar tools MCP.
-  void _applyDeclaredPlanBlocks({
-    required String projectId,
-    required String sessionId,
-    required AgentProfile author,
-    required String text,
-  }) {
-    List<String> lineasDe(Map<String, String> fields) =>
-        (fields['puntos'] ?? '')
-            .split('\n')
-            .map((line) => line.trim().replaceFirst(RegExp(r'^[-*]\s+'), ''))
-            .where((line) => line.isNotEmpty)
-            .toList();
-
-    for (final fields in parseFencedBlocks(
-      text,
-      tag: 'plan',
-      keys: _planBlockKeys,
-    )) {
-      final lineas = lineasDe(fields);
-      if (lineas.isEmpty) continue;
-      setSessionPlan(projectId, sessionId, [
-        for (final linea in lineas) _planEntryFromLine(linea),
-      ]);
-    }
-
-    for (final fields in parseFencedBlocks(
-      text,
-      tag: 'cumplido',
-      keys: _planBlockKeys,
-    )) {
-      final lineas = lineasDe(fields);
-      if (lineas.isEmpty) continue;
-      completePlanItems(
-        projectId,
-        sessionId,
-        items: lineas,
-        byProfileId: author.id,
-      );
-    }
-  }
-
-  /// `texto | puesto`. El corte es el ÚLTIMO pipe, por si el texto lleva
-  /// pipes propios; sin pipe, el punto queda sin puesto.
-  static PlanEntry _planEntryFromLine(String line) {
-    final cut = line.lastIndexOf('|');
-    if (cut == -1) return (text: line, ownerRole: null);
-    final owner = line.substring(cut + 1).trim();
-    return (
-      text: line.substring(0, cut).trim(),
-      ownerRole: owner.isEmpty ? null : owner,
-    );
-  }
-
   /// Turns every `@handle` [asker] wrote into a turn for that member, then
   /// hands the answer back to [asker] so it can continue its own step.
   Future<void> _resolveConsultations({
@@ -5222,11 +5161,6 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     required bool usesGit,
     required WorktreePlace place,
     bool usesGithubMcp = false,
-
-    /// Solo lo que no se puede perder: identidad, reglas y contratos. Es lo
-    /// que codex recibe en cada turno reanudado, donde repetir las skills y
-    /// el saber costaría lo mismo que el turno 1 cada vez.
-    bool compact = false,
   }) {
     final sections = <PromptSection>[];
 
@@ -5371,9 +5305,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
       sections.add(PromptSection(name: saberName, text: saber, dropPriority: 3));
     }
 
-    final candidates = compact
-        ? [for (final section in sections) if (section.dropPriority == 0) section]
-        : sections;
+    final candidates = sections;
     final budgeted = budgetTurnSystemPrompt(
       candidates,
       maxChars: requiredPolicy?.systemPromptMaxChars ?? kDefaultSystemPromptMaxChars,
@@ -5790,10 +5722,14 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     AgentProfile member, {
     DecisionGateSpec? gate,
     int? subagentCap,
+    int? toolCallCap,
   }) async {
     await HooksService.instance.notifier.ready;
     final catalog = HooksService.instance.notifier.data.hooks;
-    if (catalog.isEmpty && gate == null && subagentCap == null) {
+    if (catalog.isEmpty &&
+        gate == null &&
+        subagentCap == null &&
+        toolCallCap == null) {
       return TurnHooks.none;
     }
 
@@ -5811,6 +5747,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
       project: project,
       gate: gate,
       subagentCap: subagentCap,
+      toolCallCap: toolCallCap,
     );
   }
 

@@ -135,15 +135,4 @@ void main() {
       );
     });
   });
-
-  group('el envoltorio de codex', () {
-    test('encierra las instrucciones antes del pedido', () {
-      final wrapped = codexRoleWrappedPrompt(
-        prompt: 'arreglá el login',
-        systemPrompt: 'SOS @qa',
-      );
-      expect(wrapped.indexOf('SOS @qa'), lessThan(wrapped.indexOf('arreglá')));
-      expect(wrapped, contains('### Fin de instrucciones'));
-    });
-  });
 }

@@ -20,6 +20,7 @@ import 'package:keel_ui/src/modules/hooks/model/hook.dart';
 import 'package:keel_ui/src/modules/hooks/model/hook_event.dart';
 import 'package:keel_ui/src/modules/projects/model/project.dart';
 import 'package:keel_ui/src/modules/tools/model/tool.dart';
+import 'package:keel_ui/src/shared/utils/toml_string.dart';
 
 part 'src/hook_resolution.dart';
 part 'src/hook_turn.dart';
@@ -27,3 +28,4 @@ part 'src/hook_render.dart';
 part 'src/hook_wrappers.dart';
 part 'src/decision_gate.dart';
 part 'src/subagent_guard.dart';
+part 'src/tool_cap.dart';

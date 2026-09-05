@@ -118,9 +118,9 @@ Mapa de lo que existe en esta app y cómo se relaciona:
   suspende el proceso hasta que el usuario decide desde la tarjeta
   ESPERÁNDOTE, con alcance: solo esta vez, esta sesión (Session.grantedTools),
   este agente en este proyecto (Project.grantedToolsByProfileId) o siempre
-  (AppSettings.extraAllowedTools). Vale para claude, codex (solo el primer
-  turno de una sesión, hasta que el resume pase los hooks por `-c`) y las
-  APIs. Los agentes con MCP tienen además `ask_user` (servidor
+  (AppSettings.extraAllowedTools). Vale para claude, codex (en exec y en
+  resume: los hooks van por `-c` con `--dangerously-bypass-hook-trust`) y
+  las APIs. Los agentes con MCP tienen además `ask_user` (servidor
   `keel-decisions`) para preguntar sin cerrar el turno. Detener la sesión
   cancela lo pendiente; reabrir la app cancela solo las decisiones que
   esperaban a un proceso vivo. A vos, Keel AI, el gate no se te aplica.
@@ -132,9 +132,15 @@ Mapa de lo que existe en esta app y cómo se relaciona:
   con el contexto por encima de `compactAtContextRatio` (0.7) arranca fresco
   con el resumen. El system prompt tiene techo (`systemPromptMaxChars`,
   60.000): recorta primero el brief de saber, después skills no requeridas,
-  después skills globales de más; identidad, reglas y contratos nunca. Codex
-  recibe en cada resume la versión compacta del prompt y su sandbox y perfil
-  de hooks por `-c`.
+  después skills globales de más; identidad, reglas y contratos nunca.
+  CODEX DE PRIMERA: un agente codex recibe el system prompt una sola vez por
+  `developer_instructions` (codex lo guarda en el hilo y lo reenvía al
+  reanudar), los mismos MCP que claude por `-c mcp_servers.*` (plan,
+  decisiones, roadmap, requerimientos, tableros, tools del usuario; los
+  secrets van por variables de entorno, nunca en argv), y el tope de turnos
+  del nodo como hook `keel-tool-cap` que deniega la llamada a herramienta que
+  excede `maxTurns × 3` pidiendo el cierre con keel-outcome. Codex no informa
+  costo: el techo de costo por sesión no lo frena.
   CUPO DE SUBAGENTES EN CÓDIGO: `max_subagents` de la policy se aplica con
   un hook interno `keel-subagent-guard` (PreToolUse sobre `Task`) que deniega
   la tarea de más; cero deniega desde la primera. Solo aplica a agentes

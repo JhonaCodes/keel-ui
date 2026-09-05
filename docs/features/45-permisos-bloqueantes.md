@@ -67,13 +67,10 @@ permiso en nombre de otro. `tools/call` no tiene plazo del lado del servidor.
 
 ## Límites conocidos
 
-- **Codex en resume.** El perfil `-p` (que lleva los hooks) se descarta en
-  `exec resume`, así que el gate cubre el primer turno de una sesión codex y
-  no los reanudados hasta que la fase de Codex los pase por `-c`.
-- **Trust de hooks en codex.** Codex 0.149 tiene una noción de «hook trust»
-  para hooks de terceros. No está verificado con el binario si un perfil
-  generado por turno lo requiere; si el gate no corre ahí, codex sigue
-  denegando solo como antes y el preflight debe decirlo.
+- **Codex.** Desde F51 el gate viaja por `-c hooks.PreToolUse=[...]` en exec
+  y en resume, con `--dangerously-bypass-hook-trust`: sin ese flag codex
+  0.153 ignora en silencio un hook generado por turno (verificado con el
+  binario). El contrato del hook es el mismo que el de claude.
 - **Las denegaciones de hooks del usuario** (`kHookDenialMarker`) siguen
   siendo post-hoc por diseño: un guardarraíl que bloquea no pregunta.
 - El banner viejo de permiso post-hoc queda para el caso que el gate no cubre
@@ -83,7 +80,7 @@ permiso en nombre de otro. `tools/call` no tiene plazo del lado del servidor.
 
 - `test/hooks/decision_gate_hook_test.dart`: claude recibe el `PreToolUse`
   con matcher de escritura, plazo largo y script con `permissionDecision`;
-  codex lo recibe en su TOML; sin gate y sin catálogo no hay hooks.
+  codex lo recibe como override `-c`; sin gate y sin catálogo no hay hooks.
 - `test/projects/session_decision_queue_test.dart`: dos pedidos encolan dos
   decisiones; conceder «esta sesión» completa solo la primera y queda en
   `grantedTools`; el mismo tool ya no pregunta; Stop cancela la otra; una

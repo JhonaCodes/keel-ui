@@ -40,7 +40,8 @@ void main() {
       expect(body, contains(gate.token));
     });
 
-    test('codex recibe el mismo gate en su perfil TOML', () {
+    test('codex recibe el mismo gate como override -c (0.153 ya no acepta '
+        'perfil al reanudar)', () {
       final turn = prepareTurnHooks(
         catalog: const [],
         tools: const [],
@@ -49,7 +50,8 @@ void main() {
         gate: gate,
       );
 
-      expect(turn.codexConfig, contains('[[hooks.PreToolUse]]'));
+      expect(turn.codexConfig, startsWith('hooks.PreToolUse=['));
+      expect(turn.codexConfig, isNot(contains('[[hooks.PreToolUse]]')));
       expect(turn.codexConfig, contains(kDecisionGateHookName));
       expect(turn.files.keys, contains('$kDecisionGateHookName.sh'));
     });

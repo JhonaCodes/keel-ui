@@ -25,6 +25,7 @@ import 'package:keel_ui/src/modules/projects/model/session_queued_message.dart';
 import 'package:keel_ui/src/integrations/chat_references/chat_references.dart';
 import 'package:keel_ui/src/modules/projects/model/thread_entry.dart';
 import 'package:keel_ui/src/modules/projects/ui/view/session_map_view.dart';
+import 'package:keel_ui/src/modules/projects/ui/widget/session_decision_card.dart';
 import 'package:keel_ui/src/modules/projects/ui/widget/session_agent_picker.dart';
 import 'package:keel_ui/src/modules/projects/ui/widget/session_live_turn_strip.dart';
 import 'package:keel_ui/src/modules/projects/ui/widget/session_message_bubble.dart';
@@ -155,6 +156,46 @@ class _ProjectChannel extends StatelessWidget {
               ),
               if (tab == SessionTab.chat && liveTurn != null)
                 SessionLiveTurnStrip(turn: liveTurn, members: members),
+              // Lo que un agente te pidió y sin lo cual su nodo no sigue.
+              // Va antes que el permiso post-hoc y que el plan: es un turno
+              // suspendido esperándote de verdad.
+              if (tab == SessionTab.chat &&
+                  session != null &&
+                  session.pendingDecisions.isNotEmpty)
+                SessionDecisionCard(
+                  key: ValueKey(session.pendingDecisions.first.id),
+                  decision: session.pendingDecisions.first,
+                  memberHandle: members
+                          .where(
+                            (member) =>
+                                member.id ==
+                                session.pendingDecisions.first.profileId,
+                          )
+                          .firstOrNull
+                          ?.name ??
+                      'agente',
+                  onAnswer: (answer) => ProjectsService.instance.notifier
+                      .answerSessionDecision(
+                        project.id,
+                        session.id,
+                        session.pendingDecisions.first.id,
+                        answer: answer,
+                      ),
+                  onApprove: () => ProjectsService.instance.notifier
+                      .answerSessionDecision(
+                        project.id,
+                        session.id,
+                        session.pendingDecisions.first.id,
+                        approve: true,
+                      ),
+                  onReject: () => ProjectsService.instance.notifier
+                      .answerSessionDecision(
+                        project.id,
+                        session.id,
+                        session.pendingDecisions.first.id,
+                        approve: false,
+                      ),
+                ),
               if (tab == SessionTab.chat &&
                   session != null &&
                   pendingPermission != null)
@@ -174,6 +215,7 @@ class _ProjectChannel extends StatelessWidget {
               if (tab == SessionTab.chat &&
                   session != null &&
                   pendingPermission == null &&
+                  !session.waitingForUser &&
                   session.planAwaitingDecision)
                 PlanReadyBanner(
                   onImplement: () => ProjectsService.instance.notifier

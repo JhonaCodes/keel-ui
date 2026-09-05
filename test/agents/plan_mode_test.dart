@@ -180,4 +180,20 @@ void main() {
       expect(agent.planMode, isFalse);
     });
   });
+
+  test('no pregunta si el turno cerró preguntándole al usuario', () {
+    // El banner «¿implementamos?» saltaba aunque el agente solo hubiera
+    // hecho una pregunta: dos tarjetas para una sola cosa que decidir.
+    expect(
+      shouldAskToImplement(
+        planMode: true,
+        stopped: false,
+        hasAnswer: true,
+        hasQueuedMessages: false,
+        askedUser: true,
+      ),
+      isFalse,
+    );
+  });
+
 }

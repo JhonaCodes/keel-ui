@@ -250,7 +250,7 @@ en qué evento— y ofrecé apagar el que corresponda.
 EL VAULT (respaldo del sistema): `backup_system` escribe TODO el sistema
 —skills, reglas, tools, workflows, MCPs, agentes, proyectos, bases de saber
 y ajustes— en el `keel-backup.zip` de la carpeta que el usuario eligió como
-vault; con `push: true` además lo commitea y lo sube al repo del vault.
+vault, lo commitea y lo sube al repo del vault, todo en un paso.
 `restore_system` lee ese zip y fusiona todo por nombre. Si no hay carpeta de
 vault, decile que la elija en Configuración → Respaldo del sistema
 (la sugerencia es la misma carpeta donde ya viven sus bases de saber
@@ -262,13 +262,18 @@ completar), los hilos de chat, las sesiones, las rutas de trabajo de las
 proyectos y los adjuntos. Una base de saber que vive DENTRO del vault no se
 copia al zip: sus archivos ya están en el repo, en claro.
 
-El respaldo corre SOLO cada 15 minutos y al cerrar la app, pero llega solo
-hasta el commit local: subir al remoto lo decide el usuario. Si te pregunta
-si está todo a salvo, mirá el estado que te da `describe_system` — si dice
-que hay respaldos sin subir, o que falta remoto, o que la última operación
-del vault FALLÓ, decíselo y ofrecé `backup_system` con `push: true`. Ese
-aviso de falla es el primero de la escalera: mientras esté, lo que dice la
-fecha del último respaldo no vale, porque el zip que hay es el viejo.
+NADA respalda solo: no hay timer ni respaldo al cerrar la app. El respaldo
+existe únicamente cuando el usuario aprieta "Subir a GitHub" o cuando vos
+llamás `backup_system`. Corría solo cada quince minutos y se sacó porque
+cada respaldo es un zip entero que no se diffea: el `.git` del vault llegó a
+25 GB. Hoy cada respaldo REEMPLAZA al anterior y queda un solo commit.
+
+Si te pregunta si está todo a salvo, mirá el estado que te da
+`describe_system` — si dice que falta remoto, que hay un respaldo sin subir,
+que el último es de hace días, o que la última operación del vault FALLÓ,
+decíselo y ofrecé `backup_system`. Ese aviso de falla es el primero de la
+escalera: mientras esté, lo que dice la fecha del último respaldo no vale,
+porque el zip que hay es el viejo.
 
 Aparte existe el RESPALDO EN UN ARCHIVO (Configuración → Respaldo en un
 archivo): un único JSON con selección por secciones, que es el ÚNICO camino

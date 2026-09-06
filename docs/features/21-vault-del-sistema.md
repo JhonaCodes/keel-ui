@@ -16,17 +16,19 @@ El vault es ese lugar estable: una carpeta tuya, que vos versionás con git.
 
 `Configuración → Respaldo del sistema`. Elegís una carpeta —la sugerencia es
 `~/keel-knowledge-bases`, donde ya viven las bases de saber locales, así un
-solo repo lleva sistema y conocimiento— y una URL de remoto. Cuatro botones:
+solo repo lleva sistema y conocimiento— y una URL de remoto. Tres botones:
 
-- **Respaldar** escribe `keel-backup.zip` en el vault.
-- **Respaldar y subir** además hace `git init` si hacía falta, commitea y
-  pushea.
+- **Subir a GitHub** escribe `keel-backup.zip` en el vault, hace `git init`
+  si hacía falta, commitea y pushea. Es un solo paso a propósito: hubo un
+  botón aparte que solo escribía el zip, y un respaldo que se queda en este
+  disco no protege de perder este disco. Tenerlo al lado del que sí sube
+  hacía que la mitad barata pareciera terminada.
 - **Restaurar…** lee el zip, muestra qué trae y qué pisaría, y aplica lo que
   tildes.
 - **Clonar vault…** es el camino de una máquina nueva: URL + carpeta vacía →
   clone → adopta el vault → preview → restaurar.
 
-Keel AI lo maneja con `backup_system` (con `push` opcional) y
+Keel AI lo maneja con `backup_system` (sin argumentos: escribe y sube) y
 `restore_system`.
 
 ## Lo que pasa sin que aprietes nada
@@ -42,58 +44,52 @@ hace sin preguntar cuando no hay nada que perder.
 Si la carpeta que elegís ya tiene el `keel-backup.zip` porque clonaste el
 repo a mano antes de abrir la app, no se clona nada: se adopta tal cual.
 
-**Mientras trabajás**, se respalda solo cada 15 minutos y una vez más al
-cerrar la app. El respaldo automático llega hasta el **commit local** y no
-más — subir al remoto es siempre una decisión tuya.
+**Mientras trabajás no pasa nada.** Nada respalda solo: no hay timer ni
+respaldo al cerrar la app. El único momento en que se escribe un respaldo es
+cuando apretás el botón o cuando Keel AI llama `backup_system`.
 
-Tres detalles que hacen que eso no moleste:
+Hubo un automático —cada 15 minutos y al cerrar la app, con commit local— y
+se sacó. La razón está abajo, en "El zip es determinista": un zip no se
+diffea, así que **cada commit mete el archivo entero de nuevo**. Con un
+respaldo de 50 MB cada quince minutos, el `.git` del vault llegó a **25 GB**
+sin que nada lo dijera. La contención de tamaño existe (un solo commit, ver
+abajo), pero el volumen que generaba el automático la superaba igual: la
+cura de fondo es no respaldar cuando nadie lo pidió.
 
-- El tick pregunta `git status` antes de commitear. Sin cambios no se llama
-  a `git commit`, así que la firma GPG no se dispara: quince minutos
-  tranquilos no cuestan un pinentry.
-- Los commits creados por Keel pasan `--no-gpg-sign`. La app puede iniciarse
-  desde Finder con un `PATH` sin `gpg` y no tiene una terminal interactiva
-  segura para pedir el pinentry. El override afecta solo ese comando: no
-  modifica `commit.gpgSign` ni la firma de los commits que hace el usuario.
-- El respaldo automático **no crea repos**. Si el vault todavía es una
-  carpeta suelta, deja el zip escrito y no toca git; convertirlo en repo lo
-  decidís vos con "Respaldar y subir".
-
-El enganche de salida es `AppLifecycleListener.onExitRequested`, no
-`windowManager.setPreventClose`. Ese último frena el cierre de la VENTANA,
-pero el quit de la APP —Cmd+Q, el menú, un AppleEvent— no pasa por ahí:
-queda cancelado y nadie lo vuelve a disparar, y la app se vuelve imposible
-de cerrar. Está probado, no supuesto: la primera versión hacía exactamente
-eso.
-
-La salida se frena hasta 20 segundos. Si el filesystem o Git se demoran por
-una causa externa, la app cierra igual: el zip —que es lo que importa— ya
-está escrito, y el commit lo levanta el arranque siguiente.
+Los commits creados por Keel pasan `--no-gpg-sign`. La app puede iniciarse
+desde Finder con un `PATH` sin `gpg` y no tiene una terminal interactiva
+segura para pedir el pinentry. El override afecta solo ese comando: no
+modifica `commit.gpgSign` ni la firma de los commits que hace el usuario.
 
 ## Que esté guardado y que esté a salvo no son lo mismo
 
-El automático commitea pero no sube. Sin decirlo, "guardado" y "guardado en
-un lugar que sobrevive a esta máquina" se ven idénticos. Por eso el rail
-tiene una entrada **Respaldo** con un punto rojo, y Configuración un aviso
-escrito, que contestan el primer peldaño que falla:
+Sin decirlo, "guardado" y "guardado en un lugar que sobrevive a esta
+máquina" se ven idénticos. Por eso el rail tiene una entrada **Respaldo**
+con un punto rojo, y el panel un aviso escrito, que contestan el primer
+peldaño que falla:
 
 1. No elegiste carpeta de vault.
 2. **La última operación falló.**
 3. No hay ningún respaldo todavía.
 4. El vault no es un repo git.
 5. El repo no tiene remoto.
-6. Hay N respaldos commiteados sin subir.
+6. El respaldo commiteado no está subido.
+7. **El último respaldo es de hace más de 3 días.**
 
-Es una escalera y se contesta uno solo: avisarle "tenés 3 sin subir" a
-alguien que ni siquiera configuró un remoto no lo ayuda a nada.
+Es una escalera y se contesta uno solo: avisarle "no lo subiste" a alguien
+que ni siquiera configuró un remoto no lo ayuda a nada.
 
 El peldaño 2 se agregó después de que pasara: un respaldo que revienta es
 **invisible** sin él. El zip viejo sigue en el disco con su fecha, así que
 `lastBackupAt` dice que hay respaldo, el repo está al día y los peldaños de
-abajo pasan de largo. Con el automático cada quince minutos, eso son horas
-fallando en silencio mientras la pantalla dice que todo está bien. Al aviso
-va la PRIMERA línea del error —un error de isolate son doscientas líneas de
-`<- _child in Instance of ...`— y el texto entero queda en el panel.
+abajo pasan de largo. Al aviso va la PRIMERA línea del error —un error de
+isolate son doscientas líneas de `<- _child in Instance of ...`— y el texto
+entero queda en el panel.
+
+El peldaño 7 es la red que reemplaza al automático. Sin él, ir a manual
+significaba que un vault impecable con un zip de la semana pasada se veía
+exactamente igual que uno al día, y el punto del riel se quedaba verde para
+siempre: `lastBackupAt` sale del `mtime` y nunca se comparaba contra hoy.
 
 ## El zip es determinista, y de eso depende que git aguante
 
@@ -102,6 +98,27 @@ que el zip sea **función pura del estado**: entradas ordenadas
 alfabéticamente, fecha fija (`1980-01-01`) en todas y **ningún sello de
 tiempo adentro**. Respaldar dos veces sin haber cambiado nada da bytes
 idénticos, `git commit` contesta "nothing to commit" y el repo no crece.
+
+Cuando el estado SÍ cambió, la contención es otra y son dos piezas que
+trabajan juntas (`vault_git.dart`):
+
+- **Un solo commit, siempre.** Cada respaldo REEMPLAZA al anterior: si la
+  punta ya es el commit raíz se amenda, y si hay historia acumulada se borra
+  la rama para que el commit siguiente nazca sin padre. No hay historial de
+  versiones del vault, a propósito: cada una pesaría el zip entero.
+- **La poda, que es lo que achica de verdad.** Reescribir el commit deja el
+  blob anterior *inalcanzable*, no borrado: el `git log` muestra uno solo y
+  el `.git` crece igual. Por eso después de reescribir corre
+  `reflog expire --expire=now --all` y, si hace falta, `gc --prune=now`.
+
+El "si hace falta" es un techo **proporcional al respaldo** —dos veces el
+tamaño del zip, con un piso de 1 MiB—, no un número fijo de MB. Un umbral
+absoluto no puede servir a la vez a un vault de 5 MB (nunca podaría) y a uno
+de 500 (podaría en cada clic, y el vault lleva las bases de saber en claro,
+así que son miles de archivos). Lo vigila el test *"respaldar muchas veces
+NO infla el .git"* de `test/system_vault/vault_git_test.dart`, que respalda
+diez veces con bytes incompresibles distintos y falla si el `.git` supera
+cuatro veces el archivo. Sin la poda, ese mismo test da diez veces.
 
 Por eso la fecha del respaldo sale del `mtime` del archivo y del mensaje del
 commit, nunca del manifest. Un `DateTime.now()` metido ahí adentro rompería

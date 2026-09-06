@@ -1,4 +1,6 @@
 import 'dart:io';
+import 'dart:math';
+import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 
@@ -109,4 +111,54 @@ void main() {
     expect(result, contains('idéntico'));
     expect(await _read(repo, ['rev-parse', 'HEAD']), before);
   });
+
+  test('respaldar muchas veces NO infla el .git: la poda lo mantiene acotado', () async {
+    // El defecto que costó 25 GB: cada respaldo es un zip entero y no se
+    // diffea, así que amendar deja el blob anterior inalcanzable y el `.git`
+    // crece un archivo por respaldo aunque el `git log` muestre uno solo.
+    final repo = _tempRepo();
+    await _initRepo(repo);
+
+    const rounds = 10;
+    for (var round = 0; round < rounds; round++) {
+      File('${repo.path}/keel-backup.zip').writeAsBytesSync(_noise(round));
+      await commitVault(repo.path, message: 'respaldo $round', push: false);
+    }
+
+    final backupKiB = File('${repo.path}/keel-backup.zip').lengthSync() ~/ 1024;
+    final gitKiB = await _repoKiB(repo);
+
+    expect(await _read(repo, ['rev-list', '--count', 'HEAD']), '1');
+    // Sin poda esto daría ~10 respaldos de basura acumulada. El techo es la
+    // poda relativa: dos respaldos, más el que acaba de entrar.
+    expect(
+      gitKiB,
+      lessThan(backupKiB * 4),
+      reason: 'el .git quedó en $gitKiB KiB para un respaldo de $backupKiB KiB',
+    );
+  });
+}
+
+/// Bytes incompresibles y distintos en cada ronda: un zip real tampoco se
+/// comprime, y con texto repetido git empaquetaría todo a nada y el test no
+/// probaría lo que dice probar.
+Uint8List _noise(int seed) {
+  final random = Random(seed);
+  return Uint8List.fromList([
+    for (var index = 0; index < 1024 * 1024; index++) random.nextInt(256),
+  ]);
+}
+
+/// Lo que ocupa el repo según git, en KiB: objetos sueltos más empaquetados.
+Future<int> _repoKiB(Directory repo) async {
+  final output = await _read(repo, ['count-objects', '-v']);
+  var total = 0;
+  for (final line in output.split('\n')) {
+    final parts = line.split(':');
+    if (parts.length != 2) continue;
+    if (parts.first.trim() case 'size' || 'size-pack') {
+      total += int.tryParse(parts.last.trim()) ?? 0;
+    }
+  }
+  return total;
 }

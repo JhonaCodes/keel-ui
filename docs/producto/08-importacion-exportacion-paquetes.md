@@ -4,13 +4,15 @@
 
 | Forma | Alcance | Incluye secretos? | Portátil | Caso de uso |
 |---|---|---|---|---|
-| **Vault** | Todo el sistema (agentes, skills, workflows, proyectos, MCPs, reglas, hooks) | No (nombres solo) | Sí, es un repo | Respaldo automático, restore en otra máquina |
+| **Vault** | Todo el sistema (agentes, skills, workflows, proyectos, MCPs, reglas, hooks) | No (nombres solo) | Sí, es un repo | Respaldo a un botón, restore en otra máquina |
 | **Respaldo en archivo** | Selección manual por secciones | Sí, opcionalmente con un checkbox | No, es local | Copia de seguridad puntual con valores |
 | **Paquetes** | Un agente, un workflow o una skill + todas sus dependencias | No (nombres solo) | Sí, es un `.zip` | Compartir configuración reutilizable con otros |
 
-## El Vault: respaldo automático del sistema
+## El Vault: el respaldo del sistema entero, a un botón
 
-El vault es un repositorio git que sincroniza **TODO** — agentes registrados, skills, reglas, workflows, proyectos, MCPs, bases de saber, ajustes — cada 15 minutos y al cerrar la app.
+El vault es un repositorio git que lleva **TODO** — agentes registrados, skills, reglas, workflows, proyectos, MCPs, bases de saber, ajustes — a GitHub cuando vos apretás **Subir a GitHub**.
+
+**No corre solo, y es a propósito.** Sincronizaba cada 15 minutos y al cerrar la app, y se sacó: el respaldo es un zip y un zip no se diffea, así que cada commit metía el archivo entero de nuevo y el `.git` del vault llegó a 25 GB. Hoy cada respaldo reemplaza al anterior y queda un solo commit. Como nada corre solo, el riel avisa con un punto rojo cuando el último respaldo tiene más de tres días.
 
 Lo que **no entra** al vault: los valores de los secretos (viajan solo los nombres), los hilos de chat, las sesiones en curso, la carpeta TASKS/ de ningún proyecto, ni los adjuntos. El vault es el estado de *qué tienes configurado*, no la historia de lo que hiciste.
 

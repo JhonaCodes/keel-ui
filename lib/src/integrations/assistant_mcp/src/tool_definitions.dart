@@ -308,18 +308,12 @@ final List<Tool> keelAiTools = _withCatalogChangeParameters([
     description:
         'Respalda TODO el sistema (skills, reglas, tools, workflows, MCPs, '
         'agentes, proyectos, bases de saber y ajustes) en el '
-        'keel-backup.zip de la carpeta del vault. Con push=true además lo '
-        'commitea y lo sube al repo del vault. De los secrets viajan solo '
-        'los nombres, nunca los valores; los hilos de chat no viajan.',
-    inputSchema: ObjectSchema(
-      properties: {
-        'push': Schema.bool(
-          description:
-              'Si además de escribir el zip hay que commitear y pushear el '
-              'vault. Por defecto false.',
-        ),
-      },
-    ),
+        'keel-backup.zip de la carpeta del vault, lo commitea y lo sube al '
+        'repo del vault: es un solo paso, no hay respaldo a medias. Nada '
+        'respalda solo — esto corre cuando alguien lo pide. De los secrets '
+        'viajan solo los nombres, nunca los valores; los hilos de chat no '
+        'viajan.',
+    inputSchema: ObjectSchema(properties: {}),
   ),
   Tool(
     name: 'restore_system',

@@ -1259,10 +1259,7 @@ Future<String> _runVaultTool(
   SystemVaultViewModel vault,
   CallToolRequest request,
 ) async {
-  if (request.name == 'backup_system') {
-    final push = request.arguments?['push'] as bool? ?? false;
-    return vault.backup(reach: push ? VaultReach.push : VaultReach.write);
-  }
+  if (request.name == 'backup_system') return vault.backup();
   final read = await vault.inspectVault();
   if (vault.data.preview == null) return read;
   return vault.applyLoaded(sections: BackupSection.values.toSet());

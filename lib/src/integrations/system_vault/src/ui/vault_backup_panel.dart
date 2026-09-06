@@ -232,17 +232,13 @@ class _SystemVaultControls extends StatelessWidget {
               runSpacing: 8,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
+                // Un solo botón: un respaldo que se queda en este disco no
+                // protege de perder este disco, y tenerlo al lado del que sí
+                // sube hacía que la mitad barata pareciera terminada.
                 FilledButton.icon(
                   onPressed: vault.busy ? null : () => viewmodel.backup(),
-                  icon: const Icon(Icons.save_alt, size: 18),
-                  label: const Text('Respaldar'),
-                ),
-                FilledButton.tonalIcon(
-                  onPressed: vault.busy
-                      ? null
-                      : () => viewmodel.backup(reach: VaultReach.push),
                   icon: const Icon(Icons.cloud_upload_outlined, size: 18),
-                  label: const Text('Respaldar y subir'),
+                  label: const Text('Subir a GitHub'),
                 ),
                 OutlinedButton.icon(
                   onPressed: vault.busy
@@ -266,15 +262,22 @@ class _SystemVaultControls extends StatelessWidget {
                   ),
               ],
             ),
-            if (vault.lastBackupAt != null) ...[
-              const SizedBox(height: 8),
-              Text(
-                'Último respaldo: ${vault.lastBackupAt!.toLocal()}. Se '
-                'respalda solo cada 15 minutos y al cerrar la app, con '
-                'commit local — subir al remoto lo decidís vos.',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            ],
+            const SizedBox(height: 8),
+            Text(
+              [
+                if (vault.lastBackupAt != null)
+                  'Último respaldo: ${vault.lastBackupAt!.toLocal()}.'
+                else
+                  'Todavía no subiste ninguno.',
+                'Nada de esto corre solo: si no apretás el botón, no hay '
+                    'respaldo.',
+                if (vault.gitSizeKiB > 0)
+                  'El repo del vault ocupa '
+                      '${(vault.gitSizeKiB / 1024).toStringAsFixed(1)} MB: '
+                      'cada respaldo REEMPLAZA al anterior, no se acumulan.',
+              ].join(' '),
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
             if (vault.warning != null) ...[
               const SizedBox(height: 8),
               _VaultWarning(message: vault.warning!),

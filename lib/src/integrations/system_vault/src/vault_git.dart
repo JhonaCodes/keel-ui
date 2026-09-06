@@ -46,16 +46,26 @@ Future<void> ensureVaultRepo(String dir, String remoteUrl) async {
   if (!remote.ok) throw _VaultException('git remote falló: ${remote.output}');
 }
 
-/// Cuánto puede pesar el `.git` del vault antes de que valga la pena parar a
-/// juntar la basura, en KiB.
+/// Cuántas copias del respaldo puede llegar a pesar el `.git` antes de que
+/// valga la pena parar a juntar la basura.
 ///
 /// Reescribir el commit deja el blob del zip anterior como objeto
-/// inalcanzable: el `git log` muestra uno solo y el `.git` crece igual. La
-/// poda es lo que lo achica de verdad, pero un `gc` completo en CADA
+/// inalcanzable: el `git log` muestra uno solo y el `.git` crece UN RESPALDO
+/// ENTERO en cada vuelta. Así es como este repo llegó a 25 GB cuando el
+/// respaldo corría solo cada quince minutos: un zip no se diffea, cada
+/// versión entra completa.
+///
+/// La poda es lo que lo achica de verdad, pero un `gc` completo en CADA
 /// respaldo castiga cada clic con segundos de espera —el vault además lleva
-/// las bases de saber en claro, así que son miles de archivos—. Con umbral,
-/// el repo queda acotado y el `gc` corre cada varias decenas de respaldos.
-const int _kVaultGcThresholdKiB = 50 * 1024;
+/// las bases de saber en claro, así que son miles de archivos—. Por eso el
+/// techo va EN PROPORCIÓN al respaldo y no en un número fijo de MB: uno
+/// absoluto no puede servir a la vez a un vault de 5 MB (nunca podaría) y a
+/// uno de 500 (podaría en cada clic).
+const int _kVaultGcFactor = 2;
+
+/// Piso de ese techo, en KiB. Debajo de esto el `.git` no es un problema de
+/// nadie y el `gc` sería trabajo por nada.
+const int _kVaultGcFloorKiB = 1024;
 
 /// Deja el vault con UN SOLO respaldo commiteado y lo sube.
 ///
@@ -189,12 +199,22 @@ Future<void> _pruneVaultHistory(String dir) async {
     Log.w('No pude medir el repo del vault: ${counted.output}');
     return;
   }
-  if (_repoSizeKiB(counted.output) < _kVaultGcThresholdKiB) return;
+  if (_repoSizeKiB(counted.output) < _vaultGcCeilingKiB(dir)) return;
 
   final collected = await _git(['gc', '--prune=now', '--quiet'], cwd: dir);
   if (!collected.ok) {
     Log.w('El gc del vault no terminó: ${collected.output}');
   }
+}
+
+/// Hasta cuánto puede crecer el `.git` de [dir] sin que haya que podarlo, en
+/// KiB: un par de copias del respaldo que guarda, nunca menos que el piso.
+int _vaultGcCeilingKiB(String dir) {
+  final backup = File('$dir/$kVaultBackupFileName');
+  final ceiling = backup.existsSync()
+      ? (backup.lengthSync() ~/ 1024) * _kVaultGcFactor
+      : 0;
+  return ceiling < _kVaultGcFloorKiB ? _kVaultGcFloorKiB : ceiling;
 }
 
 /// Lo que ocupa el repo en disco según `git count-objects -v`, en KiB:
@@ -232,12 +252,14 @@ typedef VaultRepoStatus = ({
   bool isRepo,
   bool hasRemote,
   bool hasUnpushedBackup,
+  int gitSizeKiB,
 });
 
 const VaultRepoStatus _noRepo = (
   isRepo: false,
   hasRemote: false,
   hasUnpushedBackup: false,
+  gitSizeKiB: 0,
 );
 
 /// Si el respaldo commiteado todavía no salió de esta máquina.
@@ -251,19 +273,28 @@ const VaultRepoStatus _noRepo = (
 Future<VaultRepoStatus> vaultRepoStatus(String dir) async {
   if (!Directory('$dir/.git').existsSync()) return _noRepo;
 
+  final counted = await _git(['count-objects', '-v'], cwd: dir);
+  final sizeKiB = counted.ok ? _repoSizeKiB(counted.output) : 0;
+
   final remote = await _git(['remote', 'get-url', 'origin'], cwd: dir);
   if (!remote.ok) {
-    return (isRepo: true, hasRemote: false, hasUnpushedBackup: false);
+    return (
+      isRepo: true,
+      hasRemote: false,
+      hasUnpushedBackup: false,
+      gitSizeKiB: sizeKiB,
+    );
   }
 
   final ahead = await _git(['rev-list', '--count', '@{u}..HEAD'], cwd: dir);
-  final counted = ahead.ok
+  final unpushed = ahead.ok
       ? ahead
       : await _git(['rev-list', '--count', 'HEAD'], cwd: dir);
   return (
     isRepo: true,
     hasRemote: true,
-    hasUnpushedBackup: (int.tryParse(counted.output.trim()) ?? 0) > 0,
+    hasUnpushedBackup: (int.tryParse(unpushed.output.trim()) ?? 0) > 0,
+    gitSizeKiB: sizeKiB,
   );
 }
 

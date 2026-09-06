@@ -1,9 +1,10 @@
 part of '../system_vault.dart';
 
-/// Hasta dónde llega un respaldo. Escribir el zip siempre pasa; commitear y
-/// subir van juntos: el botón "Respaldar" solo escribe, y "Respaldar y subir"
-/// reemplaza el respaldo commiteado y lo manda al remoto.
-enum VaultReach { write, push }
+/// A partir de cuántos días sin respaldar el vault pasa a estar en falta.
+///
+/// Nada respalda solo, así que este número es todo el margen que hay entre
+/// "lo tengo guardado" y "lo tenía guardado hace una semana".
+const int kVaultStaleDays = 3;
 
 class SystemVaultState {
   final bool busy;
@@ -19,6 +20,11 @@ class SystemVaultState {
 
   final bool isRepo;
   final bool hasRemote;
+
+  /// Lo que ocupa el `.git` del vault, en KiB. Está a la vista porque este
+  /// repo llegó a pesar 25 GB sin que nada lo dijera: un zip por commit, cada
+  /// quince minutos.
+  final int gitSizeKiB;
 
   /// Si el respaldo commiteado todavía no salió de esta máquina.
   final bool hasUnpushedBackup;
@@ -43,6 +49,7 @@ class SystemVaultState {
     this.lastBackupAt,
     this.isRepo = false,
     this.hasRemote = false,
+    this.gitSizeKiB = 0,
     this.hasUnpushedBackup = false,
     this.preview,
     this.lastFailure = '',
@@ -56,7 +63,10 @@ class SystemVaultState {
   /// esto corre solo —si no apretás el botón no hay respaldo—, así que este
   /// aviso es lo único que separa "creo que está guardado" de "está
   /// guardado".
-  String? get warning {
+  ///
+  /// [now] entra por parámetro porque el último peldaño mide antigüedad, y un
+  /// `DateTime.now()` adentro haría que ese caso no se pueda probar.
+  String? warningAt(DateTime now) {
     if (!configured) {
       return 'No elegiste carpeta de vault: nada de esto está respaldado.';
     }
@@ -65,7 +75,8 @@ class SystemVaultState {
     if (lastFailure.isNotEmpty) {
       return 'La última operación del vault falló: $lastFailure';
     }
-    if (lastBackupAt == null) {
+    final at = lastBackupAt;
+    if (at == null) {
       return 'Todavía no hay ningún respaldo en el vault.';
     }
     if (!isRepo) {
@@ -79,8 +90,21 @@ class SystemVaultState {
     if (hasUnpushedBackup) {
       return 'El respaldo commiteado todavía no está subido al remoto.';
     }
+    // El último peldaño existe porque el respaldo dejó de correr solo: sin
+    // esto, un vault impecable con un zip de la semana pasada se ve idéntico
+    // a uno al día, y el punto del riel se queda verde para siempre.
+    final days = now.difference(at).inDays;
+    if (days >= kVaultStaleDays) {
+      return 'El último respaldo es de hace $days días: subí uno nuevo.';
+    }
     return null;
   }
+
+  /// El aviso contra el reloj de esta máquina. Lo usa la UI; los tests usan
+  /// [warningAt], que es determinista.
+  String? get warning => warningAt(DateTime.now());
+
+  bool needsAttentionAt(DateTime now) => warningAt(now) != null;
 
   bool get needsAttention => warning != null;
 
@@ -91,6 +115,7 @@ class SystemVaultState {
     DateTime? lastBackupAt,
     bool? isRepo,
     bool? hasRemote,
+    int? gitSizeKiB,
     bool? hasUnpushedBackup,
     BackupPreview? preview,
     String? lastFailure,
@@ -107,6 +132,7 @@ class SystemVaultState {
           : (lastBackupAt ?? this.lastBackupAt),
       isRepo: isRepo ?? this.isRepo,
       hasRemote: hasRemote ?? this.hasRemote,
+      gitSizeKiB: gitSizeKiB ?? this.gitSizeKiB,
       hasUnpushedBackup: hasUnpushedBackup ?? this.hasUnpushedBackup,
       preview: clearPreview ? null : (preview ?? this.preview),
       lastFailure: clearFailure ? '' : (lastFailure ?? this.lastFailure),
@@ -124,6 +150,7 @@ class SystemVaultState {
           lastBackupAt == other.lastBackupAt &&
           isRepo == other.isRepo &&
           hasRemote == other.hasRemote &&
+          gitSizeKiB == other.gitSizeKiB &&
           hasUnpushedBackup == other.hasUnpushedBackup &&
           preview == other.preview;
 
@@ -135,6 +162,7 @@ class SystemVaultState {
     lastBackupAt,
     isRepo,
     hasRemote,
+    gitSizeKiB,
     hasUnpushedBackup,
     preview,
   );
@@ -194,7 +222,12 @@ class SystemVaultViewModel extends ViewModel<SystemVaultState> {
     final file = _backupFile;
     final exists = file != null && file.existsSync();
     final status = dir == null
-        ? const (isRepo: false, hasRemote: false, hasUnpushedBackup: false)
+        ? const (
+            isRepo: false,
+            hasRemote: false,
+            hasUnpushedBackup: false,
+            gitSizeKiB: 0,
+          )
         : await vaultRepoStatus(dir);
 
     updateState(
@@ -204,6 +237,7 @@ class SystemVaultViewModel extends ViewModel<SystemVaultState> {
         clearLastBackup: !exists,
         isRepo: status.isRepo,
         hasRemote: status.hasRemote,
+        gitSizeKiB: status.gitSizeKiB,
         hasUnpushedBackup: status.hasUnpushedBackup,
       ),
     );
@@ -211,20 +245,24 @@ class SystemVaultViewModel extends ViewModel<SystemVaultState> {
 
   // ── respaldar ───────────────────────────────────────────────────────
 
-  /// Escribe `keel-backup.zip` en el vault y llega hasta donde diga [reach].
+  /// Escribe `keel-backup.zip` en el vault, lo commitea y lo sube al remoto.
   /// Devuelve el resumen (también queda en [SystemVaultState.log]).
+  ///
+  /// Es UN solo camino a propósito. Antes había dos —"Respaldar" escribía el
+  /// zip y "Respaldar y subir" además lo publicaba—, y un respaldo que se
+  /// queda en este disco no es un respaldo contra perder este disco: la
+  /// mitad barata se veía igual de terminada que la que sirve.
   ///
   /// **No atenúa la app.** Respaldar no pisa nada de lo que estés haciendo:
   /// junta una foto de lo que ya está en memoria y escribe un archivo. Se
   /// avisa —la franja de arriba y el icono del riel—, no se bloquea. Lo que
   /// sí bloquea es RESTAURAR, que reemplaza el sistema abajo tuyo.
-  Future<String> backup({VaultReach reach = VaultReach.write}) =>
-      AppStatusService.instance.notifier.inBackground(
-        'Respaldando el sistema',
-        () => _backup(reach),
-      );
+  Future<String> backup() => AppStatusService.instance.notifier.inBackground(
+    'Respaldando el sistema',
+    _backup,
+  );
 
-  Future<String> _backup(VaultReach reach) => _guarded(() async {
+  Future<String> _backup() => _guarded(() async {
     final dir = _vaultDirectory;
     if (dir == null) {
       throw const _VaultException(
@@ -251,10 +289,6 @@ class SystemVaultViewModel extends ViewModel<SystemVaultState> {
         'Afuera por tamaño (más de ${kMaxVaultDocBytes ~/ (1024 * 1024)} MB): '
             '${written.skipped.join(', ')}.',
     ];
-
-    // El botón "Respaldar" dice eso y hace eso: commitear el repo del
-    // usuario de callado sería un efecto que nadie pidió.
-    if (reach == VaultReach.write) return parts.join('\n');
 
     final remote = SettingsService.instance.notifier.data.vaultRepoUrl.trim();
     if (remote.isEmpty) {

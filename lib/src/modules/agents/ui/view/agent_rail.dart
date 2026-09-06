@@ -548,9 +548,10 @@ class _Dot extends StatelessWidget {
 
 /// El estado del respaldo, siempre a la vista.
 ///
-/// El respaldo automático commitea local pero NO sube: sin este punto, "ya
-/// está guardado" y "está guardado en un lugar que sobrevive a esta
-/// máquina" se ven exactamente igual. El punto naranja es la diferencia.
+/// Nada respalda solo, así que sin este punto "ya está guardado" y "está
+/// guardado en un lugar que sobrevive a esta máquina" se ven exactamente
+/// igual —incluso días después del último respaldo—. El punto es la
+/// diferencia.
 class _VaultRailButton extends StatelessWidget {
   const _VaultRailButton({required this.onPressed, this.selected = false});
 

@@ -22,7 +22,7 @@ class AppStatusViewModel extends ViewModel<AppStatusState> {
 
   /// Corre [work] avisando, sin atenuar ni tragarse los clicks.
   ///
-  /// Para lo que no te pisa: un respaldo automático, un índice que se
+  /// Para lo que no te pisa: un respaldo del vault, un índice que se
   /// refresca. Bloquear la app por algo que no compite con lo que estás
   /// haciendo es una interrupción sin razón, y encima enseña a ignorar el
   /// aviso cuando SÍ importa.

@@ -11,11 +11,16 @@ LlmRunner dispatchLlmProvider(LlmProvider provider, {String? providerApiKey}) =>
       Codex(target: CodexCli()) => const CodexCliRunner(),
       Claude(target: ClaudeCli()) => const ClaudeCliRunner(),
       OpenAiCompatible(
-        target: OpenAiCompatibleApi(:final baseUrl, :final secretRef),
+        target: OpenAiCompatibleApi(
+          :final baseUrl,
+          :final secretRef,
+          :final dialect,
+        ),
       ) =>
         OpenAiCompatibleApiRunner(
           baseUrl: baseUrl,
           secretRef: secretRef,
+          dialect: dialect,
           apiKey: providerApiKey,
         ),
     };

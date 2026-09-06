@@ -16,12 +16,14 @@ sealed class LlmProvider {
       OpenAiCompatibleApi(
         baseUrl: 'https://openrouter.ai/api/v1',
         secretRef: 'OPENROUTER_API_KEY',
+        dialect: OpenAiCompatibleDialect.openRouter,
       ),
     ),
     'deepseek' => const OpenAiCompatible(
       OpenAiCompatibleApi(
         baseUrl: 'https://api.deepseek.com',
         secretRef: 'DEEPSEEK_API_KEY',
+        dialect: OpenAiCompatibleDialect.plain,
       ),
     ),
     _ => throw ArgumentError.value(

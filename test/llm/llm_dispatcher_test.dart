@@ -26,6 +26,7 @@ void main() {
           OpenAiCompatibleApi(
             baseUrl: 'https://openrouter.ai/api/v1',
             secretRef: 'OPENROUTER_API_KEY',
+            dialect: OpenAiCompatibleDialect.openRouter,
           ),
         ),
       );

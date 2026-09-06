@@ -8,6 +8,7 @@ import 'package:http/testing.dart';
 import 'package:keel_ui/src/core/services/local_database.dart';
 import 'package:keel_ui/src/integrations/llm/llm.dart';
 import 'package:keel_ui/src/integrations/llm/openai_compatible/openai_compatible_api_runner.dart';
+import 'package:keel_ui/src/integrations/llm/openai_compatible/openai_model_profile.dart';
 import 'package:keel_ui/src/integrations/llm/openai_compatible/openai_tool_bridge.dart';
 
 const _spec = LlmTurnSpec(
@@ -21,18 +22,109 @@ const _spec = LlmTurnSpec(
 
 void main() {
   group('OpenAiCompatibleApiRunner', () {
+    test(
+      'el esfuerzo viaja con la forma del proveedor y la atribución solo va a OpenRouter',
+      () async {
+        // OpenRouter lo quiere ANIDADO. Mandarlo plano acá no da error: el
+        // gateway lo ignora y el turno corre sin razonar, con el bug invisible.
+        final openRouter = await _capturedRequest(
+          baseUrl: 'https://openrouter.ai/api/v1',
+          secretRef: 'OPENROUTER_API_KEY',
+          dialect: OpenAiCompatibleDialect.openRouter,
+          model: 'openai/gpt-5',
+          effort: 'high',
+        );
+        final openRouterBody =
+            jsonDecode(openRouter.body) as Map<String, dynamic>;
+        expect(openRouterBody['reasoning'], {'effort': 'high'});
+        expect(openRouterBody.containsKey('reasoning_effort'), isFalse);
+        // Atribución, no autenticación: identifican a Keel, no al usuario.
+        expect(openRouter.headers['http-referer'], kKeelProductUrl);
+        expect(openRouter.headers['x-title'], kKeelProductName);
+
+        // DeepSeek lo quiere PLANO, y las cabeceras de atribución le son ruido.
+        final deepSeek = await _capturedRequest(
+          baseUrl: 'https://api.deepseek.com',
+          secretRef: 'DEEPSEEK_API_KEY',
+          dialect: OpenAiCompatibleDialect.plain,
+          model: 'deepseek-reasoner',
+          effort: 'high',
+        );
+        final deepSeekBody = jsonDecode(deepSeek.body) as Map<String, dynamic>;
+        expect(deepSeekBody['reasoning_effort'], 'high');
+        expect(deepSeekBody.containsKey('reasoning'), isFalse);
+        expect(deepSeek.headers.containsKey('http-referer'), isFalse);
+        expect(deepSeek.headers.containsKey('x-title'), isFalse);
+
+        // `gpt-oss` razona en canales y gasta vueltas anunciando: se le pide
+        // esfuerzo bajo aunque el agente esté en el máximo, y a cambio recibe
+        // más rondas que el resto.
+        final harmony = await _capturedRequest(
+          baseUrl: 'https://openrouter.ai/api/v1',
+          secretRef: 'OPENROUTER_API_KEY',
+          dialect: OpenAiCompatibleDialect.openRouter,
+          model: 'openai/gpt-oss-20b',
+          effort: 'max',
+        );
+        expect((jsonDecode(harmony.body) as Map<String, dynamic>)['reasoning'], {
+          'effort': 'low',
+        });
+        expect(
+          OpenAiModelProfile.fromModel('openai/gpt-oss-20b').maxToolRounds,
+          greaterThan(OpenAiModelProfile.fromModel('openai/gpt-5').maxToolRounds),
+        );
+
+        // Un modelo que no razona no recibe el campo: en el dialecto plano un
+        // parámetro no soportado es un 400, y acá un 400 mata el turno.
+        final generic = await _capturedRequest(
+          baseUrl: 'https://openrouter.ai/api/v1',
+          secretRef: 'OPENROUTER_API_KEY',
+          dialect: OpenAiCompatibleDialect.openRouter,
+          model: 'openrouter/auto',
+          effort: 'high',
+        );
+        final genericBody = jsonDecode(generic.body) as Map<String, dynamic>;
+        expect(genericBody.containsKey('reasoning'), isFalse);
+        expect(genericBody.containsKey('reasoning_effort'), isFalse);
+
+        // Y un esfuerzo vacío omite el campo entero en vez de mandar basura.
+        final sinEffort = await _capturedRequest(
+          baseUrl: 'https://openrouter.ai/api/v1',
+          secretRef: 'OPENROUTER_API_KEY',
+          dialect: OpenAiCompatibleDialect.openRouter,
+          model: 'openai/gpt-5',
+          effort: '',
+        );
+        expect(
+          (jsonDecode(sinEffort.body) as Map<String, dynamic>).containsKey(
+            'reasoning',
+          ),
+          isFalse,
+        );
+      },
+    );
+
     test('el tope de rondas es un presupuesto de trabajo, no solo una red', () {
       final runner = OpenAiCompatibleApiRunner(
         baseUrl: 'https://api.deepseek.com',
         secretRef: 'DEEPSEEK_API_KEY',
+        dialect: OpenAiCompatibleDialect.plain,
         resolveSecret: (_) async => 'test-token-deepseek',
       );
 
-      // Cada ronda reenvía el historial completo: 200 rondas por nodo eran
-      // el multiplicador de costo, no una red. Con el bloque de cierre de
-      // turno un nodo cortado se retoma; el tope puede ser un presupuesto.
-      expect(runner.maxToolRounds, kDefaultOpenAiCompatibleMaxToolRounds);
-      expect(runner.maxToolRounds, 40);
+      // Sin override el número lo decide el perfil del modelo, que recién se
+      // conoce con el spec del turno.
+      expect(runner.maxToolRounds, isNull);
+
+      // Cada ronda reenvía el historial completo: el tope es el multiplicador
+      // de costo, no una red. Con el bloque de cierre de turno un nodo cortado
+      // se retoma, así que el número es un presupuesto — y un presupuesto
+      // plano le cobraba a todos el precio de la clase más charlatana.
+      expect(OpenAiModelProfile.generic.maxToolRounds, lessThan(40));
+      expect(
+        OpenAiModelProfile.harmony.maxToolRounds,
+        greaterThan(OpenAiModelProfile.generic.maxToolRounds),
+      );
     });
 
     test('sin límite declarado el techo es el tope, nunca cero', () {
@@ -85,6 +177,7 @@ void main() {
       final runner = OpenAiCompatibleApiRunner(
         baseUrl: 'https://api.deepseek.com',
         secretRef: 'DEEPSEEK_API_KEY',
+        dialect: OpenAiCompatibleDialect.plain,
         resolveSecret: (_) async => 'test-token-deepseek',
         toolBridge: _FakeToolBridge(),
         client: MockClient((request) async {
@@ -104,10 +197,10 @@ void main() {
           .run(_spec, userPath: '', cancel: const Stream<void>.empty())
           .toList();
 
-      // El modelo pide tool para siempre: la red tiene que frenarlo. Se ata al
-      // valor de la constante, no a un número escrito a mano — así subir el
-      // tope no obliga a editar el test, pero seguir teniendo red sí se prueba.
-      expect(requests, kDefaultOpenAiCompatibleMaxToolRounds + 1);
+      // El modelo pide tool para siempre: la red tiene que frenarlo. `_spec`
+      // corre `openai/gpt-4`, o sea la clase genérica: el número sale de SU
+      // perfil, no de una constante plana ni de un número escrito a mano.
+      expect(requests, OpenAiModelProfile.generic.maxToolRounds + 1);
       // Y frena SIN romper el turno: el trabajo hecho se entrega.
       expect(events.where((event) => event['type'] == 'failure'), isEmpty);
       expect(events.last, containsPair('isError', false));
@@ -118,6 +211,7 @@ void main() {
       final runner = OpenAiCompatibleApiRunner(
         baseUrl: 'https://openrouter.ai/api/v1',
         secretRef: 'OPENROUTER_API_KEY',
+        dialect: OpenAiCompatibleDialect.openRouter,
         resolveSecret: (_) async => 'test-token-openrouter',
         client: MockClient((request) async {
           seen = request;
@@ -162,6 +256,7 @@ void main() {
       final runner = OpenAiCompatibleApiRunner(
         baseUrl: 'https://openrouter.ai/api/v1',
         secretRef: 'OPENROUTER_API_KEY',
+        dialect: OpenAiCompatibleDialect.openRouter,
         resolveSecret: (_) async => 'test-token-openrouter',
         client: MockClient((request) async {
           seen = request;
@@ -233,6 +328,7 @@ void main() {
       final runner = OpenAiCompatibleApiRunner(
         baseUrl: 'https://api.deepseek.com',
         secretRef: 'DEEPSEEK_API_KEY',
+        dialect: OpenAiCompatibleDialect.plain,
         resolveSecret: (_) async => 'test-token-deepseek',
         client: MockClient((request) async {
           seen = request;
@@ -267,6 +363,7 @@ void main() {
       final runner = OpenAiCompatibleApiRunner(
         baseUrl: 'https://api.deepseek.com',
         secretRef: 'DEEPSEEK_API_KEY',
+        dialect: OpenAiCompatibleDialect.plain,
         resolveSecret: (_) async => 'test-token-deepseek',
         toolBridge: bridge,
         client: MockClient((request) async {
@@ -349,6 +446,7 @@ void main() {
       final runner = OpenAiCompatibleApiRunner(
         baseUrl: 'https://api.deepseek.com',
         secretRef: 'DEEPSEEK_API_KEY',
+        dialect: OpenAiCompatibleDialect.plain,
         resolveSecret: (_) async => 'test-token-deepseek',
         toolBridge: bridge,
         maxToolRounds: 8,
@@ -394,6 +492,7 @@ void main() {
         final runner = OpenAiCompatibleApiRunner(
           baseUrl: 'https://openrouter.ai/api/v1',
           secretRef: 'OPENROUTER_API_KEY',
+          dialect: OpenAiCompatibleDialect.openRouter,
           resolveSecret: (_) async => 'test-token-openrouter',
           toolBridge: _FakeToolBridge(),
           maxToolRounds: 1,
@@ -433,6 +532,7 @@ void main() {
       final runner = OpenAiCompatibleApiRunner(
         baseUrl: 'https://openrouter.ai/api/v1',
         secretRef: 'OPENROUTER_API_KEY',
+        dialect: OpenAiCompatibleDialect.openRouter,
         resolveSecret: (_) async => 'test-token-openrouter',
         client: MockClient((request) async {
           requests++;
@@ -467,6 +567,7 @@ void main() {
       final runner = OpenAiCompatibleApiRunner(
         baseUrl: 'https://openrouter.ai/api/v1',
         secretRef: 'OPENROUTER_API_KEY',
+        dialect: OpenAiCompatibleDialect.openRouter,
         resolveSecret: (_) async => 'test-token-openrouter',
         client: MockClient((request) async {
           requests++;
@@ -491,6 +592,7 @@ void main() {
       final runner = OpenAiCompatibleApiRunner(
         baseUrl: 'https://api.minimax.io/v1',
         secretRef: 'MINIMAX_API_KEY',
+        dialect: OpenAiCompatibleDialect.plain,
         resolveSecret: (_) async => 'test-token-minimax',
         client: MockClient((request) async {
           seen = request;
@@ -522,6 +624,7 @@ void main() {
       final runner = OpenAiCompatibleApiRunner(
         baseUrl: 'https://openrouter.ai/api/v1',
         secretRef: 'OPENROUTER_API_KEY',
+        dialect: OpenAiCompatibleDialect.openRouter,
         resolveSecret: (_) async => null,
         client: MockClient((request) async {
           called = true;
@@ -560,6 +663,7 @@ void main() {
       final runner = OpenAiCompatibleApiRunner(
         baseUrl: 'https://openrouter.ai/api/v1',
         secretRef: 'OPENROUTER_API_KEY',
+        dialect: OpenAiCompatibleDialect.openRouter,
         apiKey: 'key-del-engine-principal',
         resolveSecret: (_) async {
           resolverCalled = true;
@@ -586,6 +690,7 @@ void main() {
         final runner = OpenAiCompatibleApiRunner(
           baseUrl: 'https://api.deepseek.com',
           secretRef: 'DEEPSEEK_API_KEY',
+          dialect: OpenAiCompatibleDialect.plain,
           client: MockClient((request) async {
             called = true;
             return http.Response('{}', 200);
@@ -612,6 +717,7 @@ void main() {
       final runner = OpenAiCompatibleApiRunner(
         baseUrl: 'https://openrouter.ai/api/v1',
         secretRef: 'OPENROUTER_API_KEY',
+        dialect: OpenAiCompatibleDialect.openRouter,
         resolveSecret: (_) {
           resolverStarted.complete();
           return secretCompleter.future;
@@ -646,6 +752,44 @@ void main() {
       },
     );
   });
+}
+
+/// Corre un turno que no pide herramientas y devuelve el request que salió.
+/// El oráculo de esta feature es literalmente lo que viaja por HTTP.
+Future<http.Request> _capturedRequest({
+  required String baseUrl,
+  required String secretRef,
+  required OpenAiCompatibleDialect dialect,
+  required String model,
+  required String effort,
+}) async {
+  late http.Request seen;
+  final runner = OpenAiCompatibleApiRunner(
+    baseUrl: baseUrl,
+    secretRef: secretRef,
+    dialect: dialect,
+    resolveSecret: (_) async => 'test-token',
+    client: MockClient((request) async {
+      seen = request;
+      return http.Response('data: [DONE]\n', 200);
+    }),
+  );
+
+  await runner
+      .run(
+        LlmTurnSpec(
+          prompt: 'hola',
+          workingDirectory: '.',
+          model: model,
+          fullFileSystemAccess: false,
+          effort: effort,
+        ),
+        userPath: '',
+        cancel: const Stream<void>.empty(),
+      )
+      .drain<void>();
+
+  return seen;
 }
 
 class _FakeToolBridge implements OpenAiToolBridge {

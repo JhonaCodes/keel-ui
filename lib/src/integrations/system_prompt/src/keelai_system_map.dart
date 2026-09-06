@@ -92,8 +92,9 @@ Mapa de lo que existe en esta app y cómo se relaciona:
   La policy del workflow trae además TOPES que el motor aplica en código, no
   por prompt: minutos sin actividad del proveedor antes de cortar un paso
   (default 10), minutos máximos por paso (default 45) y techo de costo de la
-  sesión en dólares (default 20; 0 = sin techo, y solo cuenta el costo que el
-  proveedor informa — codex no lo informa). Un nodo sin `maxAgenticTurns`
+  sesión en dólares (sin techo por defecto; 0 = sin techo, y solo cuenta el
+  costo que el proveedor informa — codex no lo informa). Un nodo sin
+  `maxAgenticTurns`
   declarado corre con 20 turnos si escribe y 8 si es de solo lectura, nunca
   ilimitado. Se editan en el formulario del workflow; `create_workflow` y
   `update_workflow` todavía no los exponen.

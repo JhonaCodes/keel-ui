@@ -29,9 +29,13 @@ es de solo lectura. `maxAgenticTurns` sigue guardando lo que el usuario escribi�
 cero ya no es «ilimitado».
 
 **Plazos y techo en la policy.** `WorkflowPolicy` suma `idleTimeoutMinutes`
-(10), `nodeTimeoutMinutes` (45) y `maxSessionCostUsd` (20; 0 = sin techo). Se
-editan en el formulario del workflow y se dicen en el mensaje de preflight, para
-que un corte no sea una sorpresa. Registros anteriores leen los defaults.
+(10), `nodeTimeoutMinutes` (45) y `maxSessionCostUsd` (0 = sin techo, y ese es
+el default: un caso no se corta por precio salvo que alguien declare un techo).
+Se editan en el formulario del workflow y se dicen en el mensaje de preflight,
+para que un corte no sea una sorpresa. Registros anteriores leen los defaults, y
+los guardados con el techo del default viejo lo pierden una única vez
+(`WorkflowsRepository`, marcado con `_workflow_cost_ceiling_default_retired_v1`
+para no pisar un techo elegido después).
 
 **Vigilante de turno.** `TurnWatchdog` (`modules/projects/service/`) envuelve el
 stream de eventos con dos plazos: uno de inactividad, que cada evento reinicia,

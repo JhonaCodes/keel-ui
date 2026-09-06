@@ -24,8 +24,17 @@ const int kDefaultIdleTimeoutMinutes = 10;
 /// Minutos que puede durar un turno de nodo, con o sin actividad.
 const int kDefaultNodeTimeoutMinutes = 45;
 
-/// Techo de gasto reportado por sesión, en dólares. Cero es «sin techo».
-const double kDefaultMaxSessionCostUsd = 20;
+/// Techo de gasto reportado por sesión, en dólares. Cero es «sin techo», y es
+/// el default: un caso no se corta por precio salvo que alguien declare un
+/// techo a mano en el formulario del workflow. Un tope heredado sin decidirlo
+/// cortaba trabajo a mitad de implementación, que es el peor momento posible.
+const double kDefaultMaxSessionCostUsd = 0;
+
+/// El techo que traía [kDefaultMaxSessionCostUsd] antes de que el default
+/// pasara a «sin techo». Un workflow guardado con exactamente este valor lo
+/// heredó de ese default, no de una decisión, y por eso
+/// [normalizeLegacyCostCeilings] lo lleva a cero una única vez.
+const double kLegacyDefaultMaxSessionCostUsd = 20;
 
 enum WorkflowKind { general, bug, migration, roadmap }
 

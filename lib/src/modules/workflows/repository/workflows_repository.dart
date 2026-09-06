@@ -4,10 +4,20 @@ import 'package:keel_ui/src/modules/workflows/model/workflow.dart';
 class WorkflowsRepository {
   static const _prefix = 'workflow_';
 
+  /// Marca que el techo de costo heredado del default viejo ya se retiró.
+  ///
+  /// Sin esta marca la normalización correría en cada arranque, y entonces un
+  /// techo de US$ 20 puesto A MANO se borraría solo cada vez que se abre la
+  /// app: el campo dejaría de ser editable en la práctica.
+  static const _costCeilingDefaultRetiredKey =
+      '_workflow_cost_ceiling_default_retired_v1';
+
   Future<List<Workflow>> load() async {
     final records = await LocalDatabase.getAllWithPrefix(_prefix);
     if (records.every(_usesCurrentWorkflowSchema)) {
-      return records.map(Workflow.fromJson).toList();
+      return _withoutLegacyCostCeilings(
+        records.map(Workflow.fromJson).toList(),
+      );
     }
 
     // Export every original record before rewriting the active catalog. The
@@ -24,7 +34,7 @@ class WorkflowsRepository {
     });
     final workflows = records.map(migrateWorkflowRecord).toList();
     await save(workflows);
-    return workflows;
+    return _withoutLegacyCostCeilings(workflows);
   }
 
   Future<void> save(List<Workflow> workflows) async {
@@ -33,7 +43,45 @@ class WorkflowsRepository {
       workflows.map((workflow) => workflow.toJson()).toList(),
     );
   }
+
+  /// Retira UNA sola vez el techo de costo que los workflows guardados
+  /// heredaron del default anterior, y deja la marca para no repetirlo.
+  ///
+  /// La marca se consulta PRIMERO y se escribe aunque no haya habido nada que
+  /// retirar. Salir antes de marcarla dejaba la normalización armada para
+  /// siempre en una base sin techos heredados: el usuario elegía 20 a mano
+  /// —el slider avanza de a 5— y el arranque siguiente se lo borraba.
+  Future<List<Workflow>> _withoutLegacyCostCeilings(
+    List<Workflow> workflows,
+  ) async {
+    if (await LocalDatabase.get(_costCeilingDefaultRetiredKey) != null) {
+      return workflows;
+    }
+    final hasLegacyCeiling = workflows.any(
+      (workflow) =>
+          workflow.policy.maxSessionCostUsd == kLegacyDefaultMaxSessionCostUsd,
+    );
+    final normalized = normalizeLegacyCostCeilings(workflows);
+    // La marca se escribe DESPUÉS de guardar: si el guardado falla, el
+    // próximo arranque reintenta en vez de dar el techo por retirado.
+    if (hasLegacyCeiling) await save(normalized);
+    await LocalDatabase.put(_costCeilingDefaultRetiredKey, {
+      'retiredAt': DateTime.now().toUtc().toIso8601String(),
+    });
+    return normalized;
+  }
 }
+
+/// Los workflows que llevaban el techo de costo del default anterior, ahora
+/// sin techo. Un techo con cualquier otro valor lo eligió alguien en el
+/// formulario y se respeta tal cual.
+List<Workflow> normalizeLegacyCostCeilings(List<Workflow> workflows) => [
+  for (final workflow in workflows)
+    if (workflow.policy.maxSessionCostUsd == kLegacyDefaultMaxSessionCostUsd)
+      workflow.copyWith(policy: workflow.policy.copyWith(maxSessionCostUsd: 0))
+    else
+      workflow,
+];
 
 bool _usesCurrentWorkflowSchema(Map<String, dynamic> record) {
   if (record.containsKey('steps') ||

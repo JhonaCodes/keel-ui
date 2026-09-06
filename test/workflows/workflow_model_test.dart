@@ -318,7 +318,8 @@ void main() {
       const policy = WorkflowPolicy();
       expect(policy.idleTimeoutMinutes, 10);
       expect(policy.nodeTimeoutMinutes, 45);
-      expect(policy.maxSessionCostUsd, 20);
+      // El techo de costo no tiene default: ver workflow_cost_ceiling_test.
+      expect(policy.maxSessionCostUsd, 0);
 
       final custom = policy.copyWith(
         idleTimeoutMinutes: 3,

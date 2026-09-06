@@ -64,7 +64,6 @@ void main() {
         lastBackupAt: _stamp,
         isRepo: true,
         hasRemote: true,
-        unpushedCommits: 1,
       );
       expect(state.warning, 'Hay 1 respaldo commiteado sin subir al remoto.');
     });
@@ -75,7 +74,6 @@ void main() {
         lastBackupAt: _stamp,
         isRepo: true,
         hasRemote: true,
-        unpushedCommits: 4,
       );
       expect(state.warning, contains('4 respaldos'));
     });
@@ -98,7 +96,6 @@ void main() {
         configured: true,
         lastBackupAt: _stamp,
         isRepo: true,
-        unpushedCommits: 9,
       );
       expect(state.warning, contains('no tiene remoto'));
     });

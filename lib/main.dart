@@ -99,8 +99,7 @@ Future<void> main(List<String> rawArgs) async {
       await BoardsMcpServer.ensureStarted();
       await JobsApiService.instance.notifier.start();
       _registerAgentBridgeHandler();
-      // Respaldo periódico, y un último respaldo cuando la app se cierra.
-      VaultAutoBackup.start();
+
       // Los catálogos se cargan mientras la app ya se ve, con la barra de
       // arriba prendida. Antes esto pasaba detrás de un gate que reemplazaba
       // la pantalla entera por un spinner que ni siquiera podía girar.

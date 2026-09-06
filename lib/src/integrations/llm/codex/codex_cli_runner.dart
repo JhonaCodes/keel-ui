@@ -10,6 +10,7 @@ import 'package:keel_ui/src/integrations/llm/codex/codex_arguments.dart';
 import 'package:keel_ui/src/integrations/llm/codex/codex_config_overrides.dart';
 import 'package:keel_ui/src/integrations/llm/codex/codex_stream_reader.dart';
 import 'package:keel_ui/src/integrations/llm/src/cli_cancel_guard.dart';
+import 'package:keel_ui/src/integrations/llm/src/cli_turn_stream.dart';
 
 /// Corre un turno contra el binario `codex`. Migración literal de la rama
 /// `isCodex=true` de `task_runner_isolate.dart` — mismo armado de
@@ -87,44 +88,16 @@ class CodexCliRunner implements LlmRunner {
       await process.stdin.close();
 
       final reader = CodexStreamReader();
-      final stderrBuffer = StringBuffer();
-      final stderrDone = process.stderr
-          .transform(utf8.decoder)
-          .forEach(stderrBuffer.write);
-      final lines = process.stdout
-          .transform(utf8.decoder)
-          .transform(const LineSplitter());
-
-      await for (final line in lines) {
-        if (cancelGuard.cancelled) break;
-        if (line.trim().isEmpty) continue;
-
-        Map<String, dynamic> event;
-        try {
-          event = jsonDecode(line) as Map<String, dynamic>;
-        } catch (_) {
-          Log.w('Unparseable codex output line: $line');
-          continue;
-        }
-
-        for (final message in reader.read(event)) {
-          yield message;
-        }
-      }
-
-      await stderrDone;
-      if (!cancelGuard.cancelled) {
-        final exitCode = await process.exitCode;
-        if (exitCode != 0) {
-          final stderrText = stderrBuffer.toString().trim();
-          yield {
-            'type': 'failure',
-            'message': stderrText.isEmpty
-                ? 'codex terminó con código $exitCode'
-                : stderrText,
-          };
-        }
-      }
+      yield* cliTurnEvents(
+        lines: process.stdout
+            .transform(utf8.decoder)
+            .transform(const LineSplitter()),
+        read: reader.read,
+        stderr: process.stderr.transform(utf8.decoder).join(),
+        exitCode: process.exitCode,
+        provider: 'codex',
+        isCancelled: () => cancelGuard.cancelled,
+      );
     } finally {
       await cancelGuard.dispose();
       await workspace?.dispose();

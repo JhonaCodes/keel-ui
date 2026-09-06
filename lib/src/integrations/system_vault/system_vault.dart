@@ -18,8 +18,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
-// `AppExitResponse` vive en dart:ui; material no lo reexporta.
-import 'dart:ui' show AppExitResponse;
 
 import 'package:archive/archive.dart';
 import 'package:file_selector/file_selector.dart';
@@ -40,7 +38,6 @@ import 'package:keel_ui/src/modules/app_status/viewmodel/app_status_viewmodel.da
 import 'package:keel_ui/src/modules/settings/viewmodel/settings_viewmodel.dart';
 
 part 'src/system_vault_viewmodel.dart';
-part 'src/vault_auto_backup.dart';
 part 'src/ui/vault_onboarding.dart';
 part 'src/ui/vault_backup_panel.dart';
 part 'src/ui/vault_panels.dart';

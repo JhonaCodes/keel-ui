@@ -279,11 +279,23 @@ class ResolutionEngine {
   );
 
   /// Reintenta un nodo a mano: vuelve a `pending` y el caso a `active`.
-  /// Los intentos no se tocan (los cuenta el turno); los hallazgos quedan.
+  /// Los intentos no se tocan (los cuenta el turno).
+  ///
+  /// Los hallazgos DEL NODO se descartan, y esa es la parte que importa: son
+  /// el presupuesto que [reportFinding] ya gastó. Dejándolos, el reintento
+  /// arrancaba sin margen —la huella vieja lo descartaba por «misma
+  /// evidencia», o el conteo por nodo ya estaba en el tope— y volvía a
+  /// bloquear al primer tropiezo. Pedir un reintento es decir que ese
+  /// intento se juzga de nuevo; los hallazgos de los demás nodos no se tocan.
   static ResolutionCase retryNode(ResolutionCase resolution, String nodeId) {
     if (resolution.status == ResolutionCaseStatus.completed) return resolution;
     return _replaceNodeStatus(
-      resolution.copyWith(status: ResolutionCaseStatus.active),
+      resolution.copyWith(
+        status: ResolutionCaseStatus.active,
+        findings: resolution.findings
+            .where((finding) => finding.affectedNodeId != nodeId)
+            .toList(),
+      ),
       nodeId,
       WorkNodeStatus.pending,
     );
@@ -338,6 +350,24 @@ class ResolutionEngine {
     );
   }
 
+  /// La huella de una falla de turno: qué la hace igual a otra.
+  ///
+  /// Un turno que muere sin decir nada deja [answer] vacío, y con la huella
+  /// armada solo con eso DOS fallas por causas distintas quedaban idénticas
+  /// (`<nodeId>:`): la segunda se descartaba como «misma evidencia» y el
+  /// caso se bloqueaba en la primera falla real del nodo. Sin respuesta del
+  /// agente, la causa es el mensaje de falla del proveedor.
+  static String turnFailureFingerprint({
+    required String nodeId,
+    required String answer,
+    required String failureMessage,
+  }) => '$nodeId:${normalizeForMatch(turnFailureCause(answer, failureMessage))}';
+
+  /// Lo que se muestra como evidencia de la falla, con la misma regla de
+  /// precedencia que [turnFailureFingerprint]. Vacío si no hubo ninguna.
+  static String turnFailureCause(String answer, String failureMessage) =>
+      answer.trim().isEmpty ? failureMessage.trim() : answer.trim();
+
   static FindingRegistration reportFinding(
     ResolutionCase resolution, {
     required ResolutionEvidence evidence,
@@ -351,8 +381,15 @@ class ResolutionEngine {
       return FindingRegistration(resolution: resolution, accepted: false);
     }
 
-    final replans = resolution.replanCount + 1;
-    final exhausted = replans >= maxReplans;
+    // Por NODO: con el contador del caso, un nodo que fallaba por primera
+    // vez se bloqueaba porque OTRO nodo ya se había llevado los replans, y
+    // el hilo decía «falló dos veces» sobre un nodo que falló una.
+    final nodeReplans =
+        resolution.findings
+            .where((finding) => finding.affectedNodeId == affectedNodeId)
+            .length +
+        1;
+    final exhausted = nodeReplans >= maxReplans;
     final findings = [
       ...resolution.findings,
       ResolutionFinding(
@@ -363,7 +400,7 @@ class ResolutionEngine {
         status: exhausted
             ? ResolutionFindingStatus.blocked
             : ResolutionFindingStatus.assigned,
-        replanCount: replans,
+        replanCount: nodeReplans,
       ),
     ];
     final nodes = resolution.nodes
@@ -383,7 +420,7 @@ class ResolutionEngine {
         status: exhausted
             ? ResolutionCaseStatus.blocked
             : ResolutionCaseStatus.replanning,
-        replanCount: replans,
+        replanCount: resolution.replanCount + 1,
         nodes: nodes,
         findings: findings,
       ),

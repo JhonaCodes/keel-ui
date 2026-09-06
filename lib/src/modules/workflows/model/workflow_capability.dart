@@ -22,8 +22,10 @@ String? validateWorkflowCapabilities(List<WorkflowCapability> capabilities) {
         capability.role.trim().isEmpty) {
       return 'Título, instrucción y rol son obligatorios en cada capacidad.';
     }
-    if (capability.maxAgenticTurns < 0 || capability.maxAgenticTurns > 20) {
-      return 'La capacidad ${capability.id} debe limitar sus turnos entre 0 y 20.';
+    if (capability.maxAgenticTurns < 0 ||
+        capability.maxAgenticTurns > kMaxDeclarableTurns) {
+      return 'La capacidad ${capability.id} debe limitar sus turnos entre 0 '
+          'y $kMaxDeclarableTurns.';
     }
   }
   for (final capability in capabilities) {
@@ -74,12 +76,29 @@ String? validateWorkflowCapabilities(List<WorkflowCapability> capabilities) {
 
 /// Turnos agénticos de un nodo que escribe cuando el workflow no declara un
 /// tope. Antes `0` significaba «ilimitado», y 26 de 31 workflows guardados
-/// corrían así: un nodo llegó a 577 turnos. Veinte alcanza para implementar
-/// y probar; el que necesite más lo declara en el nodo.
-const int kDefaultWriteNodeTurns = 20;
+/// corrían así: un nodo llegó a 577 turnos. El tope existe por eso.
+///
+/// Empezó en 20 y era demasiado justo: al retrofitearse sobre esos 26
+/// workflows, un nodo de implementación real —cambio, test, análisis
+/// estático y suite— lo agotaba de rutina. Medido contra el caso que lo
+/// destapó: el nodo se cortó en el turno 21 con la suite en verde
+/// (`test result: ok. 13 passed`), o sea trabajando bien, no dando vueltas.
+/// Sesenta deja terminar ese trabajo y sigue estando lejos de los 577 que
+/// motivaron el tope; el que necesite otro número lo declara en el nodo.
+const int kDefaultWriteNodeTurns = 60;
 
 /// Lo mismo para un nodo de solo lectura (planificar, auditar).
 const int kDefaultReadOnlyNodeTurns = 8;
+
+/// El número más alto que alguien puede declarar en un nodo.
+///
+/// Existía como un `20` suelto repetido en tres lugares (la validación, el
+/// `fromJson` y el parser del asistente), y era un techo DURO, no un
+/// default: ni subiendo el campo en el formulario se podía pasar de ahí, así
+/// que un nodo que necesitaba más turnos no tenía ninguna salida. Sigue
+/// siendo un tope —para que un tipeo no deje un nodo dando vueltas para
+/// siempre— pero con margen para el trabajo real.
+const int kMaxDeclarableTurns = 200;
 
 @immutable
 class WorkflowCapability {
@@ -191,7 +210,8 @@ class WorkflowCapability {
           orElse: () => WorkflowExecutor.newSession,
         ),
         parentCapabilityId: json['parentCapabilityId'] as String? ?? '',
-        maxAgenticTurns: (json['maxAgenticTurns'] as int? ?? 0).clamp(0, 20),
+        maxAgenticTurns: (json['maxAgenticTurns'] as int? ?? 0)
+            .clamp(0, kMaxDeclarableTurns),
         readOnly: json['readOnly'] as bool? ?? false,
         outputContract: json['outputContract'] as String? ?? '',
         requiresIndependentOwner:

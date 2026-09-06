@@ -46,12 +46,28 @@ Future<void> ensureVaultRepo(String dir, String remoteUrl) async {
   if (!remote.ok) throw _VaultException('git remote falló: ${remote.output}');
 }
 
-/// Commitea todo lo que haya en [dir] y lo sube.
+/// Cuánto puede pesar el `.git` del vault antes de que valga la pena parar a
+/// juntar la basura, en KiB.
 ///
-/// "Nada que commitear" no es un error: es la respuesta correcta cuando el
-/// respaldo salió idéntico al anterior, que es justamente lo que busca el
-/// zip determinista. Aun así se intenta el push, porque un commit anterior
-/// podría haber quedado sin subir.
+/// Reescribir el commit deja el blob del zip anterior como objeto
+/// inalcanzable: el `git log` muestra uno solo y el `.git` crece igual. La
+/// poda es lo que lo achica de verdad, pero un `gc` completo en CADA
+/// respaldo castiga cada clic con segundos de espera —el vault además lleva
+/// las bases de saber en claro, así que son miles de archivos—. Con umbral,
+/// el repo queda acotado y el `gc` corre cada varias decenas de respaldos.
+const int _kVaultGcThresholdKiB = 50 * 1024;
+
+/// Deja el vault con UN SOLO respaldo commiteado y lo sube.
+///
+/// No hay historial: cada respaldo REEMPLAZA al anterior, porque un commit
+/// nuevo por respaldo es un blob nuevo entero del zip —no se diffea— y el
+/// repo se vuelve un pasivo que crece solo.
+///
+/// "El respaldo salió idéntico" no es un error: es la respuesta correcta
+/// cuando el zip determinista no cambió. Ahí no se reescribe nada (amendar
+/// sin cambios igual produce un sha nuevo, y eso sería un force-push por
+/// nada), pero el push se intenta lo mismo: la punta podría haber quedado
+/// sin subir de un intento anterior que falló.
 Future<String> commitVault(
   String dir, {
   required String message,
@@ -59,6 +75,61 @@ Future<String> commitVault(
 }) async {
   final add = await _git(['add', '-A'], cwd: dir);
   if (!add.ok) throw _VaultException('git add falló: ${add.output}');
+
+  final rewritten = await _writeSingleCommit(dir, message);
+  if (rewritten) await _pruneVaultHistory(dir);
+
+  if (!push) {
+    return rewritten
+        ? 'Reemplacé el respaldo commiteado del vault: queda uno solo.'
+        : 'El respaldo salió idéntico al que ya estaba commiteado — no '
+              'reescribí nada.';
+  }
+
+  // La punta se reescribe, así que un push normal sale rechazado. Con
+  // `--force-with-lease` y NUNCA `--force` pelado: el lease es lo que impide
+  // pisar un push hecho desde otra máquina — ahí falla con "stale info" y el
+  // usuario se entera, que es lo que corresponde.
+  final pushed = await _git([
+    'push',
+    '--force-with-lease',
+    '-u',
+    'origin',
+    'HEAD',
+  ], cwd: dir);
+  if (!pushed.ok) throw _VaultException('git push falló: ${pushed.output}');
+  return rewritten
+      ? 'Reemplacé el respaldo del vault y lo subí: el remoto queda con este '
+            'solo.'
+      : 'El respaldo salió idéntico al que ya estaba; el remoto quedó '
+            'sincronizado igual.';
+}
+
+/// Deja la rama con un único commit que contiene lo que ya está en el índice.
+/// Devuelve si hubo que escribirlo.
+///
+/// Tres caminos, y cada uno existe por algo distinto:
+/// - sin commits (vault recién inicializado) → commit normal;
+/// - la punta YA es el commit raíz —el estado estacionario— → `--amend`;
+/// - hay historia acumulada de antes → se borra la rama para que `HEAD` quede
+///   sin nacer y el commit siguiente sea raíz. `--amend` no sirve acá: solo
+///   orfana la punta y dejaría los commits anteriores alcanzables para
+///   siempre, que es justo el pasivo que se viene a sacar.
+///
+/// Borrar la rama no toca el índice ni el árbol de trabajo: el zip sigue en
+/// el disco, y si algo se cortara justo ahí el respaldo siguiente la vuelve
+/// a crear.
+Future<bool> _writeSingleCommit(String dir, String message) async {
+  final counted = await _git(['rev-list', '--count', 'HEAD'], cwd: dir);
+  final commits = counted.ok ? int.tryParse(counted.output.trim()) ?? 0 : 0;
+  final changed = await vaultHasChanges(dir);
+
+  // Nada nuevo Y la historia ya está colapsada: no hay nada que reescribir.
+  if (!changed && commits == 1) return false;
+  // Repo vacío y árbol vacío: no hay ni respaldo que commitear.
+  if (!changed && commits == 0) return false;
+
+  if (commits > 1) await _detachBranchFromHistory(dir);
 
   // Este commit lo inicia Keel sin una terminal interactiva. No debe heredar
   // `commit.gpgSign=true`: al abrir la app desde Finder el PATH puede no
@@ -68,25 +139,76 @@ Future<String> commitVault(
   final commit = await _git([
     'commit',
     '--no-gpg-sign',
+    if (commits == 1) '--amend',
     '-m',
     message,
   ], cwd: dir);
-  final nothingToCommit = commit.output.contains('nothing to commit');
-  if (!commit.ok && !nothingToCommit) {
-    throw _VaultException('git commit falló: ${commit.output}');
+  if (!commit.ok) throw _VaultException('git commit falló: ${commit.output}');
+  return true;
+}
+
+/// Suelta la rama de su historia dejando `HEAD` sin nacer.
+Future<void> _detachBranchFromHistory(String dir) async {
+  final branch = await _git(['symbolic-ref', '--short', 'HEAD'], cwd: dir);
+  if (!branch.ok) {
+    throw _VaultException(
+      'El vault no está parado sobre una rama (HEAD suelto): '
+      '${branch.output}. Hacé `git switch -c main` en la carpeta del vault y '
+      'volvé a respaldar.',
+    );
+  }
+  final dropped = await _git([
+    'update-ref',
+    '-d',
+    'refs/heads/${branch.output.trim()}',
+  ], cwd: dir);
+  if (!dropped.ok) {
+    throw _VaultException('git update-ref falló: ${dropped.output}');
+  }
+}
+
+/// Tira los objetos que quedaron inalcanzables al reescribir el commit.
+///
+/// Es limpieza, no el respaldo: si falla, el respaldo ya está commiteado y
+/// decir que falló sería mentir. Queda en el registro para que no desaparezca
+/// en silencio.
+Future<void> _pruneVaultHistory(String dir) async {
+  final expired = await _git([
+    'reflog',
+    'expire',
+    '--expire=now',
+    '--all',
+  ], cwd: dir);
+  if (!expired.ok) {
+    Log.w('No pude expirar el reflog del vault: ${expired.output}');
+    return;
   }
 
-  if (!push) {
-    return commit.ok
-        ? 'Commiteé el respaldo en el vault.'
-        : 'El vault ya estaba al día — no hubo nada que commitear.';
+  final counted = await _git(['count-objects', '-v'], cwd: dir);
+  if (!counted.ok) {
+    Log.w('No pude medir el repo del vault: ${counted.output}');
+    return;
   }
+  if (_repoSizeKiB(counted.output) < _kVaultGcThresholdKiB) return;
 
-  final pushed = await _git(['push', '-u', 'origin', 'HEAD'], cwd: dir);
-  if (!pushed.ok) throw _VaultException('git push falló: ${pushed.output}');
-  return commit.ok
-      ? 'Commiteé y subí el respaldo.'
-      : 'El vault ya estaba al día; el remoto quedó sincronizado igual.';
+  final collected = await _git(['gc', '--prune=now', '--quiet'], cwd: dir);
+  if (!collected.ok) {
+    Log.w('El gc del vault no terminó: ${collected.output}');
+  }
+}
+
+/// Lo que ocupa el repo en disco según `git count-objects -v`, en KiB:
+/// `size` son los objetos sueltos y `size-pack` los empaquetados.
+int _repoSizeKiB(String countOutput) {
+  var total = 0;
+  for (final line in countOutput.split('\n')) {
+    final parts = line.split(':');
+    if (parts.length != 2) continue;
+    if (parts.first.trim() case 'size' || 'size-pack') {
+      total += int.tryParse(parts.last.trim()) ?? 0;
+    }
+  }
+  return total;
 }
 
 /// Clona [url] en [destination], que tiene que no existir o estar vacío.
@@ -106,44 +228,52 @@ Future<void> cloneVaultRepo(String url, String destination) async {
 
 /// En qué estado está el vault respecto de git. Se consulta seguido (cada
 /// respaldo, cada arranque) y nunca escribe nada.
-typedef VaultRepoStatus = ({bool isRepo, bool hasRemote, int unpushed});
+typedef VaultRepoStatus = ({
+  bool isRepo,
+  bool hasRemote,
+  bool hasUnpushedBackup,
+});
 
-const VaultRepoStatus _noRepo = (isRepo: false, hasRemote: false, unpushed: 0);
+const VaultRepoStatus _noRepo = (
+  isRepo: false,
+  hasRemote: false,
+  hasUnpushedBackup: false,
+);
 
-/// Cuántos respaldos commiteados todavía no salieron de esta máquina.
+/// Si el respaldo commiteado todavía no salió de esta máquina.
+///
+/// Es un sí o un no, no una cuenta: con un solo commit reescribiéndose,
+/// "cuántos quedaron de este lado" no significa nada.
 ///
 /// Sin upstream la cuenta son TODOS los commits: una rama que nunca se
-/// pusheó está entera sin subir, y decir "0 pendientes" ahí sería mentir
+/// pusheó está entera sin subir, y decir "está subido" ahí sería mentir
 /// justo en el caso en que más importa.
 Future<VaultRepoStatus> vaultRepoStatus(String dir) async {
   if (!Directory('$dir/.git').existsSync()) return _noRepo;
 
   final remote = await _git(['remote', 'get-url', 'origin'], cwd: dir);
-  if (!remote.ok) return (isRepo: true, hasRemote: false, unpushed: 0);
-
-  final ahead = await _git(['rev-list', '--count', '@{u}..HEAD'], cwd: dir);
-  if (ahead.ok) {
-    return (
-      isRepo: true,
-      hasRemote: true,
-      unpushed: int.tryParse(ahead.output.trim()) ?? 0,
-    );
+  if (!remote.ok) {
+    return (isRepo: true, hasRemote: false, hasUnpushedBackup: false);
   }
 
-  final all = await _git(['rev-list', '--count', 'HEAD'], cwd: dir);
+  final ahead = await _git(['rev-list', '--count', '@{u}..HEAD'], cwd: dir);
+  final counted = ahead.ok
+      ? ahead
+      : await _git(['rev-list', '--count', 'HEAD'], cwd: dir);
   return (
     isRepo: true,
     hasRemote: true,
-    unpushed: int.tryParse(all.output.trim()) ?? 0,
+    hasUnpushedBackup: (int.tryParse(counted.output.trim()) ?? 0) > 0,
   );
 }
 
 /// Si hay algo sin commitear en [dir].
 ///
-/// Se pregunta ANTES de commitear en el respaldo automático: sin cambios no
-/// se llama a `git commit`, y entonces la firma GPG no se dispara. Con un
-/// respaldo cada 15 minutos, commitear a ciegas sería un pinentry cada 15
-/// minutos.
+/// Se pregunta DESPUÉS del `git add -A` y antes de reescribir el commit: sin
+/// cambios no se llama a `git commit`, y entonces ni se dispara la firma GPG
+/// ni se reescribe la punta por nada. `--amend` sin cambios igual produce un
+/// sha nuevo, así que sin esta pregunta cada respaldo idéntico se llevaría un
+/// force-push de regalo.
 Future<bool> vaultHasChanges(String dir) async {
   final status = await _git(['status', '--porcelain'], cwd: dir);
   return status.ok && status.output.trim().isNotEmpty;

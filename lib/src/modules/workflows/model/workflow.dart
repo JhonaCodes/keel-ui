@@ -441,7 +441,7 @@ List<WorkflowCapability> defaultWorkflowCapabilities(
             'afectada corriendo. Dejar en summary qué corriste y qué dio.',
         role: fallback,
         dependencyIds: const ['plan'],
-        maxAgenticTurns: 20,
+        maxAgenticTurns: kDefaultWriteNodeTurns,
       ),
       WorkflowCapability(
         id: 'audit',
@@ -500,7 +500,7 @@ List<WorkflowCapability> defaultWorkflowCapabilities(
       instruction: 'Aplicar la corrección mínima integrada y verificable.',
       role: fallback,
       dependencyIds: const ['impact'],
-      maxAgenticTurns: 20,
+      maxAgenticTurns: kDefaultWriteNodeTurns,
     ),
     WorkflowCapability(
       id: 'code-audit',

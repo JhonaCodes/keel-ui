@@ -150,6 +150,8 @@ void main() {
     expect(repeated.resolution.findings, hasLength(1));
   });
 
+  // «Sin progreso» es del NODO: dos fallas del mismo nodo. Antes bastaban dos
+  // fallas de nodos DISTINTOS —cada uno en su primera— para bloquear el caso.
   test('dos reformulaciones sin progreso bloquean el caso con evidencia', () {
     final resolution = ResolutionEngine.start(
       id: 'case-1',
@@ -171,7 +173,7 @@ void main() {
         fingerprint: 'agent-provider-regression',
         createdAt: DateTime(2026),
       ),
-      affectedNodeId: 'verification',
+      affectedNodeId: 'implementation',
       maxReplans: 2,
     );
 
@@ -465,6 +467,69 @@ void main() {
     expect(node.status, WorkNodeStatus.pending);
     expect(node.attempts, 2);
     expect(retried.status, ResolutionCaseStatus.active);
+  });
+
+  test('reintentar un nodo le devuelve su presupuesto: descarta SUS hallazgos '
+      'y no los de otros nodos', () {
+    final started = ResolutionEngine.start(
+      id: 'case-1',
+      kind: WorkflowKind.general,
+      ownerRole: 'dev',
+    );
+
+    ResolutionEvidence evidenceFor(String id, String nodeId, String cause) =>
+        ResolutionEvidence(
+          id: id,
+          source: ResolutionEvidenceSource.compiler,
+          summary: cause,
+          fingerprint: ResolutionEngine.turnFailureFingerprint(
+            nodeId: nodeId,
+            answer: '',
+            failureMessage: cause,
+          ),
+          createdAt: DateTime(2026),
+        );
+
+    // Una falla ajena, de otro nodo: su hallazgo no lo toca el retry.
+    var resolution = ResolutionEngine.reportFinding(
+      started,
+      evidence: evidenceFor('plan-1', 'plan', 'claude terminó con código 1'),
+      affectedNodeId: 'plan',
+      maxReplans: 2,
+    ).resolution;
+
+    // Dos fallas del nodo que nos importa: lo bloquean.
+    for (final (id, cause) in const [
+      ('impl-1', 'claude terminó con código 1'),
+      ('impl-2', 'el proceso murió sin decir nada'),
+    ]) {
+      resolution = ResolutionEngine.reportFinding(
+        resolution,
+        evidence: evidenceFor(id, 'implement', cause),
+        affectedNodeId: 'implement',
+        maxReplans: 2,
+      ).resolution;
+    }
+    expect(resolution.status, ResolutionCaseStatus.blocked);
+
+    final retried = ResolutionEngine.retryNode(resolution, 'implement');
+
+    // Los suyos se fueron; el del otro nodo sigue.
+    expect(
+      retried.findings.map((finding) => finding.affectedNodeId),
+      ['plan'],
+    );
+
+    // Y el presupuesto volvió: una falla con la MISMA causa que antes se
+    // acepta como intento nuevo en vez de descartarse por «misma evidencia».
+    final again = ResolutionEngine.reportFinding(
+      retried,
+      evidence: evidenceFor('impl-3', 'implement', 'claude terminó con código 1'),
+      affectedNodeId: 'implement',
+      maxReplans: 2,
+    );
+    expect(again.accepted, isTrue);
+    expect(again.resolution.status, isNot(ResolutionCaseStatus.blocked));
   });
 
 }

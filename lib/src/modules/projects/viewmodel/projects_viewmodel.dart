@@ -90,7 +90,37 @@ const _coverageBlockKeys = {'area', 'estado', 'motivo'};
 /// tomaban mirando el hilo — la "respuesta" de una consulta era el último
 /// mensaje de la sesión, fuera de quien fuera, y un paso fallido dejaba al
 /// ciclo marchar igual por los pasos restantes.
-typedef TurnOutcome = ({bool ok, String answer, TurnOutcomeReport? report});
+/// [failureMessage] es la causa cruda cuando el turno no dejó respuesta: sin
+/// ella, dos fallas mudas por motivos distintos son indistinguibles para el
+/// motor. [hitTurnCap] dice que el turno se cortó por el tope de turnos
+/// agénticos, que no es una falla — es un número que se quedó corto.
+typedef TurnOutcome = ({
+  bool ok,
+  String answer,
+  TurnOutcomeReport? report,
+  String failureMessage,
+  bool hitTurnCap,
+});
+
+/// Lo mínimo que necesita un turno para llegar a su propio cierre.
+///
+/// Un remanente por debajo de esto no alcanza para trabajar Y emitir el
+/// bloque keel-outcome: el turno se muere a mitad de una llamada a tool, que
+/// es peor que no haberlo lanzado — gasta, no deja evidencia, y el reintento
+/// hereda un remanente todavía más chico. Medido contra la sesión que motivó
+/// esto, donde los turnos del mismo nodo costaron entre US$ 1.33 y US$ 10.90
+/// y el último murió con US$ 0.10 sin recibir el `tool_result` de un Bash.
+const double kMinTurnBudgetUsd = 2;
+
+/// Turnos agénticos del turno de cierre (el que se lanza cuando el nodo se
+/// quedó sin turnos y hay que pedirle cómo quedó).
+///
+/// Valía 1, que es lo mismo que cero: la primera llamada a una tool agotaba
+/// el tope, el CLI salía con código distinto de cero y el cierre que se
+/// estaba pidiendo nunca llegaba. Un cierre honesto suele necesitar mirar
+/// algo antes de escribir el bloque `keel-outcome` — un `git status`, la
+/// salida de un test — y para eso hace falta margen, no un turno seco.
+const int kFollowUpTurns = 4;
 
 class _AdaptivePreflightResult {
   const _AdaptivePreflightResult({
@@ -1719,7 +1749,14 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
               sessionId,
             )?.usage.reportedCostUsd ??
             0;
-        if (costCeiling > 0 && spentUsd >= costCeiling) {
+        final remainingBudgetUsd = costCeiling > 0
+            ? costCeiling - spentUsd
+            : 0.0;
+        // No solo «se acabó»: un remanente que no cubre un turno entero
+        // tampoco se lanza. Un turno que se queda sin presupuesto a mitad de
+        // una llamada gasta, no deja evidencia, y le pasa al reintento un
+        // remanente todavía más chico — ver [kMinTurnBudgetUsd].
+        if (costCeiling > 0 && remainingBudgetUsd < kMinTurnBudgetUsd) {
           resolution = resolution.copyWith(
             status: ResolutionCaseStatus.blocked,
           );
@@ -1732,19 +1769,19 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
               text:
                   'Techo de costo de la sesión alcanzado: US\$ '
                   '${spentUsd.toStringAsFixed(2)} de '
-                  '${costCeiling.toStringAsFixed(2)}. El caso queda '
-                  'bloqueado; subí el techo en la policy del workflow o '
-                  'abrí una sesión nueva.',
+                  '${costCeiling.toStringAsFixed(2)}. Quedan US\$ '
+                  '${(remainingBudgetUsd < 0 ? 0.0 : remainingBudgetUsd).toStringAsFixed(2)}, '
+                  'menos que el mínimo de US\$ '
+                  '${kMinTurnBudgetUsd.toStringAsFixed(2)} que necesita un '
+                  'turno para trabajar y cerrar: no se lanza otro. El caso '
+                  'queda bloqueado; subí el techo en la policy del workflow '
+                  'o abrí una sesión nueva.',
               timestamp: DateTime.now(),
             ),
           );
           _finishSession(projectId, sessionId, SessionStatus.failed);
           break;
         }
-        final remainingBudgetUsd = costCeiling > 0
-            ? costCeiling - spentUsd
-            : 0.0;
-
         final node = _nextReadyNode(resolution);
         if (node == null) {
           if (ResolutionEngine.canComplete(resolution)) {
@@ -1885,10 +1922,13 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
         // El resumen del caso va cuando hay nodos cerrados que no son
         // dependencias directas: lo que las salidas directas no cuentan.
         final outputs = dependencyOutputs(resolution, node);
-        final hasIndirectHistory = resolution.nodes.any(
-          (entry) =>
-              entry.status == WorkNodeStatus.done &&
-              !node.dependencyIds.contains(entry.id),
+        // Todo arranque CON historia lleva el digest, no solo el que tiene
+        // nodos cerrados fuera de sus dependencias: acá no se sabe si el
+        // nodo va a reanudar una sesión del CLI o a arrancar de cero
+        // (compactación, sesión descartada), y sin digest ese arranque
+        // fresco no tiene ninguna memoria del caso.
+        final hasClosedHistory = resolution.nodes.any(
+          (entry) => entry.status == WorkNodeStatus.done,
         );
         final nodePrompt = adaptiveNodePrompt(
           request: storedRequest == null || storedRequest.isEmpty
@@ -1899,7 +1939,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
           node: node,
           isAudit: isAudit,
           dependencyContext: renderDependencyOutputs(outputs),
-          digest: hasIndirectHistory ? sessionDigest(resolution) : '',
+          digest: hasClosedHistory ? sessionDigest(resolution) : '',
         );
         // Lo que el usuario contestó a este nodo viaja en la instrucción: la
         // sesión del CLI se reanuda con el prompt nuevo, no lee el hilo.
@@ -1973,15 +2013,27 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
         }
 
         if (!outcome.ok) {
+          // La causa cruda cuando el turno no dejó texto: sin esto, dos
+          // fallas mudas por motivos DISTINTOS comparten la huella
+          // '<nodeId>:' y la segunda se descarta como «misma evidencia», que
+          // es lo que bloqueaba el caso en la primera falla real.
+          final cause = ResolutionEngine.turnFailureCause(
+            outcome.answer,
+            outcome.failureMessage,
+          );
           final registration = ResolutionEngine.reportFinding(
             resolution,
             evidence: ResolutionEvidence(
               id: generateUuidV4(),
               source: ResolutionEvidenceSource.compiler,
-              summary: outcome.answer.trim().isEmpty
+              summary: cause.isEmpty
                   ? 'El turno del nodo falló sin respuesta.'
-                  : outcome.answer.trim(),
-              fingerprint: '${node.id}:${normalizeForMatch(outcome.answer)}',
+                  : cause,
+              fingerprint: ResolutionEngine.turnFailureFingerprint(
+                nodeId: node.id,
+                answer: outcome.answer,
+                failureMessage: outcome.failureMessage,
+              ),
               createdAt: DateTime.now(),
             ),
             affectedNodeId: node.id,
@@ -2005,10 +2057,22 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
             sessionId,
             ChatMessage(
               role: ChatRole.error,
-              text: resolution.status == ResolutionCaseStatus.blocked
-                  ? 'Caso bloqueado: el nodo "${node.title}" falló dos veces '
-                        'con la misma evidencia.'
-                  : 'El turno del nodo "${node.title}" falló; se reintenta.',
+              // Las dos causas de bloqueo son distintas y el hilo tiene que
+              // decir cuál fue: repetir la MISMA evidencia (el reintento no
+              // movió nada) no es lo mismo que gastar los replans con
+              // evidencias distintas (cada intento falló por otra cosa).
+              text: switch (resolution.status) {
+                ResolutionCaseStatus.blocked when !registration.accepted =>
+                  'Caso bloqueado: el nodo "${node.title}" volvió a fallar '
+                      'por lo mismo. Evidencia: '
+                      '${_excerpt(ResolutionEngine.turnFailureCause(outcome.answer, outcome.failureMessage), 300)}',
+                ResolutionCaseStatus.blocked =>
+                  'Caso bloqueado: el nodo "${node.title}" agotó sus '
+                      '${workflow.policy.maxReplans} intentos, cada uno con '
+                      'evidencia distinta. Última: '
+                      '${_excerpt(ResolutionEngine.turnFailureCause(outcome.answer, outcome.failureMessage), 300)}',
+                _ => 'El turno del nodo "${node.title}" falló; se reintenta.',
+              },
               timestamp: DateTime.now(),
               workNodeId: node.id,
             ),
@@ -2152,6 +2216,43 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     } finally {
       await _settleSessionRunAndDispatch(projectId, sessionId);
     }
+  }
+
+  /// Un turno que no llegó a correr. La causa viaja en `failureMessage`, no
+  /// en `answer`: no es algo que dijo el agente, y es lo que distingue esta
+  /// falla de la siguiente cuando el motor registra el hallazgo.
+  TurnOutcome _abandonedTurn(String reason) => (
+    ok: false,
+    answer: '',
+    report: null,
+    failureMessage: reason,
+    hitTurnCap: false,
+  );
+
+  /// El seguimiento de cierre, con el caso adentro solo cuando hace falta.
+  ///
+  /// Si la sesión del CLI sigue viva, el agente ya tiene todo y dos frases
+  /// alcanzan. Si no —la compactación la descartó, o el reintento por sesión
+  /// muerta la limpió—, el CLI arranca de cero: sin el pedido original y el
+  /// estado del caso contesta que no sabe de qué se le habla, y el nodo
+  /// pierde su única chance de declarar cómo quedó.
+  String _followUpInstruction({
+    required String projectId,
+    required String sessionId,
+    required String executionId,
+    required ResolutionCase resolution,
+  }) {
+    final project = _projectById(projectId);
+    final session = project == null ? null : _sessionById(project, sessionId);
+    final resumes =
+        session?.cliSessionsByExecutionId.containsKey(executionId) ?? false;
+    if (resumes) return kOutcomeFollowUpPrompt;
+
+    final request = session?.request.trim() ?? '';
+    final digest = sessionDigest(resolution).trim();
+    return '${request.isEmpty ? '' : 'Pedido original:\n$request\n\n'}'
+        '${digest.isEmpty ? '' : 'ESTADO DEL CASO HASTA ACÁ:\n$digest\n\n'}'
+        '$kOutcomeFollowUpPrompt';
   }
 
   /// Un bloque alcanza si existe y, en un nodo de auditoría, trae veredicto.
@@ -2594,7 +2695,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     bool followUp = false,
   }) async {
     final project = _projectById(projectId);
-    if (project == null) return (ok: false, answer: 'Proyecto no disponible.', report: null);
+    if (project == null) return _abandonedTurn('Proyecto no disponible.');
 
     final parentId = capability.parentCapabilityId.trim();
     final parentNode = parentId.isEmpty
@@ -2612,12 +2713,15 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
       node.dependencyIds,
       workflow,
     );
-    final effectiveInstruction = followUp
-        ? kOutcomeFollowUpPrompt
-        : reports.isEmpty
+    // El follow-up arma la suya en cada rama: necesita saber QUÉ sesión del
+    // CLI se va a reanudar para decidir si tiene que llevar el caso adentro
+    // (ver [_followUpInstruction]).
+    final effectiveInstruction = reports.isEmpty
         ? instruction
         : '$instruction\n\nINFORMES DE AUDITORÍA A RESOLVER:\n$reports';
-    final turnCap = followUp ? 1 : capability.effectiveMaxAgenticTurns;
+    final turnCap = followUp
+        ? kFollowUpTurns
+        : capability.effectiveMaxAgenticTurns;
 
     switch (capability.executor) {
       case WorkflowExecutor.newSession:
@@ -2678,7 +2782,14 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
           sessionId: sessionId,
           member: nodeOwner,
           workNodeId: node.id,
-          instruction: effectiveInstruction,
+          instruction: followUp
+              ? _followUpInstruction(
+                  projectId: projectId,
+                  sessionId: sessionId,
+                  executionId: executionId,
+                  resolution: resolution,
+                )
+              : effectiveInstruction,
           consultOfProfileId: null,
           turnId: turnId,
           depth: 0,
@@ -2690,7 +2801,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
         );
       case WorkflowExecutor.resumeParent:
         if (parentOwner == null) {
-          return (ok: false, answer: 'No se encontró la sesión padre.', report: null);
+          return _abandonedTurn('No se encontró la sesión padre.');
         }
         if (!followUp) {
           _compactIfNeeded(
@@ -2705,7 +2816,14 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
           sessionId: sessionId,
           member: parentOwner,
           workNodeId: node.id,
-          instruction: effectiveInstruction,
+          instruction: followUp
+              ? _followUpInstruction(
+                  projectId: projectId,
+                  sessionId: sessionId,
+                  executionId: _workflowExecutionId(sessionId, parentId),
+                  resolution: resolution,
+                )
+              : effectiveInstruction,
           consultOfProfileId: null,
           turnId: turnId,
           depth: 0,
@@ -2716,7 +2834,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
         );
       case WorkflowExecutor.providerSubagent:
         if (parentOwner == null) {
-          return (ok: false, answer: 'No se encontró el padre del auditor.', report: null);
+          return _abandonedTurn('No se encontró el padre del auditor.');
         }
         if (followUp) {
           // El estado se le pide a la sesión que de verdad auditó: la
@@ -2731,7 +2849,14 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
             sessionId: sessionId,
             member: usedExternal ? nodeOwner : parentOwner,
             workNodeId: node.id,
-            instruction: kOutcomeFollowUpPrompt,
+            instruction: _followUpInstruction(
+              projectId: projectId,
+              sessionId: sessionId,
+              executionId: usedExternal
+                  ? externalId
+                  : _workflowExecutionId(sessionId, parentId),
+              resolution: resolution,
+            ),
             consultOfProfileId: usedExternal ? parentOwner.id : null,
             turnId: turnId,
             depth: 0,
@@ -2739,7 +2864,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
             executionId: usedExternal
                 ? externalId
                 : _workflowExecutionId(sessionId, parentId),
-            maxTurns: 1,
+            maxTurns: kFollowUpTurns,
             maxBudgetUsd: maxBudgetUsd,
             planMode: usedExternal && capability.readOnly,
           );
@@ -2774,6 +2899,26 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
           );
           final after = _sessionById(project, sessionId)?.subagents.length ?? 0;
           if (after > before) return native;
+          // El padre no abrió el Task porque se quedó sin turnos, no porque
+          // no quisiera: re-correr la auditoría externa con EL MISMO tope
+          // solo repite el tope, y deja dos mensajes idénticos en el hilo.
+          if (native.hitTurnCap) {
+            _appendMessage(
+              projectId,
+              sessionId,
+              ChatMessage(
+                role: ChatRole.system,
+                text:
+                    '@${parentOwner.name} llegó al tope de '
+                    '${capability.effectiveMaxAgenticTurns} turnos sin abrir '
+                    'el subagente: la auditoría externa NO se re-corre con el '
+                    'mismo tope. Subí el tope del paso en el workflow.',
+                timestamp: DateTime.now(),
+                workNodeId: node.id,
+              ),
+            );
+            return native;
+          }
           _appendMessage(
             projectId,
             sessionId,
@@ -2806,7 +2951,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
           planMode: capability.readOnly,
         );
       case WorkflowExecutor.manualApproval:
-        return (ok: false, answer: 'El paso requiere aprobación manual.', report: null);
+        return _abandonedTurn('El paso requiere aprobación manual.');
     }
   }
 
@@ -3939,8 +4084,10 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     bool planMode = false,
   }) async {
     final project = _projectById(projectId);
-    if (project == null) return (ok: false, answer: '', report: null);
-    if (_stoppedSessionIds.contains(sessionId)) return (ok: false, answer: '', report: null);
+    if (project == null) return _abandonedTurn('El proyecto ya no existe.');
+    if (_stoppedSessionIds.contains(sessionId)) {
+      return _abandonedTurn('El turno fue detenido antes de arrancar.');
+    }
 
     // The current user request is delivered as `prompt` below. Everything
     // before it is reconstructed for remote APIs; removing that final user
@@ -3982,6 +4129,9 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     var turnFailed = false;
     var sessionConfirmed = false;
     var failureMessage = '';
+    // Lo último que el proveedor dijo sobre por qué paró. Va al registro de
+    // Fallas: un 'terminó con código 1' sin esto no dice nada.
+    var lastStopReason = '';
     // El tope de turnos no es una falla: es un número que se quedó corto.
     // El motor le pide al nodo cómo quedó en vez de registrar un hallazgo.
     var capHit = false;
@@ -4470,6 +4620,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
         case final TaskTurnCompleted turn:
           turnMeasured = true;
           final isError = turn.isError;
+          lastStopReason = turn.stopReason;
           final costUsd = turn.costUsd;
           final durationMs = turn.durationMs;
           final reportedTokens = TokenUsage(
@@ -4526,7 +4677,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
               contextWindowTokens: turn.contextWindowTokens,
             ),
           );
-          if (isError && turn.hitTurnCap) {
+          if (turn.hitTurnCap) {
             // No es una falla del agente: el número se quedó corto. Se dice
             // con el número puesto y el motor le pide al nodo cómo quedó
             // (bloque keel-outcome) antes de decidir qué sigue.
@@ -4546,18 +4697,23 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
             );
           } else if (isError) {
             turnFailed = true;
-            _appendMessage(
-              projectId,
-              sessionId,
-              ChatMessage(
-                role: ChatRole.error,
-                text: engine.provider.turnFailureMessage(
-                  memberName: member.name,
+            // El mensaje genérico solo cuando el runner NO pudo dar una
+            // causa concreta: si ya reportó una, esto la duplicaba y se la
+            // atribuía al proveedor.
+            if (turn.needsProviderFailureFallback) {
+              _appendMessage(
+                projectId,
+                sessionId,
+                ChatMessage(
+                  role: ChatRole.error,
+                  text: engine.provider.turnFailureMessage(
+                    memberName: member.name,
+                  ),
+                  timestamp: DateTime.now(),
+                  workNodeId: workNodeId,
                 ),
-                timestamp: DateTime.now(),
-                workNodeId: workNodeId,
-              ),
-            );
+              );
+            }
           } else {
             _annotateLastMessage(
               projectId,
@@ -4609,6 +4765,15 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
         case TaskFailure(message: final message):
           turnFailed = true;
           failureMessage = message;
+          // Al registro de Fallas, que engancha Log.e: hasta acá un turno
+          // caído dejaba un mensaje en el hilo y NADA en el panel, así que
+          // una sesión que moría de noche no dejaba dónde mirar.
+          Log.e(
+            'Turno fallido · nodo ${workNodeId ?? '—'} · ejecución '
+            '$effectiveExecutionId · proveedor ${engine.provider.alias} · '
+            'corte ${lastStopReason.isEmpty ? 'sin motivo declarado' : lastStopReason}',
+            error: message,
+          );
           _appendMessage(
             projectId,
             sessionId,
@@ -4750,6 +4915,8 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
       ok: !turnFailed,
       answer: answer.toString(),
       report: parseKeelOutcome(answer.toString()),
+      failureMessage: failureMessage,
+      hitTurnCap: capHit,
     );
 
     if (!turnFailed && allowConsults && depth < _maxConsultDepth) {

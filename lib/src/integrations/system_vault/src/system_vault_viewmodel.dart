@@ -1,10 +1,9 @@
 part of '../system_vault.dart';
 
-/// Hasta dónde llega un respaldo. Escribir el zip siempre pasa; lo demás es
-/// una escalera, y cada peldaño lo pide alguien distinto: el botón
-/// "Respaldar" solo escribe, el respaldo automático además commitea local, y
-/// "Respaldar y subir" cierra el círculo.
-enum VaultReach { write, commit, push }
+/// Hasta dónde llega un respaldo. Escribir el zip siempre pasa; commitear y
+/// subir van juntos: el botón "Respaldar" solo escribe, y "Respaldar y subir"
+/// reemplaza el respaldo commiteado y lo manda al remoto.
+enum VaultReach { write, push }
 
 class SystemVaultState {
   final bool busy;
@@ -21,8 +20,8 @@ class SystemVaultState {
   final bool isRepo;
   final bool hasRemote;
 
-  /// Respaldos commiteados que todavía no salieron de esta máquina.
-  final int unpushedCommits;
+  /// Si el respaldo commiteado todavía no salió de esta máquina.
+  final bool hasUnpushedBackup;
 
   /// Qué trae el respaldo inspeccionado y qué pisaría. Null hasta que se
   /// mira uno.
@@ -33,9 +32,8 @@ class SystemVaultState {
   ///
   /// Existe porque un respaldo que revienta es INVISIBLE de otra forma: el
   /// zip viejo sigue en el disco con su fecha, así que `lastBackupAt` dice
-  /// que hay respaldo y la escalera de abajo pasa de largo. Con el respaldo
-  /// automático cada quince minutos, eso son horas de fallar en silencio
-  /// mientras la pantalla dice que todo está bien.
+  /// que hay respaldo y la escalera de abajo pasa de largo — la pantalla
+  /// diría que todo está bien sobre un respaldo que nunca se escribió.
   final String lastFailure;
 
   const SystemVaultState({
@@ -45,7 +43,7 @@ class SystemVaultState {
     this.lastBackupAt,
     this.isRepo = false,
     this.hasRemote = false,
-    this.unpushedCommits = 0,
+    this.hasUnpushedBackup = false,
     this.preview,
     this.lastFailure = '',
   });
@@ -54,9 +52,10 @@ class SystemVaultState {
   /// falta nada.
   ///
   /// Es una escalera y se contesta el primer peldaño que falla: no sirve
-  /// avisar "tenés 3 sin subir" a alguien que ni siquiera tiene remoto. El
-  /// respaldo automático commitea pero NO sube, así que este aviso es lo
-  /// único que separa "creo que está guardado" de "está guardado".
+  /// avisar "no está subido" a alguien que ni siquiera tiene remoto. Nada de
+  /// esto corre solo —si no apretás el botón no hay respaldo—, así que este
+  /// aviso es lo único que separa "creo que está guardado" de "está
+  /// guardado".
   String? get warning {
     if (!configured) {
       return 'No elegiste carpeta de vault: nada de esto está respaldado.';
@@ -77,11 +76,8 @@ class SystemVaultState {
       return 'El vault no tiene remoto configurado: el respaldo no sale de '
           'esta máquina.';
     }
-    if (unpushedCommits == 1) {
-      return 'Hay 1 respaldo commiteado sin subir al remoto.';
-    }
-    if (unpushedCommits > 1) {
-      return 'Hay $unpushedCommits respaldos commiteados sin subir al remoto.';
+    if (hasUnpushedBackup) {
+      return 'El respaldo commiteado todavía no está subido al remoto.';
     }
     return null;
   }
@@ -95,7 +91,7 @@ class SystemVaultState {
     DateTime? lastBackupAt,
     bool? isRepo,
     bool? hasRemote,
-    int? unpushedCommits,
+    bool? hasUnpushedBackup,
     BackupPreview? preview,
     String? lastFailure,
     bool clearPreview = false,
@@ -111,7 +107,7 @@ class SystemVaultState {
           : (lastBackupAt ?? this.lastBackupAt),
       isRepo: isRepo ?? this.isRepo,
       hasRemote: hasRemote ?? this.hasRemote,
-      unpushedCommits: unpushedCommits ?? this.unpushedCommits,
+      hasUnpushedBackup: hasUnpushedBackup ?? this.hasUnpushedBackup,
       preview: clearPreview ? null : (preview ?? this.preview),
       lastFailure: clearFailure ? '' : (lastFailure ?? this.lastFailure),
     );
@@ -128,7 +124,7 @@ class SystemVaultState {
           lastBackupAt == other.lastBackupAt &&
           isRepo == other.isRepo &&
           hasRemote == other.hasRemote &&
-          unpushedCommits == other.unpushedCommits &&
+          hasUnpushedBackup == other.hasUnpushedBackup &&
           preview == other.preview;
 
   @override
@@ -139,14 +135,14 @@ class SystemVaultState {
     lastBackupAt,
     isRepo,
     hasRemote,
-    unpushedCommits,
+    hasUnpushedBackup,
     preview,
   );
 
   @override
   String toString() =>
       'SystemVaultState(busy: $busy, lastBackupAt: $lastBackupAt, '
-      'unpushed: $unpushedCommits)';
+      'unpushed: $hasUnpushedBackup)';
 }
 
 /// Respaldar y restaurar el sistema entero contra la carpeta del vault.
@@ -198,7 +194,7 @@ class SystemVaultViewModel extends ViewModel<SystemVaultState> {
     final file = _backupFile;
     final exists = file != null && file.existsSync();
     final status = dir == null
-        ? const (isRepo: false, hasRemote: false, unpushed: 0)
+        ? const (isRepo: false, hasRemote: false, hasUnpushedBackup: false)
         : await vaultRepoStatus(dir);
 
     updateState(
@@ -208,7 +204,7 @@ class SystemVaultViewModel extends ViewModel<SystemVaultState> {
         clearLastBackup: !exists,
         isRepo: status.isRepo,
         hasRemote: status.hasRemote,
-        unpushedCommits: status.unpushed,
+        hasUnpushedBackup: status.hasUnpushedBackup,
       ),
     );
   }
@@ -242,7 +238,7 @@ class SystemVaultViewModel extends ViewModel<SystemVaultState> {
 
     // A OTRO isolate. Recorrer las carpetas de saber, leer cada archivo y
     // comprimir es medio segundo con pocas bases y varios con muchas; acá
-    // adentro eso era un freeze de la app entera cada quince minutos.
+    // adentro eso era un freeze de la app entera en cada respaldo.
     final job = _jobFor(dir);
     final written = await runOffThread(writeVaultArchive, job);
 
@@ -261,8 +257,7 @@ class SystemVaultViewModel extends ViewModel<SystemVaultState> {
     if (reach == VaultReach.write) return parts.join('\n');
 
     final remote = SettingsService.instance.notifier.data.vaultRepoUrl.trim();
-    final push = reach == VaultReach.push;
-    if (push && remote.isEmpty) {
+    if (remote.isEmpty) {
       throw const _VaultException(
         'Escribí el respaldo, pero no hay repo del vault configurado: '
         'cargá la URL en Configuración → Respaldo del sistema y volvé a '
@@ -270,28 +265,12 @@ class SystemVaultViewModel extends ViewModel<SystemVaultState> {
       );
     }
 
-    // El respaldo automático no crea repos: si el vault todavía es una
-    // carpeta suelta, deja el zip escrito y no toca git. Convertirlo en
-    // repo es una decisión del usuario, y la toma apretando "Respaldar y
-    // subir".
-    if (!push && !Directory('$dir/.git').existsSync()) {
-      parts.add(
-        'El vault todavía no es un repo git: usá "Respaldar y subir" para '
-        'crearlo y mandarlo al remoto.',
-      );
-      return parts.join('\n');
-    }
-
     await ensureVaultRepo(dir, remote);
-    if (!push && !await vaultHasChanges(dir)) {
-      parts.add('Sin cambios respecto del último commit.');
-      return parts.join('\n');
-    }
     parts.add(
       await commitVault(
         dir,
         message: 'respaldo ${DateTime.now().toIso8601String()}',
-        push: push,
+        push: true,
       ),
     );
     return parts.join('\n');

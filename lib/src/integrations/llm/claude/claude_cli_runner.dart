@@ -14,6 +14,7 @@ import 'package:keel_ui/src/integrations/llm/llm.dart';
 import 'package:keel_ui/src/integrations/system_prompt/system_prompt.dart';
 import 'package:keel_ui/src/integrations/llm/claude/claude_arguments.dart';
 import 'package:keel_ui/src/integrations/llm/src/cli_cancel_guard.dart';
+import 'package:keel_ui/src/integrations/llm/src/cli_turn_stream.dart';
 
 /// Corre un turno contra el binario `claude`. Migración literal de la rama
 /// `isCodex=false` de `task_runner_isolate.dart` — mismo armado de
@@ -107,44 +108,16 @@ class ClaudeCliRunner implements LlmRunner {
       // es cómo reconoce después cuál `tool_result` es la devolución de un
       // subagente.
       final claudeReader = ClaudeStreamReader();
-      final stderrBuffer = StringBuffer();
-      final stderrDone = process.stderr
-          .transform(utf8.decoder)
-          .forEach(stderrBuffer.write);
-      final lines = process.stdout
-          .transform(utf8.decoder)
-          .transform(const LineSplitter());
-
-      await for (final line in lines) {
-        if (cancelGuard.cancelled) break;
-        if (line.trim().isEmpty) continue;
-
-        Map<String, dynamic> event;
-        try {
-          event = jsonDecode(line) as Map<String, dynamic>;
-        } catch (_) {
-          Log.w('Unparseable claude output line: $line');
-          continue;
-        }
-
-        for (final message in claudeReader.read(event)) {
-          yield message;
-        }
-      }
-
-      await stderrDone;
-      if (!cancelGuard.cancelled) {
-        final exitCode = await process.exitCode;
-        if (exitCode != 0) {
-          final stderrText = stderrBuffer.toString().trim();
-          yield {
-            'type': 'failure',
-            'message': stderrText.isEmpty
-                ? 'claude terminó con código $exitCode'
-                : stderrText,
-          };
-        }
-      }
+      yield* cliTurnEvents(
+        lines: process.stdout
+            .transform(utf8.decoder)
+            .transform(const LineSplitter()),
+        read: claudeReader.read,
+        stderr: process.stderr.transform(utf8.decoder).join(),
+        exitCode: process.exitCode,
+        provider: 'claude',
+        isCancelled: () => cancelGuard.cancelled,
+      );
     } finally {
       await cancelGuard.dispose();
       await workspace?.dispose();

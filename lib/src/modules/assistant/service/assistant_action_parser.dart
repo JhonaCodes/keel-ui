@@ -265,4 +265,4 @@ int? _subagentLimit(String? raw) {
 }
 
 int _maxAgenticTurns(String raw) =>
-    (int.tryParse(raw) ?? 0).clamp(0, 20).toInt();
+    (int.tryParse(raw) ?? 0).clamp(0, kMaxDeclarableTurns).toInt();

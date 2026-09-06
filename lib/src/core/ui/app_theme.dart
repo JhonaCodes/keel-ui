@@ -1,28 +1,35 @@
 import 'package:flutter/material.dart';
 
-/// The palette is taken verbatim from the approved mockup: a cool blue-slate
-/// ground with a brass accent. Material's seeded schemes cannot reproduce it —
-/// seeding from any hue drags every role toward that hue — so every role is
-/// pinned explicitly here instead.
+/// A neutral grey ground with a brass accent. The ground used to be blue-slate
+/// — every surface carried its blue channel 20-40 points above its red one —
+/// and that tint fought the brass instead of receding behind it. The greys
+/// below keep the exact same dark-to-light order; only the hue is gone.
+///
+/// Material's seeded schemes cannot reproduce this — seeding from any hue
+/// drags every role toward that hue — so every role is pinned explicitly here.
 abstract final class AppColors {
-  static const void_ = Color(0xFF0A0F15);
-  static const bg = Color(0xFF111925);
-  static const panel = Color(0xFF151F2B);
-  static const raise = Color(0xFF1C2735);
-  static const rule = Color(0xFF253141);
-  static const ink = Color(0xFFDEE6F0);
-  static const inkSoft = Color(0xFF8194A9);
-  static const inkFaint = Color(0xFF57687C);
+  static const void_ = Color(0xFF0F0F0F);
+  static const bg = Color(0xFF181818);
+  static const panel = Color(0xFF1F1F1F);
+  static const raise = Color(0xFF262626);
+  static const rule = Color(0xFF303030);
+  static const ink = Color(0xFFECECEC);
+  static const inkSoft = Color(0xFF9A9A9A);
+
+  /// Only ever used as `outline` — a non-text component, so the bar is WCAG
+  /// 1.4.11 (3:1), not 4.5:1. A darker grey looked closer to the mockup but
+  /// fell to 2.97:1 over `raise`; this one clears 3:1 over every surface.
+  static const inkFaint = Color(0xFF787878);
   static const brass = Color(0xFFD9A93C);
   static const brassDeep = Color(0xFF6B5420);
   static const onBrass = Color(0xFF17120A);
   static const added = Color(0xFF4E9E6A);
   static const removed = Color(0xFFB85C5C);
 
-  /// Your own messages: a cool blue that reads as "you" without competing
-  /// with the brass the workflow chrome uses.
-  static const userBubble = Color(0xFF23324A);
-  static const userBubbleBorder = Color(0xFF2E4260);
+  /// Your own messages: a lighter step off the chat ground that reads as
+  /// "you" without competing with the brass the workflow chrome uses.
+  static const userBubble = Color(0xFF2E2E2E);
+  static const userBubbleBorder = Color(0xFF3A3A3A);
 }
 
 /// The mockup commits to a single dark world, so the app does too — there is

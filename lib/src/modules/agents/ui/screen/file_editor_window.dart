@@ -82,12 +82,10 @@ class _FileEditorWindowState extends State<FileEditorWindow> {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: _fileName,
-      theme: ThemeData(colorSchemeSeed: Colors.indigo, useMaterial3: true),
-      darkTheme: ThemeData(
-        colorSchemeSeed: Colors.indigo,
-        brightness: Brightness.dark,
-        useMaterial3: true,
-      ),
+      // El tema de la app, no uno sembrado aparte: esta ventana ya pinta su
+      // fondo con `AppColors.bg`, así que un esquema propio dejaba el resto
+      // de sus superficies en otro mundo de color que el de la app.
+      theme: buildAppTheme(),
       locale: localeForLanguageCode(widget.arguments.localeCode),
       localizationsDelegates: const [
         AppLocalizations.delegate,

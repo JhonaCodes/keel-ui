@@ -14,9 +14,11 @@ import 'package:keel_ui/src/modules/projects/model/session_map_layout.dart';
 final Color kMapConsultColor = kProjectMemberPalette[2];
 final Color kMapDelegateColor = kProjectMemberPalette[1];
 
-/// La línea «sin recorrer»: el mockup le da un color propio (#3A4C64), no el
-/// `--rule` (#253141) que es `scheme.outlineVariant`.
-const Color kMapIdleEdgeColor = Color(0xFF3A4C64);
+/// La línea «sin recorrer»: tiene color propio, más presente que el `rule` que
+/// es `scheme.outlineVariant`. Este gris reemplaza al azul del mockup viejo
+/// conservando su luminancia — contra el fondo daba 2.02:1 y ahora da 2.00:1,
+/// así que se ve igual de presente sin ser la única isla azul de la app.
+const Color kMapIdleEdgeColor = Color(0xFF4A4A4A);
 
 /// Cómo se dibuja cada evento. El grosor dice importancia, el color dice
 /// familia, y el patrón dice dirección del favor: **trazo continuo avanza,

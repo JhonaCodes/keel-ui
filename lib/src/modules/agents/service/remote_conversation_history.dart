@@ -38,7 +38,9 @@ List<LlmConversationMessage> remoteConversationHistory(
   final entries = <LlmConversationMessage>[];
   final authors = <String>{};
   for (final message in messages) {
-    if (message.role == ChatRole.error) continue;
+    if (message.role == ChatRole.error || message.role == ChatRole.blocked) {
+      continue;
+    }
     final text = message.text.trim();
     if (text.isEmpty) continue;
     final content = text.length <= _historyMessageCharacterLimit
@@ -56,7 +58,8 @@ List<LlmConversationMessage> remoteConversationHistory(
           ChatRole.user => LlmConversationRole.user,
           ChatRole.assistant => LlmConversationRole.assistant,
           ChatRole.system => LlmConversationRole.system,
-          ChatRole.error => throw StateError('Los errores no son contexto'),
+          ChatRole.error ||
+          ChatRole.blocked => throw StateError('Los errores no son contexto'),
         },
         content:
             handle != null &&

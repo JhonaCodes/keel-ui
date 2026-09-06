@@ -1690,7 +1690,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
         projectId,
         sessionId,
         ChatMessage(
-          role: ChatRole.error,
+          role: ChatRole.blocked,
           text: 'Preflight bloqueado: ${preflight.error}',
           timestamp: DateTime.now(),
         ),
@@ -1765,7 +1765,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
             projectId,
             sessionId,
             ChatMessage(
-              role: ChatRole.error,
+              role: ChatRole.blocked,
               text:
                   'Techo de costo de la sesión alcanzado: US\$ '
                   '${spentUsd.toStringAsFixed(2)} de '
@@ -1887,7 +1887,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
               projectId,
               sessionId,
               ChatMessage(
-                role: ChatRole.error,
+                role: ChatRole.blocked,
                 text:
                     'Se alcanzó el máximo de ${workflow.policy.maxReviewCycles} '
                     'ciclos de auditoría; revisá el caso manualmente.',
@@ -2056,7 +2056,12 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
             projectId,
             sessionId,
             ChatMessage(
-              role: ChatRole.error,
+              // El mismo estado que decide el texto decide el estilo: la
+              // tercera rama de abajo NO es un bloqueo, es un turno que
+              // falló y se reintenta, y va en rojo como cualquier falla.
+              role: resolution.status == ResolutionCaseStatus.blocked
+                  ? ChatRole.blocked
+                  : ChatRole.error,
               // Las dos causas de bloqueo son distintas y el hilo tiene que
               // decir cuál fue: repetir la MISMA evidencia (el reintento no
               // movió nada) no es lo mismo que gastar los replans con
@@ -2169,7 +2174,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
             projectId,
             sessionId,
             ChatMessage(
-              role: ChatRole.error,
+              role: ChatRole.blocked,
               text:
                   'Caso bloqueado en "${node.title}": '
                   '${effectiveReport.summary}',
@@ -2616,7 +2621,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
           projectId,
           sessionId,
           ChatMessage(
-            role: ChatRole.error,
+            role: ChatRole.blocked,
             text: 'Rechazaste el paso "${decision.title}". El caso queda '
                 'bloqueado ahí.',
             timestamp: DateTime.now(),

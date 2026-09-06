@@ -1820,6 +1820,7 @@ String _threadLine(
   final author = switch (message.role) {
     ChatRole.user => message.viaKeelAi ? 'vos (vía Keel AI)' : 'vos',
     ChatRole.error => 'error del sistema',
+    ChatRole.blocked => 'cierre bloqueado',
     ChatRole.system => 'la app',
     ChatRole.assistant => '@${_handleOf(message.authorProfileId) ?? 'miembro'}',
   };

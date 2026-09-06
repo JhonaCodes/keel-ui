@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:info_label/info_label.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
 
 import 'package:keel_ui/src/core/ui/app_theme.dart';
@@ -8,6 +7,7 @@ import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
 import 'package:keel_ui/src/modules/agents/model/chat_message.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/bubble_width.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/chat_message_body.dart';
+import 'package:keel_ui/src/modules/agents/ui/widget/chat_notice_label.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/reasoning_panel.dart';
 import 'package:keel_ui/src/modules/settings/model/app_settings.dart';
 import 'package:keel_ui/src/modules/settings/viewmodel/settings_viewmodel.dart';
@@ -66,18 +66,11 @@ class _Content extends StatelessWidget {
   Widget build(BuildContext context) {
     final message = bubble.message;
 
-    if (message.role == ChatRole.error) {
-      return Align(
-        alignment: Alignment.centerLeft,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 6),
-          child: InfoLabel(
-            text: message.text,
-            typeInfoLabel: TypeInfoLabel.error,
-            leftIcon: const Icon(Icons.error_outline, size: 14),
-            fontSize: 13 * fontScale,
-          ),
-        ),
+    if (message.role == ChatRole.error || message.role == ChatRole.blocked) {
+      return ChatNoticeLabel(
+        role: message.role,
+        text: message.text,
+        fontSize: 13 * fontScale,
       );
     }
 

@@ -8,6 +8,7 @@ import 'package:keel_ui/src/modules/agents/model/file_edit.dart';
 import 'package:keel_ui/src/modules/agents/service/chat_actions.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/bubble_width.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/chat_message_body.dart';
+import 'package:keel_ui/src/modules/agents/ui/widget/chat_notice_label.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/reasoning_panel.dart';
 import 'package:keel_ui/src/modules/agents/viewmodel/agents_viewmodel.dart';
 import 'package:keel_ui/src/modules/settings/model/app_settings.dart';
@@ -82,18 +83,11 @@ class _ChatMessageBubbleContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (message.role == ChatRole.error) {
-      return Align(
-        alignment: Alignment.centerLeft,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 6),
-          child: InfoLabel(
-            text: message.text,
-            typeInfoLabel: TypeInfoLabel.error,
-            leftIcon: const Icon(Icons.error_outline, size: 14),
-            fontSize: 13 * fontScale,
-          ),
-        ),
+    if (message.role == ChatRole.error || message.role == ChatRole.blocked) {
+      return ChatNoticeLabel(
+        role: message.role,
+        text: message.text,
+        fontSize: 13 * fontScale,
       );
     }
 
@@ -127,7 +121,7 @@ class _ChatMessageBubbleContent extends StatelessWidget {
     final alignment = switch (message.role) {
       ChatRole.user => Alignment.centerRight,
       ChatRole.assistant => Alignment.centerLeft,
-      ChatRole.error => Alignment.centerLeft,
+      ChatRole.error || ChatRole.blocked => Alignment.centerLeft,
       ChatRole.system => Alignment.center,
     };
 
@@ -139,7 +133,7 @@ class _ChatMessageBubbleContent extends StatelessWidget {
     final background = switch (message.role) {
       ChatRole.user => AppColors.userBubble,
       ChatRole.assistant => scheme.surfaceContainerHighest,
-      ChatRole.error => scheme.errorContainer,
+      ChatRole.error || ChatRole.blocked => scheme.errorContainer,
       // Unreachable — ChatRole.system returns early above.
       ChatRole.system => scheme.surfaceContainerHighest,
     };
@@ -147,14 +141,14 @@ class _ChatMessageBubbleContent extends StatelessWidget {
     final foreground = switch (message.role) {
       ChatRole.user => scheme.onSurface,
       ChatRole.assistant => scheme.onSurface,
-      ChatRole.error => scheme.onErrorContainer,
+      ChatRole.error || ChatRole.blocked => scheme.onErrorContainer,
       ChatRole.system => scheme.onSurface,
     };
 
     final borderSide = switch (message.role) {
       ChatRole.user => const BorderSide(color: AppColors.userBubbleBorder),
       ChatRole.assistant => BorderSide.none,
-      ChatRole.error => BorderSide.none,
+      ChatRole.error || ChatRole.blocked => BorderSide.none,
       ChatRole.system => BorderSide.none,
     };
 

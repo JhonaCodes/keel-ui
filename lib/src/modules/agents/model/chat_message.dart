@@ -7,7 +7,17 @@ import 'package:keel_ui/src/shared/shared.dart';
 enum ChatRole {
   user,
   assistant,
+
+  /// Algo se rompió: una excepción, un turno que murió, un vigilante que
+  /// cortó el paso. La app falló.
   error,
+
+  /// El workflow llegó a un cierre negativo ESPERADO: un caso bloqueado, un
+  /// techo de costo alcanzado, un paso que el usuario rechazó. Nada se
+  /// rompió. Es un rol propio y no un [error] porque el hilo los pintaba
+  /// iguales —rojo con ícono de excepción— y un bloqueo previsto se leía
+  /// como un crash de la app.
+  blocked,
 
   /// Written by the app itself, not the human or the model — e.g. the
   /// automatic "you forgot the block" retry prompt. Rendered distinctly from

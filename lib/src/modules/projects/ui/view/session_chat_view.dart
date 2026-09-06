@@ -356,7 +356,8 @@ class _ThreadListState extends State<_ThreadList> {
                     workflow: widget.workflow,
                     canRetry:
                         !open.isRunning &&
-                        message.role == ChatRole.error &&
+                        (message.role == ChatRole.error ||
+                            message.role == ChatRole.blocked) &&
                         message.workNodeId != null &&
                         open.resolutionCase != null &&
                         open.resolutionCase!.status !=

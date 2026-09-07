@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
 
 /// One thing Keel AI can do, with a tappable example that fills the composer
 /// (never sends it outright — the user decides whether to send it as-is or
@@ -15,37 +16,6 @@ class _AssistantCapability {
   });
 }
 
-const _capabilities = [
-  _AssistantCapability(
-    icon: Icons.forum_outlined,
-    title: 'Proyectos',
-    example: 'Creá un proyecto para revisar PRs con dos agentes.',
-  ),
-  _AssistantCapability(
-    icon: Icons.badge_outlined,
-    title: 'Agentes',
-    example:
-        'Registrá un agente revisor de seguridad y asignále la skill que '
-        'acabás de crear.',
-  ),
-  _AssistantCapability(
-    icon: Icons.account_tree_outlined,
-    title: 'Workflows',
-    example:
-        'Armá un workflow para bugs con implementación y gate de revisión.',
-  ),
-  _AssistantCapability(
-    icon: Icons.extension_outlined,
-    title: 'Skills',
-    example: 'Creá una skill con las reglas de estilo de este proyecto.',
-  ),
-  _AssistantCapability(
-    icon: Icons.rule_outlined,
-    title: 'Reglas',
-    example: 'Agregá una regla que prohíba comentarios obvios en el código.',
-  ),
-];
-
 /// Shown in place of the chat's empty state on a fresh Keel AI conversation
 /// — what it can register, with example prompts instead of a blank box.
 class AssistantWelcomeCard extends StatelessWidget {
@@ -55,6 +25,34 @@ class AssistantWelcomeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context)!;
+    final capabilities = [
+      _AssistantCapability(
+        icon: Icons.forum_outlined,
+        title: t.pageTitleProjects,
+        example: t.assistantExampleProject,
+      ),
+      _AssistantCapability(
+        icon: Icons.badge_outlined,
+        title: t.labelAgents,
+        example: t.assistantExampleAgent,
+      ),
+      _AssistantCapability(
+        icon: Icons.account_tree_outlined,
+        title: t.labelWorkflows,
+        example: t.assistantExampleWorkflow,
+      ),
+      _AssistantCapability(
+        icon: Icons.extension_outlined,
+        title: t.labelSkills,
+        example: t.assistantExampleSkill,
+      ),
+      _AssistantCapability(
+        icon: Icons.rule_outlined,
+        title: t.labelRules,
+        example: t.assistantExampleRule,
+      ),
+    ];
     return Center(
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
@@ -71,19 +69,18 @@ class AssistantWelcomeCard extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               Text(
-                'Soy Keel AI',
+                t.assistantWelcomeTitle,
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.titleMedium,
               ),
               const SizedBox(height: 6),
               Text(
-                'Puedo registrar cualquiera de estas cosas por vos, en la '
-                'conversación. Tocá un ejemplo para probarlo.',
+                t.assistantWelcomeDescription,
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.bodySmall,
               ),
               const SizedBox(height: 20),
-              for (final capability in _capabilities)
+              for (final capability in capabilities)
                 _CapabilityRow(
                   capability: capability,
                   onTap: () => onExampleTap(capability.example),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
 
 import 'package:keel_ui/src/modules/catalog_locks/model/catalog_lock.dart';
 import 'package:keel_ui/src/modules/catalog_locks/ui/widget/catalog_lock_button.dart';
@@ -31,6 +32,7 @@ class SkillTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context)!;
     final isLocked = CatalogLocksService.instance.notifier.isLocked(
       CatalogLockKind.skill,
       skill.name,
@@ -56,7 +58,7 @@ class SkillTile extends StatelessWidget {
         children: [
           CatalogLockButton(kind: CatalogLockKind.skill, name: skill.name),
           IconButton(
-            tooltip: 'Editar',
+            tooltip: t.buttonEdit,
             icon: const Icon(Icons.edit_outlined),
             onPressed: isLocked
                 ? null
@@ -69,7 +71,7 @@ class SkillTile extends StatelessWidget {
                 openBundleExportPanel(context, BundleKind.skill, skill.name),
           ),
           IconButton(
-            tooltip: 'Eliminar',
+            tooltip: t.buttonDelete,
             icon: const Icon(Icons.delete_outline),
             onPressed: isLocked ? null : () => _confirmAndDelete(context),
           ),

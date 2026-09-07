@@ -1,10 +1,13 @@
 import 'package:flutter/foundation.dart';
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
 
 /// Returns a human error message if [value] can't be used as a
 /// [Skill.name], or null if it's valid.
-String? validateSkillName(String value) {
-  if (value.isEmpty) return 'El nombre no puede estar vacío.';
-  if (value.length > 60) return 'Máximo 60 caracteres.';
+String? validateSkillName(String value, [AppLocalizations? l10n]) {
+  if (value.isEmpty) return l10n?.validationNameRequired ?? 'Name is required.';
+  if (value.length > 60) {
+    return l10n?.validationMaxCharacters(60) ?? 'Maximum 60 characters.';
+  }
   return null;
 }
 

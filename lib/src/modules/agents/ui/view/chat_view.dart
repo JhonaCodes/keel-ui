@@ -164,10 +164,11 @@ class _ChatViewState extends State<ChatView> {
   }
 
   Future<void> _pickImages() async {
+    final t = AppLocalizations.of(context);
     final files = await openFiles(
       acceptedTypeGroups: [
         XTypeGroup(
-          label: 'Imágenes',
+          label: t.fileTypeImages,
           extensions: ChatAttachmentStore.supportedExtensions.toList(),
         ),
       ],
@@ -198,10 +199,11 @@ class _ChatViewState extends State<ChatView> {
 
   Future<void> _confirmAndDelete() async {
     final agent = widget.agent;
+    final t = AppLocalizations.of(context);
     final confirmed = await confirmWithCard(
       context,
-      title: 'Eliminar agente',
-      body: 'Se eliminará "${agent.name}" y su historial de chat.',
+      title: t.buttonDeleteAgent,
+      body: t.deleteAgentConfirmation(agent.name),
       destructive: true,
     );
 
@@ -226,6 +228,7 @@ class _ChatViewState extends State<ChatView> {
 
   Future<void> _toggleFullFileSystemAccess() async {
     final agent = widget.agent;
+    final t = AppLocalizations.of(context);
 
     if (agent.fullFileSystemAccess) {
       widget.actions.setAgentFullFileSystemAccess(agent.id, false);
@@ -234,11 +237,9 @@ class _ChatViewState extends State<ChatView> {
 
     final confirmed = await confirmWithCard(
       context,
-      title: 'Dar acceso a todo el sistema de archivos',
-      body:
-          '"${agent.name}" podrá leer y escribir en cualquier carpeta del '
-          'computador, no solo en tu carpeta de usuario.',
-      confirmLabel: 'Dar acceso',
+      title: t.filesystemAccessTitle,
+      body: t.filesystemAccessBody(agent.name),
+      confirmLabel: t.filesystemAccessGrant,
     );
 
     if (confirmed) {
@@ -316,7 +317,9 @@ class _ChatViewState extends State<ChatView> {
                   right: 20,
                   bottom: 16,
                   child: FloatingActionButton.small(
-                    tooltip: AppLocalizations.of(context).tooltipGoToLatestMessage,
+                    tooltip: AppLocalizations.of(
+                      context,
+                    ).tooltipGoToLatestMessage,
                     onPressed: _goToLatest,
                     child: const Icon(Icons.arrow_downward),
                   ),
@@ -328,6 +331,7 @@ class _ChatViewState extends State<ChatView> {
   @override
   Widget build(BuildContext context) {
     final agent = widget.agent;
+    final t = AppLocalizations.of(context);
 
     // The drop area is the WHOLE chat, not just the composer: you drag a
     // screenshot at the conversation you are reading, not at a 40px input.
@@ -424,8 +428,8 @@ class _ChatViewState extends State<ChatView> {
                     const Spacer(),
                     IconButton(
                       tooltip: agent.fullFileSystemAccess
-                          ? 'Tiene acceso a todo el sistema de archivos (clic para quitarlo)'
-                          : 'Dar acceso a todo el sistema de archivos',
+                          ? t.filesystemAccessEnabledTooltip
+                          : t.filesystemAccessGrantTooltip,
                       icon: Icon(
                         agent.fullFileSystemAccess
                             ? Icons.folder_open

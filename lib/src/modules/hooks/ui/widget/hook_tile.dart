@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
 
 import 'package:keel_ui/src/modules/catalog_locks/model/catalog_lock.dart';
 import 'package:keel_ui/src/modules/catalog_locks/ui/widget/catalog_lock_button.dart';
@@ -45,6 +46,7 @@ class HookTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final isLocked = CatalogLocksService.instance.notifier.isLocked(
       CatalogLockKind.hook,
@@ -59,7 +61,7 @@ class HookTile extends StatelessWidget {
 
     return ListTile(
       leading: Tooltip(
-        message: hook.enabled ? 'Activo' : 'Apagado',
+        message: hook.enabled ? t.labelEnabled : t.labelDisabled,
         child: Switch(
           value: hook.enabled,
           onChanged: isLocked
@@ -92,14 +94,14 @@ class HookTile extends StatelessWidget {
         children: [
           CatalogLockButton(kind: CatalogLockKind.hook, name: hook.name),
           IconButton(
-            tooltip: 'Editar',
+            tooltip: t.buttonEdit,
             icon: const Icon(Icons.edit_outlined),
             onPressed: isLocked
                 ? null
                 : () => openHookFormScreen(context, initial: hook),
           ),
           IconButton(
-            tooltip: 'Eliminar',
+            tooltip: t.buttonDelete,
             icon: const Icon(Icons.delete_outline),
             onPressed: isLocked ? null : () => _confirmAndDelete(context),
           ),

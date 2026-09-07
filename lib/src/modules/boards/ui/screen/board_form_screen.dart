@@ -177,13 +177,15 @@ class _BoardFormScreenState extends State<BoardFormScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(isEditing ? 'Editar tablero' : 'Nuevo tablero'),
+        title: Text(
+          isEditing ? t.formEditEntity('board') : t.formRegisterEntity('board'),
+        ),
         actions: [
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: FilledButton(
               onPressed: _submit,
-              child: Text(isEditing ? 'Guardar' : 'Crear'),
+              child: Text(isEditing ? t.formSave : t.formCreate),
             ),
           ),
         ],
@@ -192,9 +194,7 @@ class _BoardFormScreenState extends State<BoardFormScreen> {
         padding: const EdgeInsets.all(24),
         children: [
           Text(
-            'Lo más rápido es pedírselo a un agente del proyecto: lee tu '
-            'código o tu OpenAPI y lo arma solo. Esto es para corregirlo '
-            'después, o para escribirlo si ya sabés qué querés.',
+            t.formBoardDescription,
             style: theme.textTheme.bodySmall?.copyWith(color: scheme.outline),
           ),
           const SizedBox(height: 18),

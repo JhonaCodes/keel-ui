@@ -167,7 +167,8 @@ class _ProjectChannel extends StatelessWidget {
                 SessionDecisionCard(
                   key: ValueKey(session.pendingDecisions.first.id),
                   decision: session.pendingDecisions.first,
-                  memberHandle: members
+                  memberHandle:
+                      members
                           .where(
                             (member) =>
                                 member.id ==
@@ -176,31 +177,29 @@ class _ProjectChannel extends StatelessWidget {
                           .firstOrNull
                           ?.name ??
                       'agente',
-                  onAnswer: (answer) => ProjectsService.instance.notifier
-                      .answerSessionDecision(
+                  onAnswer: (answer) =>
+                      ProjectsService.instance.notifier.answerSessionDecision(
                         project.id,
                         session.id,
                         session.pendingDecisions.first.id,
                         answer: answer,
                       ),
-                  onApprove: () => ProjectsService.instance.notifier
-                      .answerSessionDecision(
+                  onApprove: () =>
+                      ProjectsService.instance.notifier.answerSessionDecision(
                         project.id,
                         session.id,
                         session.pendingDecisions.first.id,
                         approve: true,
                       ),
-                  onReject: () => ProjectsService.instance.notifier
-                      .answerSessionDecision(
+                  onReject: () =>
+                      ProjectsService.instance.notifier.answerSessionDecision(
                         project.id,
                         session.id,
                         session.pendingDecisions.first.id,
                         approve: false,
                       ),
-                  onPermission: (grant, scope) => ProjectsService
-                      .instance
-                      .notifier
-                      .answerSessionDecision(
+                  onPermission: (grant, scope) =>
+                      ProjectsService.instance.notifier.answerSessionDecision(
                         project.id,
                         session.id,
                         session.pendingDecisions.first.id,
@@ -334,13 +333,15 @@ class _ThreadListState extends State<_ThreadList> {
               itemBuilder: (context, index) {
                 final entry = entries[entries.length - 1 - index];
                 return switch (entry) {
-                  ThreadHandoff(label: final label) =>
-                    _HandoffDivider(label: label),
+                  ThreadHandoff(label: final label) => _HandoffDivider(
+                    label: label,
+                  ),
                   ThreadSubagent(subagent: final subagent) =>
                     SessionSubagentCard(
                       key: ValueKey('subagent:${subagent.id}'),
                       subagent: subagent,
-                      parentHandle: widget.allProfiles
+                      parentHandle:
+                          widget.allProfiles
                               .where((p) => p.id == subagent.parentProfileId)
                               .firstOrNull
                               ?.name ??
@@ -393,6 +394,7 @@ class _ThreadFilterBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     return Container(
       decoration: BoxDecoration(
@@ -410,9 +412,11 @@ class _ThreadFilterBar extends StatelessWidget {
                 selected: filter.authorIds.contains(member.id),
                 onSelected: (selected) => onChanged(
                   filter.copyWith(
-                    authorIds: selected
-                        ? {...filter.authorIds, member.id}
-                        : {...filter.authorIds}..remove(member.id),
+                    authorIds:
+                        selected
+                              ? {...filter.authorIds, member.id}
+                              : {...filter.authorIds}
+                          ..remove(member.id),
                   ),
                 ),
               ),
@@ -427,9 +431,11 @@ class _ThreadFilterBar extends StatelessWidget {
                   selected: filter.nodeIds.contains(nodeId),
                   onSelected: (selected) => onChanged(
                     filter.copyWith(
-                      nodeIds: selected
-                          ? {...filter.nodeIds, nodeId}
-                          : {...filter.nodeIds}..remove(nodeId),
+                      nodeIds:
+                          selected
+                                ? {...filter.nodeIds, nodeId}
+                                : {...filter.nodeIds}
+                            ..remove(nodeId),
                     ),
                   ),
                 ),
@@ -438,7 +444,7 @@ class _ThreadFilterBar extends StatelessWidget {
             ],
             const SizedBox(width: 6),
             FilterChip(
-              label: const Text('sistema'),
+              label: Text(t.chatFilterSystem),
               visualDensity: VisualDensity.compact,
               selected: filter.showSystem,
               onSelected: (selected) =>
@@ -447,7 +453,7 @@ class _ThreadFilterBar extends StatelessWidget {
             if (hasSubagents) ...[
               const SizedBox(width: 6),
               FilterChip(
-                label: const Text('subagentes'),
+                label: Text(t.chatFilterSubagents),
                 visualDensity: VisualDensity.compact,
                 selected: filter.showSubagents,
                 onSelected: (selected) =>
@@ -458,7 +464,7 @@ class _ThreadFilterBar extends StatelessWidget {
               const SizedBox(width: 6),
               TextButton(
                 onPressed: () => onChanged(const ThreadFilter()),
-                child: const Text('todo'),
+                child: Text(t.chatFilterAll),
               ),
             ],
           ],
@@ -503,13 +509,14 @@ class _ThreadBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
     final author = _profileById(message.authorProfileId);
     final askedBy = _profileById(message.consultOfProfileId);
     final nodeId = message.workNodeId;
     // El título de la capacidad, no el id crudo: «Auditar», no «code-audit».
     final nodeTitle = nodeId == null
         ? null
-        : 'paso: ${nodeTitleFor(workflow, nodeId)}';
+        : t.chatStepLabel(nodeTitleFor(workflow, nodeId));
     final memberIds = [for (final member in members) member.id];
 
     final bubble = SessionMessageBubble(
@@ -535,10 +542,13 @@ class _ThreadBubble extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(left: 38, bottom: 6),
             child: TextButton.icon(
-              onPressed: () => ProjectsService.instance.notifier
-                  .retryWorkNode(projectId, sessionId, nodeId),
+              onPressed: () => ProjectsService.instance.notifier.retryWorkNode(
+                projectId,
+                sessionId,
+                nodeId,
+              ),
               icon: const Icon(Icons.replay_rounded, size: 16),
-              label: Text('Reintentar «${nodeTitleFor(workflow, nodeId)}»'),
+              label: Text(t.chatRetryStep(nodeTitleFor(workflow, nodeId))),
             ),
           ),
         ],
@@ -696,10 +706,11 @@ class _ComposerState extends State<_Composer> {
   }
 
   Future<void> _pickImages() async {
+    final t = AppLocalizations.of(context);
     final files = await openFiles(
       acceptedTypeGroups: [
         XTypeGroup(
-          label: 'Imágenes',
+          label: t.fileTypeImages,
           extensions: ChatAttachmentStore.supportedExtensions.toList(),
         ),
       ],
@@ -720,6 +731,7 @@ class _ComposerState extends State<_Composer> {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
     final project = widget.project;
     final session = widget.session;
     final running = session?.isRunning ?? false;
@@ -765,7 +777,7 @@ class _ComposerState extends State<_Composer> {
                         .setSessionPlanMode(project.id, session.id, enabled),
                   ),
                 IconButton(
-                  tooltip: 'Adjuntar imagen',
+                  tooltip: t.buttonChoose,
                   icon: Icon(
                     _isDragging
                         ? Icons.add_photo_alternate
@@ -793,11 +805,10 @@ class _ComposerState extends State<_Composer> {
                       onSend: _send,
                       enabled: session != null,
                       hintText: switch (session) {
-                        null => 'Creá una sesión para empezar',
-                        _ when session.planMode => 'Pedí un plan…',
-                        _ when !started =>
-                          'Qué necesitás en esta sesión de #${project.name}',
-                        _ => 'Mensaje a #${project.name}',
+                        null => t.chatCreateSession,
+                        _ when session.planMode => t.chatAskForPlan,
+                        _ when !started => t.chatSessionPrompt(project.name),
+                        _ => t.chatMessagePrompt(project.name),
                       },
                     ),
                   ),
@@ -805,7 +816,7 @@ class _ComposerState extends State<_Composer> {
                 const SizedBox(width: 8),
                 if (running && session != null) ...[
                   IconButton.outlined(
-                    tooltip: 'Detener',
+                    tooltip: t.chatStop,
                     onPressed: () => ProjectsService.instance.notifier
                         .stopSession(project.id, session.id),
                     icon: const Icon(Icons.stop_circle_outlined),
@@ -813,7 +824,7 @@ class _ComposerState extends State<_Composer> {
                   const SizedBox(width: 8),
                 ],
                 IconButton.filled(
-                  tooltip: running ? 'Guardar en espera' : 'Enviar',
+                  tooltip: running ? t.chatQueue : t.chatSend,
                   onPressed: session == null ? null : _send,
                   icon: Icon(running ? Icons.schedule_send : Icons.send),
                 ),
@@ -822,22 +833,16 @@ class _ComposerState extends State<_Composer> {
             Padding(
               padding: const EdgeInsets.only(top: 6, left: 4),
               child: Text(switch (session) {
-                null => 'Las sesiones se crean con el botón "Nueva sesión".',
-                _ when !started =>
-                  'Ejecuta el preflight del workflow en esta sesión.',
-                _ when running =>
-                  'Podés guardar mensajes en espera, programarlos para el '
-                      'final del turno o interrumpir y enviarlos ahora.',
-                _ =>
-                  'El workflow coordina el grafo. Escribí cuando quieras '
-                      'corregir el rumbo — se registra en el nodo activo.',
+                null => t.chatSessionsCreatedByButton,
+                _ when !started => t.chatRunsPreflight,
+                _ when running => t.chatQueueHelp,
+                _ => t.chatWorkflowHelp,
               }, style: Theme.of(context).textTheme.bodySmall),
             ),
             Padding(
               padding: const EdgeInsets.only(top: 3, left: 4),
               child: Text(
-                'Referencias: / directorios · @ agentes · '
-                r'$ skills y reglas · # saber',
+                t.chatReferencesHelp,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
@@ -912,15 +917,15 @@ class _ChannelHeader extends StatelessWidget {
     String subtitle;
     if (open == null) {
       subtitle = project.purpose.isEmpty
-          ? 'Sin sesión abierta'
+          ? t.labelNoOpenSession
           : project.purpose;
     } else {
       // El workflow salió de acá: pasó a ser una ficha que se puede tocar,
       // porque ya no es un dato del proyecto que solo se mira.
       subtitle = [
-        'Sesión: ${open.title}',
+        t.labelSessionTitle(open.title),
         if (open.contextUsageRatio != null)
-          'contexto ${(open.contextUsageRatio! * 100).round()}%',
+          t.labelContextUsage((open.contextUsageRatio! * 100).round()),
       ].join(' · ');
     }
 

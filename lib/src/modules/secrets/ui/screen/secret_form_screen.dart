@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
 
 import 'package:keel_ui/src/core/ui/form_panel.dart';
 import 'package:keel_ui/src/modules/secrets/model/secret.dart';
@@ -61,15 +62,17 @@ class _SecretFormScreenState extends State<SecretFormScreen> {
   }
 
   void _onNameChanged(String value) {
+    final t = AppLocalizations.of(context)!;
     setState(() {
-      _nameError = validateSecretName(value.trim());
+      _nameError = validateSecretName(value.trim(), t);
       _formError = null;
     });
   }
 
   void _submit() {
+    final t = AppLocalizations.of(context)!;
     final name = _nameController.text.trim();
-    final nameError = validateSecretName(name);
+    final nameError = validateSecretName(name, t);
     if (nameError != null) {
       setState(() => _nameError = nameError);
       return;
@@ -101,18 +104,23 @@ class _SecretFormScreenState extends State<SecretFormScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context)!;
     final initial = widget.initial;
     final isEditing = initial != null;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(isEditing ? 'Editar secret' : 'Registrar secret'),
+        title: Text(
+          isEditing
+              ? t.formEditEntity('secret')
+              : t.formRegisterEntity('secret'),
+        ),
         actions: [
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: FilledButton(
               onPressed: _submit,
-              child: Text(isEditing ? 'Guardar' : 'Registrar'),
+              child: Text(isEditing ? t.formSave : t.buttonRegister),
             ),
           ),
         ],
@@ -130,7 +138,7 @@ class _SecretFormScreenState extends State<SecretFormScreen> {
                   autofocus: !isEditing,
                   onChanged: _onNameChanged,
                   decoration: InputDecoration(
-                    labelText: 'Nombre de la variable de entorno',
+                    labelText: t.formEnvironmentVariableName,
                     hintText: 'LINEAR_API_KEY',
                     helperText:
                         'Tal cual la espera el proceso: MAYÚSCULAS, números '
@@ -151,12 +159,9 @@ class _SecretFormScreenState extends State<SecretFormScreen> {
                     enableSuggestions: false,
                     decoration: InputDecoration(
                       labelText: isEditing && !initial.isPending
-                          ? 'Valor nuevo (vacío = conservar el actual)'
-                          : 'Valor',
-                      helperText:
-                          'Nunca pasa por un modelo: se inyecta como '
-                          'credencial solo al proveedor, tool o MCP que lo '
-                          'declare.',
+                          ? t.formNewValueKeepCurrent
+                          : t.formValue,
+                      helperText: t.formValueDescription,
                       helperMaxLines: 3,
                       border: const OutlineInputBorder(
                         borderRadius: BorderRadius.all(Radius.circular(16)),
@@ -211,8 +216,11 @@ class _StoredValueRow extends StatelessWidget {
         children: [
           Icon(Icons.check_circle_outline, size: 18, color: scheme.primary),
           const SizedBox(width: 8),
-          const Expanded(child: Text('Valor cargado  ••••••••')),
-          TextButton(onPressed: onReplace, child: const Text('Reemplazar')),
+          Expanded(child: Text(AppLocalizations.of(context)!.formStoredValue)),
+          TextButton(
+            onPressed: onReplace,
+            child: Text(AppLocalizations.of(context)!.buttonReplace),
+          ),
         ],
       ),
     );

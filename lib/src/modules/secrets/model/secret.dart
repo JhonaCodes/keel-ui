@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
 
 final RegExp _secretNameFormat = RegExp(r'^[A-Z][A-Z0-9_]{0,63}$');
 
@@ -6,8 +7,8 @@ final RegExp _secretNameFormat = RegExp(r'^[A-Z][A-Z0-9_]{0,63}$');
 /// [Secret.name], or null if it's valid. The name doubles as the
 /// environment-variable key the value is injected under, so it follows env
 /// var conventions strictly.
-String? validateSecretName(String value) {
-  if (value.isEmpty) return 'El nombre no puede estar vacío.';
+String? validateSecretName(String value, [AppLocalizations? l10n]) {
+  if (value.isEmpty) return l10n?.validationNameRequired ?? 'Name is required.';
   if (!_secretNameFormat.hasMatch(value)) {
     return 'Formato de variable de entorno: MAYÚSCULAS, números y "_", '
         'empezando por letra (máx. 64).';

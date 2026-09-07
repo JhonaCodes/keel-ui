@@ -805,5 +805,122 @@
   "@handleReserved": {
     "placeholders": {"handle": {"type": "String"}}
   },
-  "keelAiModifyBlocked": "Keel AI requested to modify a locked element."
+  "keelAiModifyBlocked": "Keel AI requested to modify a locked element.",
+  "buttonRegister": "Register",
+  "formEditEntity": "Edit {entity}",
+  "formRegisterEntity": "Register {entity}",
+  "formName": "Name",
+  "formEnvironmentVariableName": "Environment variable name",
+  "formWorkingDirectory": "Working directory",
+  "formChoose": "Choose…",
+  "formSave": "Save",
+  "formCreate": "Create",
+  "formGlobalSkill": "Global skill",
+  "formGlobalSkillDescription": "All agents receive it on every turn without assigning it.",
+  "formSkillContent": "Content (instructions to inject)",
+  "formToolDescription": "Description for the agent: what it does, when to use it, and what each positional argument means",
+  "formStoredValue": "Value loaded  ••••••••",
+  "formNewValueKeepCurrent": "New value (empty = keep current)",
+  "formValue": "Value",
+  "formValueDescription": "It never passes through a model. It is injected as a credential only into the provider, tool, or MCP that declares it.",
+  "formBoardDescription": "The fastest option is to ask a project agent: it reads your code or OpenAPI and builds it. Use this to refine it or write it yourself.",
+  "formWorkflowName": "Name",
+  "formWorkflowCaseType": "Case type",
+  "formRequiredRules": "Required rules",
+  "formRequiredKnowledgeBases": "Required knowledge bases",
+  "formCommaSeparatedNames": "Names separated by commas.",
+  "validationNameRequired": "Name is required.",
+  "validationMaxCharacters": "Maximum {count} characters.",
+  "validationNoSpaces": "Spaces are not allowed.",
+  "validationLowercaseOnly": "Use lowercase letters only.",
+  "validationBoardKey": "Use lowercase letters, numbers, and \"_\", starting with a letter (max. 32).",
+  "assistantWelcomeTitle": "I am Keel AI",
+  "assistantWelcomeDescription": "I can register any of these for you in the conversation. Tap an example to try it.",
+  "assistantExampleProject": "Create a project to review PRs with two agents.",
+  "assistantExampleAgent": "Register a security reviewer agent and assign it the skill you just created.",
+  "assistantExampleWorkflow": "Create a workflow for bugs with implementation and a review gate.",
+  "assistantExampleSkill": "Create a skill with this project's style rules.",
+  "assistantExampleRule": "Add a rule that forbids obvious comments in the code."
+  ,"labelEnabled": "Enabled"
+  ,"labelDisabled": "Disabled"
+  ,"navAssistantTooltip": "Keel AI assistant"
+  ,"navRegisteredAgents": "Registered agents"
+  ,"navTestBoards": "Test boards"
+  ,"navMcpIntegrations": "MCP integrations"
+  ,"navKnowledge": "Knowledge"
+  ,"navMachine": "Machine"
+  ,"navBackup": "Backup"
+  ,"navSettings": "Settings"
+  ,"mapLaneBack": "back"
+  ,"mapLaneForward": "forward"
+  ,"mapLaneDelegate": "delegate"
+  ,"mapViewQuery": "View the full query"
+  ,"mapZoomOut": "Zoom out  ⌘−"
+  ,"mapZoomIn": "Zoom in  ⌘+"
+  ,"mapFit": "Fit everything on screen  ⌘0"
+  ,"mapFollow": "Follow the node taking its turn"
+  ,"mapHelp": "drag = pan · ⌘ + scroll = zoom"
+  ,"mapEmptyTitle": "This project has no nodes to map yet"
+  ,"mapEmptyDescription": "Add members and a workflow. The map opens with the roster in place, idle, before anything runs."
+  ,"chatCreateSession": "Create a session to get started"
+  ,"chatAskForPlan": "Ask for a plan…"
+  ,"chatSessionPrompt": "What do you need in this #{project} session?"
+  ,"chatMessagePrompt": "Message to #{project}"
+  ,"chatStop": "Stop"
+  ,"chatQueue": "Queue for later"
+  ,"chatSend": "Send"
+  ,"chatSessionsCreatedByButton": "Sessions are created with the \"New session\" button."
+  ,"chatRunsPreflight": "The workflow preflight runs in this session."
+  ,"chatQueueHelp": "You can queue messages, schedule them for the end of the turn, or interrupt and send them now."
+  ,"chatWorkflowHelp": "The workflow coordinates the graph. Write whenever you want to correct the course; it is recorded on the active node."
+  ,"chatReferencesHelp": "References: / directories · @ agents · $ skills and rules · # knowledge"
+  ,"labelNoOpenSession": "No session open"
+  ,"labelSessionTitle": "Session: {title}"
+  ,"labelContextUsage": "context {percent}%"
+  ,"assistantLegacyBlocked": "The automatic block was not executed: it tried to change locked elements ({names}). Use the MCP tools with change_intent and change_reason to request permission."
+  ,"assistantSkillExists": "The skill \"{name}\" already existed; I reused it."
+  ,"assistantSkillCreated": "I created the skill \"{name}\"{suffix}."
+  ,"assistantRuleExists": "The rule \"{name}\" already existed; I reused it."
+  ,"assistantRuleCreated": "I created the rule \"{name}\"."
+  ,"assistantToolExists": "The tool \"{name}\" already existed; I reused it."
+  ,"assistantToolCreated": "I created the tool \"{name}\" ({runtime})."
+  ,"assistantAgentCreated": "I registered @{handle}.{details}"
+  ,"assistantAgentUpdated": "I updated @{handle}.{details}"
+  ,"assistantWorkflowCreated": "I created the workflow \"{name}\" ({kind})."
+  ,"assistantProjectCreated": "I created the project \"{name}\"."
+  ,"updateAvailable": "New version {version} available. Click to download."
+  ,"readingInstalledVersion": "Reading installed version"
+  ,"reviewVersion": "Keel {version}. Click to check."
+  ,"faultsLabel": "Faults"
+  ,"faultsNone": "Nothing broken — all clear"
+  ,"faultsOne": "1 unseen fault"
+  ,"faultsMany": "{count} unseen faults"
+  ,"machineUpdateAvailable": "A new Keel version is available"
+  ,"machineStatus": "Services, usage, and machine status"
+  ,"machineOneWork": "1 job in progress"
+  ,"machineManyWork": "{count} jobs in progress"
+  ,"backupBusy": "Backing up"
+  ,"backupLabel": "Backup"
+  ,"backupSaving": "Writing the backup without interrupting you"
+  ,"backupReady": "Backup is current and uploaded remotely"
+  ,"mapLegend": "Legend"
+  ,"fileTypeImages": "Images"
+  ,"chatFilterSystem": "system"
+  ,"chatFilterSubagents": "subagents"
+  ,"chatFilterAll": "all"
+  ,"chatStepLabel": "step: {title}"
+  ,"chatRetryStep": "Retry \u00ab{title}\u00bb"
+  ,"buttonDeleteAgent": "Delete agent"
+  ,"deleteAgentConfirmation": "\"{name}\" and its chat history will be deleted."
+  ,"emptyProjectsHint": "None yet. Create one so multiple agents can work on the same repo."
+  ,"emptyAgentsHint": "None open. Use a registered agent to talk to it directly, without a project."
+  ,"filesystemAccessTitle": "Give access to the entire file system"
+  ,"filesystemAccessBody": "\"{name}\" will be able to read and write in any folder on the computer, not only your user folder."
+  ,"filesystemAccessGrant": "Give access"
+  ,"filesystemAccessEnabledTooltip": "Has access to the entire file system (click to remove it)"
+  ,"filesystemAccessGrantTooltip": "Give access to the entire file system"
+  ,"noOpenRequirements": "No open requirements in either direction."
+  ,"labelSubagents": "subagents"
+  ,"useAgentTitle": "Use an agent"
+  ,"filesystemAccessSubtitle": "This is decided here, not when registering the agent: the same agent can have different permissions depending on where you use it."
 }

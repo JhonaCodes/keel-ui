@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
 
 import 'package:keel_ui/src/core/ui/form_panel.dart';
 import 'package:keel_ui/src/modules/secrets/ui/widget/secret_multi_select.dart';
@@ -107,17 +108,20 @@ class _ToolFormScreenState extends State<ToolFormScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context)!;
     final isEditing = widget.initial != null;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(isEditing ? 'Editar tool' : 'Registrar tool'),
+        title: Text(
+          isEditing ? t.formEditEntity('tool') : t.formRegisterEntity('tool'),
+        ),
         actions: [
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: FilledButton(
               onPressed: _submit,
-              child: Text(isEditing ? 'Guardar' : 'Registrar'),
+              child: Text(isEditing ? t.formSave : t.buttonRegister),
             ),
           ),
         ],
@@ -136,8 +140,7 @@ class _ToolFormScreenState extends State<ToolFormScreen> {
                   onChanged: _onNameChanged,
                   decoration: InputDecoration(
                     labelText:
-                        'Nombre (minúsculas, sin espacios, máx. 32) — es el '
-                        'nombre de tool que ve el agente',
+                        '${t.formName} (tool: lowercase, no spaces, max. 32)',
                     errorText: _nameError,
                     border: const OutlineInputBorder(
                       borderRadius: BorderRadius.all(Radius.circular(16)),
@@ -149,10 +152,8 @@ class _ToolFormScreenState extends State<ToolFormScreen> {
                   controller: _descriptionController,
                   minLines: 2,
                   maxLines: 5,
-                  decoration: const InputDecoration(
-                    labelText:
-                        'Descripción para el agente: qué hace, cuándo usarla '
-                        'y qué significa cada argumento posicional',
+                  decoration: InputDecoration(
+                    labelText: t.formToolDescription,
                     alignLabelWithHint: true,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.all(Radius.circular(16)),

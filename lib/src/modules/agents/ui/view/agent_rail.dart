@@ -116,7 +116,7 @@ class _AgentRailState extends State<AgentRail> {
                     _RailButton(
                       label: 'Keel AI',
                       icon: Icons.auto_awesome,
-                      tooltip: 'Asistente Keel AI',
+                      tooltip: t.navAssistantTooltip,
                       onPressed: () => AssistantWindowBridge.instance.open(),
                     ),
                     const SizedBox(height: 12),
@@ -125,71 +125,72 @@ class _AgentRailState extends State<AgentRail> {
                     // deja quieto. El hueco del medio marca el corte entre los dos
                     // grupos sin gastar una línea más.
                     _RailButton(
-                      label: 'Agentes',
+                      label: t.labelAgents,
                       icon: Icons.badge_outlined,
-                      tooltip: 'Agentes registrados',
-                      onPressed: () => _open('Agentes', widget.onOpenProfiles),
-                      selected: _openPanel == 'Agentes',
+                      tooltip: t.navRegisteredAgents,
+                      onPressed: () => _open('agents', widget.onOpenProfiles),
+                      selected: _openPanel == 'agents',
                     ),
                     _RailButton(
-                      label: 'Skills',
+                      label: t.labelSkills,
                       icon: Icons.extension_outlined,
-                      onPressed: () => _open('Skills', widget.onOpenSkills),
-                      selected: _openPanel == 'Skills',
+                      onPressed: () => _open('skills', widget.onOpenSkills),
+                      selected: _openPanel == 'skills',
                     ),
                     _RailButton(
-                      label: 'Workflows',
+                      label: t.labelWorkflows,
                       icon: Icons.account_tree_outlined,
                       onPressed: () =>
-                          _open('Workflows', widget.onOpenWorkflows),
-                      selected: _openPanel == 'Workflows',
+                          _open('workflows', widget.onOpenWorkflows),
+                      selected: _openPanel == 'workflows',
                     ),
                     _RailButton(
-                      label: 'Reglas',
+                      label: t.labelRules,
                       icon: Icons.rule_outlined,
-                      onPressed: () => _open('Reglas', widget.onOpenRules),
-                      selected: _openPanel == 'Reglas',
+                      onPressed: () => _open('rules', widget.onOpenRules),
+                      selected: _openPanel == 'rules',
                     ),
                     const SizedBox(height: 12),
                     _RailButton(
-                      label: 'Hooks',
+                      label: t.labelHooks,
                       icon: Icons.gpp_maybe_outlined,
                       tooltip: t.tooltipGuardrailsAutorun,
-                      onPressed: () => _open('Hooks', widget.onOpenHooks),
-                      selected: _openPanel == 'Hooks',
+                      onPressed: () => _open('hooks', widget.onOpenHooks),
+                      selected: _openPanel == 'hooks',
                     ),
                     _RailButton(
-                      label: 'Tools',
+                      label: t.labelTools,
                       icon: Icons.terminal_outlined,
-                      onPressed: () => _open('Tools', widget.onOpenTools),
-                      selected: _openPanel == 'Tools',
+                      onPressed: () => _open('tools', widget.onOpenTools),
+                      selected: _openPanel == 'tools',
                     ),
                     _RailButton(
-                      label: 'Banco',
+                      label: t.pageTitleTestBoard,
                       icon: Icons.tune,
-                      tooltip: 'Tableros de prueba',
-                      onPressed: () => _open('Banco', widget.onOpenBoards),
-                      selected: _openPanel == 'Banco',
+                      tooltip: t.navTestBoards,
+                      onPressed: () => _open('boards', widget.onOpenBoards),
+                      selected: _openPanel == 'boards',
                     ),
                     _RailButton(
                       label: 'MCP',
                       icon: Icons.hub_outlined,
-                      tooltip: 'Integraciones MCP',
-                      onPressed: () => _open('MCP', widget.onOpenMcpServers),
-                      selected: _openPanel == 'MCP',
+                      tooltip: t.navMcpIntegrations,
+                      onPressed: () => _open('mcp', widget.onOpenMcpServers),
+                      selected: _openPanel == 'mcp',
                     ),
                     _RailButton(
-                      label: 'Saber',
+                      label: t.navKnowledge,
                       icon: Icons.menu_book_outlined,
-                      tooltip: 'Conocimiento',
-                      onPressed: () => _open('Saber', widget.onOpenKnowledge),
-                      selected: _openPanel == 'Saber',
+                      tooltip: t.navKnowledge,
+                      onPressed: () =>
+                          _open('knowledge', widget.onOpenKnowledge),
+                      selected: _openPanel == 'knowledge',
                     ),
                     _RailButton(
-                      label: 'Secrets',
+                      label: t.labelSecrets,
                       icon: Icons.key_outlined,
-                      onPressed: () => _open('Secrets', widget.onOpenSecrets),
-                      selected: _openPanel == 'Secrets',
+                      onPressed: () => _open('secrets', widget.onOpenSecrets),
+                      selected: _openPanel == 'secrets',
                     ),
                     const SizedBox(height: 10),
                   ],
@@ -209,20 +210,20 @@ class _AgentRailState extends State<AgentRail> {
             // ellas. Ver `reportToDiscord`.
             if (kDebugMode) const _FaultsRailButton(),
             _MachineRailButton(
-              onPressed: () => _open('Máquina', widget.onOpenMachine),
-              selected: _openPanel == 'Máquina',
+              onPressed: () => _open('machine', widget.onOpenMachine),
+              selected: _openPanel == 'machine',
             ),
             _VaultRailButton(
-              onPressed: () => _open('Respaldo', () => openVaultPanel(context)),
-              selected: _openPanel == 'Respaldo',
+              onPressed: () => _open('backup', () => openVaultPanel(context)),
+              selected: _openPanel == 'backup',
             ),
             _RailButton(
-              label: 'Ajustes',
+              label: t.navSettings,
               icon: Icons.settings_outlined,
               tooltip: t.labelSettings,
               onPressed: () =>
-                  _open('Ajustes', () => openSettingsPanel(context)),
-              selected: _openPanel == 'Ajustes',
+                  _open('settings', () => openSettingsPanel(context)),
+              selected: _openPanel == 'settings',
             ),
             const _InstalledVersionRailButton(),
             const SizedBox(height: 10),
@@ -245,18 +246,18 @@ class _InstalledVersionRailButton extends StatelessWidget {
     return ReactiveViewModelBuilder<AppUpdateViewModel, AppUpdateState>(
       viewmodel: AppUpdateService.instance.notifier,
       build: (state, viewmodel, keep) {
+        final t = AppLocalizations.of(context);
         final release = state.release;
         final available = release.updateAvailable;
         final scheme = Theme.of(context).colorScheme;
         final current = release.current;
         final latest = release.latest;
         final tooltip = available && latest != null
-            ? 'Nueva versión ${latest.release.buildName} disponible. '
-                  'Clic para descargar.'
+            ? t.updateAvailable(latest.release.buildName)
             : release.error ??
                   (current == null
-                      ? 'Leyendo la versión instalada'
-                      : 'Keel ${current.pubspecValue}. Clic para revisar.');
+                      ? t.readingInstalledVersion
+                      : t.reviewVersion(current.pubspecValue));
 
         return Tooltip(
           message: tooltip,
@@ -398,17 +399,18 @@ class _FaultsRailButton extends StatelessWidget {
     return ReactiveViewModelBuilder<FaultJournalViewModel, FaultJournalState>(
       viewmodel: FaultJournalService.instance.notifier,
       build: (state, viewmodel, keep) {
+        final t = AppLocalizations.of(context);
         final scheme = Theme.of(context).colorScheme;
         return Stack(
           alignment: Alignment.topRight,
           children: [
             _RailButton(
-              label: 'Fallas',
+              label: t.faultsLabel,
               icon: Icons.report_gmailerrorred_outlined,
               tooltip: switch (state.unseen) {
-                0 => 'Lo que se rompió — nada sin ver',
-                1 => 'Una falla sin ver',
-                final count => '$count fallas sin ver',
+                0 => t.faultsNone,
+                1 => t.faultsOne,
+                final count => t.faultsMany(count),
               },
               onPressed: () => openFaultsPanel(context),
             ),
@@ -496,6 +498,7 @@ class _MachineRailButton extends StatelessWidget {
   }
 
   Widget _button(BuildContext context, {required int running}) {
+    final t = AppLocalizations.of(context);
     return ReactiveViewModelBuilder<AppUpdateViewModel, AppUpdateState>(
       viewmodel: AppUpdateService.instance.notifier,
       build: (state, viewmodel, keep) {
@@ -503,16 +506,13 @@ class _MachineRailButton extends StatelessWidget {
           alignment: Alignment.topRight,
           children: [
             _RailButton(
-              label: 'Máquina',
+              label: t.navMachine,
               icon: Icons.memory_outlined,
               busy: running > 0,
               tooltip: switch (running) {
-                0 =>
-                  state.pending
-                      ? 'Hay una versión nueva de Keel'
-                      : 'Servicios, consumo y estado de la máquina',
-                1 => 'Hay 1 trabajo en curso',
-                _ => 'Hay $running trabajos en curso',
+                0 => state.pending ? t.machineUpdateAvailable : t.machineStatus,
+                1 => t.machineOneWork,
+                _ => t.machineManyWork(running),
               },
               onPressed: onPressed,
               selected: selected,
@@ -563,17 +563,16 @@ class _VaultRailButton extends StatelessWidget {
     return ReactiveViewModelBuilder<SystemVaultViewModel, SystemVaultState>(
       viewmodel: SystemVaultService.instance.notifier,
       build: (vault, viewmodel, keep) {
+        final t = AppLocalizations.of(context);
         final warning = vault.warning;
         return Stack(
           alignment: Alignment.topRight,
           children: [
             _RailButton(
-              label: vault.busy ? 'Respaldando' : 'Respaldo',
+              label: vault.busy ? t.backupBusy : t.backupLabel,
               icon: Icons.backup_outlined,
               busy: vault.busy,
-              tooltip: vault.busy
-                  ? 'Escribiendo el respaldo, sin frenarte'
-                  : (warning ?? 'Respaldo al día y subido al remoto'),
+              tooltip: vault.busy ? t.backupSaving : (warning ?? t.backupReady),
               onPressed: onPressed,
               selected: selected,
             ),

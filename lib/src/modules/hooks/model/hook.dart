@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
 
 import 'package:keel_ui/src/modules/hooks/model/hook_event.dart';
 
@@ -15,11 +16,16 @@ final RegExp _hookNameFormat = RegExp(r'^[a-z0-9_-]{1,40}$');
 
 /// El nombre es también el del script que se le entrega al CLI, así que no
 /// admite espacios ni separadores de ruta.
-String? validateHookName(String value) {
-  if (value.isEmpty) return 'El nombre no puede estar vacío.';
-  if (value.length > 40) return 'Máximo 40 caracteres.';
-  if (value.contains(' ')) return 'No se permiten espacios.';
-  if (value != value.toLowerCase()) return 'Usá solo minúsculas.';
+String? validateHookName(String value, [AppLocalizations? l10n]) {
+  if (value.isEmpty) return l10n?.validationNameRequired ?? 'Name is required.';
+  if (value.length > 40) {
+    return l10n?.validationMaxCharacters(40) ?? 'Maximum 40 characters.';
+  }
+  if (value.contains(' '))
+    return l10n?.validationNoSpaces ?? 'Spaces are not allowed.';
+  if (value != value.toLowerCase()) {
+    return l10n?.validationLowercaseOnly ?? 'Use lowercase letters only.';
+  }
   if (!_hookNameFormat.hasMatch(value)) {
     return 'Solo letras minúsculas, números, "-" y "_".';
   }

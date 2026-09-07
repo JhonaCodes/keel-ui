@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
 
 import 'package:reactive_notifier/reactive_notifier.dart';
 
@@ -34,6 +35,7 @@ class RuleTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context)!;
     final isLocked = CatalogLocksService.instance.notifier.isLocked(
       CatalogLockKind.rule,
       rule.name,
@@ -52,14 +54,14 @@ class RuleTile extends StatelessWidget {
         children: [
           CatalogLockButton(kind: CatalogLockKind.rule, name: rule.name),
           IconButton(
-            tooltip: 'Editar',
+            tooltip: t.buttonEdit,
             icon: const Icon(Icons.edit_outlined),
             onPressed: isLocked
                 ? null
                 : () => openRuleFormScreen(context, initial: rule),
           ),
           IconButton(
-            tooltip: 'Eliminar',
+            tooltip: t.buttonDelete,
             icon: const Icon(Icons.delete_outline),
             onPressed: isLocked ? null : () => _confirmAndDelete(context),
           ),

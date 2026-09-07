@@ -1,4 +1,5 @@
 import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/modules/agent_profiles/viewmodel/agent_profiles_viewmodel.dart';
 import 'package:keel_ui/src/modules/agents/model/agent_provider.dart';
 import 'package:keel_ui/src/modules/agents/model/agent_model_option.dart';
@@ -20,28 +21,34 @@ import 'package:keel_ui/src/modules/workflows/model/workflow.dart';
 /// be in dependency order (skills/rules, then agents, then workflows, then
 /// projects) — see `assistant_action_parser.dart`.
 List<AssistantActionResult> executeAssistantActions(
-  List<AssistantAction> actions,
-) {
+  List<AssistantAction> actions, {
+  AppLocalizations? l10n,
+}) {
   return [
     for (final action in actions)
       switch (action) {
-        CreateSkillAction() => executeSkillAction(action),
-        CreateRuleAction() => executeRuleAction(action),
-        CreateToolAction() => executeToolAction(action),
-        CreateAgentAction() => executeAgentAction(action),
-        CreateWorkflowAction() => executeWorkflowAction(action),
-        CreateProjectAction() => executeProjectAction(action),
+        CreateSkillAction() => executeSkillAction(action, l10n: l10n),
+        CreateRuleAction() => executeRuleAction(action, l10n: l10n),
+        CreateToolAction() => executeToolAction(action, l10n: l10n),
+        CreateAgentAction() => executeAgentAction(action, l10n: l10n),
+        CreateWorkflowAction() => executeWorkflowAction(action, l10n: l10n),
+        CreateProjectAction() => executeProjectAction(action, l10n: l10n),
       },
   ];
 }
 
-AssistantActionResult executeSkillAction(CreateSkillAction action) {
+AssistantActionResult executeSkillAction(
+  CreateSkillAction action, {
+  AppLocalizations? l10n,
+}) {
   final viewmodel = SkillsService.instance.notifier;
   if (viewmodel.data.skills.any((skill) => skill.name == action.name)) {
     return AssistantActionResult(
       action: action,
       ok: true,
-      message: 'La skill "${action.name}" ya existía, la reusé.',
+      message:
+          l10n?.assistantSkillExists(action.name) ??
+          'The skill "${action.name}" already existed; I reused it.',
     );
   }
   final error = viewmodel.createSkill(
@@ -54,17 +61,26 @@ AssistantActionResult executeSkillAction(CreateSkillAction action) {
     ok: error == null,
     message:
         error ??
-        'Creé la skill "${action.name}"${action.isGlobal ? ' (global)' : ''}.',
+        l10n?.assistantSkillCreated(
+          action.name,
+          action.isGlobal ? ' (global)' : '',
+        ) ??
+        'I created the skill "${action.name}"${action.isGlobal ? ' (global)' : ''}.',
   );
 }
 
-AssistantActionResult executeRuleAction(CreateRuleAction action) {
+AssistantActionResult executeRuleAction(
+  CreateRuleAction action, {
+  AppLocalizations? l10n,
+}) {
   final viewmodel = RulesService.instance.notifier;
   if (viewmodel.data.rules.any((rule) => rule.name == action.name)) {
     return AssistantActionResult(
       action: action,
       ok: true,
-      message: 'La regla "${action.name}" ya existía, la reusé.',
+      message:
+          l10n?.assistantRuleExists(action.name) ??
+          'The rule "${action.name}" already existed; I reused it.',
     );
   }
   final error = viewmodel.createRule(
@@ -74,17 +90,25 @@ AssistantActionResult executeRuleAction(CreateRuleAction action) {
   return AssistantActionResult(
     action: action,
     ok: error == null,
-    message: error ?? 'Creé la regla "${action.name}".',
+    message:
+        error ??
+        l10n?.assistantRuleCreated(action.name) ??
+        'I created the rule "${action.name}".',
   );
 }
 
-AssistantActionResult executeToolAction(CreateToolAction action) {
+AssistantActionResult executeToolAction(
+  CreateToolAction action, {
+  AppLocalizations? l10n,
+}) {
   final viewmodel = ToolsService.instance.notifier;
   if (viewmodel.data.tools.any((tool) => tool.name == action.name)) {
     return AssistantActionResult(
       action: action,
       ok: true,
-      message: 'La tool "${action.name}" ya existía, la reusé.',
+      message:
+          l10n?.assistantToolExists(action.name) ??
+          'The tool "${action.name}" already existed; I reused it.',
     );
   }
 
@@ -110,11 +134,17 @@ AssistantActionResult executeToolAction(CreateToolAction action) {
   return AssistantActionResult(
     action: action,
     ok: error == null,
-    message: error ?? 'Creé la tool "${action.name}" (${runtime.label}).',
+    message:
+        error ??
+        l10n?.assistantToolCreated(action.name, runtime.label) ??
+        'I created the tool "${action.name}" (${runtime.label}).',
   );
 }
 
-AssistantActionResult executeAgentAction(CreateAgentAction action) {
+AssistantActionResult executeAgentAction(
+  CreateAgentAction action, {
+  AppLocalizations? l10n,
+}) {
   final providerAlias = action.providerAlias;
   final provider = providerAlias == null
       ? null
@@ -217,7 +247,10 @@ AssistantActionResult executeAgentAction(CreateAgentAction action) {
     return AssistantActionResult(
       action: action,
       ok: error == null,
-      message: error ?? 'Registré a @${action.handle}.$dropped',
+      message:
+          error ??
+          l10n?.assistantAgentCreated(action.handle, dropped) ??
+          'I registered @${action.handle}.$dropped',
     );
   }
 
@@ -273,7 +306,10 @@ AssistantActionResult executeAgentAction(CreateAgentAction action) {
   return AssistantActionResult(
     action: action,
     ok: error == null,
-    message: error ?? 'Actualicé a @${action.handle}.$dropped',
+    message:
+        error ??
+        l10n?.assistantAgentUpdated(action.handle, dropped) ??
+        'I updated @${action.handle}.$dropped',
   );
 }
 
@@ -304,7 +340,10 @@ String _describeDropped(Map<String, List<String>> byKind) {
   return '\n${lines.join('\n')}';
 }
 
-AssistantActionResult executeWorkflowAction(CreateWorkflowAction action) {
+AssistantActionResult executeWorkflowAction(
+  CreateWorkflowAction action, {
+  AppLocalizations? l10n,
+}) {
   final viewmodel = WorkflowsService.instance.notifier;
   final existing = viewmodel.data.workflows
       .where((workflow) => workflow.name == action.name)
@@ -378,7 +417,10 @@ List<WorkflowQualityGate> _defaultWorkflowGates(WorkflowKind kind) =>
         WorkflowQualityGate.regression,
       ];
 
-AssistantActionResult executeProjectAction(CreateProjectAction action) {
+AssistantActionResult executeProjectAction(
+  CreateProjectAction action, {
+  AppLocalizations? l10n,
+}) {
   final profiles = AgentProfilesService.instance.notifier.data.profiles;
   final workflows = WorkflowsService.instance.notifier.data.workflows;
 
@@ -451,7 +493,8 @@ AssistantActionResult executeProjectAction(CreateProjectAction action) {
       'no encontré el hook ${hooks.dropped.join(', ')}',
   ];
   final message = warnings.isEmpty
-      ? 'Creé el proyecto "${action.name}".'
+      ? l10n?.assistantProjectCreated(action.name) ??
+            'I created the project "${action.name}".'
       : 'Creé el proyecto "${action.name}" (${warnings.join('; ')}).';
   return AssistantActionResult(action: action, ok: true, message: message);
 }

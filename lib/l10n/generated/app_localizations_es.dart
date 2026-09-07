@@ -375,7 +375,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get descriptionLockedElements =>
-      'Lo que un agente no puede cambiar ni borrar sin pedirte permiso primero. El candado se pone desde cada ítem; acá se ven todos juntos.';
+      'Lo que un agente no puede cambiar ni borrar sin pedirte permiso primero. El candado se pone desde cada ítem; aquí se ven todos juntos.';
 
   @override
   String get labelLockedElements => 'Elementos bloqueados';
@@ -901,12 +901,12 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String placeholderWriteTo(String name) {
-    return 'Escribile a @$name…';
+    return 'Escribe a @$name…';
   }
 
   @override
   String get messageNoReasoningVisible =>
-      'No dejó pensamiento visible. Con modelos que no lo emiten, acá no hay nada que mostrar.';
+      'No dejó pensamiento visible. Con modelos que no lo emiten, aquí no hay nada que mostrar.';
 
   @override
   String get messageNodeNotResolution =>
@@ -928,7 +928,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String messageSubagentWriteLocked(String parent) {
-    return 'Mientras corre, a un subagente no se le puede escribir: el CLI no abre ese canal. Lo que va acá abajo le llega a $parent, que es quien lo abrió.';
+    return 'Mientras corre, no se puede escribirle a un subagente: el CLI no abre ese canal. Lo que escribas aquí le llega a $parent, quien lo abrió.';
   }
 
   @override
@@ -1701,6 +1701,432 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get keelAiModifyBlocked =>
       'Keel AI pidió modificar un elemento bloqueado.';
+
+  @override
+  String formEditEntity(Object entity) {
+    return 'Editar $entity';
+  }
+
+  @override
+  String formRegisterEntity(Object entity) {
+    return 'Registrar $entity';
+  }
+
+  @override
+  String get formName => 'Nombre';
+
+  @override
+  String get formEnvironmentVariableName => 'Nombre de la variable de entorno';
+
+  @override
+  String get formWorkingDirectory => 'Carpeta de trabajo';
+
+  @override
+  String get formChoose => 'Elegir…';
+
+  @override
+  String get formSave => 'Guardar';
+
+  @override
+  String get formCreate => 'Crear';
+
+  @override
+  String get formGlobalSkill => 'Skill global';
+
+  @override
+  String get formGlobalSkillDescription =>
+      'La reciben todos los agentes en cada turno, sin necesidad de asignarla.';
+
+  @override
+  String get formSkillContent => 'Contenido (instrucciones para inyectar)';
+
+  @override
+  String get formToolDescription =>
+      'Descripción para el agente: qué hace, cuándo usarla y qué significa cada argumento posicional';
+
+  @override
+  String get formStoredValue => 'Valor cargado  ••••••••';
+
+  @override
+  String get formNewValueKeepCurrent =>
+      'Valor nuevo (vacío = conservar el actual)';
+
+  @override
+  String get formValue => 'Valor';
+
+  @override
+  String get formValueDescription =>
+      'Nunca pasa por un modelo. Se inyecta como credencial solo al proveedor, tool o MCP que la declare.';
+
+  @override
+  String get formBoardDescription =>
+      'La opción más rápida es pedírselo a un agente del proyecto: lee tu código o OpenAPI y lo construye. Usa esto para ajustarlo o escribirlo manualmente.';
+
+  @override
+  String get formWorkflowName => 'Nombre';
+
+  @override
+  String get formWorkflowCaseType => 'Tipo de caso';
+
+  @override
+  String get formRequiredRules => 'Reglas requeridas';
+
+  @override
+  String get formRequiredKnowledgeBases => 'Bases de conocimiento requeridas';
+
+  @override
+  String get formCommaSeparatedNames => 'Nombres separados por comas.';
+
+  @override
+  String get validationNameRequired => 'El nombre es obligatorio.';
+
+  @override
+  String validationMaxCharacters(Object count) {
+    return 'Máximo $count caracteres.';
+  }
+
+  @override
+  String get validationNoSpaces => 'No se permiten espacios.';
+
+  @override
+  String get validationLowercaseOnly => 'Usa solo minúsculas.';
+
+  @override
+  String get validationBoardKey =>
+      'Usa minúsculas, números y \"_\", empezando por una letra (máx. 32).';
+
+  @override
+  String get assistantWelcomeTitle => 'Soy Keel AI';
+
+  @override
+  String get assistantWelcomeDescription =>
+      'Puedo registrar cualquiera de estas opciones por ti en la conversación. Toca un ejemplo para probarlo.';
+
+  @override
+  String get assistantExampleProject =>
+      'Crea un proyecto para revisar PR con dos agentes.';
+
+  @override
+  String get assistantExampleAgent =>
+      'Registra un agente revisor de seguridad y asígnale la skill que acabas de crear.';
+
+  @override
+  String get assistantExampleWorkflow =>
+      'Crea un workflow para bugs con implementación y una etapa de revisión.';
+
+  @override
+  String get assistantExampleSkill =>
+      'Crea una skill con las reglas de estilo de este proyecto.';
+
+  @override
+  String get assistantExampleRule =>
+      'Agrega una regla que prohíba comentarios obvios en el código.';
+
+  @override
+  String get labelEnabled => 'Activo';
+
+  @override
+  String get labelDisabled => 'Apagado';
+
+  @override
+  String get navAssistantTooltip => 'Asistente Keel AI';
+
+  @override
+  String get navRegisteredAgents => 'Agentes registrados';
+
+  @override
+  String get navTestBoards => 'Tableros de prueba';
+
+  @override
+  String get navMcpIntegrations => 'Integraciones MCP';
+
+  @override
+  String get navKnowledge => 'Conocimiento';
+
+  @override
+  String get navMachine => 'Máquina';
+
+  @override
+  String get navBackup => 'Respaldo';
+
+  @override
+  String get navSettings => 'Ajustes';
+
+  @override
+  String get mapLaneBack => 'regresa';
+
+  @override
+  String get mapLaneForward => 'avanza';
+
+  @override
+  String get mapLaneDelegate => 'delega';
+
+  @override
+  String get mapViewQuery => 'Ver la consulta completa';
+
+  @override
+  String get mapZoomOut => 'Alejar  ⌘−';
+
+  @override
+  String get mapZoomIn => 'Acercar  ⌘+';
+
+  @override
+  String get mapFit => 'Mostrar todo en pantalla  ⌘0';
+
+  @override
+  String get mapFollow => 'Seguir el nodo que tiene el turno';
+
+  @override
+  String get mapHelp => 'arrastrar = mover · ⌘ + rueda = zoom';
+
+  @override
+  String get mapEmptyTitle =>
+      'Este proyecto todavía no tiene nodos para mapear';
+
+  @override
+  String get mapEmptyDescription =>
+      'Agrega miembros y un workflow. El mapa se abre con el elenco en su lugar, en reposo, antes de que corra algo.';
+
+  @override
+  String get chatCreateSession => 'Crea una sesión para empezar';
+
+  @override
+  String get chatAskForPlan => 'Pide un plan…';
+
+  @override
+  String chatSessionPrompt(Object project) {
+    return 'Qué necesitas en esta sesión de #$project';
+  }
+
+  @override
+  String chatMessagePrompt(Object project) {
+    return 'Mensaje para #$project';
+  }
+
+  @override
+  String get chatStop => 'Detener';
+
+  @override
+  String get chatQueue => 'Guardar en espera';
+
+  @override
+  String get chatSend => 'Enviar';
+
+  @override
+  String get chatSessionsCreatedByButton =>
+      'Las sesiones se crean con el botón \"Nueva sesión\".';
+
+  @override
+  String get chatRunsPreflight =>
+      'El preflight del workflow se ejecuta en esta sesión.';
+
+  @override
+  String get chatQueueHelp =>
+      'Puedes guardar mensajes en espera, programarlos para el final del turno o interrumpir y enviarlos ahora.';
+
+  @override
+  String get chatWorkflowHelp =>
+      'El workflow coordina el grafo. Escribe cuando quieras corregir el rumbo; queda registrado en el nodo activo.';
+
+  @override
+  String get chatReferencesHelp =>
+      'Referencias: / directorios · @ agentes · \$ skills y reglas · # conocimiento';
+
+  @override
+  String get labelNoOpenSession => 'Sin sesión abierta';
+
+  @override
+  String labelSessionTitle(Object title) {
+    return 'Sesión: $title';
+  }
+
+  @override
+  String labelContextUsage(Object percent) {
+    return 'contexto $percent%';
+  }
+
+  @override
+  String assistantLegacyBlocked(Object names) {
+    return 'No ejecuté el bloque automático: intentaba cambiar elementos bloqueados ($names). Usa las tools MCP con change_intent y change_reason para pedir permiso.';
+  }
+
+  @override
+  String assistantSkillExists(Object name) {
+    return 'La skill \"$name\" ya existía; la reutilicé.';
+  }
+
+  @override
+  String assistantSkillCreated(Object name, Object suffix) {
+    return 'Creé la skill \"$name\"$suffix.';
+  }
+
+  @override
+  String assistantRuleExists(Object name) {
+    return 'La regla \"$name\" ya existía; la reutilicé.';
+  }
+
+  @override
+  String assistantRuleCreated(Object name) {
+    return 'Creé la regla \"$name\".';
+  }
+
+  @override
+  String assistantToolExists(Object name) {
+    return 'La tool \"$name\" ya existía; la reutilicé.';
+  }
+
+  @override
+  String assistantToolCreated(Object name, Object runtime) {
+    return 'Creé la tool \"$name\" ($runtime).';
+  }
+
+  @override
+  String assistantAgentCreated(Object details, Object handle) {
+    return 'Registré a @$handle.$details';
+  }
+
+  @override
+  String assistantAgentUpdated(Object details, Object handle) {
+    return 'Actualicé a @$handle.$details';
+  }
+
+  @override
+  String assistantWorkflowCreated(Object kind, Object name) {
+    return 'Creé el workflow \"$name\" ($kind).';
+  }
+
+  @override
+  String assistantProjectCreated(Object name) {
+    return 'Creé el proyecto \"$name\".';
+  }
+
+  @override
+  String updateAvailable(Object version) {
+    return 'Nueva versión $version disponible. Haz clic para descargarla.';
+  }
+
+  @override
+  String get readingInstalledVersion => 'Leyendo la versión instalada';
+
+  @override
+  String reviewVersion(Object version) {
+    return 'Keel $version. Haz clic para revisar.';
+  }
+
+  @override
+  String get faultsLabel => 'Fallas';
+
+  @override
+  String get faultsNone => 'No hay fallas sin revisar';
+
+  @override
+  String get faultsOne => '1 falla sin revisar';
+
+  @override
+  String faultsMany(Object count) {
+    return '$count fallas sin revisar';
+  }
+
+  @override
+  String get machineUpdateAvailable => 'Hay una versión nueva de Keel';
+
+  @override
+  String get machineStatus => 'Servicios, consumo y estado de la máquina';
+
+  @override
+  String get machineOneWork => 'Hay 1 trabajo en curso';
+
+  @override
+  String machineManyWork(Object count) {
+    return 'Hay $count trabajos en curso';
+  }
+
+  @override
+  String get backupBusy => 'Respaldando';
+
+  @override
+  String get backupLabel => 'Respaldo';
+
+  @override
+  String get backupSaving => 'Escribiendo el respaldo sin interrumpirte';
+
+  @override
+  String get backupReady => 'Respaldo al día y subido al remoto';
+
+  @override
+  String get mapLegend => 'Leyenda';
+
+  @override
+  String get fileTypeImages => 'Imágenes';
+
+  @override
+  String get chatFilterSystem => 'sistema';
+
+  @override
+  String get chatFilterSubagents => 'subagentes';
+
+  @override
+  String get chatFilterAll => 'todo';
+
+  @override
+  String chatStepLabel(Object title) {
+    return 'paso: $title';
+  }
+
+  @override
+  String chatRetryStep(Object title) {
+    return 'Reintentar «$title»';
+  }
+
+  @override
+  String get buttonDeleteAgent => 'Eliminar agente';
+
+  @override
+  String deleteAgentConfirmation(Object name) {
+    return 'Se eliminarán \"$name\" y su historial de chat.';
+  }
+
+  @override
+  String get emptyProjectsHint =>
+      'Todavía no hay proyectos. Crea uno para que varios agentes trabajen en el mismo repositorio.';
+
+  @override
+  String get emptyAgentsHint =>
+      'No hay agentes abiertos. Usa un agente registrado para hablarle directamente, sin proyecto.';
+
+  @override
+  String get filesystemAccessTitle =>
+      'Dar acceso a todo el sistema de archivos';
+
+  @override
+  String filesystemAccessBody(Object name) {
+    return '\"$name\" podrá leer y escribir en cualquier carpeta del computador, no solo en tu carpeta de usuario.';
+  }
+
+  @override
+  String get filesystemAccessGrant => 'Dar acceso';
+
+  @override
+  String get filesystemAccessEnabledTooltip =>
+      'Tiene acceso a todo el sistema de archivos (haz clic para quitarlo)';
+
+  @override
+  String get filesystemAccessGrantTooltip =>
+      'Dar acceso a todo el sistema de archivos';
+
+  @override
+  String get noOpenRequirements =>
+      'No hay requisitos abiertos en ninguna dirección.';
+
+  @override
+  String get labelSubagents => 'subagentes';
+
+  @override
+  String get useAgentTitle => 'Usar un agente';
+
+  @override
+  String get filesystemAccessSubtitle =>
+      'Esto se decide aquí, no al registrar el agente: el mismo agente puede tener permisos diferentes según dónde lo uses.';
 }
 
 /// The translations for Spanish Castilian, as used in Colombia (`es_CO`).
@@ -2074,7 +2500,7 @@ class AppLocalizationsEsCo extends AppLocalizationsEs {
 
   @override
   String get descriptionLockedElements =>
-      'Lo que un agente no puede cambiar ni borrar sin pedirte permiso primero. El candado se pone desde cada ítem; acá se ven todos juntos.';
+      'Lo que un agente no puede cambiar ni borrar sin pedirte permiso primero. El candado se pone desde cada ítem; aquí se ven todos juntos.';
 
   @override
   String get labelLockedElements => 'Elementos bloqueados';
@@ -2600,12 +3026,12 @@ class AppLocalizationsEsCo extends AppLocalizationsEs {
 
   @override
   String placeholderWriteTo(String name) {
-    return 'Escribile a @$name…';
+    return 'Escribe a @$name…';
   }
 
   @override
   String get messageNoReasoningVisible =>
-      'No dejó pensamiento visible. Con modelos que no lo emiten, acá no hay nada que mostrar.';
+      'No dejó pensamiento visible. Con modelos que no lo emiten, aquí no hay nada que mostrar.';
 
   @override
   String get messageNodeNotResolution =>
@@ -2627,7 +3053,7 @@ class AppLocalizationsEsCo extends AppLocalizationsEs {
 
   @override
   String messageSubagentWriteLocked(String parent) {
-    return 'Mientras corre, a un subagente no se le puede escribir: el CLI no abre ese canal. Lo que va acá abajo le llega a $parent, que es quien lo abrió.';
+    return 'Mientras corre, no se puede escribirle a un subagente: el CLI no abre ese canal. Lo que escribas aquí le llega a $parent, quien lo abrió.';
   }
 
   @override
@@ -3400,4 +3826,430 @@ class AppLocalizationsEsCo extends AppLocalizationsEs {
   @override
   String get keelAiModifyBlocked =>
       'Keel AI pidió modificar un elemento bloqueado.';
+
+  @override
+  String formEditEntity(Object entity) {
+    return 'Editar $entity';
+  }
+
+  @override
+  String formRegisterEntity(Object entity) {
+    return 'Registrar $entity';
+  }
+
+  @override
+  String get formName => 'Nombre';
+
+  @override
+  String get formEnvironmentVariableName => 'Nombre de la variable de entorno';
+
+  @override
+  String get formWorkingDirectory => 'Carpeta de trabajo';
+
+  @override
+  String get formChoose => 'Elegir…';
+
+  @override
+  String get formSave => 'Guardar';
+
+  @override
+  String get formCreate => 'Crear';
+
+  @override
+  String get formGlobalSkill => 'Skill global';
+
+  @override
+  String get formGlobalSkillDescription =>
+      'La reciben todos los agentes en cada turno, sin necesidad de asignarla.';
+
+  @override
+  String get formSkillContent => 'Contenido (instrucciones para inyectar)';
+
+  @override
+  String get formToolDescription =>
+      'Descripción para el agente: qué hace, cuándo usarla y qué significa cada argumento posicional';
+
+  @override
+  String get formStoredValue => 'Valor cargado  ••••••••';
+
+  @override
+  String get formNewValueKeepCurrent =>
+      'Valor nuevo (vacío = conservar el actual)';
+
+  @override
+  String get formValue => 'Valor';
+
+  @override
+  String get formValueDescription =>
+      'Nunca pasa por un modelo. Se inyecta como credencial solo al proveedor, tool o MCP que la declare.';
+
+  @override
+  String get formBoardDescription =>
+      'La opción más rápida es pedírselo a un agente del proyecto: lee tu código o OpenAPI y lo construye. Usa esto para ajustarlo o escribirlo manualmente.';
+
+  @override
+  String get formWorkflowName => 'Nombre';
+
+  @override
+  String get formWorkflowCaseType => 'Tipo de caso';
+
+  @override
+  String get formRequiredRules => 'Reglas requeridas';
+
+  @override
+  String get formRequiredKnowledgeBases => 'Bases de conocimiento requeridas';
+
+  @override
+  String get formCommaSeparatedNames => 'Nombres separados por comas.';
+
+  @override
+  String get validationNameRequired => 'El nombre es obligatorio.';
+
+  @override
+  String validationMaxCharacters(Object count) {
+    return 'Máximo $count caracteres.';
+  }
+
+  @override
+  String get validationNoSpaces => 'No se permiten espacios.';
+
+  @override
+  String get validationLowercaseOnly => 'Usa solo minúsculas.';
+
+  @override
+  String get validationBoardKey =>
+      'Usa minúsculas, números y \"_\", empezando por una letra (máx. 32).';
+
+  @override
+  String get assistantWelcomeTitle => 'Soy Keel AI';
+
+  @override
+  String get assistantWelcomeDescription =>
+      'Puedo registrar cualquiera de estas opciones por ti en la conversación. Toca un ejemplo para probarlo.';
+
+  @override
+  String get assistantExampleProject =>
+      'Crea un proyecto para revisar PR con dos agentes.';
+
+  @override
+  String get assistantExampleAgent =>
+      'Registra un agente revisor de seguridad y asígnale la skill que acabas de crear.';
+
+  @override
+  String get assistantExampleWorkflow =>
+      'Crea un workflow para bugs con implementación y una etapa de revisión.';
+
+  @override
+  String get assistantExampleSkill =>
+      'Crea una skill con las reglas de estilo de este proyecto.';
+
+  @override
+  String get assistantExampleRule =>
+      'Agrega una regla que prohíba comentarios obvios en el código.';
+
+  @override
+  String get labelEnabled => 'Activo';
+
+  @override
+  String get labelDisabled => 'Apagado';
+
+  @override
+  String get navAssistantTooltip => 'Asistente Keel AI';
+
+  @override
+  String get navRegisteredAgents => 'Agentes registrados';
+
+  @override
+  String get navTestBoards => 'Tableros de prueba';
+
+  @override
+  String get navMcpIntegrations => 'Integraciones MCP';
+
+  @override
+  String get navKnowledge => 'Conocimiento';
+
+  @override
+  String get navMachine => 'Máquina';
+
+  @override
+  String get navBackup => 'Respaldo';
+
+  @override
+  String get navSettings => 'Ajustes';
+
+  @override
+  String get mapLaneBack => 'regresa';
+
+  @override
+  String get mapLaneForward => 'avanza';
+
+  @override
+  String get mapLaneDelegate => 'delega';
+
+  @override
+  String get mapViewQuery => 'Ver la consulta completa';
+
+  @override
+  String get mapZoomOut => 'Alejar  ⌘−';
+
+  @override
+  String get mapZoomIn => 'Acercar  ⌘+';
+
+  @override
+  String get mapFit => 'Mostrar todo en pantalla  ⌘0';
+
+  @override
+  String get mapFollow => 'Seguir el nodo que tiene el turno';
+
+  @override
+  String get mapHelp => 'arrastrar = mover · ⌘ + rueda = zoom';
+
+  @override
+  String get mapEmptyTitle =>
+      'Este proyecto todavía no tiene nodos para mapear';
+
+  @override
+  String get mapEmptyDescription =>
+      'Agrega miembros y un workflow. El mapa se abre con el elenco en su lugar, en reposo, antes de que corra algo.';
+
+  @override
+  String get chatCreateSession => 'Crea una sesión para empezar';
+
+  @override
+  String get chatAskForPlan => 'Pide un plan…';
+
+  @override
+  String chatSessionPrompt(Object project) {
+    return 'Qué necesitas en esta sesión de #$project';
+  }
+
+  @override
+  String chatMessagePrompt(Object project) {
+    return 'Mensaje para #$project';
+  }
+
+  @override
+  String get chatStop => 'Detener';
+
+  @override
+  String get chatQueue => 'Guardar en espera';
+
+  @override
+  String get chatSend => 'Enviar';
+
+  @override
+  String get chatSessionsCreatedByButton =>
+      'Las sesiones se crean con el botón \"Nueva sesión\".';
+
+  @override
+  String get chatRunsPreflight =>
+      'El preflight del workflow se ejecuta en esta sesión.';
+
+  @override
+  String get chatQueueHelp =>
+      'Puedes guardar mensajes en espera, programarlos para el final del turno o interrumpir y enviarlos ahora.';
+
+  @override
+  String get chatWorkflowHelp =>
+      'El workflow coordina el grafo. Escribe cuando quieras corregir el rumbo; queda registrado en el nodo activo.';
+
+  @override
+  String get chatReferencesHelp =>
+      'Referencias: / directorios · @ agentes · \$ skills y reglas · # conocimiento';
+
+  @override
+  String get labelNoOpenSession => 'Sin sesión abierta';
+
+  @override
+  String labelSessionTitle(Object title) {
+    return 'Sesión: $title';
+  }
+
+  @override
+  String labelContextUsage(Object percent) {
+    return 'contexto $percent%';
+  }
+
+  @override
+  String assistantLegacyBlocked(Object names) {
+    return 'No ejecuté el bloque automático: intentaba cambiar elementos bloqueados ($names). Usa las tools MCP con change_intent y change_reason para pedir permiso.';
+  }
+
+  @override
+  String assistantSkillExists(Object name) {
+    return 'La skill \"$name\" ya existía; la reutilicé.';
+  }
+
+  @override
+  String assistantSkillCreated(Object name, Object suffix) {
+    return 'Creé la skill \"$name\"$suffix.';
+  }
+
+  @override
+  String assistantRuleExists(Object name) {
+    return 'La regla \"$name\" ya existía; la reutilicé.';
+  }
+
+  @override
+  String assistantRuleCreated(Object name) {
+    return 'Creé la regla \"$name\".';
+  }
+
+  @override
+  String assistantToolExists(Object name) {
+    return 'La tool \"$name\" ya existía; la reutilicé.';
+  }
+
+  @override
+  String assistantToolCreated(Object name, Object runtime) {
+    return 'Creé la tool \"$name\" ($runtime).';
+  }
+
+  @override
+  String assistantAgentCreated(Object details, Object handle) {
+    return 'Registré a @$handle.$details';
+  }
+
+  @override
+  String assistantAgentUpdated(Object details, Object handle) {
+    return 'Actualicé a @$handle.$details';
+  }
+
+  @override
+  String assistantWorkflowCreated(Object kind, Object name) {
+    return 'Creé el workflow \"$name\" ($kind).';
+  }
+
+  @override
+  String assistantProjectCreated(Object name) {
+    return 'Creé el proyecto \"$name\".';
+  }
+
+  @override
+  String updateAvailable(Object version) {
+    return 'Nueva versión $version disponible. Haz clic para descargarla.';
+  }
+
+  @override
+  String get readingInstalledVersion => 'Leyendo la versión instalada';
+
+  @override
+  String reviewVersion(Object version) {
+    return 'Keel $version. Haz clic para revisar.';
+  }
+
+  @override
+  String get faultsLabel => 'Fallas';
+
+  @override
+  String get faultsNone => 'No hay fallas sin revisar';
+
+  @override
+  String get faultsOne => '1 falla sin revisar';
+
+  @override
+  String faultsMany(Object count) {
+    return '$count fallas sin revisar';
+  }
+
+  @override
+  String get machineUpdateAvailable => 'Hay una versión nueva de Keel';
+
+  @override
+  String get machineStatus => 'Servicios, consumo y estado de la máquina';
+
+  @override
+  String get machineOneWork => 'Hay 1 trabajo en curso';
+
+  @override
+  String machineManyWork(Object count) {
+    return 'Hay $count trabajos en curso';
+  }
+
+  @override
+  String get backupBusy => 'Respaldando';
+
+  @override
+  String get backupLabel => 'Respaldo';
+
+  @override
+  String get backupSaving => 'Escribiendo el respaldo sin interrumpirte';
+
+  @override
+  String get backupReady => 'Respaldo al día y subido al remoto';
+
+  @override
+  String get mapLegend => 'Leyenda';
+
+  @override
+  String get fileTypeImages => 'Imágenes';
+
+  @override
+  String get chatFilterSystem => 'sistema';
+
+  @override
+  String get chatFilterSubagents => 'subagentes';
+
+  @override
+  String get chatFilterAll => 'todo';
+
+  @override
+  String chatStepLabel(Object title) {
+    return 'paso: $title';
+  }
+
+  @override
+  String chatRetryStep(Object title) {
+    return 'Reintentar «$title»';
+  }
+
+  @override
+  String get buttonDeleteAgent => 'Eliminar agente';
+
+  @override
+  String deleteAgentConfirmation(Object name) {
+    return 'Se eliminarán \"$name\" y su historial de chat.';
+  }
+
+  @override
+  String get emptyProjectsHint =>
+      'Todavía no hay proyectos. Crea uno para que varios agentes trabajen en el mismo repositorio.';
+
+  @override
+  String get emptyAgentsHint =>
+      'No hay agentes abiertos. Usa un agente registrado para hablarle directamente, sin proyecto.';
+
+  @override
+  String get filesystemAccessTitle =>
+      'Dar acceso a todo el sistema de archivos';
+
+  @override
+  String filesystemAccessBody(Object name) {
+    return '\"$name\" podrá leer y escribir en cualquier carpeta del computador, no solo en tu carpeta de usuario.';
+  }
+
+  @override
+  String get filesystemAccessGrant => 'Dar acceso';
+
+  @override
+  String get filesystemAccessEnabledTooltip =>
+      'Tiene acceso a todo el sistema de archivos (haz clic para quitarlo)';
+
+  @override
+  String get filesystemAccessGrantTooltip =>
+      'Dar acceso a todo el sistema de archivos';
+
+  @override
+  String get noOpenRequirements =>
+      'No hay requisitos abiertos en ninguna dirección.';
+
+  @override
+  String get labelSubagents => 'subagentes';
+
+  @override
+  String get useAgentTitle => 'Usar un agente';
+
+  @override
+  String get filesystemAccessSubtitle =>
+      'Esto se decide aquí, no al registrar el agente: el mismo agente puede tener permisos diferentes según dónde lo uses.';
 }

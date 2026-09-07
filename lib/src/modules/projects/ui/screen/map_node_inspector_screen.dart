@@ -121,10 +121,14 @@ class _MapNodeInspectorScreenState extends State<MapNodeInspectorScreen> {
                     _Section(
                       icon: Icons.psychology_outlined,
                       label: AppLocalizations.of(context)!.labelHowReasons,
-                      trailing: subagent.isRunning ? AppLocalizations.of(context)!.statusLive : null,
+                      trailing: subagent.isRunning
+                          ? AppLocalizations.of(context)!.statusLive
+                          : null,
                       child: _Body(
                         text: subagent.reasoning,
-                        empty: AppLocalizations.of(context)!.messageNoReasoningVisible,
+                        empty: AppLocalizations.of(
+                          context,
+                        )!.messageNoReasoningVisible,
                         mono: true,
                       ),
                     ),
@@ -150,16 +154,22 @@ class _MapNodeInspectorScreenState extends State<MapNodeInspectorScreen> {
                           : AppLocalizations.of(context)!.labelTask,
                       child: _Body(
                         text: _node.nodeInstruction,
-                        empty: AppLocalizations.of(context)!.messageNodeNotResolution,
+                        empty: AppLocalizations.of(
+                          context,
+                        )!.messageNodeNotResolution,
                       ),
                     ),
                     _Section(
                       icon: Icons.psychology_outlined,
                       label: AppLocalizations.of(context)!.labelHowReasons,
-                      trailing: _node.isLive ? AppLocalizations.of(context)!.statusLive : null,
+                      trailing: _node.isLive
+                          ? AppLocalizations.of(context)!.statusLive
+                          : null,
                       child: _Body(
                         text: _node.reasoning,
-                        empty: AppLocalizations.of(context)!.messageNoReasoningYet,
+                        empty: AppLocalizations.of(
+                          context,
+                        )!.messageNoReasoningYet,
                         mono: true,
                       ),
                     ),
@@ -191,11 +201,17 @@ class _MapNodeInspectorScreenState extends State<MapNodeInspectorScreen> {
             ),
           ),
           if (subagent != null && subagent.isRunning)
-            _Locked(parent: _owner?.name ?? AppLocalizations.of(context)!.labelMemberOpened),
+            _Locked(
+              parent:
+                  _owner?.name ??
+                  AppLocalizations.of(context)!.labelMemberOpened,
+            ),
           if (_writeTo != null)
             _Composer(
               controller: _composer,
-              hint: AppLocalizations.of(context)!.placeholderWriteTo(_writeTo!.name),
+              hint: AppLocalizations.of(
+                context,
+              )!.placeholderWriteTo(_writeTo!.name),
               onSend: _send,
             )
           else
@@ -313,17 +329,18 @@ class _Header extends StatelessWidget {
     );
   }
 
-  static String _stateLabel(MapNodeState state, AppLocalizations t) => switch (state) {
-    MapNodeState.idle => 'en reposo',
-    MapNodeState.receiving => 'recibiendo',
-    MapNodeState.thinking => 'pensando',
-    MapNodeState.working => 'trabajando',
-    MapNodeState.writing => 'escribiendo',
-    MapNodeState.replying => 'contestando',
-    MapNodeState.waiting => t.mapStateWaiting,
-    MapNodeState.done => 'cerrado',
-    MapNodeState.failed => t.mapStateFailed,
-  };
+  static String _stateLabel(MapNodeState state, AppLocalizations t) =>
+      switch (state) {
+        MapNodeState.idle => 'en reposo',
+        MapNodeState.receiving => 'recibiendo',
+        MapNodeState.thinking => 'pensando',
+        MapNodeState.working => 'trabajando',
+        MapNodeState.writing => 'escribiendo',
+        MapNodeState.replying => 'contestando',
+        MapNodeState.waiting => t.mapStateWaiting,
+        MapNodeState.done => 'cerrado',
+        MapNodeState.failed => t.mapStateFailed,
+      };
 }
 
 class _Section extends StatelessWidget {
@@ -577,7 +594,10 @@ class _Numbers extends StatelessWidget {
           ),
         const SizedBox(width: 26),
         if (node.subagentCount > 0)
-          _Number(label: 'subagentes', value: '${node.subagentCount}'),
+          _Number(
+            label: AppLocalizations.of(context).labelSubagents,
+            value: '${node.subagentCount}',
+          ),
         if (node.backCalls > 0) ...[
           const SizedBox(width: 26),
           _Number(label: 'consultas', value: '${node.backCalls}'),

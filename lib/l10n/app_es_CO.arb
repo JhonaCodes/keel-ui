@@ -192,7 +192,7 @@
 
   "descriptionWritePermissions": "Leer archivos, buscarlos y consultar la web siempre está permitido. Aquí decides qué pueden modificar los agentes. Aplica a todos.",
   "descriptionScheduledJobsApi": "Para schedulers externos (cron, keel): POST /projects/<nombre>/tasks con el token Bearer. Solo loopback.",
-  "descriptionLockedElements": "Lo que un agente no puede cambiar ni borrar sin pedirte permiso primero. El candado se pone desde cada ítem; acá se ven todos juntos.",
+  "descriptionLockedElements": "Lo que un agente no puede cambiar ni borrar sin pedirte permiso primero. El candado se pone desde cada ítem; aquí se ven todos juntos.",
 
   "labelLockedElements": "Elementos bloqueados",
   "labelAboutKeel": "Acerca de Keel",
@@ -470,19 +470,19 @@
   "labelAskedAbout": "Le consultaron",
   "labelNumbers": "Números",
   "labelMemberOpened": "El miembro que lo abrió",
-  "placeholderWriteTo": "Escribile a @{name}…",
+  "placeholderWriteTo": "Escribe a @{name}…",
   "@placeholderWriteTo": {
     "placeholders": {
       "name": {"type": "String", "example": "nombre-agente"}
     }
   },
-  "messageNoReasoningVisible": "No dejó pensamiento visible. Con modelos que no lo emiten, acá no hay nada que mostrar.",
+  "messageNoReasoningVisible": "No dejó pensamiento visible. Con modelos que no lo emiten, aquí no hay nada que mostrar.",
   "messageNodeNotResolution": "Este nodo no pertenece a un caso de resolución: habla cuando lo consultan.",
   "messageNoReasoningYet": "Todavía no razonó nada en este paso.",
   "messageNodeNotMember": "Este nodo ya no es miembro del proyecto, así que no hay a quién escribirle.",
   "messageNoConsultRecord": "No quedó registrado con qué frase lo llamó.",
   "messageNoToolsOpened": "Todavía no abrió ninguna herramienta.",
-  "messageSubagentWriteLocked": "Mientras corre, a un subagente no se le puede escribir: el CLI no abre ese canal. Lo que va acá abajo le llega a {parent}, que es quien lo abrió.",
+  "messageSubagentWriteLocked": "Mientras corre, no se puede escribirle a un subagente: el CLI no abre ese canal. Lo que escribas aquí le llega a {parent}, quien lo abrió.",
   "@messageSubagentWriteLocked": {
     "placeholders": {
       "parent": {"type": "String", "example": "nombre-agente"}
@@ -805,5 +805,122 @@
   "@handleReserved": {
     "placeholders": {"handle": {"type": "String"}}
   },
-  "keelAiModifyBlocked": "Keel AI pidió modificar un elemento bloqueado."
+  "keelAiModifyBlocked": "Keel AI pidió modificar un elemento bloqueado.",
+  "buttonRegister": "Registrar",
+  "formEditEntity": "Editar {entity}",
+  "formRegisterEntity": "Registrar {entity}",
+  "formName": "Nombre",
+  "formEnvironmentVariableName": "Nombre de la variable de entorno",
+  "formWorkingDirectory": "Carpeta de trabajo",
+  "formChoose": "Elegir…",
+  "formSave": "Guardar",
+  "formCreate": "Crear",
+  "formGlobalSkill": "Skill global",
+  "formGlobalSkillDescription": "La reciben todos los agentes en cada turno, sin necesidad de asignarla.",
+  "formSkillContent": "Contenido (instrucciones para inyectar)",
+  "formToolDescription": "Descripción para el agente: qué hace, cuándo usarla y qué significa cada argumento posicional",
+  "formStoredValue": "Valor cargado  ••••••••",
+  "formNewValueKeepCurrent": "Valor nuevo (vacío = conservar el actual)",
+  "formValue": "Valor",
+  "formValueDescription": "Nunca pasa por un modelo. Se inyecta como credencial solo al proveedor, tool o MCP que la declare.",
+  "formBoardDescription": "La opción más rápida es pedírselo a un agente del proyecto: lee tu código o OpenAPI y lo construye. Usa esto para ajustarlo o escribirlo manualmente.",
+  "formWorkflowName": "Nombre",
+  "formWorkflowCaseType": "Tipo de caso",
+  "formRequiredRules": "Reglas requeridas",
+  "formRequiredKnowledgeBases": "Bases de conocimiento requeridas",
+  "formCommaSeparatedNames": "Nombres separados por comas.",
+  "validationNameRequired": "El nombre es obligatorio.",
+  "validationMaxCharacters": "Máximo {count} caracteres.",
+  "validationNoSpaces": "No se permiten espacios.",
+  "validationLowercaseOnly": "Usa solo minúsculas.",
+  "validationBoardKey": "Usa minúsculas, números y \"_\", empezando por una letra (máx. 32).",
+  "assistantWelcomeTitle": "Soy Keel AI",
+  "assistantWelcomeDescription": "Puedo registrar cualquiera de estas opciones por ti en la conversación. Toca un ejemplo para probarlo.",
+  "assistantExampleProject": "Crea un proyecto para revisar PR con dos agentes.",
+  "assistantExampleAgent": "Registra un agente revisor de seguridad y asígnale la skill que acabas de crear.",
+  "assistantExampleWorkflow": "Crea un workflow para bugs con implementación y una etapa de revisión.",
+  "assistantExampleSkill": "Crea una skill con las reglas de estilo de este proyecto.",
+  "assistantExampleRule": "Agrega una regla que prohíba comentarios obvios en el código."
+  ,"labelEnabled": "Activo"
+  ,"labelDisabled": "Apagado"
+  ,"navAssistantTooltip": "Asistente Keel AI"
+  ,"navRegisteredAgents": "Agentes registrados"
+  ,"navTestBoards": "Tableros de prueba"
+  ,"navMcpIntegrations": "Integraciones MCP"
+  ,"navKnowledge": "Conocimiento"
+  ,"navMachine": "Máquina"
+  ,"navBackup": "Respaldo"
+  ,"navSettings": "Ajustes"
+  ,"mapLaneBack": "regresa"
+  ,"mapLaneForward": "avanza"
+  ,"mapLaneDelegate": "delega"
+  ,"mapViewQuery": "Ver la consulta completa"
+  ,"mapZoomOut": "Alejar  ⌘−"
+  ,"mapZoomIn": "Acercar  ⌘+"
+  ,"mapFit": "Mostrar todo en pantalla  ⌘0"
+  ,"mapFollow": "Seguir el nodo que tiene el turno"
+  ,"mapHelp": "arrastrar = mover · ⌘ + rueda = zoom"
+  ,"mapEmptyTitle": "Este proyecto todavía no tiene nodos para mapear"
+  ,"mapEmptyDescription": "Agrega miembros y un workflow. El mapa se abre con el elenco en su lugar, en reposo, antes de que corra algo."
+  ,"chatCreateSession": "Crea una sesión para empezar"
+  ,"chatAskForPlan": "Pide un plan…"
+  ,"chatSessionPrompt": "Qué necesitas en esta sesión de #{project}"
+  ,"chatMessagePrompt": "Mensaje para #{project}"
+  ,"chatStop": "Detener"
+  ,"chatQueue": "Guardar en espera"
+  ,"chatSend": "Enviar"
+  ,"chatSessionsCreatedByButton": "Las sesiones se crean con el botón \"Nueva sesión\"."
+  ,"chatRunsPreflight": "El preflight del workflow se ejecuta en esta sesión."
+  ,"chatQueueHelp": "Puedes guardar mensajes en espera, programarlos para el final del turno o interrumpir y enviarlos ahora."
+  ,"chatWorkflowHelp": "El workflow coordina el grafo. Escribe cuando quieras corregir el rumbo; queda registrado en el nodo activo."
+  ,"chatReferencesHelp": "Referencias: / directorios · @ agentes · $ skills y reglas · # conocimiento"
+  ,"labelNoOpenSession": "Sin sesión abierta"
+  ,"labelSessionTitle": "Sesión: {title}"
+  ,"labelContextUsage": "contexto {percent}%"
+  ,"assistantLegacyBlocked": "No ejecuté el bloque automático: intentaba cambiar elementos bloqueados ({names}). Usa las tools MCP con change_intent y change_reason para pedir permiso."
+  ,"assistantSkillExists": "La skill \"{name}\" ya existía; la reutilicé."
+  ,"assistantSkillCreated": "Creé la skill \"{name}\"{suffix}."
+  ,"assistantRuleExists": "La regla \"{name}\" ya existía; la reutilicé."
+  ,"assistantRuleCreated": "Creé la regla \"{name}\"."
+  ,"assistantToolExists": "La tool \"{name}\" ya existía; la reutilicé."
+  ,"assistantToolCreated": "Creé la tool \"{name}\" ({runtime})."
+  ,"assistantAgentCreated": "Registré a @{handle}.{details}"
+  ,"assistantAgentUpdated": "Actualicé a @{handle}.{details}"
+  ,"assistantWorkflowCreated": "Creé el workflow \"{name}\" ({kind})."
+  ,"assistantProjectCreated": "Creé el proyecto \"{name}\"."
+  ,"updateAvailable": "Nueva versión {version} disponible. Haz clic para descargarla."
+  ,"readingInstalledVersion": "Leyendo la versión instalada"
+  ,"reviewVersion": "Keel {version}. Haz clic para revisar."
+  ,"faultsLabel": "Fallas"
+  ,"faultsNone": "No hay fallas sin revisar"
+  ,"faultsOne": "1 falla sin revisar"
+  ,"faultsMany": "{count} fallas sin revisar"
+  ,"machineUpdateAvailable": "Hay una versión nueva de Keel"
+  ,"machineStatus": "Servicios, consumo y estado de la máquina"
+  ,"machineOneWork": "Hay 1 trabajo en curso"
+  ,"machineManyWork": "Hay {count} trabajos en curso"
+  ,"backupBusy": "Respaldando"
+  ,"backupLabel": "Respaldo"
+  ,"backupSaving": "Escribiendo el respaldo sin interrumpirte"
+  ,"backupReady": "Respaldo al día y subido al remoto"
+  ,"mapLegend": "Leyenda"
+  ,"fileTypeImages": "Imágenes"
+  ,"chatFilterSystem": "sistema"
+  ,"chatFilterSubagents": "subagentes"
+  ,"chatFilterAll": "todo"
+  ,"chatStepLabel": "paso: {title}"
+  ,"chatRetryStep": "Reintentar «{title}»"
+  ,"buttonDeleteAgent": "Eliminar agente"
+  ,"deleteAgentConfirmation": "Se eliminarán \"{name}\" y su historial de chat."
+  ,"emptyProjectsHint": "Todavía no hay proyectos. Crea uno para que varios agentes trabajen en el mismo repositorio."
+  ,"emptyAgentsHint": "No hay agentes abiertos. Usa un agente registrado para hablarle directamente, sin proyecto."
+  ,"filesystemAccessTitle": "Dar acceso a todo el sistema de archivos"
+  ,"filesystemAccessBody": "\"{name}\" podrá leer y escribir en cualquier carpeta del computador, no solo en tu carpeta de usuario."
+  ,"filesystemAccessGrant": "Dar acceso"
+  ,"filesystemAccessEnabledTooltip": "Tiene acceso a todo el sistema de archivos (haz clic para quitarlo)"
+  ,"filesystemAccessGrantTooltip": "Dar acceso a todo el sistema de archivos"
+  ,"noOpenRequirements": "No hay requisitos abiertos en ninguna dirección."
+  ,"labelSubagents": "subagentes"
+  ,"useAgentTitle": "Usar un agente"
+  ,"filesystemAccessSubtitle": "Esto se decide aquí, no al registrar el agente: el mismo agente puede tener permisos diferentes según dónde lo uses."
 }

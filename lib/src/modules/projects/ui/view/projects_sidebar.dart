@@ -100,6 +100,7 @@ class _SidebarListState extends State<_SidebarList> {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     final navigator = WorkspaceService.instance.notifier;
 
@@ -122,8 +123,7 @@ class _SidebarListState extends State<_SidebarList> {
             Padding(
               padding: const EdgeInsets.fromLTRB(14, 2, 14, 8),
               child: Text(
-                'Ninguno todavía. Creá uno para que varios agentes trabajen '
-                'juntos sobre el mismo repo.',
+                t.emptyProjectsHint,
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ),
@@ -211,8 +211,7 @@ class _SidebarListState extends State<_SidebarList> {
                     Padding(
                       padding: const EdgeInsets.fromLTRB(14, 2, 14, 8),
                       child: Text(
-                        'Ninguno abierto. Usá un agente registrado para '
-                        'hablarle directo, sin proyecto.',
+                        t.emptyAgentsHint,
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
                     )

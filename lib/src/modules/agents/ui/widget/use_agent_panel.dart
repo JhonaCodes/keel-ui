@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
 
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/core/ui/form_panel.dart';
 import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
 import 'package:keel_ui/src/modules/agent_profiles/viewmodel/agent_profiles_viewmodel.dart';
@@ -41,16 +42,17 @@ class _UseAgentPanelState extends State<UseAgentPanel> {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Usar un agente'),
+        title: Text(t.useAgentTitle),
         actions: [
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: TextButton.icon(
               onPressed: () => openAgentProfileFormScreen(context),
               icon: const Icon(Icons.add, size: 18),
-              label: const Text('Registrar'),
+              label: Text(t.buttonRegister),
             ),
           ),
         ],
@@ -94,14 +96,12 @@ class _PermissionToggle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
     return CheckboxListTile(
       value: value,
       controlAffinity: ListTileControlAffinity.leading,
-      title: const Text('Acceso a todo el sistema de archivos'),
-      subtitle: const Text(
-        'Se decide acá, no en el registro: el mismo agente puede tener más o '
-        'menos permiso según dónde lo uses.',
-      ),
+      title: Text(t.filesystemAccessTitle),
+      subtitle: Text(t.filesystemAccessSubtitle),
       onChanged: (enabled) => onChanged(enabled ?? false),
     );
   }

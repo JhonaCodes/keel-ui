@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
 
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/integrations/project_radar/project_radar.dart';
 import 'package:keel_ui/src/integrations/roadmap_mcp/roadmap_mcp.dart';
 import 'package:keel_ui/src/modules/agent_profiles/viewmodel/agent_profiles_viewmodel.dart';
@@ -1022,7 +1023,7 @@ class _Requerimientos extends StatelessWidget {
 
         if (salientes == 0 && entrantes == 0) {
           return Text(
-            'Ninguno abierto en ninguna dirección.',
+            AppLocalizations.of(context).noOpenRequirements,
             style: Theme.of(context).textTheme.bodySmall,
           );
         }

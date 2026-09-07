@@ -1,14 +1,16 @@
 import 'package:flutter/foundation.dart';
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
 
 final RegExp _boardKeyFormat = RegExp(r'^[a-z][a-z0-9_]{0,31}$');
 
 /// Devuelve un error legible si [value] no sirve como clave de campo, o null.
 /// La clave es lo que se escribe `{{asi}}` en una acción, así que se
 /// restringe a lo que se puede leer de un vistazo adentro de una URL.
-String? validateBoardFieldKey(String value) {
-  if (value.isEmpty) return 'La clave no puede estar vacía.';
+String? validateBoardFieldKey(String value, [AppLocalizations? l10n]) {
+  if (value.isEmpty) return l10n?.validationNameRequired ?? 'Name is required.';
   if (!_boardKeyFormat.hasMatch(value)) {
-    return 'Solo minúsculas, números y "_", empezando por letra (máx. 32).';
+    return l10n?.validationBoardKey ??
+        'Use lowercase letters, numbers, and "_", starting with a letter (max. 32).';
   }
   return null;
 }

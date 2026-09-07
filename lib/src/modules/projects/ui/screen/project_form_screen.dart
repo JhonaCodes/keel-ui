@@ -167,13 +167,17 @@ class _ProjectFormScreenState extends State<ProjectFormScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(isEditing ? 'Editar proyecto' : 'Registrar proyecto'),
+        title: Text(
+          isEditing
+              ? t.formEditEntity('project')
+              : t.formRegisterEntity('project'),
+        ),
         actions: [
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: FilledButton(
               onPressed: _submit,
-              child: Text(isEditing ? 'Guardar' : 'Registrar'),
+              child: Text(isEditing ? t.formSave : t.buttonRegister),
             ),
           ),
         ],
@@ -191,7 +195,7 @@ class _ProjectFormScreenState extends State<ProjectFormScreen> {
                   autofocus: true,
                   onChanged: _onNameChanged,
                   decoration: InputDecoration(
-                    labelText: 'Nombre',
+                    labelText: t.formName,
                     errorText: _nameError,
                     border: const OutlineInputBorder(
                       borderRadius: BorderRadius.all(Radius.circular(16)),
@@ -216,8 +220,8 @@ class _ProjectFormScreenState extends State<ProjectFormScreen> {
                       child: TextField(
                         controller: _workingDirectoryController,
                         readOnly: true,
-                        decoration: const InputDecoration(
-                          labelText: 'Carpeta de trabajo',
+                        decoration: InputDecoration(
+                          labelText: t.formWorkingDirectory,
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.all(Radius.circular(16)),
                           ),
@@ -227,7 +231,7 @@ class _ProjectFormScreenState extends State<ProjectFormScreen> {
                     const SizedBox(width: 8),
                     FilledButton.tonal(
                       onPressed: _pickWorkingDirectory,
-                      child: const Text('Elegir…'),
+                      child: Text(t.formChoose),
                     ),
                   ],
                 ),

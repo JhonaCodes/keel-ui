@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
 
 import 'package:keel_ui/src/core/ui/form_panel.dart';
 import 'package:keel_ui/src/modules/skills/model/skill.dart';
@@ -58,15 +59,17 @@ class _SkillFormScreenState extends State<SkillFormScreen> {
   }
 
   void _onNameChanged(String value) {
+    final t = AppLocalizations.of(context)!;
     setState(() {
-      _nameError = validateSkillName(value.trim());
+      _nameError = validateSkillName(value.trim(), t);
       _formError = null;
     });
   }
 
   void _submit() {
+    final t = AppLocalizations.of(context)!;
     final name = _nameController.text.trim();
-    final nameError = validateSkillName(name);
+    final nameError = validateSkillName(name, t);
     if (nameError != null) {
       setState(() => _nameError = nameError);
       return;
@@ -96,17 +99,20 @@ class _SkillFormScreenState extends State<SkillFormScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context)!;
     final isEditing = widget.initial != null;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(isEditing ? 'Editar skill' : 'Registrar skill'),
+        title: Text(
+          isEditing ? t.formEditEntity('skill') : t.formRegisterEntity('skill'),
+        ),
         actions: [
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: FilledButton(
               onPressed: _submit,
-              child: Text(isEditing ? 'Guardar' : 'Registrar'),
+              child: Text(isEditing ? t.formSave : t.buttonRegister),
             ),
           ),
         ],
@@ -124,7 +130,7 @@ class _SkillFormScreenState extends State<SkillFormScreen> {
                   autofocus: true,
                   onChanged: _onNameChanged,
                   decoration: InputDecoration(
-                    labelText: 'Nombre del skill',
+                    labelText: '${t.formName} (skill)',
                     errorText: _nameError,
                     border: const OutlineInputBorder(
                       borderRadius: BorderRadius.all(Radius.circular(16)),
@@ -133,11 +139,8 @@ class _SkillFormScreenState extends State<SkillFormScreen> {
                 ),
                 const SizedBox(height: 16),
                 SwitchListTile(
-                  title: const Text('Skill global'),
-                  subtitle: const Text(
-                    'La reciben TODOS los agentes en cada turno, sin '
-                    'necesidad de asignarla.',
-                  ),
+                  title: Text(t.formGlobalSkill),
+                  subtitle: Text(t.formGlobalSkillDescription),
                   contentPadding: EdgeInsets.zero,
                   value: _isGlobal,
                   onChanged: (value) => setState(() => _isGlobal = value),
@@ -150,8 +153,8 @@ class _SkillFormScreenState extends State<SkillFormScreen> {
                     maxLines: null,
                     minLines: null,
                     textAlignVertical: TextAlignVertical.top,
-                    decoration: const InputDecoration(
-                      labelText: 'Contenido (instrucciones a inyectar)',
+                    decoration: InputDecoration(
+                      labelText: t.formSkillContent,
                       alignLabelWithHint: true,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.all(Radius.circular(16)),

@@ -179,6 +179,7 @@ class _SessionMapViewState extends State<SessionMapView>
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
     final map = SessionMap.from(
       session: widget.session,
       members: widget.members,
@@ -340,6 +341,7 @@ class _Canvas extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
 
     // El lienzo pinta su propio fondo: las etiquetas de carril lo recortan
@@ -366,17 +368,21 @@ class _Canvas extends StatelessWidget {
               ),
             ),
           ),
-          _LaneLabel(y: layout.guideTopY, icon: Icons.reply, label: 'vuelve'),
+          _LaneLabel(
+            y: layout.guideTopY,
+            icon: Icons.reply,
+            label: t.mapLaneBack,
+          ),
           _LaneLabel(
             y: layout.guideRowY,
             icon: Icons.trending_flat,
-            label: 'avanza',
+            label: t.mapLaneForward,
           ),
           if (map.nodes.any((node) => node.lane > 0))
             _LaneLabel(
               y: layout.guideLaneY,
               icon: Icons.account_tree_outlined,
-              label: 'delega',
+              label: t.mapLaneDelegate,
             ),
           ..._consultCallouts(),
           for (final node in map.nodes)
@@ -455,13 +461,14 @@ class _ConsultCallout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     final color = callout.live
         ? kMapConsultColor
         : scheme.outline.withValues(alpha: 0.85);
 
     return Tooltip(
-      message: 'Ver la consulta entera',
+      message: t.mapViewQuery,
       waitDuration: const Duration(milliseconds: 600),
       child: MapCalloutBox(
         icon: callout.live ? Icons.reply : Icons.subdirectory_arrow_left,
@@ -485,6 +492,7 @@ class _LaneLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
 
     return Positioned(
@@ -553,7 +561,7 @@ class _MapBar extends StatelessWidget {
             children: [
               _BarButton(
                 icon: Icons.zoom_out,
-                tooltip: 'Alejar  ⌘−',
+                tooltip: t.mapZoomOut,
                 onPressed: onZoomOut,
               ),
               SizedBox(
@@ -570,28 +578,28 @@ class _MapBar extends StatelessWidget {
               ),
               _BarButton(
                 icon: Icons.zoom_in,
-                tooltip: 'Acercar  ⌘+',
+                tooltip: t.mapZoomIn,
                 onPressed: onZoomIn,
               ),
               const SizedBox(width: 8),
               _BarButton(
                 icon: Icons.fit_screen_outlined,
-                label: showLabels ? 'Encuadrar' : null,
-                tooltip: 'Meter todo en pantalla  ⌘0',
+                label: showLabels ? t.mapFit : null,
+                tooltip: t.mapFit,
                 onPressed: onFit,
               ),
               const SizedBox(width: 6),
               _BarButton(
                 icon: Icons.visibility_outlined,
-                label: showLabels ? 'Seguir en vivo' : null,
-                tooltip: 'Perseguir al nodo que tiene el turno',
+                label: showLabels ? t.tooltipWorkingNow : null,
+                tooltip: t.mapFollow,
                 active: following,
                 onPressed: onToggleFollow,
               ),
               const SizedBox(width: 6),
               _BarButton(
                 icon: Icons.legend_toggle,
-                label: showLabels ? 'Leyenda' : null,
+                label: showLabels ? t.mapLegend : null,
                 tooltip: t.tooltipLegendMeaning,
                 active: legendOpen,
                 onPressed: onToggleLegend,
@@ -602,7 +610,7 @@ class _MapBar extends StatelessWidget {
                 child: Align(
                   alignment: Alignment.centerRight,
                   child: Text(
-                    'arrastrar = mover · ⌘ + rueda = zoom',
+                    t.mapHelp,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
@@ -679,6 +687,7 @@ class _EmptyMap extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
 
     return Center(
@@ -690,13 +699,12 @@ class _EmptyMap extends StatelessWidget {
             Icon(Icons.hub_outlined, size: 36, color: scheme.outline),
             const SizedBox(height: 12),
             Text(
-              'Este proyecto todavía no tiene a quién mapear',
+              t.mapEmptyTitle,
               style: Theme.of(context).textTheme.titleSmall,
             ),
             const SizedBox(height: 6),
             Text(
-              'Sumale miembros y un workflow: el mapa se abre con el elenco '
-              'puesto, en reposo, antes de que corra nada.',
+              t.mapEmptyDescription,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodySmall,
             ),

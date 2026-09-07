@@ -130,16 +130,19 @@ class _WorkflowFormScreenState extends State<WorkflowFormScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context)!;
     final editing = widget.initial != null;
     return Scaffold(
       appBar: AppBar(
-        title: Text(editing ? 'Editar workflow' : 'Crear workflow'),
+        title: Text(
+          editing ? t.formEditEntity('workflow') : t.formCreate + ' workflow',
+        ),
         actions: [
           Padding(
             padding: const EdgeInsets.all(8),
             child: FilledButton(
               onPressed: _submit,
-              child: Text(editing ? 'Guardar' : 'Crear'),
+              child: Text(editing ? t.formSave : t.formCreate),
             ),
           ),
         ],
@@ -149,7 +152,7 @@ class _WorkflowFormScreenState extends State<WorkflowFormScreen> {
         children: [
           TextField(
             controller: _name,
-            decoration: const InputDecoration(labelText: 'Nombre'),
+            decoration: InputDecoration(labelText: t.formWorkflowName),
           ),
           const SizedBox(height: 16),
           TextField(
@@ -158,16 +161,21 @@ class _WorkflowFormScreenState extends State<WorkflowFormScreen> {
             maxLines: 4,
             decoration: InputDecoration(
               labelText: AppLocalizations.of(context)!.formLabelWorkflowIntent,
-              helperText: AppLocalizations.of(context)!.formDescriptionWorkflowEngine,
+              helperText: AppLocalizations.of(
+                context,
+              )!.formDescriptionWorkflowEngine,
             ),
           ),
           const SizedBox(height: 20),
           DropdownButtonFormField<WorkflowKind>(
             initialValue: _kind,
-            decoration: const InputDecoration(labelText: 'Tipo de caso'),
+            decoration: InputDecoration(labelText: t.formWorkflowCaseType),
             items: [
               for (final kind in WorkflowKind.values)
-                DropdownMenuItem(value: kind, child: Text(_kindLabel(kind, AppLocalizations.of(context)!))),
+                DropdownMenuItem(
+                  value: kind,
+                  child: Text(_kindLabel(kind, AppLocalizations.of(context)!)),
+                ),
             ],
             onChanged: (value) => setState(() {
               _kind = value!;
@@ -224,9 +232,7 @@ class _WorkflowFormScreenState extends State<WorkflowFormScreen> {
             ),
           ),
           const SizedBox(height: 20),
-          Text(
-            AppLocalizations.of(context)!.labelMaxReplansLimit(_maxReplans),
-          ),
+          Text(AppLocalizations.of(context)!.labelMaxReplansLimit(_maxReplans)),
           Slider(
             value: _maxReplans.toDouble(),
             min: 0,
@@ -236,9 +242,7 @@ class _WorkflowFormScreenState extends State<WorkflowFormScreen> {
             onChanged: (value) => setState(() => _maxReplans = value.round()),
           ),
           Text(
-            AppLocalizations.of(
-              context,
-            )!.labelMaxSubagentsLimit(_maxSubagents),
+            AppLocalizations.of(context)!.labelMaxSubagentsLimit(_maxSubagents),
           ),
           Slider(
             value: _maxSubagents.toDouble(),
@@ -513,14 +517,20 @@ class _CapabilityEditorTileState extends State<_CapabilityEditorTile> {
               setState(() {});
               _emit();
             },
-            decoration: InputDecoration(labelText: AppLocalizations.of(context)!.formLabelWorkflowTitle),
+            decoration: InputDecoration(
+              labelText: AppLocalizations.of(context)!.formLabelWorkflowTitle,
+            ),
           ),
           TextField(
             controller: _instruction,
             onChanged: (_) => _emit(),
             minLines: 2,
             maxLines: 4,
-            decoration: InputDecoration(labelText: AppLocalizations.of(context)!.formLabelWorkflowInstruction),
+            decoration: InputDecoration(
+              labelText: AppLocalizations.of(
+                context,
+              )!.formLabelWorkflowInstruction,
+            ),
           ),
           TextField(
             controller: _role,
@@ -540,7 +550,11 @@ class _CapabilityEditorTileState extends State<_CapabilityEditorTile> {
           const SizedBox(height: 8),
           DropdownButtonFormField<WorkflowCapabilityActivation>(
             initialValue: widget.capability.activation,
-            decoration: InputDecoration(labelText: AppLocalizations.of(context)!.formLabelWorkflowActivation),
+            decoration: InputDecoration(
+              labelText: AppLocalizations.of(
+                context,
+              )!.formLabelWorkflowActivation,
+            ),
             items: const [
               DropdownMenuItem(
                 value: WorkflowCapabilityActivation.required,
@@ -556,7 +570,11 @@ class _CapabilityEditorTileState extends State<_CapabilityEditorTile> {
           const SizedBox(height: 8),
           DropdownButtonFormField<WorkflowExecutor>(
             initialValue: widget.capability.executor,
-            decoration: InputDecoration(labelText: AppLocalizations.of(context)!.formLabelWorkflowExecution),
+            decoration: InputDecoration(
+              labelText: AppLocalizations.of(
+                context,
+              )!.formLabelWorkflowExecution,
+            ),
             items: [
               DropdownMenuItem(
                 value: WorkflowExecutor.newSession,
@@ -564,7 +582,9 @@ class _CapabilityEditorTileState extends State<_CapabilityEditorTile> {
               ),
               DropdownMenuItem(
                 value: WorkflowExecutor.resumeParent,
-                child: Text(AppLocalizations.of(context)!.optionResumeParentSession),
+                child: Text(
+                  AppLocalizations.of(context)!.optionResumeParentSession,
+                ),
               ),
               DropdownMenuItem(
                 value: WorkflowExecutor.providerSubagent,
@@ -584,7 +604,9 @@ class _CapabilityEditorTileState extends State<_CapabilityEditorTile> {
               onChanged: (_) => _emit(),
               decoration: InputDecoration(
                 labelText: 'ID del paso padre',
-                helperText: AppLocalizations.of(context)!.formDescriptionParentSessionKept,
+                helperText: AppLocalizations.of(
+                  context,
+                )!.formDescriptionParentSessionKept,
               ),
             ),
           TextField(
@@ -593,7 +615,9 @@ class _CapabilityEditorTileState extends State<_CapabilityEditorTile> {
             onChanged: (_) => _emit(),
             decoration: InputDecoration(
               labelText: AppLocalizations.of(context)!.formLabelMaxAgenticTurns,
-              helperText: AppLocalizations.of(context)!.formDescriptionMaxAgenticTurns,
+              helperText: AppLocalizations.of(
+                context,
+              )!.formDescriptionMaxAgenticTurns,
             ),
           ),
           TextField(
@@ -654,8 +678,12 @@ class _ResolutionRoleField extends StatelessWidget {
         return DropdownButtonFormField<String>(
           initialValue: value.isEmpty ? null : value,
           decoration: InputDecoration(
-            labelText: AppLocalizations.of(context)!.formLabelWorkflowResponsible,
-            helperText: AppLocalizations.of(context)!.formDescriptionResponsible,
+            labelText: AppLocalizations.of(
+              context,
+            )!.formLabelWorkflowResponsible,
+            helperText: AppLocalizations.of(
+              context,
+            )!.formDescriptionResponsible,
           ),
           items: [
             const DropdownMenuItem(value: '', child: Text('Cualquier miembro')),

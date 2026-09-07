@@ -5,6 +5,8 @@ import 'dart:io';
 import 'package:flutter/painting.dart';
 import 'package:logger_rs/logger_rs.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
+import 'package:keel_ui/l10n/generated/app_localizations_en.dart';
+import 'package:keel_ui/l10n/generated/app_localizations_es.dart';
 
 import 'package:keel_ui/src/integrations/task_runner/task_runner.dart';
 import 'package:keel_ui/src/core/services/file_edit_collector.dart';
@@ -1153,6 +1155,10 @@ class AgentsViewModel extends ViewModel<AgentsState> {
     String agentId, {
     required String assistantText,
   }) async {
+    final l10n =
+        SettingsService.instance.notifier.data.language.startsWith('es')
+        ? AppLocalizationsEs()
+        : AppLocalizationsEn();
     final actions = parseAssistantActions(assistantText);
     if (actions.isEmpty) return;
 
@@ -1168,17 +1174,14 @@ class AgentsViewModel extends ViewModel<AgentsState> {
         agentId,
         ChatMessage(
           role: ChatRole.assistant,
-          text:
-              'No ejecuté el bloque automático: intenta cambiar elementos '
-              'bloqueados (${locked.join(', ')}). Usá las tools MCP con '
-              'change_intent y change_reason para pedir permiso.',
+          text: l10n.assistantLegacyBlocked(locked.join(', ')),
           timestamp: DateTime.now(),
         ),
       );
       return;
     }
 
-    final results = executeAssistantActions(actions);
+    final results = executeAssistantActions(actions, l10n: l10n);
     final summary = summarizeAssistantActionResults(results);
     if (summary.isEmpty) return;
 
@@ -1422,10 +1425,7 @@ class AgentsViewModel extends ViewModel<AgentsState> {
 
       // `copyWith`, no reconstruir: rearmarlo desde `text` + `fileEdits`
       // aplanaba la secuencia de bloques justo al cerrar el turno.
-      final annotated = last.copyWith(
-        costUsd: costUsd,
-        durationMs: durationMs,
-      );
+      final annotated = last.copyWith(costUsd: costUsd, durationMs: durationMs);
       final messages = [...agent.messages];
       messages[lastIndex] = annotated;
       return agent.copyWith(messages: messages);

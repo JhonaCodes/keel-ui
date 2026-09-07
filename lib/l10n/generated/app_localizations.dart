@@ -2966,6 +2966,702 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Keel AI requested to modify a locked element.'**
   String get keelAiModifyBlocked;
+
+  /// No description provided for @formEditEntity.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit {entity}'**
+  String formEditEntity(Object entity);
+
+  /// No description provided for @formRegisterEntity.
+  ///
+  /// In en, this message translates to:
+  /// **'Register {entity}'**
+  String formRegisterEntity(Object entity);
+
+  /// No description provided for @formName.
+  ///
+  /// In en, this message translates to:
+  /// **'Name'**
+  String get formName;
+
+  /// No description provided for @formEnvironmentVariableName.
+  ///
+  /// In en, this message translates to:
+  /// **'Environment variable name'**
+  String get formEnvironmentVariableName;
+
+  /// No description provided for @formWorkingDirectory.
+  ///
+  /// In en, this message translates to:
+  /// **'Working directory'**
+  String get formWorkingDirectory;
+
+  /// No description provided for @formChoose.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose…'**
+  String get formChoose;
+
+  /// No description provided for @formSave.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get formSave;
+
+  /// No description provided for @formCreate.
+  ///
+  /// In en, this message translates to:
+  /// **'Create'**
+  String get formCreate;
+
+  /// No description provided for @formGlobalSkill.
+  ///
+  /// In en, this message translates to:
+  /// **'Global skill'**
+  String get formGlobalSkill;
+
+  /// No description provided for @formGlobalSkillDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'All agents receive it on every turn without assigning it.'**
+  String get formGlobalSkillDescription;
+
+  /// No description provided for @formSkillContent.
+  ///
+  /// In en, this message translates to:
+  /// **'Content (instructions to inject)'**
+  String get formSkillContent;
+
+  /// No description provided for @formToolDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Description for the agent: what it does, when to use it, and what each positional argument means'**
+  String get formToolDescription;
+
+  /// No description provided for @formStoredValue.
+  ///
+  /// In en, this message translates to:
+  /// **'Value loaded  ••••••••'**
+  String get formStoredValue;
+
+  /// No description provided for @formNewValueKeepCurrent.
+  ///
+  /// In en, this message translates to:
+  /// **'New value (empty = keep current)'**
+  String get formNewValueKeepCurrent;
+
+  /// No description provided for @formValue.
+  ///
+  /// In en, this message translates to:
+  /// **'Value'**
+  String get formValue;
+
+  /// No description provided for @formValueDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'It never passes through a model. It is injected as a credential only into the provider, tool, or MCP that declares it.'**
+  String get formValueDescription;
+
+  /// No description provided for @formBoardDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'The fastest option is to ask a project agent: it reads your code or OpenAPI and builds it. Use this to refine it or write it yourself.'**
+  String get formBoardDescription;
+
+  /// No description provided for @formWorkflowName.
+  ///
+  /// In en, this message translates to:
+  /// **'Name'**
+  String get formWorkflowName;
+
+  /// No description provided for @formWorkflowCaseType.
+  ///
+  /// In en, this message translates to:
+  /// **'Case type'**
+  String get formWorkflowCaseType;
+
+  /// No description provided for @formRequiredRules.
+  ///
+  /// In en, this message translates to:
+  /// **'Required rules'**
+  String get formRequiredRules;
+
+  /// No description provided for @formRequiredKnowledgeBases.
+  ///
+  /// In en, this message translates to:
+  /// **'Required knowledge bases'**
+  String get formRequiredKnowledgeBases;
+
+  /// No description provided for @formCommaSeparatedNames.
+  ///
+  /// In en, this message translates to:
+  /// **'Names separated by commas.'**
+  String get formCommaSeparatedNames;
+
+  /// No description provided for @validationNameRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Name is required.'**
+  String get validationNameRequired;
+
+  /// No description provided for @validationMaxCharacters.
+  ///
+  /// In en, this message translates to:
+  /// **'Maximum {count} characters.'**
+  String validationMaxCharacters(Object count);
+
+  /// No description provided for @validationNoSpaces.
+  ///
+  /// In en, this message translates to:
+  /// **'Spaces are not allowed.'**
+  String get validationNoSpaces;
+
+  /// No description provided for @validationLowercaseOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'Use lowercase letters only.'**
+  String get validationLowercaseOnly;
+
+  /// No description provided for @validationBoardKey.
+  ///
+  /// In en, this message translates to:
+  /// **'Use lowercase letters, numbers, and \"_\", starting with a letter (max. 32).'**
+  String get validationBoardKey;
+
+  /// No description provided for @assistantWelcomeTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'I am Keel AI'**
+  String get assistantWelcomeTitle;
+
+  /// No description provided for @assistantWelcomeDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'I can register any of these for you in the conversation. Tap an example to try it.'**
+  String get assistantWelcomeDescription;
+
+  /// No description provided for @assistantExampleProject.
+  ///
+  /// In en, this message translates to:
+  /// **'Create a project to review PRs with two agents.'**
+  String get assistantExampleProject;
+
+  /// No description provided for @assistantExampleAgent.
+  ///
+  /// In en, this message translates to:
+  /// **'Register a security reviewer agent and assign it the skill you just created.'**
+  String get assistantExampleAgent;
+
+  /// No description provided for @assistantExampleWorkflow.
+  ///
+  /// In en, this message translates to:
+  /// **'Create a workflow for bugs with implementation and a review gate.'**
+  String get assistantExampleWorkflow;
+
+  /// No description provided for @assistantExampleSkill.
+  ///
+  /// In en, this message translates to:
+  /// **'Create a skill with this project\'s style rules.'**
+  String get assistantExampleSkill;
+
+  /// No description provided for @assistantExampleRule.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a rule that forbids obvious comments in the code.'**
+  String get assistantExampleRule;
+
+  /// No description provided for @labelEnabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Enabled'**
+  String get labelEnabled;
+
+  /// No description provided for @labelDisabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Disabled'**
+  String get labelDisabled;
+
+  /// No description provided for @navAssistantTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Keel AI assistant'**
+  String get navAssistantTooltip;
+
+  /// No description provided for @navRegisteredAgents.
+  ///
+  /// In en, this message translates to:
+  /// **'Registered agents'**
+  String get navRegisteredAgents;
+
+  /// No description provided for @navTestBoards.
+  ///
+  /// In en, this message translates to:
+  /// **'Test boards'**
+  String get navTestBoards;
+
+  /// No description provided for @navMcpIntegrations.
+  ///
+  /// In en, this message translates to:
+  /// **'MCP integrations'**
+  String get navMcpIntegrations;
+
+  /// No description provided for @navKnowledge.
+  ///
+  /// In en, this message translates to:
+  /// **'Knowledge'**
+  String get navKnowledge;
+
+  /// No description provided for @navMachine.
+  ///
+  /// In en, this message translates to:
+  /// **'Machine'**
+  String get navMachine;
+
+  /// No description provided for @navBackup.
+  ///
+  /// In en, this message translates to:
+  /// **'Backup'**
+  String get navBackup;
+
+  /// No description provided for @navSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Settings'**
+  String get navSettings;
+
+  /// No description provided for @mapLaneBack.
+  ///
+  /// In en, this message translates to:
+  /// **'back'**
+  String get mapLaneBack;
+
+  /// No description provided for @mapLaneForward.
+  ///
+  /// In en, this message translates to:
+  /// **'forward'**
+  String get mapLaneForward;
+
+  /// No description provided for @mapLaneDelegate.
+  ///
+  /// In en, this message translates to:
+  /// **'delegate'**
+  String get mapLaneDelegate;
+
+  /// No description provided for @mapViewQuery.
+  ///
+  /// In en, this message translates to:
+  /// **'View the full query'**
+  String get mapViewQuery;
+
+  /// No description provided for @mapZoomOut.
+  ///
+  /// In en, this message translates to:
+  /// **'Zoom out  ⌘−'**
+  String get mapZoomOut;
+
+  /// No description provided for @mapZoomIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Zoom in  ⌘+'**
+  String get mapZoomIn;
+
+  /// No description provided for @mapFit.
+  ///
+  /// In en, this message translates to:
+  /// **'Fit everything on screen  ⌘0'**
+  String get mapFit;
+
+  /// No description provided for @mapFollow.
+  ///
+  /// In en, this message translates to:
+  /// **'Follow the node taking its turn'**
+  String get mapFollow;
+
+  /// No description provided for @mapHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'drag = pan · ⌘ + scroll = zoom'**
+  String get mapHelp;
+
+  /// No description provided for @mapEmptyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'This project has no nodes to map yet'**
+  String get mapEmptyTitle;
+
+  /// No description provided for @mapEmptyDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Add members and a workflow. The map opens with the roster in place, idle, before anything runs.'**
+  String get mapEmptyDescription;
+
+  /// No description provided for @chatCreateSession.
+  ///
+  /// In en, this message translates to:
+  /// **'Create a session to get started'**
+  String get chatCreateSession;
+
+  /// No description provided for @chatAskForPlan.
+  ///
+  /// In en, this message translates to:
+  /// **'Ask for a plan…'**
+  String get chatAskForPlan;
+
+  /// No description provided for @chatSessionPrompt.
+  ///
+  /// In en, this message translates to:
+  /// **'What do you need in this #{project} session?'**
+  String chatSessionPrompt(Object project);
+
+  /// No description provided for @chatMessagePrompt.
+  ///
+  /// In en, this message translates to:
+  /// **'Message to #{project}'**
+  String chatMessagePrompt(Object project);
+
+  /// No description provided for @chatStop.
+  ///
+  /// In en, this message translates to:
+  /// **'Stop'**
+  String get chatStop;
+
+  /// No description provided for @chatQueue.
+  ///
+  /// In en, this message translates to:
+  /// **'Queue for later'**
+  String get chatQueue;
+
+  /// No description provided for @chatSend.
+  ///
+  /// In en, this message translates to:
+  /// **'Send'**
+  String get chatSend;
+
+  /// No description provided for @chatSessionsCreatedByButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Sessions are created with the \"New session\" button.'**
+  String get chatSessionsCreatedByButton;
+
+  /// No description provided for @chatRunsPreflight.
+  ///
+  /// In en, this message translates to:
+  /// **'The workflow preflight runs in this session.'**
+  String get chatRunsPreflight;
+
+  /// No description provided for @chatQueueHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'You can queue messages, schedule them for the end of the turn, or interrupt and send them now.'**
+  String get chatQueueHelp;
+
+  /// No description provided for @chatWorkflowHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'The workflow coordinates the graph. Write whenever you want to correct the course; it is recorded on the active node.'**
+  String get chatWorkflowHelp;
+
+  /// No description provided for @chatReferencesHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'References: / directories · @ agents · \$ skills and rules · # knowledge'**
+  String get chatReferencesHelp;
+
+  /// No description provided for @labelNoOpenSession.
+  ///
+  /// In en, this message translates to:
+  /// **'No session open'**
+  String get labelNoOpenSession;
+
+  /// No description provided for @labelSessionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Session: {title}'**
+  String labelSessionTitle(Object title);
+
+  /// No description provided for @labelContextUsage.
+  ///
+  /// In en, this message translates to:
+  /// **'context {percent}%'**
+  String labelContextUsage(Object percent);
+
+  /// No description provided for @assistantLegacyBlocked.
+  ///
+  /// In en, this message translates to:
+  /// **'The automatic block was not executed: it tried to change locked elements ({names}). Use the MCP tools with change_intent and change_reason to request permission.'**
+  String assistantLegacyBlocked(Object names);
+
+  /// No description provided for @assistantSkillExists.
+  ///
+  /// In en, this message translates to:
+  /// **'The skill \"{name}\" already existed; I reused it.'**
+  String assistantSkillExists(Object name);
+
+  /// No description provided for @assistantSkillCreated.
+  ///
+  /// In en, this message translates to:
+  /// **'I created the skill \"{name}\"{suffix}.'**
+  String assistantSkillCreated(Object name, Object suffix);
+
+  /// No description provided for @assistantRuleExists.
+  ///
+  /// In en, this message translates to:
+  /// **'The rule \"{name}\" already existed; I reused it.'**
+  String assistantRuleExists(Object name);
+
+  /// No description provided for @assistantRuleCreated.
+  ///
+  /// In en, this message translates to:
+  /// **'I created the rule \"{name}\".'**
+  String assistantRuleCreated(Object name);
+
+  /// No description provided for @assistantToolExists.
+  ///
+  /// In en, this message translates to:
+  /// **'The tool \"{name}\" already existed; I reused it.'**
+  String assistantToolExists(Object name);
+
+  /// No description provided for @assistantToolCreated.
+  ///
+  /// In en, this message translates to:
+  /// **'I created the tool \"{name}\" ({runtime}).'**
+  String assistantToolCreated(Object name, Object runtime);
+
+  /// No description provided for @assistantAgentCreated.
+  ///
+  /// In en, this message translates to:
+  /// **'I registered @{handle}.{details}'**
+  String assistantAgentCreated(Object details, Object handle);
+
+  /// No description provided for @assistantAgentUpdated.
+  ///
+  /// In en, this message translates to:
+  /// **'I updated @{handle}.{details}'**
+  String assistantAgentUpdated(Object details, Object handle);
+
+  /// No description provided for @assistantWorkflowCreated.
+  ///
+  /// In en, this message translates to:
+  /// **'I created the workflow \"{name}\" ({kind}).'**
+  String assistantWorkflowCreated(Object kind, Object name);
+
+  /// No description provided for @assistantProjectCreated.
+  ///
+  /// In en, this message translates to:
+  /// **'I created the project \"{name}\".'**
+  String assistantProjectCreated(Object name);
+
+  /// No description provided for @updateAvailable.
+  ///
+  /// In en, this message translates to:
+  /// **'New version {version} available. Click to download.'**
+  String updateAvailable(Object version);
+
+  /// No description provided for @readingInstalledVersion.
+  ///
+  /// In en, this message translates to:
+  /// **'Reading installed version'**
+  String get readingInstalledVersion;
+
+  /// No description provided for @reviewVersion.
+  ///
+  /// In en, this message translates to:
+  /// **'Keel {version}. Click to check.'**
+  String reviewVersion(Object version);
+
+  /// No description provided for @faultsLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Faults'**
+  String get faultsLabel;
+
+  /// No description provided for @faultsNone.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing broken — all clear'**
+  String get faultsNone;
+
+  /// No description provided for @faultsOne.
+  ///
+  /// In en, this message translates to:
+  /// **'1 unseen fault'**
+  String get faultsOne;
+
+  /// No description provided for @faultsMany.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} unseen faults'**
+  String faultsMany(Object count);
+
+  /// No description provided for @machineUpdateAvailable.
+  ///
+  /// In en, this message translates to:
+  /// **'A new Keel version is available'**
+  String get machineUpdateAvailable;
+
+  /// No description provided for @machineStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'Services, usage, and machine status'**
+  String get machineStatus;
+
+  /// No description provided for @machineOneWork.
+  ///
+  /// In en, this message translates to:
+  /// **'1 job in progress'**
+  String get machineOneWork;
+
+  /// No description provided for @machineManyWork.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} jobs in progress'**
+  String machineManyWork(Object count);
+
+  /// No description provided for @backupBusy.
+  ///
+  /// In en, this message translates to:
+  /// **'Backing up'**
+  String get backupBusy;
+
+  /// No description provided for @backupLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Backup'**
+  String get backupLabel;
+
+  /// No description provided for @backupSaving.
+  ///
+  /// In en, this message translates to:
+  /// **'Writing the backup without interrupting you'**
+  String get backupSaving;
+
+  /// No description provided for @backupReady.
+  ///
+  /// In en, this message translates to:
+  /// **'Backup is current and uploaded remotely'**
+  String get backupReady;
+
+  /// No description provided for @mapLegend.
+  ///
+  /// In en, this message translates to:
+  /// **'Legend'**
+  String get mapLegend;
+
+  /// No description provided for @fileTypeImages.
+  ///
+  /// In en, this message translates to:
+  /// **'Images'**
+  String get fileTypeImages;
+
+  /// No description provided for @chatFilterSystem.
+  ///
+  /// In en, this message translates to:
+  /// **'system'**
+  String get chatFilterSystem;
+
+  /// No description provided for @chatFilterSubagents.
+  ///
+  /// In en, this message translates to:
+  /// **'subagents'**
+  String get chatFilterSubagents;
+
+  /// No description provided for @chatFilterAll.
+  ///
+  /// In en, this message translates to:
+  /// **'all'**
+  String get chatFilterAll;
+
+  /// No description provided for @chatStepLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'step: {title}'**
+  String chatStepLabel(Object title);
+
+  /// No description provided for @chatRetryStep.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry «{title}»'**
+  String chatRetryStep(Object title);
+
+  /// No description provided for @buttonDeleteAgent.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete agent'**
+  String get buttonDeleteAgent;
+
+  /// No description provided for @deleteAgentConfirmation.
+  ///
+  /// In en, this message translates to:
+  /// **'\"{name}\" and its chat history will be deleted.'**
+  String deleteAgentConfirmation(Object name);
+
+  /// No description provided for @emptyProjectsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'None yet. Create one so multiple agents can work on the same repo.'**
+  String get emptyProjectsHint;
+
+  /// No description provided for @emptyAgentsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'None open. Use a registered agent to talk to it directly, without a project.'**
+  String get emptyAgentsHint;
+
+  /// No description provided for @filesystemAccessTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Give access to the entire file system'**
+  String get filesystemAccessTitle;
+
+  /// No description provided for @filesystemAccessBody.
+  ///
+  /// In en, this message translates to:
+  /// **'\"{name}\" will be able to read and write in any folder on the computer, not only your user folder.'**
+  String filesystemAccessBody(Object name);
+
+  /// No description provided for @filesystemAccessGrant.
+  ///
+  /// In en, this message translates to:
+  /// **'Give access'**
+  String get filesystemAccessGrant;
+
+  /// No description provided for @filesystemAccessEnabledTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Has access to the entire file system (click to remove it)'**
+  String get filesystemAccessEnabledTooltip;
+
+  /// No description provided for @filesystemAccessGrantTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Give access to the entire file system'**
+  String get filesystemAccessGrantTooltip;
+
+  /// No description provided for @noOpenRequirements.
+  ///
+  /// In en, this message translates to:
+  /// **'No open requirements in either direction.'**
+  String get noOpenRequirements;
+
+  /// No description provided for @labelSubagents.
+  ///
+  /// In en, this message translates to:
+  /// **'subagents'**
+  String get labelSubagents;
+
+  /// No description provided for @useAgentTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Use an agent'**
+  String get useAgentTitle;
+
+  /// No description provided for @filesystemAccessSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'This is decided here, not when registering the agent: the same agent can have different permissions depending on where you use it.'**
+  String get filesystemAccessSubtitle;
 }
 
 class _AppLocalizationsDelegate

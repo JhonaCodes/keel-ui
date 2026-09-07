@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
 
 final RegExp _toolNameFormat = RegExp(r'^[a-z0-9_-]{1,32}$');
 
@@ -14,10 +15,11 @@ const kMaxToolTimeoutSeconds = 600;
 /// [Tool.name], or null if it's valid. The name doubles as the MCP tool
 /// identifier the model calls (`mcp__keel-tools__<name>`), so it has to be
 /// a strict slug.
-String? validateToolName(String value) {
-  if (value.isEmpty) return 'El nombre no puede estar vacío.';
+String? validateToolName(String value, [AppLocalizations? l10n]) {
+  if (value.isEmpty) return l10n?.validationNameRequired ?? 'Name is required.';
   if (value.length > 32) return 'Máximo 32 caracteres.';
-  if (value.contains(' ')) return 'No se permiten espacios.';
+  if (value.contains(' '))
+    return l10n?.validationNoSpaces ?? 'Spaces are not allowed.';
   if (value != value.toLowerCase()) return 'Usa solo minúsculas.';
   if (!_toolNameFormat.hasMatch(value)) {
     return 'Solo letras minúsculas, números, "-" y "_".';

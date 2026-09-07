@@ -68,8 +68,9 @@ class _HookFormScreenState extends State<HookFormScreen> {
   }
 
   void _submit() {
+    final t = AppLocalizations.of(context)!;
     final name = _nameController.text.trim();
-    final nameError = validateHookName(name);
+    final nameError = validateHookName(name, t);
     if (nameError != null) {
       setState(() => _nameError = nameError);
       return;
@@ -117,18 +118,21 @@ class _HookFormScreenState extends State<HookFormScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context)!;
     final isEditing = widget.initial != null;
     final tools = ToolsService.instance.notifier.data.tools;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(isEditing ? 'Editar hook' : 'Registrar hook'),
+        title: Text(
+          isEditing ? t.formEditEntity('hook') : t.formRegisterEntity('hook'),
+        ),
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 12),
             child: FilledButton(
               onPressed: _submit,
-              child: Text(isEditing ? 'Guardar' : 'Registrar'),
+              child: Text(isEditing ? t.formSave : t.buttonRegister),
             ),
           ),
         ],
@@ -139,15 +143,15 @@ class _HookFormScreenState extends State<HookFormScreen> {
           TextField(
             controller: _nameController,
             decoration: InputDecoration(
-              labelText: AppLocalizations.of(context)!.formLabelHookName,
-              helperText: AppLocalizations.of(context)!.formHintHookScript,
+              labelText: t.formLabelHookName,
+              helperText: t.formHintHookScript,
               errorText: _nameError,
               border: const OutlineInputBorder(
                 borderRadius: BorderRadius.all(Radius.circular(16)),
               ),
             ),
             onChanged: (value) => setState(() {
-              _nameError = validateHookName(value.trim());
+              _nameError = validateHookName(value.trim(), t);
               _formError = null;
             }),
           ),
@@ -178,7 +182,9 @@ class _HookFormScreenState extends State<HookFormScreen> {
               labelText: 'Acotar a',
               helperText: _event.matcherHint.isEmpty
                   ? AppLocalizations.of(context)!.formMessageNoEventFilter
-                  : AppLocalizations.of(context)!.formHintEventFilter(_event.matcherHint),
+                  : AppLocalizations.of(
+                      context,
+                    )!.formHintEventFilter(_event.matcherHint),
               border: const OutlineInputBorder(
                 borderRadius: BorderRadius.all(Radius.circular(16)),
               ),
@@ -199,7 +205,9 @@ class _HookFormScreenState extends State<HookFormScreen> {
             keyboardType: TextInputType.number,
             decoration: InputDecoration(
               labelText: AppLocalizations.of(context)!.formLabelHookTimeout,
-              helperText: AppLocalizations.of(context)!.formDescriptionHookScope,
+              helperText: AppLocalizations.of(
+                context,
+              )!.formDescriptionHookScope,
               border: const OutlineInputBorder(
                 borderRadius: BorderRadius.all(Radius.circular(16)),
               ),
@@ -331,7 +339,10 @@ class _BodyPicker extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(AppLocalizations.of(context)!.formLabelWhatHookExecutes, style: Theme.of(context).textTheme.labelLarge),
+        Text(
+          AppLocalizations.of(context)!.formLabelWhatHookExecutes,
+          style: Theme.of(context).textTheme.labelLarge,
+        ),
         const SizedBox(height: 8),
         SegmentedButton<bool>(
           segments: const [
@@ -378,7 +389,9 @@ class _BodyPicker extends StatelessWidget {
             style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
             decoration: InputDecoration(
               labelText: 'Comando',
-              helperText: AppLocalizations.of(context)!.formDescriptionHookTimeout,
+              helperText: AppLocalizations.of(
+                context,
+              )!.formDescriptionHookTimeout,
               border: const OutlineInputBorder(
                 borderRadius: BorderRadius.all(Radius.circular(16)),
               ),

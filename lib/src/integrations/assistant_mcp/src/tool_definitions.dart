@@ -525,6 +525,17 @@ final List<Tool> keelAiTools = _withCatalogChangeParameters([
         'max_review_cycles': Schema.int(
           description: 'Máximo total de ciclos auditoría/corrección, de 1 a 4.',
         ),
+        'idle_timeout_minutes': Schema.int(
+          description:
+              'Minutos sin un solo evento del proveedor antes de cortar el '
+              'paso, de 1 a 60. Omitir conserva el valor actual.',
+        ),
+        'node_timeout_minutes': Schema.int(
+          description:
+              'Minutos máximos que puede durar el turno de un nodo, con o sin '
+              'actividad, de 5 a 240. Subilo cuando los pasos hacen trabajo '
+              'largo. Omitir conserva el valor actual.',
+        ),
         'builds_roadmap': Schema.bool(
           description:
               'Si construye y valida el formato TASKS. Omitir conserva el valor actual.',

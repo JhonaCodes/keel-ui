@@ -560,6 +560,12 @@ Future<(bool, String)> _runKeelAiTool(
           maxReplans: _boundedReplanLimit(arguments['max_replans']),
           maxSubagents: _boundedSubagentLimit(arguments['max_subagents']),
           maxReviewCycles: _boundedReviewCycles(arguments['max_review_cycles']),
+          idleTimeoutMinutes: _boundedIdleTimeout(
+            arguments['idle_timeout_minutes'],
+          ),
+          nodeTimeoutMinutes: _boundedNodeTimeout(
+            arguments['node_timeout_minutes'],
+          ),
         ),
         skillNames: arguments['skills'] == null
             ? null
@@ -1967,6 +1973,21 @@ int? _boundedSubagentLimit(Object? value) {
 int? _boundedReviewCycles(Object? value) {
   final number = value as num?;
   return number?.toInt().clamp(1, 4).toInt();
+}
+
+/// Los dos topes de tiempo del turno, con los mismos límites que los sliders
+/// del formulario. Sin esto la única vía de subirlos era la pantalla, y un
+/// workflow cuyo lint bloquea el guardado quedaba sin forma de ajustarlos:
+/// el formulario manda siempre las capacidades y el lint corre sobre ellas,
+/// mientras que por acá la policy viaja sola.
+int? _boundedIdleTimeout(Object? value) {
+  final number = value as num?;
+  return number?.toInt().clamp(1, 60).toInt();
+}
+
+int? _boundedNodeTimeout(Object? value) {
+  final number = value as num?;
+  return number?.toInt().clamp(5, 240).toInt();
 }
 
 List<WorkflowCapability>? _workflowCapabilities(Object? value) {

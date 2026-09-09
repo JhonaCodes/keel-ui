@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/core/ui/form_panel.dart';
 import 'package:keel_ui/src/modules/rules/model/rule.dart';
 import 'package:keel_ui/src/modules/rules/viewmodel/rules_viewmodel.dart';
@@ -68,17 +69,20 @@ class _RuleFormScreenState extends State<RuleFormScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
     final isEditing = widget.initial != null;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(isEditing ? 'Editar regla' : 'Registrar regla'),
+        title: Text(
+          isEditing ? t.formEditEntity(t.labelRules) : t.buttonRegister,
+        ),
         actions: [
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: FilledButton(
               onPressed: _submit,
-              child: Text(isEditing ? 'Guardar' : 'Registrar'),
+              child: Text(isEditing ? t.buttonSave : t.buttonRegister),
             ),
           ),
         ],
@@ -96,7 +100,7 @@ class _RuleFormScreenState extends State<RuleFormScreen> {
                   autofocus: true,
                   onChanged: _onNameChanged,
                   decoration: InputDecoration(
-                    labelText: 'Nombre de la regla',
+                    labelText: t.formName,
                     errorText: _nameError,
                     border: const OutlineInputBorder(
                       borderRadius: BorderRadius.all(Radius.circular(16)),

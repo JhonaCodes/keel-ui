@@ -142,6 +142,7 @@ class _NoRegisteredAgents extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -155,14 +156,12 @@ class _NoRegisteredAgents extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              'Todavía no registraste ningún agente',
+              t.noAgentsTitle,
               style: Theme.of(context).textTheme.titleSmall,
             ),
             const SizedBox(height: 6),
             Text(
-              'Registrá uno y queda disponible en todos lados: para hablarle '
-              'directo, para sumarlo a un proyecto y para que un paso de '
-              'workflow lo busque por su rol.',
+              t.noAgentsDescription,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodySmall,
             ),
@@ -170,7 +169,7 @@ class _NoRegisteredAgents extends StatelessWidget {
             FilledButton.icon(
               onPressed: () => openAgentProfileFormScreen(context),
               icon: const Icon(Icons.add, size: 18),
-              label: const Text('Registrar agente'),
+              label: Text(t.buttonRegisterAgent),
             ),
           ],
         ),

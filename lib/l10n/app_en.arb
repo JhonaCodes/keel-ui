@@ -923,4 +923,9 @@
   ,"labelSubagents": "subagents"
   ,"useAgentTitle": "Use an agent"
   ,"filesystemAccessSubtitle": "This is decided here, not when registering the agent: the same agent can have different permissions depending on where you use it."
+  ,"chatHintStreaming": "It will be sent when the turn ends…"
+  ,"chatHintPlan": "Ask for a plan…"
+  ,"chatHintMessage": "Write a message…"
+  ,"noAgentsTitle": "No agents registered yet"
+  ,"noAgentsDescription": "Register one to make it available everywhere: for direct conversations, projects, and workflow steps that find agents by role."
 }

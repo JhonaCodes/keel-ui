@@ -596,10 +596,10 @@ class _ChatViewState extends State<ChatView> {
                                   widget.actions.referenceSuggestions,
                               onSend: _send,
                               hintText: agent.isStreaming
-                                  ? 'Escribí y se envía cuando termine…'
+                                  ? t.chatHintStreaming
                                   : agent.planMode
-                                  ? 'Pedí un plan…'
-                                  : 'Escribe un mensaje…',
+                                  ? t.chatHintPlan
+                                  : t.chatHintMessage,
                             ),
                           ),
                         ),

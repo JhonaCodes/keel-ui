@@ -2127,6 +2127,22 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get filesystemAccessSubtitle =>
       'Esto se decide aquí, no al registrar el agente: el mismo agente puede tener permisos diferentes según dónde lo uses.';
+
+  @override
+  String get chatHintStreaming => 'Se enviará cuando termine el turno…';
+
+  @override
+  String get chatHintPlan => 'Pide un plan…';
+
+  @override
+  String get chatHintMessage => 'Escribe un mensaje…';
+
+  @override
+  String get noAgentsTitle => 'Todavía no hay agentes registrados';
+
+  @override
+  String get noAgentsDescription =>
+      'Registra uno para tenerlo disponible en todas partes: para hablarle directamente, agregarlo a un proyecto y usarlo en pasos de workflow por rol.';
 }
 
 /// The translations for Spanish Castilian, as used in Colombia (`es_CO`).
@@ -4252,4 +4268,20 @@ class AppLocalizationsEsCo extends AppLocalizationsEs {
   @override
   String get filesystemAccessSubtitle =>
       'Esto se decide aquí, no al registrar el agente: el mismo agente puede tener permisos diferentes según dónde lo uses.';
+
+  @override
+  String get chatHintStreaming => 'Se enviará cuando termine el turno…';
+
+  @override
+  String get chatHintPlan => 'Pide un plan…';
+
+  @override
+  String get chatHintMessage => 'Escribe un mensaje…';
+
+  @override
+  String get noAgentsTitle => 'Todavía no hay agentes registrados';
+
+  @override
+  String get noAgentsDescription =>
+      'Registra uno para tenerlo disponible en todas partes: para hablarle directamente, agregarlo a un proyecto y usarlo en pasos de workflow por rol.';
 }

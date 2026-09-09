@@ -912,4 +912,9 @@
   ,"labelSubagents": "subagentes"
   ,"useAgentTitle": "Usar un agente"
   ,"filesystemAccessSubtitle": "Esto se decide aquí, no al registrar el agente: el mismo agente puede tener permisos diferentes según dónde lo uses."
+  ,"chatHintStreaming": "Se enviará cuando termine el turno…"
+  ,"chatHintPlan": "Pide un plan…"
+  ,"chatHintMessage": "Escribe un mensaje…"
+  ,"noAgentsTitle": "Todavía no hay agentes registrados"
+  ,"noAgentsDescription": "Registra uno para tenerlo disponible en todas partes: para hablarle directamente, agregarlo a un proyecto y usarlo en pasos de workflow por rol."
 }

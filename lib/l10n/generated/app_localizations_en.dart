@@ -2117,4 +2117,20 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get filesystemAccessSubtitle =>
       'This is decided here, not when registering the agent: the same agent can have different permissions depending on where you use it.';
+
+  @override
+  String get chatHintStreaming => 'It will be sent when the turn ends…';
+
+  @override
+  String get chatHintPlan => 'Ask for a plan…';
+
+  @override
+  String get chatHintMessage => 'Write a message…';
+
+  @override
+  String get noAgentsTitle => 'No agents registered yet';
+
+  @override
+  String get noAgentsDescription =>
+      'Register one to make it available everywhere: for direct conversations, projects, and workflow steps that find agents by role.';
 }

@@ -3662,6 +3662,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'This is decided here, not when registering the agent: the same agent can have different permissions depending on where you use it.'**
   String get filesystemAccessSubtitle;
+
+  /// No description provided for @chatHintStreaming.
+  ///
+  /// In en, this message translates to:
+  /// **'It will be sent when the turn ends…'**
+  String get chatHintStreaming;
+
+  /// No description provided for @chatHintPlan.
+  ///
+  /// In en, this message translates to:
+  /// **'Ask for a plan…'**
+  String get chatHintPlan;
+
+  /// No description provided for @chatHintMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Write a message…'**
+  String get chatHintMessage;
+
+  /// No description provided for @noAgentsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No agents registered yet'**
+  String get noAgentsTitle;
+
+  /// No description provided for @noAgentsDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Register one to make it available everywhere: for direct conversations, projects, and workflow steps that find agents by role.'**
+  String get noAgentsDescription;
 }
 
 class _AppLocalizationsDelegate

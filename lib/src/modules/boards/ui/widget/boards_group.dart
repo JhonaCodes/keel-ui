@@ -1,3 +1,4 @@
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
 
@@ -47,7 +48,7 @@ class BoardsSection extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             SidebarSectionRow(
-              label: 'Tableros',
+              label: AppLocalizations.of(context).sidebarSectionBoards,
               selected: onList,
               expanded: expanded,
               onToggle: onToggle,
@@ -65,7 +66,7 @@ class BoardsSection extends StatelessWidget {
                 ),
             if (expanded && boards.isEmpty)
               SidebarAddRow(
-                label: 'Nuevo tablero',
+                label: AppLocalizations.of(context).sidebarNewBoard,
                 onTap: () => openBoardFormScreen(context, projectId: projectId),
               ),
           ],
@@ -138,7 +139,7 @@ class _BoardRow extends StatelessWidget {
             // un tablero se hacía solo desde el banco, que es el sitio al que
             // no entrás cuando el que sobra lo tenés adelante.
             IconButton(
-              tooltip: 'Eliminar tablero',
+              tooltip: AppLocalizations.of(context).sidebarTooltipDeleteBoard,
               icon: const Icon(Icons.close, size: 13),
               constraints: const BoxConstraints.tightFor(width: 24, height: 24),
               padding: EdgeInsets.zero,

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
+
 import 'package:keel_ui/src/core/ui/app_theme.dart';
 import 'package:keel_ui/src/core/ui/running_dot.dart';
 import 'package:keel_ui/src/modules/sidebar_layout/model/sidebar_layout.dart';
@@ -14,6 +16,11 @@ void main() {
   }) {
     return tester.pumpWidget(
       MaterialApp(
+        // The widgets under test read AppLocalizations; without the
+        // delegates `AppLocalizations.of` returns null and build throws.
+        locale: const Locale('es'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         theme: buildAppTheme(),
         home: Scaffold(
           body: SidebarGroupRow(

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
+
 import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
 import 'package:keel_ui/src/modules/projects/model/project.dart';
 import 'package:keel_ui/src/modules/projects/model/resolution_case.dart';
@@ -52,6 +54,11 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
+        // The widgets under test read AppLocalizations; without the
+        // delegates `AppLocalizations.of` returns null and build throws.
+        locale: const Locale('es'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: SizedBox(
             width: 272,
@@ -66,8 +73,12 @@ void main() {
                   ownerRole: 'resolver',
                   status: ResolutionCaseStatus.active,
                   nodes: [
+                    // `plan` is the first node of the four-node template that
+                    // replaced triage/impact/implementation in `126d48e`. With
+                    // the old id the node matched no capability, so the panel
+                    // drew every row as pending and nothing as running.
                     WorkNode(
-                      id: 'triage',
+                      id: 'plan',
                       kind: WorkNodeKind.triage,
                       ownerRole: 'resolver',
                       status: WorkNodeStatus.running,
@@ -142,6 +153,11 @@ void main() {
     );
     await tester.pumpWidget(
       MaterialApp(
+        // The widgets under test read AppLocalizations; without the
+        // delegates `AppLocalizations.of` returns null and build throws.
+        locale: const Locale('es'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: SizedBox(
             width: 272,
@@ -221,6 +237,11 @@ void main() {
     );
     await tester.pumpWidget(
       MaterialApp(
+        // The widgets under test read AppLocalizations; without the
+        // delegates `AppLocalizations.of` returns null and build throws.
+        locale: const Locale('es'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: SizedBox(
             width: 272,
@@ -282,6 +303,11 @@ void main() {
     );
     await tester.pumpWidget(
       MaterialApp(
+        // The widgets under test read AppLocalizations; without the
+        // delegates `AppLocalizations.of` returns null and build throws.
+        locale: const Locale('es'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: SizedBox(
             width: 272,

@@ -7,7 +7,7 @@ import 'package:keel_ui/src/modules/knowledge/ui/widget/knowledge_tree.dart';
 import 'package:keel_ui/src/modules/knowledge/viewmodel/knowledge_viewmodel.dart';
 
 /// El área de Saber: bases con frontera de contexto a la izquierda, el
-/// documento abierto a la derecha. Ver `docs/features/16-bases-de-saber.md`.
+/// documento abierto a la derecha. Ver `docs/features/16-knowledge-bases.md`.
 class KnowledgeScreen extends StatelessWidget {
   const KnowledgeScreen({super.key});
 

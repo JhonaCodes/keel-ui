@@ -1,45 +1,44 @@
-# F12 — API local de trabajos programados
+# F12 — Local scheduled-jobs API
 
-## Qué es
+## What it is
 
-Un endpoint HTTP en loopback para que schedulers EXTERNOS (cron, keel,
-scripts) abran sesiones en un proyecto. El scheduling vive fuera de la app —
-esto es el enchufe.
+An HTTP endpoint on loopback so that EXTERNAL schedulers (cron, keel, scripts)
+can open sessions in a project. Scheduling lives outside the app — this is the
+socket.
 
-## Contrato
+## Contract
 
-- Base: `http://127.0.0.1:<puerto>` (puerto preferido fijo 47821; si está
-  tomado, uno efímero — el actual se ve en Configuración).
-- Auth: `Authorization: Bearer <token>` — token persistido, visible y
-  regenerable en Configuración → API de trabajos programados.
-- `POST /projects/<nombre>/sessions` con `{"prompt": "..."}` → crea una sesión
-  NUEVA en ese proyecto, manda el prompt (arranca el workflow por defecto del
-  proyecto: un trabajo programado no tiene a nadie que elija otro) y
-  responde 202 con `{sessionId}`. 409 si el proyecto no tiene carpeta de
-  trabajo; 404 si no existe.
+- Base: `http://127.0.0.1:<port>` (preferred fixed port 47821; if taken, an
+  ephemeral one — the current one is shown in Settings).
+- Auth: `Authorization: Bearer <token>` — a persisted token, visible and
+  regenerable in Settings → Scheduled-jobs API.
+- `POST /projects/<name>/sessions` with `{"prompt": "..."}` → creates a NEW
+  session in that project, sends the prompt (starting the project's default
+  workflow: a scheduled job has nobody to pick another one), and answers 202
+  with `{sessionId}`. 409 if the project has no working folder; 404 if it does
+  not exist.
 - `GET /sessions/<id>` → `{status, isRunning, costUsd, messages}`.
 
-## Ejemplo cron
+## Cron example
 
 ```
 0 9 * * 1 curl -s -X POST -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' \
-  -d '{"prompt":"Generá el reporte semanal"}' \
-  http://127.0.0.1:47821/projects/reportes/sessions
+  -d '{"prompt":"Generate the weekly report"}' \
+  http://127.0.0.1:47821/projects/reports/sessions
 ```
 
-## Las rutas viejas siguen contestando
+## The old routes still answer
 
-Cuando una estación pasó a llamarse proyecto y su tarea, sesión, las rutas
-acompañaron. Pero esta es la única superficie HTTP de la app: afuera puede
-haber un cron escrito hace meses que no tiene por qué enterarse de que acá
-adentro cambiamos las palabras.
+When a station became a project and its task a session, the routes followed.
+But this is the app's only HTTP surface: out there may be a cron written months
+ago that has no reason to learn that we changed the words in here.
 
-`POST /stations/<nombre>/tasks` y `GET /tasks/<id>` siguen funcionando, sin
-aviso y sin diferencia. Quedan como obsoletas: lo que se documenta y lo que
-se escribe nuevo es `/projects` y `/sessions`.
+`POST /stations/<name>/tasks` and `GET /tasks/<id>` still work, with no warning
+and no difference. They are deprecated: what gets documented and what gets
+written new is `/projects` and `/sessions`.
 
-## Límites
+## Limits
 
-- Solo loopback (nunca expuesto a la red).
-- Crear la sesión la vuelve la sesión ACTIVA de ese proyecto en la UI.
+- Loopback only (never exposed to the network).
+- Creating the session makes it the ACTIVE session of that project in the UI.

@@ -13,23 +13,23 @@ Keel runs six local MCP servers on `127.0.0.1`, with a token per start and a new
 | `keel-requirements` | Ask something from another project, or ask questions |
 | `keel-boards` | Build test boards |
 
-Every turn runs with `--strict-mcp-config`: the CLI sees exactly what Keel delivered for that turn and nothing else — neither the global config of the user's machine nor the MCPs of another project ([see root README](../../README.md), [F28](../features/28-catalogo-de-integraciones.md)).
+Every turn runs with `--strict-mcp-config`: the CLI sees exactly what Keel delivered for that turn and nothing else — neither the global config of the user's machine nor the MCPs of another project ([see root README](../../README.md), [F28](../features/28-integrations-catalog.md)).
 
 ## External MCPs
 
-An `McpServerConfig` (gmail, drive, github, linear, postgres...) registers once at the app level and is **assigned per agent** from their profile — the agent's card shows explicitly what integrations it carries. A server's tools reach the agent as `mcp__<name>__*` ([see F5](../features/05-mcps-externos.md)).
+An `McpServerConfig` (gmail, drive, github, linear, postgres...) registers once at the app level and is **assigned per agent** from their profile — the agent's card shows explicitly what integrations it carries. A server's tools reach the agent as `mcp__<name>__*` ([see F5](../features/05-external-mcps.md)).
 
-Credentials always go by secret: a `secretEnv` field maps an environment variable to the **name** of a registered secret; the value resolves only when building that turn's config, in the same `0700` temp file explained in [06 — Agents, skills, rules, and hooks](06-agents-skills-rules-hooks.md). A remote server can also resolve a secret inside a header (`Authorization: {{TOKEN}}`) — if the secret's missing, the header is omitted entirely: a half-resolved header (`Bearer ` with nothing after) confuses more than an absent one ([see F28](../features/28-catalogo-de-integraciones.md)).
+Credentials always go by secret: a `secretEnv` field maps an environment variable to the **name** of a registered secret; the value resolves only when building that turn's config, in the same `0700` temp file explained in [06 — Agents, skills, rules, and hooks](06-agents-skills-rules-hooks.md). A remote server can also resolve a secret inside a header (`Authorization: {{TOKEN}}`) — if the secret's missing, the header is omitted entirely: a half-resolved header (`Bearer ` with nothing after) confuses more than an absent one ([see F28](../features/28-integrations-catalog.md)).
 
 ## The integrations catalog
 
-Registering an MCP by hand — command, arguments, environment variables — means knowing in advance what goes in each field. The catalog solves the opposite case: fourteen known integrations with their exact config, category, what credential each asks for, and a link to official docs. Plus you can **paste** the `mcpServers` block that any third-party server publishes in its README, with preview before writing anything — the importer detects if that block brings a credential inside an `env`, even when the key name doesn't give it away (for example, `DATABASE_URL` with username and password inside the connection string) ([see F28](../features/28-catalogo-de-integraciones.md)).
+Registering an MCP by hand — command, arguments, environment variables — means knowing in advance what goes in each field. The catalog solves the opposite case: fourteen known integrations with their exact config, category, what credential each asks for, and a link to official docs. Plus you can **paste** the `mcpServers` block that any third-party server publishes in its README, with preview before writing anything — the importer detects if that block brings a credential inside an `env`, even when the key name doesn't give it away (for example, `DATABASE_URL` with username and password inside the connection string) ([see F28](../features/28-integrations-catalog.md)).
 
-An MCP marked with OAuth needs to auth outside Keel — the honest solution the catalog offers is an API token in the header, not a full OAuth flow, because `--strict-mcp-config` ignores the global config where an OAuth session already authenticated lives ([see F28](../features/28-catalogo-de-integraciones.md)).
+An MCP marked with OAuth needs to auth outside Keel — the honest solution the catalog offers is an API token in the header, not a full OAuth flow, because `--strict-mcp-config` ignores the global config where an OAuth session already authenticated lives ([see F28](../features/28-integrations-catalog.md)).
 
 ## Test an integration live
 
-Before this, a badly-configured MCP didn't alert: the person found out three turns later when an agent "didn't use the tool", unable to tell if it didn't want to or never had it. **Testing** does the same handshake as the real CLI (`initialize` → `notifications/initialized` → `tools/list`) and shows the list of tools an agent would actually see. The test result stays stored locally and **doesn't travel in any backup** — it's state of this machine right now, not config ([see F28](../features/28-catalogo-de-integraciones.md)). To see the real screen, open `../mockup/integraciones-tableros-y-maquina.html`.
+Before this, a badly-configured MCP didn't alert: the person found out three turns later when an agent "didn't use the tool", unable to tell if it didn't want to or never had it. **Testing** does the same handshake as the real CLI (`initialize` → `notifications/initialized` → `tools/list`) and shows the list of tools an agent would actually see. The test result stays stored locally and **doesn't travel in any backup** — it's state of this machine right now, not config ([see F28](../features/28-integrations-catalog.md)). To see the real screen, open `../mockup/integraciones-tableros-y-maquina.html`.
 
 ## Multi-provider: Claude, Codex, OpenRouter, and DeepSeek
 
@@ -70,9 +70,9 @@ They are explicit design limits, not pending bugs:
 
 - **No deterministic tools, no MCPs** (neither external nor `keelai-actions`) — those surfaces don't exist in the codex adapter today.
 - **No configurable effort** — the selector stays visible in the UI but does nothing for a codex agent; its own config resolves it.
-- **Cost per turn reports 0** — the codex JSONL doesn't emit it ([see F6](../features/06-proveedor-codex.md), [F7](../features/07-comunicacion-economica.md)).
+- **Cost per turn reports 0** — the codex JSONL doesn't emit it ([see F6](../features/06-codex-provider.md), [F7](../features/07-economical-communication.md)).
 
-Because codex doesn't receive the session-plan MCP tools, a codex member writes and marks the plan with **fenced blocks** in their text (` ```plan ` / ` ```cumplido `) that the app parses when their turn closes — the same pattern a member who declares a new agent mid-conversation uses (` ```agente `). And because codex only receives the full system prompt on its session's first turn, resumed turns get the plan's live state prepended to the request, to not work against a frozen snapshot ([see F6](../features/06-proveedor-codex.md), [F17](../features/17-plan-de-sesion.md)).
+Because codex doesn't receive the session-plan MCP tools, a codex member writes and marks the plan with **fenced blocks** in their text (` ```plan ` / ` ```cumplido `) that the app parses when their turn closes — the same pattern a member who declares a new agent mid-conversation uses (` ```agente `). And because codex only receives the full system prompt on its session's first turn, resumed turns get the plan's live state prepended to the request, to not work against a frozen snapshot ([see F6](../features/06-codex-provider.md), [F17](../features/17-session-plan.md)).
 
 An adaptive verification node closes only with recorded evidence. Provider choice does not create a separate fallback workflow: Codex and Claude use the same resolution graph, while provider-specific capabilities are made explicit in the prompt.
 

@@ -1,3 +1,4 @@
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:flutter/material.dart';
 
 import 'package:keel_ui/src/modules/projects/model/session_subagent.dart';
@@ -27,6 +28,7 @@ class _SessionSubagentCardState extends State<SessionSubagentCard> {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     final subagent = widget.subagent;
     final elapsed = subagent.elapsed;
@@ -34,11 +36,11 @@ class _SessionSubagentCardState extends State<SessionSubagentCard> {
         ? '${elapsed.inMinutes} min'
         : '${elapsed.inSeconds} s';
     final phaseLabel = switch (subagent.phase) {
-      SubagentPhase.thinking => 'pensando',
-      SubagentPhase.working => 'trabajando',
-      SubagentPhase.writing => 'escribiendo',
-      SubagentPhase.done => 'terminó',
-      SubagentPhase.failed => 'falló',
+      SubagentPhase.thinking => t.subagentPhaseThinking,
+      SubagentPhase.working => t.subagentPhaseWorking,
+      SubagentPhase.writing => t.subagentPhaseWriting,
+      SubagentPhase.done => t.subagentPhaseDone,
+      SubagentPhase.failed => t.subagentPhaseFailed,
     };
     final result = subagent.result.trim();
 

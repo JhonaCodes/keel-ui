@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
+
 import 'package:keel_ui/src/core/services/local_database.dart';
 import 'package:keel_ui/src/integrations/chat_references/chat_references.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/chat_reference_composer_field.dart';
@@ -166,6 +168,11 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     await tester.pumpWidget(
       MaterialApp(
+        // The widgets under test read AppLocalizations; without the
+        // delegates `AppLocalizations.of` returns null and build throws.
+        locale: const Locale('es'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         theme: buildAppTheme(),
         home: Scaffold(body: SessionChatView(project: project)),
       ),
@@ -247,6 +254,11 @@ void main() {
     String? sent;
     await tester.pumpWidget(
       MaterialApp(
+        // The widgets under test read AppLocalizations; without the
+        // delegates `AppLocalizations.of` returns null and build throws.
+        locale: const Locale('es'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         theme: buildAppTheme(),
         home: Scaffold(
           body: ChatReferenceComposerField(

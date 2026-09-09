@@ -2143,6 +2143,301 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get noAgentsDescription =>
       'Registra uno para tenerlo disponible en todas partes: para hablarle directamente, agregarlo a un proyecto y usarlo en pasos de workflow por rol.';
+
+  @override
+  String get sidebarSectionProjects => 'Proyectos';
+
+  @override
+  String get sidebarSectionSessions => 'Sesiones';
+
+  @override
+  String get sidebarSectionStatus => 'Estado';
+
+  @override
+  String get sidebarSectionLooseAgents => 'AGENTES SUELTOS';
+
+  @override
+  String get sidebarTooltipManageAgents => 'Registrar o editar agentes';
+
+  @override
+  String get sidebarTooltipUseAgent => 'Usar un agente registrado';
+
+  @override
+  String get sidebarTooltipManageProjects => 'Administrar proyectos';
+
+  @override
+  String get sidebarTooltipNewProject => 'Nuevo proyecto';
+
+  @override
+  String get sidebarHintProjectName => 'Nombre del proyecto';
+
+  @override
+  String get sidebarTooltipReadOnlyProject => 'No lo mantengo: solo lectura';
+
+  @override
+  String get sidebarTooltipOneSessionWorking => 'Una sesión trabajando';
+
+  @override
+  String sidebarTooltipSessionsWorking(int count) {
+    return '$count sesiones trabajando';
+  }
+
+  @override
+  String get sidebarSectionBoards => 'Tableros';
+
+  @override
+  String get sidebarNewBoard => 'Nuevo tablero';
+
+  @override
+  String get sidebarTooltipDeleteBoard => 'Eliminar tablero';
+
+  @override
+  String get sidebarSectionRequirements => 'REQUERIMIENTOS';
+
+  @override
+  String get sidebarTooltipAllRequirements => 'Todos los requerimientos';
+
+  @override
+  String get sidebarTooltipOpenRequirement => 'Abrir un requerimiento';
+
+  @override
+  String get sidebarRequirementsEmpty =>
+      'Ninguno. Aparecen acá cuando un proyecto necesita algo de otro.';
+
+  @override
+  String get panelTitleInProgress => 'WORKFLOW EN CURSO';
+
+  @override
+  String get panelNoWorkflowSelected =>
+      'Este proyecto no tiene un workflow seleccionado.';
+
+  @override
+  String panelProgressOf(int done, int active) {
+    return '$done de $active';
+  }
+
+  @override
+  String panelReviewCycles(int done, int max) {
+    return 'auditorías $done/$max';
+  }
+
+  @override
+  String get panelSectionSkills => 'Skills';
+
+  @override
+  String get panelSectionRules => 'Reglas';
+
+  @override
+  String get panelSectionKnowledge => 'Conocimiento y documentación';
+
+  @override
+  String get panelAddRule => 'Agregar regla';
+
+  @override
+  String get panelAddKnowledge => 'Agregar conocimiento';
+
+  @override
+  String get panelAddToProject => 'Agregar a este proyecto';
+
+  @override
+  String get panelRemoveFromProject => 'Quitar de este proyecto';
+
+  @override
+  String get panelRequiredByWorkflow => 'Requerido por el workflow';
+
+  @override
+  String get panelMissingBlocksPreflight => 'Faltante: bloquea el preflight';
+
+  @override
+  String get panelActivateOptional => 'Activar esta capacidad opcional';
+
+  @override
+  String get panelChangeDefaultRole => 'Modificar rol default del workflow';
+
+  @override
+  String get panelApproveAndContinue => 'Aprobar y continuar';
+
+  @override
+  String panelNoAgentForRole(Object role) {
+    return 'sin agente para $role';
+  }
+
+  @override
+  String panelConsultedTo(Object names) {
+    return 'consultó a $names';
+  }
+
+  @override
+  String panelCoverageMatrix(int resolved, int total) {
+    return 'matriz $resolved/$total';
+  }
+
+  @override
+  String get panelChangeSharedDefault => 'Modificar default compartido';
+
+  @override
+  String panelUseDefaultRole(Object role) {
+    return 'Usar default ($role)';
+  }
+
+  @override
+  String get panelStateDone => 'listo';
+
+  @override
+  String get panelStateCurrent => 'ahora';
+
+  @override
+  String get panelStatePending => 'pendiente';
+
+  @override
+  String get panelStateBlocked => 'bloqueado';
+
+  @override
+  String get panelStateAvailable => 'disponible';
+
+  @override
+  String get panelStateNotRequired => 'no requerido';
+
+  @override
+  String get panelExecutorNewSession => 'sesión nueva';
+
+  @override
+  String get panelExecutorResumeParent => 'reanuda sesión padre';
+
+  @override
+  String get panelExecutorSubagent => 'subagente / fallback externo';
+
+  @override
+  String get panelExecutorManualApproval => 'requiere aprobación manual';
+
+  @override
+  String get nodeKindTriage => 'Triage y contrato';
+
+  @override
+  String get nodeKindImpact => 'Impacto end-to-end';
+
+  @override
+  String get nodeKindImplementation => 'Implementación';
+
+  @override
+  String get nodeKindVerification => 'Verificación';
+
+  @override
+  String get mapNodeYou => 'vos';
+
+  @override
+  String get mapNodeEnd => 'fin';
+
+  @override
+  String get mapChipConsultation => 'consulta';
+
+  @override
+  String get mapChipSubagent => 'subagente';
+
+  @override
+  String get mapCountEnter => 'entrar';
+
+  @override
+  String get mapCalloutAsked => 'le pidió';
+
+  @override
+  String get mapCalloutReturned => 'devolvió';
+
+  @override
+  String get mapCalloutCut => 'cortó';
+
+  @override
+  String get mapCalloutAnswered => 'contestó';
+
+  @override
+  String get mapCalloutResolved => 'resolvió';
+
+  @override
+  String get mapCalloutThinking => 'pensando';
+
+  @override
+  String get mapLegendOpensSubagent => 'abre un subagente';
+
+  @override
+  String get mapLegendSubagentReturned => 'el subagente devolvió';
+
+  @override
+  String get subagentPhaseWorking => 'trabajando';
+
+  @override
+  String get turnPhaseWorking => 'trabajando…';
+
+  @override
+  String get mapLegendForward => 'avanza un paso';
+
+  @override
+  String get mapLegendBack => 'consulta a otro nodo';
+
+  @override
+  String get mapLegendAnswer => 'contesta esa consulta';
+
+  @override
+  String get mapLegendSpawn => 'lo registró';
+
+  @override
+  String get mapLegendFinish => 'entrega final';
+
+  @override
+  String get mapLegendFailed => 'cortó';
+
+  @override
+  String get mapLegendUntraveled => 'sin recorrer';
+
+  @override
+  String get subagentPhaseThinking => 'pensando';
+
+  @override
+  String get subagentPhaseWriting => 'escribiendo';
+
+  @override
+  String get subagentPhaseDone => 'terminó';
+
+  @override
+  String get subagentPhaseFailed => 'falló';
+
+  @override
+  String get turnPhaseThinking => 'pensando…';
+
+  @override
+  String get turnPhaseWriting => 'escribiendo…';
+
+  @override
+  String threadAdaptiveResolution(Object workflow) {
+    return '$workflow · resolución adaptativa';
+  }
+
+  @override
+  String get threadBackToOwner => 'vuelve al responsable';
+
+  @override
+  String threadNextNode(Object node) {
+    return 'sigue $node';
+  }
+
+  @override
+  String threadConsultOf(Object name) {
+    return 'consulta de $name';
+  }
+
+  @override
+  String panelAgentForNode(Object title) {
+    return 'Agente para \"$title\"';
+  }
+
+  @override
+  String panelOverrideScope(Object project) {
+    return 'Este override solo afecta #$project. El nodo guardará el agente concreto cuando pase el preflight.';
+  }
+
+  @override
+  String panelSharedChangeScope(Object workflow) {
+    return 'Este cambio modifica el workflow \"$workflow\" en todos los proyectos. Los overrides concretos se conservan.';
+  }
 }
 
 /// The translations for Spanish Castilian, as used in Colombia (`es_CO`).
@@ -4284,4 +4579,299 @@ class AppLocalizationsEsCo extends AppLocalizationsEs {
   @override
   String get noAgentsDescription =>
       'Registra uno para tenerlo disponible en todas partes: para hablarle directamente, agregarlo a un proyecto y usarlo en pasos de workflow por rol.';
+
+  @override
+  String get sidebarSectionProjects => 'Proyectos';
+
+  @override
+  String get sidebarSectionSessions => 'Sesiones';
+
+  @override
+  String get sidebarSectionStatus => 'Estado';
+
+  @override
+  String get sidebarSectionLooseAgents => 'AGENTES SUELTOS';
+
+  @override
+  String get sidebarTooltipManageAgents => 'Registrar o editar agentes';
+
+  @override
+  String get sidebarTooltipUseAgent => 'Usar un agente registrado';
+
+  @override
+  String get sidebarTooltipManageProjects => 'Administrar proyectos';
+
+  @override
+  String get sidebarTooltipNewProject => 'Nuevo proyecto';
+
+  @override
+  String get sidebarHintProjectName => 'Nombre del proyecto';
+
+  @override
+  String get sidebarTooltipReadOnlyProject => 'No lo mantengo: solo lectura';
+
+  @override
+  String get sidebarTooltipOneSessionWorking => 'Una sesión trabajando';
+
+  @override
+  String sidebarTooltipSessionsWorking(int count) {
+    return '$count sesiones trabajando';
+  }
+
+  @override
+  String get sidebarSectionBoards => 'Tableros';
+
+  @override
+  String get sidebarNewBoard => 'Nuevo tablero';
+
+  @override
+  String get sidebarTooltipDeleteBoard => 'Eliminar tablero';
+
+  @override
+  String get sidebarSectionRequirements => 'REQUERIMIENTOS';
+
+  @override
+  String get sidebarTooltipAllRequirements => 'Todos los requerimientos';
+
+  @override
+  String get sidebarTooltipOpenRequirement => 'Abrir un requerimiento';
+
+  @override
+  String get sidebarRequirementsEmpty =>
+      'Ninguno. Aparecen acá cuando un proyecto necesita algo de otro.';
+
+  @override
+  String get panelTitleInProgress => 'WORKFLOW EN CURSO';
+
+  @override
+  String get panelNoWorkflowSelected =>
+      'Este proyecto no tiene un workflow seleccionado.';
+
+  @override
+  String panelProgressOf(int done, int active) {
+    return '$done de $active';
+  }
+
+  @override
+  String panelReviewCycles(int done, int max) {
+    return 'auditorías $done/$max';
+  }
+
+  @override
+  String get panelSectionSkills => 'Skills';
+
+  @override
+  String get panelSectionRules => 'Reglas';
+
+  @override
+  String get panelSectionKnowledge => 'Conocimiento y documentación';
+
+  @override
+  String get panelAddRule => 'Agregar regla';
+
+  @override
+  String get panelAddKnowledge => 'Agregar conocimiento';
+
+  @override
+  String get panelAddToProject => 'Agregar a este proyecto';
+
+  @override
+  String get panelRemoveFromProject => 'Quitar de este proyecto';
+
+  @override
+  String get panelRequiredByWorkflow => 'Requerido por el workflow';
+
+  @override
+  String get panelMissingBlocksPreflight => 'Faltante: bloquea el preflight';
+
+  @override
+  String get panelActivateOptional => 'Activar esta capacidad opcional';
+
+  @override
+  String get panelChangeDefaultRole => 'Modificar rol default del workflow';
+
+  @override
+  String get panelApproveAndContinue => 'Aprobar y continuar';
+
+  @override
+  String panelNoAgentForRole(Object role) {
+    return 'sin agente para $role';
+  }
+
+  @override
+  String panelConsultedTo(Object names) {
+    return 'consultó a $names';
+  }
+
+  @override
+  String panelCoverageMatrix(int resolved, int total) {
+    return 'matriz $resolved/$total';
+  }
+
+  @override
+  String get panelChangeSharedDefault => 'Modificar default compartido';
+
+  @override
+  String panelUseDefaultRole(Object role) {
+    return 'Usar default ($role)';
+  }
+
+  @override
+  String get panelStateDone => 'listo';
+
+  @override
+  String get panelStateCurrent => 'ahora';
+
+  @override
+  String get panelStatePending => 'pendiente';
+
+  @override
+  String get panelStateBlocked => 'bloqueado';
+
+  @override
+  String get panelStateAvailable => 'disponible';
+
+  @override
+  String get panelStateNotRequired => 'no requerido';
+
+  @override
+  String get panelExecutorNewSession => 'sesión nueva';
+
+  @override
+  String get panelExecutorResumeParent => 'reanuda sesión padre';
+
+  @override
+  String get panelExecutorSubagent => 'subagente / fallback externo';
+
+  @override
+  String get panelExecutorManualApproval => 'requiere aprobación manual';
+
+  @override
+  String get nodeKindTriage => 'Triage y contrato';
+
+  @override
+  String get nodeKindImpact => 'Impacto end-to-end';
+
+  @override
+  String get nodeKindImplementation => 'Implementación';
+
+  @override
+  String get nodeKindVerification => 'Verificación';
+
+  @override
+  String get mapNodeYou => 'vos';
+
+  @override
+  String get mapNodeEnd => 'fin';
+
+  @override
+  String get mapChipConsultation => 'consulta';
+
+  @override
+  String get mapChipSubagent => 'subagente';
+
+  @override
+  String get mapCountEnter => 'entrar';
+
+  @override
+  String get mapCalloutAsked => 'le pidió';
+
+  @override
+  String get mapCalloutReturned => 'devolvió';
+
+  @override
+  String get mapCalloutCut => 'cortó';
+
+  @override
+  String get mapCalloutAnswered => 'contestó';
+
+  @override
+  String get mapCalloutResolved => 'resolvió';
+
+  @override
+  String get mapCalloutThinking => 'pensando';
+
+  @override
+  String get mapLegendOpensSubagent => 'abre un subagente';
+
+  @override
+  String get mapLegendSubagentReturned => 'el subagente devolvió';
+
+  @override
+  String get subagentPhaseWorking => 'trabajando';
+
+  @override
+  String get turnPhaseWorking => 'trabajando…';
+
+  @override
+  String get mapLegendForward => 'avanza un paso';
+
+  @override
+  String get mapLegendBack => 'consulta a otro nodo';
+
+  @override
+  String get mapLegendAnswer => 'contesta esa consulta';
+
+  @override
+  String get mapLegendSpawn => 'lo registró';
+
+  @override
+  String get mapLegendFinish => 'entrega final';
+
+  @override
+  String get mapLegendFailed => 'cortó';
+
+  @override
+  String get mapLegendUntraveled => 'sin recorrer';
+
+  @override
+  String get subagentPhaseThinking => 'pensando';
+
+  @override
+  String get subagentPhaseWriting => 'escribiendo';
+
+  @override
+  String get subagentPhaseDone => 'terminó';
+
+  @override
+  String get subagentPhaseFailed => 'falló';
+
+  @override
+  String get turnPhaseThinking => 'pensando…';
+
+  @override
+  String get turnPhaseWriting => 'escribiendo…';
+
+  @override
+  String threadAdaptiveResolution(Object workflow) {
+    return '$workflow · resolución adaptativa';
+  }
+
+  @override
+  String get threadBackToOwner => 'vuelve al responsable';
+
+  @override
+  String threadNextNode(Object node) {
+    return 'sigue $node';
+  }
+
+  @override
+  String threadConsultOf(Object name) {
+    return 'consulta de $name';
+  }
+
+  @override
+  String panelAgentForNode(Object title) {
+    return 'Agente para \"$title\"';
+  }
+
+  @override
+  String panelOverrideScope(Object project) {
+    return 'Este override solo afecta #$project. El nodo guardará el agente concreto cuando pase el preflight.';
+  }
+
+  @override
+  String panelSharedChangeScope(Object workflow) {
+    return 'Este cambio modifica el workflow \"$workflow\" en todos los proyectos. Los overrides concretos se conservan.';
+  }
 }

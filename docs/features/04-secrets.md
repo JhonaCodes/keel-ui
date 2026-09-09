@@ -1,74 +1,71 @@
-# F4 — Secrets ocultos al LLM
+# F4 — Secrets hidden from the LLM
 
-## Qué es
+## What it is
 
-Registro de claves/credenciales (`Secret{name, description, value}`) cuyos
-VALORES nunca pasan por un modelo:
+A registry of keys and credentials (`Secret{name, description, value}`) whose
+VALUES never pass through a model:
 
-- La UI siempre los enmascara (`••••`, sin botón de revelar; el formulario
-  es write-only: en edición, vacío = conservar el valor actual).
-- Se inyectan como variables de entorno SOLO a procesos deterministas:
-  scripts de tools (`Tool.secretNames` → `ToolExecutionService.run(
-  environment:)`) y, desde F5, servidores MCP externos. JAMÁS al CLI del
-  agente (un agente con Bash haría `echo $X` y el valor entraría al modelo).
-- El nombre sigue formato de variable de entorno (`^[A-Z][A-Z0-9_]{0,63}$`).
+- The UI always masks them (`••••`, with no reveal button; the form is
+  write-only: when editing, empty = keep the current value).
+- They are injected as environment variables ONLY into deterministic processes:
+  tool scripts (`Tool.secretNames` → `ToolExecutionService.run(environment:)`)
+  and, since F5, external MCP servers. NEVER into the agent's CLI (an agent with
+  Bash would run `echo $X` and the value would enter the model).
+- The name follows environment-variable format (`^[A-Z][A-Z0-9_]{0,63}$`).
 
-## Flujo "pendiente"
+## The "pending" flow
 
-Un agente (Keel AI o constructor) puede PEDIR que exista una clave con
-`request_secret(name, why)`: se crea sin valor, marcada **pendiente**, con
-quién la pidió. Solo el usuario carga el valor. Una tool cuyos secrets
-declarados están pendientes falla CERRADA con mensaje accionable (nunca
-corre con la variable ausente). `list_secret_names` lista nombres+estado,
-nunca valores.
+An agent (Keel AI or a builder) can REQUEST that a key exist with
+`request_secret(name, why)`: it is created without a value, marked **pending**,
+with a record of who asked. Only the user loads the value. A tool whose declared
+secrets are pending fails CLOSED with an actionable message (it never runs with
+the variable absent). `list_secret_names` lists names plus state, never values.
 
-## El formulario: nombre + valor, nada más
+## The form: name and value, nothing else
 
-El nombre ES la variable de entorno, así que el campo lo dice literalmente
-("Nombre de la variable de entorno", con `LINEAR_API_KEY` de ejemplo). El
-formulario tenía además un campo "Para qué es" que leído en pantalla
-parecía un segundo casillero de nombre: pasó que el nombre real terminó
-ahí y el secret quedó registrado como `APIKEY`. Ese input ya no existe.
-`Secret.description` sigue en el modelo — es donde un agente explica por
-qué pidió la clave (`request_secret(why)`) — y se muestra como contexto de
-solo lectura ("Para qué se pidió: …"), nunca como campo a llenar.
+The name IS the environment variable, so the field says so literally
+("Environment variable name", with `LINEAR_API_KEY` as the example). The form
+also used to have a "What it is for" field that, read on screen, looked like a
+second name box: what happened is that the real name ended up in there and the
+secret got registered as `APIKEY`. That input no longer exists.
+`Secret.description` remains in the model — it is where an agent explains why it
+requested the key (`request_secret(why)`) — and is shown as read-only context
+("Requested for: …"), never as a field to fill in.
 
-Un secret que YA tiene valor no muestra un input vacío (que se lee como
-"no está guardado"): muestra `Valor cargado ••••••••` con un botón
-"Reemplazar" que recién ahí abre el campo. Enmascarado, pero visiblemente
-presente.
+A secret that ALREADY has a value does not show an empty input (which reads as
+"not saved"): it shows `Value loaded ••••••••` with a "Replace" button that only
+then opens the field. Masked, but visibly present.
 
-## Dónde se carga el valor
+## Where the value is loaded
 
-Hay UN solo formulario de credencial (`SecretFormScreen`) y todas las
-superficies rutean a él, así que "tengo la clave pero no sé dónde va" no
-tiene lugar donde pasar:
+There is ONE credential form (`SecretFormScreen`) and every surface routes to
+it, so "I have the key but I don't know where it goes" has nowhere to happen:
 
-- Pantalla Secrets (icono llave del rail): registro completo.
-- `SecretMultiSelect` — la sección "Secrets (env)" de los formularios de
-  tool y de MCP: la misma fila que otorga el secret lo **carga** cuando
-  está pendiente (botón «Cargar valor»), le **cambia el valor** cuando ya
-  tiene, y lo **elimina** (confirmación compartida, `confirmDeleteSecret`);
-  al eliminarlo suelta también el permiso en el formulario abierto.
+- The Secrets screen (key icon on the rail): the full registry.
+- `SecretMultiSelect` — the "Secrets (env)" section of the tool and MCP forms:
+  the same row that grants the secret **loads** it when pending ("Load value"
+  button), **changes its value** when it already has one, and **deletes** it
+  (shared confirmation, `confirmDeleteSecret`); deleting also releases the grant
+  in the open form.
 
-Antes de guardar, el picker avisa qué secrets marcados NO se van a
-inyectar: los **pendientes** (falta el valor) y los **faltantes** (permiso
-colgado de un secret eliminado, con acción para soltarlo). En la lista de
-Integraciones MCP, `PendingSecretsBadge` marca "falta la clave" en el MCP
-que declara un secret sin resolver — la diferencia entre registrado y
-usable se ve sin abrir el formulario.
+Before saving, the picker warns which checked secrets will NOT be injected: the
+**pending** ones (value missing) and the **missing** ones (a grant left hanging
+from a deleted secret, with an action to release it). In the MCP integrations
+list, `PendingSecretsBadge` marks "key missing" on an MCP that declares an
+unresolved secret — the difference between registered and usable is visible
+without opening the form.
 
-## Anti-leak `ps`
+## `ps` leak prevention
 
-Desde este feature el `--mcp-config` de CADA turno (1:1 y proyectos) se
-escribe a un ARCHIVO temporal en un directorio 0700 y se pasa la ruta al
-CLI, en vez de JSON inline en argv (visible en `ps`). El directorio se borra
-al terminar el turno. Aplica en `ClaudeCliService` y en el isolate del
-task_runner.
+Since this feature, the `--mcp-config` of EVERY turn (1:1 and projects) is
+written to a temporary FILE in a 0700 directory and the path is passed to the
+CLI, instead of inline JSON in argv (visible in `ps`). The directory is deleted
+when the turn ends. This applies in `ClaudeCliService` and in the task_runner
+isolate.
 
-## Almacenamiento
+## Storage
 
-LMDB local (prefijo `secret_`), mismo storage que el resto del catálogo.
-Los secrets NUNCA entran al catálogo portable, y sus VALORES nunca entran
-al vault (F21) — solo al respaldo en un archivo, con opt-in (F20). `Secret.toString()`
-no imprime el valor.
+Local LMDB (prefix `secret_`), the same storage as the rest of the catalog.
+Secrets NEVER enter the portable catalog, and their VALUES never enter the vault
+(F21) — only the single-file backup, with an opt-in (F20). `Secret.toString()`
+does not print the value.

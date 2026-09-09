@@ -134,120 +134,53 @@ final _workflow = Workflow(
     requiredRuleNames: ['approval-gate', 'evidence-first'],
     requiredKnowledgeBaseNames: ['product-handbook', 'release-notes'],
   ),
+  // The four-node template F48 documents, not the eleven-node shape that
+  // preceded it: the lint now errors above eight required nodes and the
+  // correction nodes were removed (a NO-GO returns the audited node alone).
+  // Eleven rows also pushed the workflow's skills, rules, and knowledge below
+  // the panel's fold, hiding the half of the panel that explains what the
+  // agents are working with.
   capabilities: const [
     WorkflowCapability(
-      id: 'planner',
+      id: 'plan',
       title: 'Plan the delivery',
       instruction: 'Define scope, constraints, and acceptance evidence.',
       role: 'builder',
-      maxAgenticTurns: 4,
+      maxAgenticTurns: 6,
+      readOnly: true,
       outputContract: 'A concise delivery plan with evidence.',
     ),
     WorkflowCapability(
-      id: 'research',
-      title: 'Explore product impact',
-      instruction: 'Identify affected behavior and risks.',
-      role: 'researcher',
-      dependencyIds: ['planner'],
-      maxAgenticTurns: 3,
-      outputContract: 'Impact findings with source evidence.',
-    ),
-    WorkflowCapability(
-      id: 'implementation',
+      id: 'implement',
       title: 'Implement with evidence',
-      instruction: 'Make the smallest correct change.',
+      instruction: 'Apply the change and leave the evidence that proves it.',
       role: 'builder',
-      dependencyIds: ['planner'],
-      maxAgenticTurns: 8,
-      outputContract: 'Working change and focused evidence.',
+      dependencyIds: ['plan'],
+      maxAgenticTurns: 20,
+      outputContract: 'The change, with the evidence that validates it.',
     ),
     WorkflowCapability(
-      id: 'code-audit',
-      title: 'Audit code',
-      instruction: 'Review the change without modifying files.',
+      id: 'audit',
+      title: 'Audit the change',
+      instruction: 'Verify against the code and return a verdict.',
       role: 'auditor',
-      dependencyIds: ['implementation'],
-      executor: WorkflowExecutor.providerSubagent,
-      parentCapabilityId: 'implementation',
-      maxAgenticTurns: 3,
+      dependencyIds: ['implement'],
+      maxAgenticTurns: 6,
       readOnly: true,
-      outputContract: 'Verdict, findings, evidence, and next actions.',
+      requiresIndependentOwner: true,
+      outputContract: 'audit-feedback',
     ),
     WorkflowCapability(
-      id: 'code-correction',
-      title: 'Resolve code findings',
-      instruction: 'Resolve the complete audit report in the parent session.',
+      id: 'deliver',
+      title: 'Deliver as a draft PR',
+      instruction: 'Open the pull request and leave its URL in the thread.',
       role: 'builder',
-      dependencyIds: ['code-audit'],
+      dependencyIds: ['audit'],
       executor: WorkflowExecutor.resumeParent,
-      parentCapabilityId: 'implementation',
-      maxAgenticTurns: 5,
-      outputContract: 'Resolved findings and updated evidence.',
-    ),
-    WorkflowCapability(
-      id: 'tests',
-      title: 'Prove the outcome',
-      instruction: 'Create and run focused tests.',
-      role: 'tester',
-      dependencyIds: ['code-correction'],
-      executor: WorkflowExecutor.resumeParent,
-      parentCapabilityId: 'implementation',
-      maxAgenticTurns: 5,
-      outputContract: 'Focused test evidence.',
-    ),
-    WorkflowCapability(
-      id: 'test-audit',
-      title: 'Audit tests',
-      instruction: 'Review test coverage without modifying files.',
-      role: 'auditor',
-      dependencyIds: ['tests'],
-      executor: WorkflowExecutor.providerSubagent,
-      parentCapabilityId: 'implementation',
-      maxAgenticTurns: 3,
-      readOnly: true,
-      outputContract: 'Test review verdict and findings.',
-    ),
-    WorkflowCapability(
-      id: 'test-correction',
-      title: 'Resolve test findings',
-      instruction: 'Resolve findings in the parent implementation session.',
-      role: 'builder',
-      dependencyIds: ['test-audit'],
-      executor: WorkflowExecutor.resumeParent,
-      parentCapabilityId: 'implementation',
-      maxAgenticTurns: 4,
-      outputContract: 'Corrected tests and evidence.',
-    ),
-    WorkflowCapability(
-      id: 'verification',
-      title: 'Verify quality gates',
-      instruction: 'Run required gates and record their evidence.',
-      role: 'builder',
-      dependencyIds: ['test-correction'],
-      executor: WorkflowExecutor.resumeParent,
-      parentCapabilityId: 'implementation',
-      maxAgenticTurns: 4,
-      outputContract: 'Quality-gate evidence.',
-    ),
-    WorkflowCapability(
-      id: 'publish-approval',
-      title: 'Approve publication',
-      instruction: 'Wait for explicit user approval before external actions.',
-      role: 'builder',
-      dependencyIds: ['verification'],
-      executor: WorkflowExecutor.manualApproval,
-      outputContract: 'Explicit publication approval.',
-    ),
-    WorkflowCapability(
-      id: 'publish',
-      title: 'Publish',
-      instruction: 'Publish only after explicit approval.',
-      role: 'builder',
-      dependencyIds: ['publish-approval'],
-      executor: WorkflowExecutor.resumeParent,
-      parentCapabilityId: 'implementation',
-      maxAgenticTurns: 4,
-      outputContract: 'Publication evidence.',
+      parentCapabilityId: 'implement',
+      maxAgenticTurns: 6,
+      approvalRequired: true,
+      outputContract: 'The draft PR URL.',
     ),
   ],
 );
@@ -277,51 +210,47 @@ final _session = Session(
     status: ResolutionCaseStatus.active,
     nodes: [
       WorkNode(
-        id: 'planner',
+        id: 'plan',
         kind: WorkNodeKind.triage,
         ownerRole: 'builder',
         ownerProfileId: 'builder',
         status: WorkNodeStatus.done,
-        title: 'Plan and scope',
+        title: 'Plan the delivery',
       ),
       WorkNode(
-        id: 'research',
-        kind: WorkNodeKind.impact,
-        ownerRole: 'researcher',
-        ownerProfileId: 'researcher',
-        dependencyIds: ['planner'],
-        status: WorkNodeStatus.done,
-        title: 'Explore product impact',
-      ),
-      WorkNode(
-        id: 'implementation',
+        id: 'implement',
         kind: WorkNodeKind.implementation,
         ownerRole: 'builder',
         ownerProfileId: 'builder',
-        dependencyIds: ['planner'],
+        dependencyIds: ['plan'],
         status: WorkNodeStatus.running,
         title: 'Implement with evidence',
       ),
       WorkNode(
-        id: 'code-audit',
+        id: 'audit',
         kind: WorkNodeKind.custom,
         ownerRole: 'auditor',
         ownerProfileId: 'auditor',
-        dependencyIds: ['implementation'],
+        dependencyIds: ['implement'],
         status: WorkNodeStatus.pending,
-        title: 'Audit code',
+        title: 'Audit the change',
       ),
       WorkNode(
-        id: 'tests',
+        id: 'deliver',
         kind: WorkNodeKind.verification,
-        ownerRole: 'tester',
-        ownerProfileId: 'tester',
-        dependencyIds: ['implementation'],
+        ownerRole: 'builder',
+        ownerProfileId: 'builder',
+        dependencyIds: ['audit'],
         status: WorkNodeStatus.pending,
-        title: 'Prove the outcome',
+        title: 'Deliver as a draft PR',
       ),
     ],
   ),
+  // A full arc rather than an opening: plan, implementation, a bounded
+  // consultation, an audit that returns NO-GO, the correction it forced, the
+  // re-audit that passes, and the draft PR URL the delivery contract demands.
+  // A three-message thread left the centre of the workspace empty and showed
+  // none of the behaviour the docs describe.
   messages: [
     ChatMessage(
       role: ChatRole.user,
@@ -334,7 +263,7 @@ final _session = Session(
           'I scoped the work into an approval path, audit evidence, and release checks.',
       timestamp: _date.add(const Duration(minutes: 1)),
       authorProfileId: 'builder',
-      workNodeId: 'planner',
+      workNodeId: 'plan',
     ),
     ChatMessage(
       role: ChatRole.assistant,
@@ -342,40 +271,92 @@ final _session = Session(
           'The main risk is bypassing approval after a correction cycle. I mapped the affected states.',
       timestamp: _date.add(const Duration(minutes: 2)),
       authorProfileId: 'researcher',
-      workNodeId: 'research',
-    ),
-    ChatMessage(
-      role: ChatRole.assistant,
-      text:
-          '@orbit-auditor, which audit evidence must remain visible after resuming implementation?',
-      timestamp: _date.add(const Duration(minutes: 3)),
-      authorProfileId: 'builder',
-      workNodeId: 'implementation',
-    ),
-    ChatMessage(
-      role: ChatRole.assistant,
-      text:
-          'Keep the full report and show the review cycle counter beside the workflow.',
-      timestamp: _date.add(const Duration(minutes: 4)),
-      authorProfileId: 'auditor',
-      workNodeId: 'code-audit',
+      workNodeId: 'plan',
       consultOfProfileId: 'builder',
     ),
     ChatMessage(
       role: ChatRole.assistant,
       text:
-          'I will cover the approval gate, fallback audit, and resumed session behavior.',
+          'Approval now runs as the first guard of the publish path, and the review counter travels with the case.',
+      timestamp: _date.add(const Duration(minutes: 3)),
+      authorProfileId: 'builder',
+      workNodeId: 'implement',
+    ),
+    ChatMessage(
+      role: ChatRole.assistant,
+      text:
+          '@orbit-auditor, which audit evidence must remain visible after resuming implementation?',
+      timestamp: _date.add(const Duration(minutes: 4)),
+      authorProfileId: 'builder',
+      workNodeId: 'implement',
+    ),
+    ChatMessage(
+      role: ChatRole.assistant,
+      text:
+          'Keep the full report and show the review cycle counter beside the workflow.',
       timestamp: _date.add(const Duration(minutes: 5)),
+      authorProfileId: 'auditor',
+      workNodeId: 'implement',
+      consultOfProfileId: 'builder',
+    ),
+    ChatMessage(
+      role: ChatRole.assistant,
+      text:
+          '@pulse-tester, does the resumed session still exercise the fallback audit?',
+      timestamp: _date.add(const Duration(minutes: 6)),
+      authorProfileId: 'builder',
+      workNodeId: 'implement',
+    ),
+    ChatMessage(
+      role: ChatRole.assistant,
+      text:
+          'It does, and I will cover the approval gate and the resumed session behavior.',
+      timestamp: _date.add(const Duration(minutes: 7)),
       authorProfileId: 'tester',
-      workNodeId: 'tests',
-      consultOfProfileId: 'researcher',
+      workNodeId: 'implement',
+      consultOfProfileId: 'builder',
+    ),
+    ChatMessage(
+      role: ChatRole.assistant,
+      text:
+          'NO-GO: the guard is in place, but nothing proves it holds after a correction cycle. The missing evidence is a test that reopens approval.',
+      timestamp: _date.add(const Duration(minutes: 8)),
+      authorProfileId: 'auditor',
+      workNodeId: 'audit',
+    ),
+    ChatMessage(
+      role: ChatRole.assistant,
+      text:
+          'Added the reopening test and left its output attached to the node. The counter resets with the cycle.',
+      timestamp: _date.add(const Duration(minutes: 9)),
+      authorProfileId: 'builder',
+      workNodeId: 'implement',
+    ),
+    ChatMessage(
+      role: ChatRole.assistant,
+      text:
+          'GO: the reopening test fails without the guard and passes with it. Evidence is attached and the report stays visible.',
+      timestamp: _date.add(const Duration(minutes: 10)),
+      authorProfileId: 'auditor',
+      workNodeId: 'audit',
+    ),
+    ChatMessage(
+      role: ChatRole.assistant,
+      text:
+          'Delivered as a draft pull request, on the session branch:\n\nhttps://github.com/example-org/northstar-web/pull/312',
+      timestamp: _date.add(const Duration(minutes: 11)),
+      authorProfileId: 'builder',
+      workNodeId: 'deliver',
     ),
   ],
+  // The policy allows one subagent per node, so the fixture shows one per
+  // node instead of the six it used to fan out: a delegate lane wider than
+  // the workflow itself contradicted both the policy above and F47.
   subagents: [
     SessionSubagent(
-      id: 'audit-1',
+      id: 'audit-live',
       parentProfileId: 'builder',
-      parentWorkNodeId: 'implementation',
+      parentWorkNodeId: 'implement',
       agentType: 'code auditor',
       ask: 'Review the implementation for risk and missing evidence.',
       prompt: 'Use the focused audit contract.',
@@ -383,21 +364,32 @@ final _session = Session(
       phase: SubagentPhase.working,
       startedAt: _date,
     ),
-    for (final parent in ['planner', 'implementation', 'research'])
-      for (final number in [2, 3])
-        SessionSubagent(
-          id: '$parent-audit-$number',
-          parentProfileId: parent == 'research' ? 'researcher' : 'builder',
-          parentWorkNodeId: parent,
-          agentType: number == 2 ? 'risk reviewer' : 'evidence reviewer',
-          ask: 'Inspect $parent for missing constraints and concrete evidence.',
-          prompt: 'Return concise findings only.',
-          reasoning: 'Comparing the proposed state with the workflow contract.',
-          result: 'One actionable finding recorded.',
-          phase: SubagentPhase.done,
-          startedAt: _date,
-          finishedAt: _date.add(const Duration(minutes: 1)),
-        ),
+    SessionSubagent(
+      id: 'plan-risk',
+      parentProfileId: 'builder',
+      parentWorkNodeId: 'plan',
+      agentType: 'risk reviewer',
+      ask: 'Inspect the plan for missing constraints and concrete evidence.',
+      prompt: 'Return concise findings only.',
+      reasoning: 'Comparing the proposed state with the workflow contract.',
+      result: 'One actionable finding recorded.',
+      phase: SubagentPhase.done,
+      startedAt: _date,
+      finishedAt: _date.add(const Duration(minutes: 1)),
+    ),
+    SessionSubagent(
+      id: 'audit-evidence',
+      parentProfileId: 'auditor',
+      parentWorkNodeId: 'audit',
+      agentType: 'evidence reviewer',
+      ask: 'Check that every claim in the change has attached evidence.',
+      prompt: 'Return concise findings only.',
+      reasoning: 'Cross-reading the report against the attached test output.',
+      result: 'One actionable finding recorded.',
+      phase: SubagentPhase.done,
+      startedAt: _date,
+      finishedAt: _date.add(const Duration(minutes: 2)),
+    ),
   ],
 );
 
@@ -624,12 +616,15 @@ void main() {
           members: _members,
           workflow: _workflow,
           initiallyExpandedParents: const {
-            'node:planner',
-            'node:implementation',
-            'node:research',
+            'node:plan',
+            'node:implement',
+            'node:audit',
           },
         ),
       ),
+      // The graph reaches roughly 1100x820 with four trunk nodes and their
+      // trees. A 1440x960 canvas left a quarter of the image as empty grid.
+      size: const Size(1220, 880),
     );
     await expectLater(
       find.byType(SessionMapView),
@@ -662,7 +657,14 @@ void main() {
       await _goldenSurface(
         tester,
         const AgentsScreen(),
-        size: const Size(2624, 1960),
+        // A real Keel window, not an oversized canvas: devicePixelRatio is 1,
+        // so this Size is logical pixels. 2624x1960 rendered the whole app at
+        // a size no display has, which shrank every label relative to the
+        // canvas and left the thread stranded at the bottom of a mostly empty
+        // centre. 1728x1080 is a MacBook Pro 14" scaled resolution, so the
+        // centre column gets the same ~1160x900 the chat golden already
+        // proves reads well.
+        size: const Size(1728, 1080),
       );
       await tester.pump(const Duration(seconds: 1));
       await expectLater(

@@ -2,20 +2,20 @@
 
 ## Registered agents (profiles)
 
-An `AgentProfile` is a reusable identity: unique handle across the app (`@flutter-expert`), role (`implementer`, `auditor`, `planner`...), system prompt, model and effort by default, and provider (`claude` or `codex`). Registered once and reused in all projects where needed. The handle says **who they are**; the role says **what role they fill** in a workflow — they are different axes, and that's what lets the same role be filled by an agent of any stack depending on the project ([see root README](../../README.md), [F18](../features/18-motor-por-proyecto.md)).
+An `AgentProfile` is a reusable identity: unique handle across the app (`@nova-builder`), role (`implementer`, `auditor`, `planner`...), system prompt, model and effort by default, and provider (`claude` or `codex`). Registered once and reused in all projects where needed. The handle says **who they are**; the role says **what role they fill** in a workflow — they are different axes, and that's what lets the same role be filled by an agent of any stack depending on the project ([see root README](../../README.md), [F18](../features/18-engine-per-project.md)).
 
-A profile can be marked as a **constructor** (`canManageSystem`): its 1:1 chats receive the same admin MCP as Keel AI (create skills, rules, tools, agents, workflows, projects), and the grant is verified live per turn, so revoking it applies from the next turn on. Useful to delegate system setup to a specialist who interviews the person ([see F2](../features/02-keelai-compilado-y-constructores.md)).
+A profile can be marked as a **constructor** (`canManageSystem`): its 1:1 chats receive the same admin MCP as Keel AI (create skills, rules, tools, agents, workflows, projects), and the grant is verified live per turn, so revoking it applies from the next turn on. Useful to delegate system setup to a specialist who interviews the person ([see F2](../features/02-compiled-keelai-and-builders.md)).
 
 ## Skills: text injected into the prompt
 
 A skill is name + content, and is injected as-is into the system prompt of whoever has it assigned. Can be:
 
-- **global** — injected into **all** agents every turn, without needing to assign it to anyone: 1:1 chats and project members alike. The use criterion is norms or knowledge that apply to the whole system (style, business context) — not specialties of one specific role, which keep being skills explicitly assigned ([see F3](../features/03-skills-globales.md));
-- **assigned** — to a specific agent, or required by the active workflow and validated in preflight ([see F37](../features/37-un-workflow-por-sesion.md)).
+- **global** — injected into **all** agents every turn, without needing to assign it to anyone: 1:1 chats and project members alike. The use criterion is norms or knowledge that apply to the whole system (style, business context) — not specialties of one specific role, which keep being skills explicitly assigned ([see F3](../features/03-global-skills.md));
+- **assigned** — to a specific agent, or required by the active workflow and validated in preflight ([see F37](../features/37-adaptive-workflow-per-session.md)).
 
-Every global skill travels complete in every turn of every agent — prompt cache cheapens it but it's not free, so keep them few and short ([see F3](../features/03-skills-globales.md)).
+Every global skill travels complete in every turn of every agent — prompt cache cheapens it but it's not free, so keep them few and short ([see F3](../features/03-global-skills.md)).
 
-The system also **detects repeated requests** without using any model (deterministic clustering on what the person writes) and suggests converting them to a global skill — a band on the Skills screen offers to create or dismiss the suggestion ([see F10](../features/10-sugerencias-skills.md)).
+The system also **detects repeated requests** without using any model (deterministic clustering on what the person writes) and suggests converting them to a global skill — a band on the Skills screen offers to create or dismiss the suggestion ([see F10](../features/10-recurring-skill-suggestions.md)).
 
 ## Rules: same form as a skill, different purpose
 
@@ -65,18 +65,18 @@ From the point this was implemented on, every turn's MCP configuration is writte
 
 ## Knowledge bases: the map, not the full territory
 
-A knowledge base is documentation with its own name — a git repo or a local folder — that a project declares it sees. Each project sees only its own. An agent can have a base attached directly to its card (the "oracle" case: an agent whose job is to answer from a base, usable in 1:1 chat outside any project) ([see F16](../features/16-bases-de-saber.md)).
+A knowledge base is documentation with its own name — a git repo or a local folder — that a project declares it sees. Each project sees only its own. An agent can have a base attached directly to its card (the "oracle" case: an agent whose job is to answer from a base, usable in 1:1 chat outside any project) ([see F16](../features/16-knowledge-bases.md)).
 
 What reaches a turn **is not the base's content**, it's a fixed-size summary — doesn't matter if the base has 60 documents or 6,000:
 
 ```
-Knowledge base "NUI" — API contracts, domain, and processes of NUI Markets.
-Root: /Users/…/knowledge/NUI  (63 documents)
+Knowledge base "ATLAS" — API contracts, domain, and processes of the Atlas platform.
+Root: /Users/…/knowledge/ATLAS  (63 documents)
   api/ (14) · domain/ (9) · processes/ (7) · release/ (3)
 Search here with Grep/Read when you need a project fact.
 ```
 
-If the base's root has an `INDEX.md`, its content is injected too (capped for size) — it's the cover that turns "knows where to look" into "knows what to look for". No special MCP tool needed to read: file tools are always allowed, so this works the same with claude and codex ([see F16](../features/16-bases-de-saber.md)).
+If the base's root has an `INDEX.md`, its content is injected too (capped for size) — it's the cover that turns "knows where to look" into "knows what to look for". No special MCP tool needed to read: file tools are always allowed, so this works the same with claude and codex ([see F16](../features/16-knowledge-bases.md)).
 
 ```mermaid
 flowchart LR

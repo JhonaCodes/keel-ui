@@ -37,19 +37,19 @@ UI are all addressed.
 
 ## b) One project asks another for something via an internal requirement
 
-Scenario: `aulamas-app` needs an endpoint that lives in `connect-api`, a different project, managed by another team (or another role) in the same org.
+Scenario: `northstar-web` needs an endpoint that lives in `horizon-api`, a different project, managed by another team (or another role) in the same org.
 
 ```mermaid
 sequenceDiagram
-    actor U as User (in aulamas-app)
-    participant AA as Session in aulamas-app
+    actor U as User (in northstar-web)
+    participant AA as Session in northstar-web
     participant REQ as REQ-0007
-    participant CA as New session in connect-api
+    participant CA as New session in horizon-api
 
     U->>AA: "We need offers filtered by institution"
     AA->>AA: checks its own roadmap, finds no endpoint
     AA->>REQ: create_requirement(need, context)
-    Note over REQ: connect-api IS registered as a project → created
+    Note over REQ: horizon-api IS registered as a project → created
     REQ-->>U: appears in Requirements, state "open"
 
     Note over U,CA: destination decides when to take — could be time
@@ -59,18 +59,18 @@ sequenceDiagram
     CA->>REQ: record_verdict(blocked, "need to migrate the institution model first")
     deactivate CA
 
-    REQ-->>AA: aulamas-app sees the verdict, without getting repo access
-    Note over AA: aulamas-app keeps with other tasks meanwhile
+    REQ-->>AA: northstar-web sees the verdict, without getting repo access
+    Note over AA: northstar-web keeps with other tasks meanwhile
 
     Note over CA: in another session, later
     CA->>CA: migrates the model, implements the endpoint
     CA->>REQ: reply_requirement("Done, GET /v2/offers?institution_id=")
     CA->>REQ: request_closure("implemented and in production")
 
-    U->>REQ: close_requirement — only aulamas-app can
+    U->>REQ: close_requirement — only northstar-web can
 ```
 
-Key points: both threads, both plans, both folders never mix — the only thing crossing is the requirement ([F26](../features/26-requerimientos-internos.md)); taking opens a **new session**, doesn't reuse origin context; and **closing is always who opened it**'s decision, verified mechanically by the MCP server URL delivered to that turn, not by a prompt instruction the model could disobey — see the complete detail in [05 — Multiple projects](05-multiple-projects.md#internal-requirements-ask-another-project-for-work).
+Key points: both threads, both plans, both folders never mix — the only thing crossing is the requirement ([F26](../features/26-internal-requirements.md)); taking opens a **new session**, doesn't reuse origin context; and **closing is always who opened it**'s decision, verified mechanically by the MCP server URL delivered to that turn, not by a prompt instruction the model could disobey — see the complete detail in [05 — Multiple projects](05-multiple-projects.md#internal-requirements-ask-another-project-for-work).
 
 ## c) Build a new agent, assign skills and MCPs, export it, and use it on another machine
 
@@ -111,7 +111,7 @@ flowchart TD
     Zip --> B1
 ```
 
-Key points: an agent package includes **everything** it needs to work the same on the other side — skills, rule, MCP — but **never** the secret's value, only its name ([F33](../features/33-paquetes.md)); security review runs both on export (so who exports doesn't send a personal path by accident) and on import; and final install is the same "create or update by name" mechanism that vault and file backup use — one entry point to the catalog, not three different implementations ([F33](../features/33-paquetes.md)).
+Key points: an agent package includes **everything** it needs to work the same on the other side — skills, rule, MCP — but **never** the secret's value, only its name ([F33](../features/33-packages.md)); security review runs both on export (so who exports doesn't send a personal path by accident) and on import; and final install is the same "create or update by name" mechanism that vault and file backup use — one entry point to the catalog, not three different implementations ([F33](../features/33-packages.md)).
 
 See the complete detail of each piece in [08 — Import, export, and packages](08-import-export-and-packages.md).
 

@@ -95,7 +95,7 @@ references written by older versions.
 Worktree detection, draft-PR delivery, and the `TASKS/` roadmap remain project
 capabilities. They are not execution phases: an adaptive node uses them only
 when its evidence requires them. See [F34](../features/34-worktrees.md),
-[F19](../features/19-enlaces-y-pr.md), and [F23](../features/23-roadmap-de-tareas.md).
+[F19](../features/19-links-and-session-pr.md), and [F23](../features/23-project-roadmap.md).
 
 ## Next step
 

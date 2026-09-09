@@ -2133,4 +2133,299 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get noAgentsDescription =>
       'Register one to make it available everywhere: for direct conversations, projects, and workflow steps that find agents by role.';
+
+  @override
+  String get sidebarSectionProjects => 'Projects';
+
+  @override
+  String get sidebarSectionSessions => 'Sessions';
+
+  @override
+  String get sidebarSectionStatus => 'Status';
+
+  @override
+  String get sidebarSectionLooseAgents => 'LOOSE AGENTS';
+
+  @override
+  String get sidebarTooltipManageAgents => 'Register or edit agents';
+
+  @override
+  String get sidebarTooltipUseAgent => 'Use a registered agent';
+
+  @override
+  String get sidebarTooltipManageProjects => 'Manage projects';
+
+  @override
+  String get sidebarTooltipNewProject => 'New project';
+
+  @override
+  String get sidebarHintProjectName => 'Project name';
+
+  @override
+  String get sidebarTooltipReadOnlyProject => 'I do not maintain it: read-only';
+
+  @override
+  String get sidebarTooltipOneSessionWorking => 'One session working';
+
+  @override
+  String sidebarTooltipSessionsWorking(int count) {
+    return '$count sessions working';
+  }
+
+  @override
+  String get sidebarSectionBoards => 'Boards';
+
+  @override
+  String get sidebarNewBoard => 'New board';
+
+  @override
+  String get sidebarTooltipDeleteBoard => 'Delete board';
+
+  @override
+  String get sidebarSectionRequirements => 'REQUIREMENTS';
+
+  @override
+  String get sidebarTooltipAllRequirements => 'All requirements';
+
+  @override
+  String get sidebarTooltipOpenRequirement => 'Open a requirement';
+
+  @override
+  String get sidebarRequirementsEmpty =>
+      'None. They show up here when one project needs something from another.';
+
+  @override
+  String get panelTitleInProgress => 'WORKFLOW IN PROGRESS';
+
+  @override
+  String get panelNoWorkflowSelected =>
+      'This project has no workflow selected.';
+
+  @override
+  String panelProgressOf(int done, int active) {
+    return '$done of $active';
+  }
+
+  @override
+  String panelReviewCycles(int done, int max) {
+    return 'audits $done/$max';
+  }
+
+  @override
+  String get panelSectionSkills => 'Skills';
+
+  @override
+  String get panelSectionRules => 'Rules';
+
+  @override
+  String get panelSectionKnowledge => 'Knowledge and documentation';
+
+  @override
+  String get panelAddRule => 'Add rule';
+
+  @override
+  String get panelAddKnowledge => 'Add knowledge';
+
+  @override
+  String get panelAddToProject => 'Add to this project';
+
+  @override
+  String get panelRemoveFromProject => 'Remove from this project';
+
+  @override
+  String get panelRequiredByWorkflow => 'Required by the workflow';
+
+  @override
+  String get panelMissingBlocksPreflight => 'Missing: blocks the preflight';
+
+  @override
+  String get panelActivateOptional => 'Activate this optional capability';
+
+  @override
+  String get panelChangeDefaultRole => 'Change the workflow default role';
+
+  @override
+  String get panelApproveAndContinue => 'Approve and continue';
+
+  @override
+  String panelNoAgentForRole(Object role) {
+    return 'no agent for $role';
+  }
+
+  @override
+  String panelConsultedTo(Object names) {
+    return 'consulted $names';
+  }
+
+  @override
+  String panelCoverageMatrix(int resolved, int total) {
+    return 'matrix $resolved/$total';
+  }
+
+  @override
+  String get panelChangeSharedDefault => 'Change the shared default';
+
+  @override
+  String panelUseDefaultRole(Object role) {
+    return 'Use default ($role)';
+  }
+
+  @override
+  String get panelStateDone => 'ready';
+
+  @override
+  String get panelStateCurrent => 'now';
+
+  @override
+  String get panelStatePending => 'pending';
+
+  @override
+  String get panelStateBlocked => 'blocked';
+
+  @override
+  String get panelStateAvailable => 'available';
+
+  @override
+  String get panelStateNotRequired => 'not required';
+
+  @override
+  String get panelExecutorNewSession => 'new session';
+
+  @override
+  String get panelExecutorResumeParent => 'resumes parent session';
+
+  @override
+  String get panelExecutorSubagent => 'subagent / external fallback';
+
+  @override
+  String get panelExecutorManualApproval => 'requires manual approval';
+
+  @override
+  String get nodeKindTriage => 'Triage and contract';
+
+  @override
+  String get nodeKindImpact => 'End-to-end impact';
+
+  @override
+  String get nodeKindImplementation => 'Implementation';
+
+  @override
+  String get nodeKindVerification => 'Verification';
+
+  @override
+  String get mapNodeYou => 'you';
+
+  @override
+  String get mapNodeEnd => 'end';
+
+  @override
+  String get mapChipConsultation => 'consultation';
+
+  @override
+  String get mapChipSubagent => 'subagent';
+
+  @override
+  String get mapCountEnter => 'open';
+
+  @override
+  String get mapCalloutAsked => 'asked for';
+
+  @override
+  String get mapCalloutReturned => 'returned';
+
+  @override
+  String get mapCalloutCut => 'cut off';
+
+  @override
+  String get mapCalloutAnswered => 'answered';
+
+  @override
+  String get mapCalloutResolved => 'resolved';
+
+  @override
+  String get mapCalloutThinking => 'thinking';
+
+  @override
+  String get mapLegendOpensSubagent => 'opens a subagent';
+
+  @override
+  String get mapLegendSubagentReturned => 'the subagent returned';
+
+  @override
+  String get subagentPhaseWorking => 'working';
+
+  @override
+  String get turnPhaseWorking => 'working…';
+
+  @override
+  String get mapLegendForward => 'advances one step';
+
+  @override
+  String get mapLegendBack => 'consults another node';
+
+  @override
+  String get mapLegendAnswer => 'answers that consultation';
+
+  @override
+  String get mapLegendSpawn => 'registered it';
+
+  @override
+  String get mapLegendFinish => 'final delivery';
+
+  @override
+  String get mapLegendFailed => 'cut off';
+
+  @override
+  String get mapLegendUntraveled => 'not travelled';
+
+  @override
+  String get subagentPhaseThinking => 'thinking';
+
+  @override
+  String get subagentPhaseWriting => 'writing';
+
+  @override
+  String get subagentPhaseDone => 'finished';
+
+  @override
+  String get subagentPhaseFailed => 'failed';
+
+  @override
+  String get turnPhaseThinking => 'thinking…';
+
+  @override
+  String get turnPhaseWriting => 'writing…';
+
+  @override
+  String threadAdaptiveResolution(Object workflow) {
+    return '$workflow · adaptive resolution';
+  }
+
+  @override
+  String get threadBackToOwner => 'back to the owner';
+
+  @override
+  String threadNextNode(Object node) {
+    return 'next $node';
+  }
+
+  @override
+  String threadConsultOf(Object name) {
+    return 'consultation from $name';
+  }
+
+  @override
+  String panelAgentForNode(Object title) {
+    return 'Agent for \"$title\"';
+  }
+
+  @override
+  String panelOverrideScope(Object project) {
+    return 'This override only affects #$project. The node stores the concrete agent once the preflight passes.';
+  }
+
+  @override
+  String panelSharedChangeScope(Object workflow) {
+    return 'This changes the workflow \"$workflow\" in every project. Concrete overrides are preserved.';
+  }
 }

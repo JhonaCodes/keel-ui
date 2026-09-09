@@ -14,27 +14,67 @@ flowchart TD
   O[Resolution owner] --> N1[Triage: assigned profile]
   O --> N2[Implementation: assigned profile]
   O --> N3[Verification: assigned profile]
-  O -.Claude only; max 2.-> R[Read-only research]
-  O -.Claude only; max 2.-> I[Impact inventory]
-  O -.Claude only; max 2.-> V[Independent verification]
+  O -.workflow quota; read-only.-> R[Research]
+  O -.workflow quota; read-only.-> I[Impact inventory]
+  O -.workflow quota; read-only.-> V[Independent verification]
   R --> O
   I --> O
   V --> O
 ```
 
-## Provider policy
+## Consultation between members
 
-Subagents are optional, not a mandatory layer of coordination.
+Each companion's role is its **area of authority**. If what must be decided
+falls in someone else's area, the writer's job is to hand it over by mentioning
+their `@handle` — even when they believe they could answer it themselves. The
+specialist's answer is the authoritative one; their own would be an opinion
+shaped like a fact.
 
-- Claude may open at most the workflow limit (two by default).
-- They are limited to research, impact inventory, or verification.
-- They do not edit the workspace; their output is explicitly synthesized by
-  the owner.
-- Codex and providers without equivalent delegation run the same graph without
-  internal delegation.
+```mermaid
+sequenceDiagram
+    participant R as @nova-builder
+    participant E as @lumen-researcher
+    R->>E: mentions @lumen-researcher with ONE specific question
+    Note over E: receives only that paragraph<br>and the previous one
+    E-->>R: answers from its specialty,<br>with evidence
+    Note over E: cannot write or open<br>parallel work
+    R->>R: synthesizes and closes its node
+```
 
-Mentions between project members remain bounded consultations. They are not a
-handoff and cannot create a second writer or advance an unrelated node.
+Four rules hold that channel together:
+
+1. **A mention fires a real turn**, with its cost and its latency. Never out of
+   courtesy, always out of specialty: to greet, thank, or acknowledge, write
+   the name without the at-sign.
+2. **The question goes in its own paragraph**, next to the mention. The
+   consulted agent receives only that paragraph and the previous one; whatever
+   is not there, it does not see.
+3. **Consulting is not delegating.** The consulted agent answers and nothing
+   more: it does not write, does not open parallel work, does not become a
+   second writer. Nor is the owner of the next step mentioned to hand off work
+   — the workflow gives them the floor when the current step closes.
+4. **The companion list is complete and closed.** It is declared in full in the
+   prompt, so whoever assembles it cannot trim it, and a handle absent from the
+   channel does not exist for that turn.
+
+## Subagents: the anonymous one is forbidden
+
+The CLI knows how to open subagents on its own. Those run **outside the
+channel**, cost money, and answer to nobody the user registered, so they are
+forbidden outright: a `PreToolUse` hook on `Task` denies the call, in code and
+not in the prompt ([see F47](../features/47-subagent-quota-in-code.md)).
+The path to a specialist is declaring it and having the app register it in the
+open.
+
+What remains allowed is a **per-node quota**, declared by the workflow and only
+for bounded research, impact inventory, or independent verification. Never for
+writing: there is a single writer per case, and every result is explicitly
+synthesized in the parent node. The quota is stated to the agent up front,
+because by the time the open event arrives the CLI has already launched the
+subagent and the only remaining option would be killing the whole run.
+
+Claude uses its internal delegation when the quota allows it. Other providers
+run the same graph without internal delegation.
 
 ## Map and evidence
 
@@ -43,6 +83,12 @@ predetermined list or positional index. It renders the persisted concrete
 owner, dependencies, active state, findings, evidence, and permitted subagent
 work. A repeated role does not manufacture repeated turns; one node exists
 because the case needs that capability.
+
+## Turn closure
+
+A turn does not close on prose: the agent declares its result through
+`keel-outcome`, and the verdict, satisfied gates, and pending decisions come
+from there ([see F44](../features/44-turn-closure-and-decisions.md)).
 
 ## Failure handling
 

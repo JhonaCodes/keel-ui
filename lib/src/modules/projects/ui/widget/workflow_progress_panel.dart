@@ -1,3 +1,4 @@
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:flutter/material.dart';
 
 import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
@@ -47,11 +48,17 @@ class WorkflowProgressPanel extends StatelessWidget {
   final Workflow? workflow;
   final List<AgentProfile> members;
 
-  List<WorkflowCapability> _capabilitiesOf() {
+  List<WorkflowCapability> _capabilitiesOf(AppLocalizations t) {
     final flow = workflow;
     if (flow == null) return const [];
+    // The default titles localize only when l10n is handed in; the panel has a
+    // context, so it hands it in instead of falling back to English.
     return flow.capabilities.isEmpty
-        ? defaultWorkflowCapabilities(flow.kind, flow.policy.resolutionRole)
+        ? defaultWorkflowCapabilities(
+            flow.kind,
+            flow.policy.resolutionRole,
+            l10n: t,
+          )
         : flow.capabilities;
   }
 
@@ -88,14 +95,17 @@ class WorkflowProgressPanel extends StatelessWidget {
     return owner == null ? null : project.tuned(owner);
   }
 
-  WorkflowCapability _displayCapability(WorkflowCapability capability) {
+  WorkflowCapability _displayCapability(
+    AppLocalizations t,
+    WorkflowCapability capability,
+  ) {
     final node = _nodeOf(capability.id);
     if (node == null || node.title.isNotEmpty) return capability;
     final title = switch (node.kind) {
-      WorkNodeKind.triage => 'Triage y contrato',
-      WorkNodeKind.impact => 'Impacto end-to-end',
-      WorkNodeKind.implementation => 'Implementación',
-      WorkNodeKind.verification => 'Verificación',
+      WorkNodeKind.triage => t.nodeKindTriage,
+      WorkNodeKind.impact => t.nodeKindImpact,
+      WorkNodeKind.implementation => t.nodeKindImplementation,
+      WorkNodeKind.verification => t.nodeKindVerification,
       WorkNodeKind.custom => capability.title,
     };
     return capability.copyWith(title: title);
@@ -134,13 +144,14 @@ class WorkflowProgressPanel extends StatelessWidget {
     final picked = await showDialog<String>(
       context: context,
       builder: (context) => SimpleDialog(
-        title: Text('Agente para "${capability.title}"'),
+        title: Text(
+          AppLocalizations.of(context).panelAgentForNode(capability.title),
+        ),
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(24, 0, 24, 10),
             child: Text(
-              'Este override solo afecta #${project.name}. El nodo guardará '
-              'el agente concreto cuando pase el preflight.',
+              AppLocalizations.of(context).panelOverrideScope(project.name),
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ),
@@ -171,7 +182,7 @@ class WorkflowProgressPanel extends StatelessWidget {
   ) async {
     final flow = workflow;
     if (flow == null || !_canAssign(capability)) return;
-    final capabilities = _capabilitiesOf();
+    final capabilities = _capabilitiesOf(AppLocalizations.of(context));
     final roles = {
       for (final member in members)
         if (member.role.trim().isNotEmpty) member.role.trim(),
@@ -179,13 +190,12 @@ class WorkflowProgressPanel extends StatelessWidget {
     final picked = await showDialog<String>(
       context: context,
       builder: (context) => SimpleDialog(
-        title: const Text('Modificar default compartido'),
+        title: Text(AppLocalizations.of(context).panelChangeSharedDefault),
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(24, 0, 24, 10),
             child: Text(
-              'Este cambio modifica el workflow "${flow.name}" en todos los '
-              'proyectos. Los overrides concretos se conservan.',
+              AppLocalizations.of(context).panelSharedChangeScope(flow.name),
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ),
@@ -218,7 +228,7 @@ class WorkflowProgressPanel extends StatelessWidget {
     await openMemberEnginePanel(context, project: project, member: owner);
   }
 
-  String? _consultedIn(String nodeId) {
+  String? _consultedIn(AppLocalizations t, String nodeId) {
     final names = <String>{};
     for (final message in session?.messages ?? const []) {
       if (message.workNodeId != nodeId ||
@@ -231,7 +241,7 @@ class WorkflowProgressPanel extends StatelessWidget {
           .firstOrNull;
       if (member != null) names.add(member.name);
     }
-    return names.isEmpty ? null : 'consultó a ${names.join(', ')}';
+    return names.isEmpty ? null : t.panelConsultedTo(names.join(', '));
   }
 
   List<ResolutionFinding> _findingsOf(String nodeId) =>
@@ -252,14 +262,14 @@ class WorkflowProgressPanel extends StatelessWidget {
     ];
   }
 
-  String? _coverageOf(String capabilityId) {
+  String? _coverageOf(AppLocalizations t, String capabilityId) {
     if (capabilityId != 'impact') return null;
     final coverage = session?.resolutionCase?.coverage ?? const [];
     if (coverage.isEmpty) return null;
     final resolved = coverage
         .where((entry) => entry.status != MigrationCoverageStatus.pending)
         .length;
-    return 'matriz $resolved/${coverage.length}';
+    return t.panelCoverageMatrix(resolved, coverage.length);
   }
 
   Future<void> _activateCapability(
@@ -300,7 +310,7 @@ class WorkflowProgressPanel extends StatelessWidget {
     final picked = await showDialog<String>(
       context: context,
       builder: (context) => SimpleDialog(
-        title: const Text('Agregar regla'),
+        title: Text(AppLocalizations.of(context).panelAddRule),
         children: [
           for (final rule in rules)
             SimpleDialogOption(
@@ -323,7 +333,7 @@ class WorkflowProgressPanel extends StatelessWidget {
     final picked = await showDialog<String>(
       context: context,
       builder: (context) => SimpleDialog(
-        title: const Text('Agregar conocimiento'),
+        title: Text(AppLocalizations.of(context).panelAddKnowledge),
         children: [
           for (final base in bases)
             SimpleDialogOption(
@@ -341,7 +351,7 @@ class WorkflowProgressPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final flow = workflow;
-    final capabilities = _capabilitiesOf();
+    final capabilities = _capabilitiesOf(AppLocalizations.of(context));
     final resolution = session?.resolutionCase;
     final done =
         resolution?.nodes
@@ -380,9 +390,9 @@ class WorkflowProgressPanel extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.symmetric(vertical: 8),
       children: [
-        const _GroupHead(label: 'WORKFLOW EN CURSO'),
+        _GroupHead(label: AppLocalizations.of(context).panelTitleInProgress),
         if (flow == null)
-          const _PanelNote('Este proyecto no tiene un workflow seleccionado.')
+          _PanelNote(AppLocalizations.of(context).panelNoWorkflowSelected)
         else ...[
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 12, 10),
@@ -397,7 +407,7 @@ class WorkflowProgressPanel extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  '$done de $active',
+                  AppLocalizations.of(context).panelProgressOf(done, active),
                   style: TextStyle(
                     fontFamily: 'monospace',
                     fontSize: 10,
@@ -410,7 +420,10 @@ class WorkflowProgressPanel extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 12, 8),
             child: Text(
-              'auditorías ${resolution?.reviewCycleCount ?? 0}/${flow.policy.maxReviewCycles}',
+              AppLocalizations.of(context).panelReviewCycles(
+                resolution?.reviewCycleCount ?? 0,
+                flow.policy.maxReviewCycles,
+              ),
               style: TextStyle(
                 fontFamily: 'monospace',
                 fontSize: 9.5,
@@ -422,7 +435,10 @@ class WorkflowProgressPanel extends StatelessWidget {
             _PanelNote('Preflight bloqueado: ${preflight.errorSummary}'),
           for (var index = 0; index < capabilities.length; index++)
             _CapabilityRow(
-              capability: _displayCapability(capabilities[index]),
+              capability: _displayCapability(
+                AppLocalizations.of(context),
+                capabilities[index],
+              ),
               isLast: index == capabilities.length - 1,
               state: _stateOf(capabilities[index]),
               owner: _ownerOf(capabilities[index]),
@@ -433,10 +449,16 @@ class WorkflowProgressPanel extends StatelessWidget {
               ownerIndex: members.indexWhere(
                 (member) => member.id == _ownerOf(capabilities[index])?.id,
               ),
-              consulted: _consultedIn(capabilities[index].id),
+              consulted: _consultedIn(
+                AppLocalizations.of(context),
+                capabilities[index].id,
+              ),
               findings: _findingsOf(capabilities[index].id),
               gates: _gatesOf(capabilities[index].id),
-              coverage: _coverageOf(capabilities[index].id),
+              coverage: _coverageOf(
+                AppLocalizations.of(context),
+                capabilities[index].id,
+              ),
               canEdit: _canAssign(capabilities[index]),
               onAssign: () => _assignProjectAgent(context, capabilities[index]),
               onSharedRole: () =>
@@ -454,7 +476,7 @@ class WorkflowProgressPanel extends StatelessWidget {
             ),
         ],
         if (requiredSkills.isNotEmpty) ...[
-          const _GroupHead(label: 'Skills'),
+          _GroupHead(label: AppLocalizations.of(context).panelSectionSkills),
           for (final skill in requiredSkills)
             _BulletRow(
               label: skill,
@@ -463,7 +485,10 @@ class WorkflowProgressPanel extends StatelessWidget {
               missing: preflight?.missingSkills.contains(skill) ?? false,
             ),
         ],
-        _GroupHead(label: 'Reglas', onAdd: () => _addRule(context)),
+        _GroupHead(
+          label: AppLocalizations.of(context).panelSectionRules,
+          onAdd: () => _addRule(context),
+        ),
         for (final rule in rules)
           _BulletRow(
             label: rule,
@@ -478,7 +503,7 @@ class WorkflowProgressPanel extends StatelessWidget {
                 : null,
           ),
         _GroupHead(
-          label: 'Conocimiento y documentación',
+          label: AppLocalizations.of(context).panelSectionKnowledge,
           onAdd: () => _addKnowledge(context),
         ),
         for (final base in knowledge)
@@ -527,7 +552,7 @@ class _GroupHead extends StatelessWidget {
           ),
           if (onAdd != null)
             IconButton(
-              tooltip: 'Agregar a este proyecto',
+              tooltip: AppLocalizations.of(context).panelAddToProject,
               onPressed: onAdd,
               icon: const Icon(Icons.add, size: 15),
               constraints: const BoxConstraints.tightFor(width: 26, height: 26),
@@ -650,10 +675,10 @@ class _CapabilityRow extends StatelessWidget {
                                 : null,
                             child: Tooltip(
                               message: state == _CapabilityState.available
-                                  ? 'Activar esta capacidad opcional'
-                                  : _stateLabel(state),
+                                  ? AppLocalizations.of(context).panelActivateOptional
+                                  : _stateLabel(AppLocalizations.of(context), state),
                               child: Text(
-                                _stateLabel(state),
+                                _stateLabel(AppLocalizations.of(context), state),
                                 style: TextStyle(
                                   fontFamily: 'monospace',
                                   fontSize: 9.5,
@@ -684,7 +709,9 @@ class _CapabilityRow extends StatelessWidget {
                               onTap: canEdit ? onAssign : null,
                               child: Text(
                                 owner?.name ??
-                                    'sin agente para ${capability.role}',
+                                    AppLocalizations.of(
+                                      context,
+                                    ).panelNoAgentForRole(capability.role),
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
                                   fontFamily: 'monospace',
@@ -700,7 +727,7 @@ class _CapabilityRow extends StatelessWidget {
                             InkWell(
                               onTap: onSharedRole,
                               child: Tooltip(
-                                message: 'Modificar rol default del workflow',
+                                message: AppLocalizations.of(context).panelChangeDefaultRole,
                                 child: Icon(
                                   Icons.more_horiz,
                                   size: 15,
@@ -717,7 +744,10 @@ class _CapabilityRow extends StatelessWidget {
                           onTap: canEdit ? onTuneEngine : null,
                         ),
                       Text(
-                        _executorLabel(capability.executor),
+                        _executorLabel(
+                          AppLocalizations.of(context),
+                          capability.executor,
+                        ),
                         style: TextStyle(
                           fontFamily: 'monospace',
                           fontSize: 9.5,
@@ -728,7 +758,7 @@ class _CapabilityRow extends StatelessWidget {
                         TextButton.icon(
                           onPressed: onApprove,
                           icon: const Icon(Icons.verified_outlined, size: 15),
-                          label: const Text('Aprobar y continuar'),
+                          label: Text(AppLocalizations.of(context).panelApproveAndContinue),
                         ),
                       if (consulted != null)
                         Text(
@@ -774,21 +804,23 @@ class _CapabilityRow extends StatelessWidget {
   }
 }
 
-String _stateLabel(_CapabilityState state) => switch (state) {
-  _CapabilityState.done => 'listo',
-  _CapabilityState.current => 'ahora',
-  _CapabilityState.pending => 'pendiente',
-  _CapabilityState.blocked => 'bloqueado',
-  _CapabilityState.available => 'disponible',
-  _CapabilityState.notRequired => 'no requerido',
-};
+String _stateLabel(AppLocalizations t, _CapabilityState state) =>
+    switch (state) {
+      _CapabilityState.done => t.panelStateDone,
+      _CapabilityState.current => t.panelStateCurrent,
+      _CapabilityState.pending => t.panelStatePending,
+      _CapabilityState.blocked => t.panelStateBlocked,
+      _CapabilityState.available => t.panelStateAvailable,
+      _CapabilityState.notRequired => t.panelStateNotRequired,
+    };
 
-String _executorLabel(WorkflowExecutor executor) => switch (executor) {
-  WorkflowExecutor.newSession => 'sesión nueva',
-  WorkflowExecutor.resumeParent => 'reanuda sesión padre',
-  WorkflowExecutor.providerSubagent => 'subagente / fallback externo',
-  WorkflowExecutor.manualApproval => 'requiere aprobación manual',
-};
+String _executorLabel(AppLocalizations t, WorkflowExecutor executor) =>
+    switch (executor) {
+      WorkflowExecutor.newSession => t.panelExecutorNewSession,
+      WorkflowExecutor.resumeParent => t.panelExecutorResumeParent,
+      WorkflowExecutor.providerSubagent => t.panelExecutorSubagent,
+      WorkflowExecutor.manualApproval => t.panelExecutorManualApproval,
+    };
 
 class _EngineLine extends StatelessWidget {
   const _EngineLine({
@@ -873,17 +905,17 @@ class _BulletRow extends StatelessWidget {
           ),
           if (required)
             Tooltip(
-              message: 'Requerido por el workflow',
+              message: AppLocalizations.of(context).panelRequiredByWorkflow,
               child: Icon(Icons.lock_outline, size: 12, color: scheme.outline),
             ),
           if (missing)
             Tooltip(
-              message: 'Faltante: bloquea el preflight',
+              message: AppLocalizations.of(context).panelMissingBlocksPreflight,
               child: Icon(Icons.error_outline, size: 13, color: scheme.error),
             ),
           if (onRemove != null)
             IconButton(
-              tooltip: 'Quitar de este proyecto',
+              tooltip: AppLocalizations.of(context).panelRemoveFromProject,
               onPressed: onRemove,
               icon: const Icon(Icons.close, size: 13),
               constraints: const BoxConstraints.tightFor(width: 26, height: 26),

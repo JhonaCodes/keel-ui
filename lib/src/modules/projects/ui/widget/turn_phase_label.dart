@@ -1,3 +1,4 @@
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:flutter/material.dart';
 
 import 'package:keel_ui/src/modules/projects/model/session_live_turn.dart';
@@ -49,11 +50,12 @@ class _TurnPhaseLabelState extends State<TurnPhaseLabel>
     TurnPhase.working => Icons.bolt_outlined,
   };
 
-  static String labelFor(TurnPhase phase) => switch (phase) {
-    TurnPhase.thinking => 'pensando…',
-    TurnPhase.writing => 'escribiendo…',
-    TurnPhase.working => 'trabajando…',
-  };
+  static String labelFor(AppLocalizations t, TurnPhase phase) =>
+      switch (phase) {
+        TurnPhase.thinking => t.turnPhaseThinking,
+        TurnPhase.writing => t.turnPhaseWriting,
+        TurnPhase.working => t.turnPhaseWorking,
+      };
 
   @override
   Widget build(BuildContext context) {
@@ -72,7 +74,7 @@ class _TurnPhaseLabelState extends State<TurnPhaseLabel>
           const SizedBox(width: 6),
           Flexible(
             child: Text(
-              labelFor(widget.phase),
+              labelFor(AppLocalizations.of(context), widget.phase),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(

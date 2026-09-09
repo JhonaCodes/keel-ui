@@ -2,7 +2,7 @@
 
 ## In one sentence
 
-Keel is a macOS desktop app that wraps the **local CLI** of Claude and Codex — it doesn't talk to any proprietary API, it runs the same binary you'd use in a terminal, with the same login and the same subscription — and adds everything needed to coordinate multiple agents, multiple projects, and a large team without one person having to carry the context in their head.
+Keel is a desktop app — macOS and Linux x86_64 — that wraps the **local CLI** of Claude and Codex: it runs the same binary you'd use in a terminal, with the same login and the same subscription. An agent can additionally run against an OpenAI-compatible API (OpenRouter, DeepSeek) when its secret is configured. What does not exist is a Keel backend: no proprietary API, no account, nothing to upload. On top of that, the app adds everything needed to coordinate multiple agents, multiple projects, and a large team without one person having to carry the context in their head.
 
 What Keel adds is not the model. It is **who your agents are, what each one knows, in what order they speak, what each can touch, and what is written down when they finish**.
 
@@ -62,13 +62,13 @@ flowchart TD
 - **Skills and rules** — text injected as-is into the prompt of whoever has them assigned. Skills are knowledge; rules are norms.
 - **Project** — a working directory, its member agents, its own rules, and its knowledge bases. The granularity is the repo.
 - **Session** — a unit of work inside a project, with its own thread. Two sessions of the same project don't see each other.
-- **Adaptive workflow** — intent, case type, resolution owner, mandatory context, quality gates, and bounded reformulation. It belongs to the **session**, not the project; the engine derives a minimal graph rather than an ordered agent chain ([see F37](../features/37-un-workflow-por-sesion.md)).
+- **Adaptive workflow** — intent, case type, resolution owner, mandatory context, quality gates, and bounded reformulation. It belongs to the **session**, not the project; the engine derives a minimal graph rather than an ordered agent chain ([see F37](../features/37-adaptive-workflow-per-session.md)).
 
 ## Keel AI, the agent that administers the system
 
-There is a reserved agent, `keelai`, that lives in its own operating system window and knows how the app is built — its map is re-synced at each startup from the code, so it never describes a version of the app that no longer exists ([see F1](../features/01-ventana-asistente.md), [F2](../features/02-keelai-compilado-y-constructores.md)).
+There is a reserved agent, `keelai`, that lives in its own operating system window and knows how the app is built — its map is re-synced at each startup from the code, so it never describes a version of the app that no longer exists ([see F1](../features/01-assistant-window.md), [F2](../features/02-compiled-keelai-and-builders.md)).
 
-It is not a help chat: it has real tools. Ask it "build me a project for the billing repo with a Flutter implementer and an auditor" and it creates it for real — the profile, the skills, the workflow, the project — while the main window updates live. And it can **read** the state of the system, not just create: list what exists, see the complete content of a skill or an agent, and fix without deleting and recreating ([see F15](../features/15-keelai-ojos-abiertos.md)).
+It is not a help chat: it has real tools. Ask it "build me a project for the billing repo with a Flutter implementer and an auditor" and it creates it for real — the profile, the skills, the workflow, the project — while the main window updates live. And it can **read** the state of the system, not just create: list what exists, see the complete content of a skill or an agent, and fix without deleting and recreating ([see F15](../features/15-keelai-full-catalog.md)).
 
 ## What runs underneath
 

@@ -70,6 +70,11 @@ void main() {
   ) async {
     await tester.pumpWidget(
       MaterialApp(
+        // The widgets under test read AppLocalizations; without the
+        // delegates `AppLocalizations.of` returns null and build throws.
+        locale: const Locale('es'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(body: RequirementThreadView(requirement: requirement)),
       ),
     );

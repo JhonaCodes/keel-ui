@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
+
 import 'package:keel_ui/src/core/services/local_database.dart';
 import 'package:keel_ui/src/core/ui/app_theme.dart';
 import 'package:keel_ui/src/integrations/catalog_bundle/catalog_bundle.dart';
@@ -35,6 +37,11 @@ void _load(BundleContents contents) {
 }
 
 Widget _app(Widget child) => MaterialApp(
+  // The widgets under test read AppLocalizations; without the
+  // delegates `AppLocalizations.of` returns null and build throws.
+  locale: const Locale('es'),
+  localizationsDelegates: AppLocalizations.localizationsDelegates,
+  supportedLocales: AppLocalizations.supportedLocales,
   theme: buildAppTheme(),
   home: SizedBox(width: 860, height: 900, child: child),
 );

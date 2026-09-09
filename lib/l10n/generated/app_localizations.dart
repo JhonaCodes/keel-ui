@@ -3692,6 +3692,540 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Register one to make it available everywhere: for direct conversations, projects, and workflow steps that find agents by role.'**
   String get noAgentsDescription;
+
+  /// Sidebar string: sidebarSectionProjects
+  ///
+  /// In en, this message translates to:
+  /// **'Projects'**
+  String get sidebarSectionProjects;
+
+  /// Sidebar string: sidebarSectionSessions
+  ///
+  /// In en, this message translates to:
+  /// **'Sessions'**
+  String get sidebarSectionSessions;
+
+  /// Sidebar string: sidebarSectionStatus
+  ///
+  /// In en, this message translates to:
+  /// **'Status'**
+  String get sidebarSectionStatus;
+
+  /// Sidebar string: sidebarSectionLooseAgents
+  ///
+  /// In en, this message translates to:
+  /// **'LOOSE AGENTS'**
+  String get sidebarSectionLooseAgents;
+
+  /// Sidebar string: sidebarTooltipManageAgents
+  ///
+  /// In en, this message translates to:
+  /// **'Register or edit agents'**
+  String get sidebarTooltipManageAgents;
+
+  /// Sidebar string: sidebarTooltipUseAgent
+  ///
+  /// In en, this message translates to:
+  /// **'Use a registered agent'**
+  String get sidebarTooltipUseAgent;
+
+  /// Sidebar string: sidebarTooltipManageProjects
+  ///
+  /// In en, this message translates to:
+  /// **'Manage projects'**
+  String get sidebarTooltipManageProjects;
+
+  /// Sidebar string: sidebarTooltipNewProject
+  ///
+  /// In en, this message translates to:
+  /// **'New project'**
+  String get sidebarTooltipNewProject;
+
+  /// Sidebar string: sidebarHintProjectName
+  ///
+  /// In en, this message translates to:
+  /// **'Project name'**
+  String get sidebarHintProjectName;
+
+  /// Sidebar string: sidebarTooltipReadOnlyProject
+  ///
+  /// In en, this message translates to:
+  /// **'I do not maintain it: read-only'**
+  String get sidebarTooltipReadOnlyProject;
+
+  /// Sidebar string: sidebarTooltipOneSessionWorking
+  ///
+  /// In en, this message translates to:
+  /// **'One session working'**
+  String get sidebarTooltipOneSessionWorking;
+
+  /// Sidebar string: sidebarTooltipSessionsWorking
+  ///
+  /// In en, this message translates to:
+  /// **'{count} sessions working'**
+  String sidebarTooltipSessionsWorking(int count);
+
+  /// Sidebar string: sidebarSectionBoards
+  ///
+  /// In en, this message translates to:
+  /// **'Boards'**
+  String get sidebarSectionBoards;
+
+  /// Sidebar string: sidebarNewBoard
+  ///
+  /// In en, this message translates to:
+  /// **'New board'**
+  String get sidebarNewBoard;
+
+  /// Sidebar string: sidebarTooltipDeleteBoard
+  ///
+  /// In en, this message translates to:
+  /// **'Delete board'**
+  String get sidebarTooltipDeleteBoard;
+
+  /// Sidebar string: sidebarSectionRequirements
+  ///
+  /// In en, this message translates to:
+  /// **'REQUIREMENTS'**
+  String get sidebarSectionRequirements;
+
+  /// Sidebar string: sidebarTooltipAllRequirements
+  ///
+  /// In en, this message translates to:
+  /// **'All requirements'**
+  String get sidebarTooltipAllRequirements;
+
+  /// Sidebar string: sidebarTooltipOpenRequirement
+  ///
+  /// In en, this message translates to:
+  /// **'Open a requirement'**
+  String get sidebarTooltipOpenRequirement;
+
+  /// Sidebar string: sidebarRequirementsEmpty
+  ///
+  /// In en, this message translates to:
+  /// **'None. They show up here when one project needs something from another.'**
+  String get sidebarRequirementsEmpty;
+
+  /// Workflow panel string: panelTitleInProgress
+  ///
+  /// In en, this message translates to:
+  /// **'WORKFLOW IN PROGRESS'**
+  String get panelTitleInProgress;
+
+  /// Workflow panel string: panelNoWorkflowSelected
+  ///
+  /// In en, this message translates to:
+  /// **'This project has no workflow selected.'**
+  String get panelNoWorkflowSelected;
+
+  /// Workflow panel string: panelProgressOf
+  ///
+  /// In en, this message translates to:
+  /// **'{done} of {active}'**
+  String panelProgressOf(int done, int active);
+
+  /// Workflow panel string: panelReviewCycles
+  ///
+  /// In en, this message translates to:
+  /// **'audits {done}/{max}'**
+  String panelReviewCycles(int done, int max);
+
+  /// Workflow panel string: panelSectionSkills
+  ///
+  /// In en, this message translates to:
+  /// **'Skills'**
+  String get panelSectionSkills;
+
+  /// Workflow panel string: panelSectionRules
+  ///
+  /// In en, this message translates to:
+  /// **'Rules'**
+  String get panelSectionRules;
+
+  /// Workflow panel string: panelSectionKnowledge
+  ///
+  /// In en, this message translates to:
+  /// **'Knowledge and documentation'**
+  String get panelSectionKnowledge;
+
+  /// Workflow panel string: panelAddRule
+  ///
+  /// In en, this message translates to:
+  /// **'Add rule'**
+  String get panelAddRule;
+
+  /// Workflow panel string: panelAddKnowledge
+  ///
+  /// In en, this message translates to:
+  /// **'Add knowledge'**
+  String get panelAddKnowledge;
+
+  /// Workflow panel string: panelAddToProject
+  ///
+  /// In en, this message translates to:
+  /// **'Add to this project'**
+  String get panelAddToProject;
+
+  /// Workflow panel string: panelRemoveFromProject
+  ///
+  /// In en, this message translates to:
+  /// **'Remove from this project'**
+  String get panelRemoveFromProject;
+
+  /// Workflow panel string: panelRequiredByWorkflow
+  ///
+  /// In en, this message translates to:
+  /// **'Required by the workflow'**
+  String get panelRequiredByWorkflow;
+
+  /// Workflow panel string: panelMissingBlocksPreflight
+  ///
+  /// In en, this message translates to:
+  /// **'Missing: blocks the preflight'**
+  String get panelMissingBlocksPreflight;
+
+  /// Workflow panel string: panelActivateOptional
+  ///
+  /// In en, this message translates to:
+  /// **'Activate this optional capability'**
+  String get panelActivateOptional;
+
+  /// Workflow panel string: panelChangeDefaultRole
+  ///
+  /// In en, this message translates to:
+  /// **'Change the workflow default role'**
+  String get panelChangeDefaultRole;
+
+  /// Workflow panel string: panelApproveAndContinue
+  ///
+  /// In en, this message translates to:
+  /// **'Approve and continue'**
+  String get panelApproveAndContinue;
+
+  /// Workflow panel string: panelNoAgentForRole
+  ///
+  /// In en, this message translates to:
+  /// **'no agent for {role}'**
+  String panelNoAgentForRole(Object role);
+
+  /// Workflow panel string: panelConsultedTo
+  ///
+  /// In en, this message translates to:
+  /// **'consulted {names}'**
+  String panelConsultedTo(Object names);
+
+  /// Workflow panel string: panelCoverageMatrix
+  ///
+  /// In en, this message translates to:
+  /// **'matrix {resolved}/{total}'**
+  String panelCoverageMatrix(int resolved, int total);
+
+  /// Workflow panel string: panelChangeSharedDefault
+  ///
+  /// In en, this message translates to:
+  /// **'Change the shared default'**
+  String get panelChangeSharedDefault;
+
+  /// Workflow panel string: panelUseDefaultRole
+  ///
+  /// In en, this message translates to:
+  /// **'Use default ({role})'**
+  String panelUseDefaultRole(Object role);
+
+  /// Workflow panel string: panelStateDone
+  ///
+  /// In en, this message translates to:
+  /// **'ready'**
+  String get panelStateDone;
+
+  /// Workflow panel string: panelStateCurrent
+  ///
+  /// In en, this message translates to:
+  /// **'now'**
+  String get panelStateCurrent;
+
+  /// Workflow panel string: panelStatePending
+  ///
+  /// In en, this message translates to:
+  /// **'pending'**
+  String get panelStatePending;
+
+  /// Workflow panel string: panelStateBlocked
+  ///
+  /// In en, this message translates to:
+  /// **'blocked'**
+  String get panelStateBlocked;
+
+  /// Workflow panel string: panelStateAvailable
+  ///
+  /// In en, this message translates to:
+  /// **'available'**
+  String get panelStateAvailable;
+
+  /// Workflow panel string: panelStateNotRequired
+  ///
+  /// In en, this message translates to:
+  /// **'not required'**
+  String get panelStateNotRequired;
+
+  /// Workflow panel string: panelExecutorNewSession
+  ///
+  /// In en, this message translates to:
+  /// **'new session'**
+  String get panelExecutorNewSession;
+
+  /// Workflow panel string: panelExecutorResumeParent
+  ///
+  /// In en, this message translates to:
+  /// **'resumes parent session'**
+  String get panelExecutorResumeParent;
+
+  /// Workflow panel string: panelExecutorSubagent
+  ///
+  /// In en, this message translates to:
+  /// **'subagent / external fallback'**
+  String get panelExecutorSubagent;
+
+  /// Workflow panel string: panelExecutorManualApproval
+  ///
+  /// In en, this message translates to:
+  /// **'requires manual approval'**
+  String get panelExecutorManualApproval;
+
+  /// Workflow panel string: nodeKindTriage
+  ///
+  /// In en, this message translates to:
+  /// **'Triage and contract'**
+  String get nodeKindTriage;
+
+  /// Workflow panel string: nodeKindImpact
+  ///
+  /// In en, this message translates to:
+  /// **'End-to-end impact'**
+  String get nodeKindImpact;
+
+  /// Workflow panel string: nodeKindImplementation
+  ///
+  /// In en, this message translates to:
+  /// **'Implementation'**
+  String get nodeKindImplementation;
+
+  /// Workflow panel string: nodeKindVerification
+  ///
+  /// In en, this message translates to:
+  /// **'Verification'**
+  String get nodeKindVerification;
+
+  /// Session map string: mapNodeYou
+  ///
+  /// In en, this message translates to:
+  /// **'you'**
+  String get mapNodeYou;
+
+  /// Session map string: mapNodeEnd
+  ///
+  /// In en, this message translates to:
+  /// **'end'**
+  String get mapNodeEnd;
+
+  /// Session map string: mapChipConsultation
+  ///
+  /// In en, this message translates to:
+  /// **'consultation'**
+  String get mapChipConsultation;
+
+  /// Session map string: mapChipSubagent
+  ///
+  /// In en, this message translates to:
+  /// **'subagent'**
+  String get mapChipSubagent;
+
+  /// Session map string: mapCountEnter
+  ///
+  /// In en, this message translates to:
+  /// **'open'**
+  String get mapCountEnter;
+
+  /// Session map string: mapCalloutAsked
+  ///
+  /// In en, this message translates to:
+  /// **'asked for'**
+  String get mapCalloutAsked;
+
+  /// Session map string: mapCalloutReturned
+  ///
+  /// In en, this message translates to:
+  /// **'returned'**
+  String get mapCalloutReturned;
+
+  /// Session map string: mapCalloutCut
+  ///
+  /// In en, this message translates to:
+  /// **'cut off'**
+  String get mapCalloutCut;
+
+  /// Session map string: mapCalloutAnswered
+  ///
+  /// In en, this message translates to:
+  /// **'answered'**
+  String get mapCalloutAnswered;
+
+  /// Session map string: mapCalloutResolved
+  ///
+  /// In en, this message translates to:
+  /// **'resolved'**
+  String get mapCalloutResolved;
+
+  /// Session map string: mapCalloutThinking
+  ///
+  /// In en, this message translates to:
+  /// **'thinking'**
+  String get mapCalloutThinking;
+
+  /// Session map string: mapLegendOpensSubagent
+  ///
+  /// In en, this message translates to:
+  /// **'opens a subagent'**
+  String get mapLegendOpensSubagent;
+
+  /// Session map string: mapLegendSubagentReturned
+  ///
+  /// In en, this message translates to:
+  /// **'the subagent returned'**
+  String get mapLegendSubagentReturned;
+
+  /// Session map string: subagentPhaseWorking
+  ///
+  /// In en, this message translates to:
+  /// **'working'**
+  String get subagentPhaseWorking;
+
+  /// Session map string: turnPhaseWorking
+  ///
+  /// In en, this message translates to:
+  /// **'working…'**
+  String get turnPhaseWorking;
+
+  /// Map/phase string: mapLegendForward
+  ///
+  /// In en, this message translates to:
+  /// **'advances one step'**
+  String get mapLegendForward;
+
+  /// Map/phase string: mapLegendBack
+  ///
+  /// In en, this message translates to:
+  /// **'consults another node'**
+  String get mapLegendBack;
+
+  /// Map/phase string: mapLegendAnswer
+  ///
+  /// In en, this message translates to:
+  /// **'answers that consultation'**
+  String get mapLegendAnswer;
+
+  /// Map/phase string: mapLegendSpawn
+  ///
+  /// In en, this message translates to:
+  /// **'registered it'**
+  String get mapLegendSpawn;
+
+  /// Map/phase string: mapLegendFinish
+  ///
+  /// In en, this message translates to:
+  /// **'final delivery'**
+  String get mapLegendFinish;
+
+  /// Map/phase string: mapLegendFailed
+  ///
+  /// In en, this message translates to:
+  /// **'cut off'**
+  String get mapLegendFailed;
+
+  /// Map/phase string: mapLegendUntraveled
+  ///
+  /// In en, this message translates to:
+  /// **'not travelled'**
+  String get mapLegendUntraveled;
+
+  /// Map/phase string: subagentPhaseThinking
+  ///
+  /// In en, this message translates to:
+  /// **'thinking'**
+  String get subagentPhaseThinking;
+
+  /// Map/phase string: subagentPhaseWriting
+  ///
+  /// In en, this message translates to:
+  /// **'writing'**
+  String get subagentPhaseWriting;
+
+  /// Map/phase string: subagentPhaseDone
+  ///
+  /// In en, this message translates to:
+  /// **'finished'**
+  String get subagentPhaseDone;
+
+  /// Map/phase string: subagentPhaseFailed
+  ///
+  /// In en, this message translates to:
+  /// **'failed'**
+  String get subagentPhaseFailed;
+
+  /// Map/phase string: turnPhaseThinking
+  ///
+  /// In en, this message translates to:
+  /// **'thinking…'**
+  String get turnPhaseThinking;
+
+  /// Map/phase string: turnPhaseWriting
+  ///
+  /// In en, this message translates to:
+  /// **'writing…'**
+  String get turnPhaseWriting;
+
+  /// Thread string: threadAdaptiveResolution
+  ///
+  /// In en, this message translates to:
+  /// **'{workflow} · adaptive resolution'**
+  String threadAdaptiveResolution(Object workflow);
+
+  /// Thread string: threadBackToOwner
+  ///
+  /// In en, this message translates to:
+  /// **'back to the owner'**
+  String get threadBackToOwner;
+
+  /// Thread string: threadNextNode
+  ///
+  /// In en, this message translates to:
+  /// **'next {node}'**
+  String threadNextNode(Object node);
+
+  /// Thread string: threadConsultOf
+  ///
+  /// In en, this message translates to:
+  /// **'consultation from {name}'**
+  String threadConsultOf(Object name);
+
+  /// Workflow panel dialog: panelAgentForNode
+  ///
+  /// In en, this message translates to:
+  /// **'Agent for \"{title}\"'**
+  String panelAgentForNode(Object title);
+
+  /// Workflow panel dialog: panelOverrideScope
+  ///
+  /// In en, this message translates to:
+  /// **'This override only affects #{project}. The node stores the concrete agent once the preflight passes.'**
+  String panelOverrideScope(Object project);
+
+  /// Workflow panel dialog: panelSharedChangeScope
+  ///
+  /// In en, this message translates to:
+  /// **'This changes the workflow \"{workflow}\" in every project. Concrete overrides are preserved.'**
+  String panelSharedChangeScope(Object workflow);
 }
 
 class _AppLocalizationsDelegate

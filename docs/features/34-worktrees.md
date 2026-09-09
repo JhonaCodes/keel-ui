@@ -1,179 +1,177 @@
-# F34 — Trabajar en otro worktree, y volver
+# F34 — Working in another worktree, and coming back
 
-## Qué problema resuelve
+## Problem it solves
 
-A veces hay que hacer dos cosas del mismo repo a la vez, y son cosas
-distintas: una corrección urgente mientras la migración grande sigue abierta.
-Git ya resuelve eso con `git worktree`: dos carpetas, dos ramas, un solo
-historial y una sola base de objetos.
+Sometimes two things from the same repo have to happen at once, and they are
+different things: an urgent fix while the big migration is still open. Git
+already solves that with `git worktree`: two folders, two branches, one history
+and one object store.
 
-Lo que faltaba es que **la app se entere**. Sin eso pasan tres cosas, las tres
-en silencio:
+What was missing is for **the app to notice**. Without that, three things happen,
+all three silently:
 
-1. **Dos proyectos que parecen el mismo.** `keel-ui` y `keel-ui-mapa` son dos
-   entradas del sidebar con nombres parecidos y ninguna marca que diga que la
-   segunda es un desprendimiento de la primera.
-2. **El agente no sabe dónde está.** La sección ENTREGA le pide *«creá una
-   rama para la sesión»*. En un worktree la rama YA existe —es la razón de que
-   la carpeta exista— y crear otra encima parte el mismo trabajo en dos ramas
-   y dos PRs.
-3. **Un bug de una línea.** `usesGit` se resolvía con
-   `Directory('$dir/.git').existsSync()`, y eso fallaba en dos casos: en un
-   worktree `.git` es un **archivo** que apunta al principal, y en una
-   subcarpeta del repo directamente no está. En los dos la respuesta era
-   `false`, y el agente no recibía la sección de entrega. La parte que le dice
-   que abra el PR, justo ahí, no llegaba. Ahora la pregunta se la contesta
-   git, que acierta en los tres casos.
+1. **Two projects that look like the same one.** `keel-ui` and `keel-ui-mapa` are
+   two sidebar entries with similar names and no mark saying the second is an
+   offshoot of the first.
+2. **The agent does not know where it is.** The DELIVERY section asks it to
+   *"create a branch for the session"*. In a worktree the branch ALREADY exists —
+   it is the reason the folder exists — and creating another on top splits the
+   same work across two branches and two PRs.
+3. **A one-line bug.** `usesGit` was resolved with
+   `Directory('$dir/.git').existsSync()`, and that failed in two cases: in a
+   worktree `.git` is a **file** pointing at the main one, and in a subfolder of
+   the repo it is simply absent. In both, the answer was `false`, and the agent
+   did not receive the delivery section. The part telling it to open the PR,
+   precisely there, never arrived. The question is now answered by git, which is
+   right in all three cases.
 
-Y cuando el trabajo paralelo termina, hay un movimiento que se hace siempre
-igual y siempre a mano: traer la rama al worktree principal y borrar la
-carpeta de al lado.
+And when the parallel work ends, there is a move that is always done the same way
+and always by hand: bring the branch to the main worktree and delete the folder
+next door.
 
-## Nada que configurar
+## Nothing to configure
 
-No hay una casilla de «esto es un worktree». Se detecta, o no se detecta.
+There is no "this is a worktree" checkbox. It is detected, or it is not.
 
-Una sola lectura, que no escribe nada:
-
-```
-git -C <dir> rev-parse --show-toplevel     → la raíz de ESTA copia
-git -C <dir> worktree list --porcelain     → todas las del repo
-```
-
-El **primero** de esa lista es siempre el worktree principal —git lo
-garantiza— y de eso depende todo lo demás. Si la raíz de acá no es la
-primera, estás en uno de al lado.
-
-`--show-toplevel` también resuelve preguntar desde una subcarpeta y devuelve
-la ruta canónica, con los symlinks ya resueltos: comparar contra lo que
-escribió el usuario en el formulario del proyecto no funcionaría en macOS,
-donde `/var` es un enlace a `/private/var`.
-
-Se relee cada veinte segundos mientras haya un proyecto abierto. No porque el
-worktree cambie —no cambia— sino porque **la rama sí**: la cambiás vos en una
-terminal, o la cambia un agente en su turno. Solo se avisa a la pantalla
-cuando la lectura DIFIERE de la anterior; publicar lo mismo cada veinte
-segundos sería redibujar para nada.
-
-## El aviso
-
-Una franja de una línea arriba de lo que estés mirando —estado, tableros,
-tablero o sesión—, porque la pregunta que contesta no es de ninguna de esas
-pantallas en particular:
+A single read, which writes nothing:
 
 ```
-⑂  Worktree aparte · rama feat/worktrees · el principal es keel-ui   [Unificar]
+git -C <dir> rev-parse --show-toplevel     → THIS copy's root
+git -C <dir> worktree list --porcelain     → all of the repo's
 ```
 
-Va en `_ConversationArea` y no adentro de cada vista, para que sea imposible
-que una de las cuatro se olvide de mostrarla. **Un proyecto en el worktree
-principal —lo normal— no paga ni un píxel**: la franja mide cero.
+The **first** in that list is always the main worktree — git guarantees it — and
+everything else depends on that. If this root is not the first, you are in one of
+the side ones.
 
-## Unificar
+`--show-toplevel` also handles asking from a subfolder and returns the canonical
+path, with symlinks already resolved: comparing against what the user typed in the
+project's form would not work on macOS, where `/var` is a link to `/private/var`.
 
-El botón abre un panel. Como cualquier otra cosa que decide algo en esta app,
-es un panel lateral y no un diálogo: hay que leer rutas, ramas y una lista de
-lo que se va a borrar, y eso no entra en un sí/no.
+It is re-read every twenty seconds while a project is open. Not because the
+worktree changes — it does not — but because **the branch does**: you change it in
+a terminal, or an agent changes it during its turn. The screen is only notified
+when the read DIFFERS from the previous one; publishing the same thing every
+twenty seconds would be redrawing for nothing.
 
-El panel enumera **antes** de tocar nada:
+## The notice
 
-1. Traigo `main` (o `master`) de `origin` al worktree principal.
-2. Saco la carpeta de al lado. Git la desregistra y **la borra del disco**.
-3. Pongo la rama en el principal, que recién ahora puede tomarla.
-4. El proyecto pasa a correr ahí, con la misma rama y el mismo hilo.
+A one-line strip above whatever you are looking at — status, boards, a board, or a
+session — because the question it answers belongs to none of those screens in
+particular:
 
-### El orden no es casual
+```
+⑂  Separate worktree · branch feat/worktrees · the main one is keel-ui   [Unify]
+```
 
-Primero lo que se puede deshacer, después lo que no. Traer la base no
-destruye nada; sacar el worktree sí, y para entonces ya se sabe que el resto
-del camino está despejado.
+It goes in `_ConversationArea` and not inside each view, so it is impossible for
+one of the four to forget to show it. **A project in the main worktree — the normal
+case — pays not one pixel**: the strip measures zero.
 
-El paso 3 no puede ir antes del 2: git se niega a tomar una rama que otro
-worktree tiene checkeada, y hasta el paso 2 la tenía.
+## Unifying
 
-### Lo ignorado se enumera
+The button opens a panel. Like anything else that decides something in this app, it
+is a side panel and not a dialog: paths, branches, and a list of what will be
+deleted have to be read, and that does not fit in a yes/no.
 
-`git worktree remove` borra la carpeta entera, y con ella se va lo IGNORADO,
-que no aparece en ningún `git status`: el `.env` que escribiste a mano, la
-build. Git no lo va a extrañar; vos sí. Por eso el panel lo lista antes, con
-nombre y cantidad. No traba —es la carpeta que se está yendo— pero queda
-dicho.
+The panel enumerates **before** touching anything:
 
-### Lo que sí traba
+1. Bring `main` (or `master`) from `origin` into the main worktree.
+2. Remove the folder next door. Git deregisters it and **deletes it from disk**.
+3. Put the branch on the main one, which only now can take it.
+4. The project starts running there, with the same branch and the same thread.
 
-Son datos, no excepciones: una operación que borra una carpeta no se entera a
-mitad de camino.
+### The order is not accidental
 
-| Traba | Por qué |
+First what can be undone, then what cannot. Bringing the base destroys nothing;
+removing the worktree does, and by then the rest of the path is known to be clear.
+
+Step 3 cannot go before step 2: git refuses to check out a branch another worktree
+has checked out, and until step 2 it did.
+
+### Ignored files are enumerated
+
+`git worktree remove` deletes the whole folder, and with it goes what is IGNORED,
+which appears in no `git status`: the `.env` you wrote by hand, the build. Git will
+not miss it; you will. That is why the panel lists it beforehand, with names and
+counts. It does not block — it is the folder that is going away — but it is stated.
+
+### What does block
+
+They are data, not exceptions: an operation that deletes a folder does not find out
+halfway through.
+
+| Blocks | Why |
 |---|---|
-| Una sesión corriendo en el proyecto | El CLI está escribiendo adentro de la carpeta que estaríamos borrando |
-| El repo principal es `bare` | No tiene copia de trabajo a la que mudarle la rama: este worktree es todo lo que hay |
-| HEAD suelto, sin rama | No hay nada que mudar al principal |
-| El worktree con `git worktree lock` | Quien lo bloqueó tenía un motivo |
-| Cambios sin commitear acá | Se pierden con la carpeta |
-| Cambios sin commitear en el principal | Hay que cambiarle de rama, y con eso encima no se puede |
+| A session running in the project | The CLI is writing inside the folder we would be deleting |
+| The main repo is `bare` | It has no working copy to move the branch to: this worktree is all there is |
+| Detached HEAD, no branch | There is nothing to move to the main one |
+| The worktree has `git worktree lock` | Whoever locked it had a reason |
+| Uncommitted changes here | They are lost with the folder |
+| Uncommitted changes in the main one | Its branch has to be switched, and with those on top it cannot be |
 
-### El pull falla y sigue
+### The pull fails and it carries on
 
-Es la única desviación del «todo o nada», y es a propósito: traer `main`
-depende de que haya red y de que el remoto conteste, y **ninguna de las dos
-cosas tiene que ver con consolidar dos carpetas locales**. Sin red, bloquear
-la unificación entera sería castigar lo que sí se puede hacer por lo que no.
-Se ve en el informe, marcado, y el resto sigue.
+It is the only deviation from "all or nothing", and it is deliberate: bringing
+`main` depends on there being a network and on the remote answering, and **neither
+of those has anything to do with consolidating two local folders**. With no
+network, blocking the whole unification would punish what can be done for what
+cannot. It shows in the report, flagged, and the rest continues.
 
-Si el principal ya está parado en la base, es un `pull --ff-only` de verdad.
-Si está en otra rama, se adelanta la referencia con
-`fetch origin <base>:<base>` —lo mismo, sin el checkout de más.
+If the main one is already standing on the base, it is a real `pull --ff-only`. If
+it is on another branch, the reference is advanced with
+`fetch origin <base>:<base>` — the same thing, without the extra checkout.
 
-### No se mezcla nada
+### Nothing is merged
 
-Si la rama quedó atrás de la base, el panel lo dice con el número exacto y no
-hace nada al respecto. Mergear o rebasear es una decisión, y acá solo se muda
-una rama de carpeta.
+If the branch fell behind the base, the panel says so with the exact number and
+does nothing about it. Merging or rebasing is a decision, and here a branch is
+only moved between folders.
 
-### Si algo falla a mitad
+### If something fails halfway
 
-El proyecto cambia de directorio **en cuanto la carpeta vieja deja de
-existir**, salga bien el resto o no. Dejarlo apuntando a lo que se borró es la
-única forma de que esto termine peor de lo que empezó.
+The project changes directory **as soon as the old folder stops existing**, whether
+the rest goes well or not. Leaving it pointing at what was deleted is the only way
+for this to end worse than it started.
 
-Y si el `switch` final falla, el informe dice lo único que importa: los
-commits están, la rama sigue existiendo, y se toma a mano.
+And if the final `switch` fails, the report says the only thing that matters: the
+commits are there, the branch still exists, and it is taken by hand.
 
-## Lo que el agente recibe
+## What the agent receives
 
-Cuando el proyecto corre en un worktree de al lado, el turno suma una sección
-al system prompt, justo después de ENTREGA:
+When the project runs in a side worktree, the turn adds a section to the system
+prompt, right after DELIVERY:
 
-> **WORKTREE**: este directorio es un worktree APARTE del repo, no el
-> principal. Ya está parado en la rama `feat/x`, que es la rama de este
-> trabajo: commiteá acá y NO crees otra rama ni te cambies de rama. Donde la
-> sección ENTREGA dice "creá una rama para la sesión", esa rama ya está creada
-> y es esta. El worktree principal del repo está en `…` y NO es tuyo en este
-> turno: no le hagas checkout, no le cambies de rama, no escribas adentro.
-> Acá `.git` es un archivo y no una carpeta. Es normal en un worktree y no hay
-> nada que arreglar.
+> **WORKTREE**: this directory is a SEPARATE worktree of the repo, not the main
+> one. It is already standing on branch `feat/x`, which is this work's branch:
+> commit here and do NOT create another branch or switch branches. Where the
+> DELIVERY section says "create a branch for the session", that branch is already
+> created and it is this one. The repo's main worktree is at `…` and is NOT yours
+> this turn: do not check it out, do not switch its branch, do not write inside it.
+> Here `.git` is a file and not a folder. That is normal in a worktree and there is
+> nothing to fix.
 
-No es algo que pueda deducir solo: `git status` le dice en qué rama está, no
-que esa rama sea la de este worktree ni que haya otra copia del repo al lado.
+It is not something it could infer on its own: `git status` tells it which branch
+it is on, not that the branch belongs to this worktree nor that there is another
+copy of the repo next door.
 
-## Dónde vive
+## Where it lives
 
-| Qué | Dónde |
+| What | Where |
 |---|---|
-| Modelo y lectura | `integrations/git_worktree/src/worktree_place.dart`, `worktree_probe.dart` |
-| El plan y sus trabas | `integrations/git_worktree/src/worktree_plan.dart` |
-| Los cuatro pasos | `integrations/git_worktree/src/worktree_unify.dart` |
-| Caché por ruta y la operación | `integrations/git_worktree/src/worktree_viewmodel.dart` |
-| La franja y el panel | `integrations/git_worktree/src/ui/` |
-| La declaración en el turno | `modules/projects/viewmodel/projects_viewmodel.dart` (`_worktreePrompt`) |
+| Model and reading | `integrations/git_worktree/src/worktree_place.dart`, `worktree_probe.dart` |
+| The plan and its blockers | `integrations/git_worktree/src/worktree_plan.dart` |
+| The four steps | `integrations/git_worktree/src/worktree_unify.dart` |
+| Per-path cache and the operation | `integrations/git_worktree/src/worktree_viewmodel.dart` |
+| The strip and the panel | `integrations/git_worktree/src/ui/` |
+| The declaration in the turn | `modules/projects/viewmodel/projects_viewmodel.dart` (`_worktreePrompt`) |
 
-## Cómo se prueba
+## How it is tested
 
-El parseo de `worktree list --porcelain` y las trabas del plan son puros y se
-prueban solos.
+Parsing `worktree list --porcelain` and the plan's blockers are pure and are tested
+on their own.
 
-El resto corre **git de verdad** sobre repos de juguete en una carpeta
-temporal —incluido un `origin` bare local, sin red— porque lo que puede salir
-mal ahí no es el parseo sino el ORDEN de los comandos, y una carpeta que se
-borra a destiempo no se descubre con un mock.
+The rest runs **real git** over toy repos in a temporary folder — including a local
+bare `origin`, with no network — because what can go wrong there is not the parsing
+but the ORDER of the commands, and a folder deleted at the wrong moment is not
+discovered with a mock.

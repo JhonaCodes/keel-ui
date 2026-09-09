@@ -5,6 +5,18 @@ import 'package:keel_ui/src/modules/projects/model/session_subagent.dart';
 import 'package:keel_ui/src/modules/projects/model/thread_entry.dart';
 import 'package:keel_ui/src/modules/workflows/model/workflow.dart';
 
+/// The captions the widget resolves from the localizations. The test declares
+/// them so the assertions compare against a stated contract instead of
+/// whatever language the app happens to ship.
+const _labels = ThreadLabels(
+  adaptiveResolution: _adaptiveResolution,
+  backToOwner: 'back to the owner',
+  nextNode: _nextNode,
+);
+
+String _adaptiveResolution(String workflow) => '$workflow · adaptive resolution';
+String _nextNode(String node) => 'next $node';
+
 void main() {
   final t0 = DateTime(2026, 9, 5, 10);
   ChatMessage msg(String author, String text, int minute, {String? node}) =>
@@ -58,7 +70,11 @@ void main() {
   ];
 
   test('sin filtro, el hilo es el de siempre más los divisores', () {
-    final entries = buildThreadEntries(messages: messages, workflow: workflow);
+    final entries = buildThreadEntries(
+      messages: messages,
+      workflow: workflow,
+      labels: _labels,
+    );
 
     expect(texts(entries), contains('A-1'));
     expect(texts(entries), contains('B-1'));
@@ -71,6 +87,7 @@ void main() {
       messages: messages,
       workflow: workflow,
       filter: const ThreadFilter(authorIds: {'dev'}),
+      labels: _labels,
     );
     final visible = texts(entries).where((t) => !t.startsWith('<')).toList();
 
@@ -82,6 +99,7 @@ void main() {
       messages: messages,
       workflow: workflow,
       filter: const ThreadFilter(nodeIds: {'audit'}, showSystem: false),
+      labels: _labels,
     );
     final visible = texts(entries).where((t) => !t.startsWith('<')).toList();
 
@@ -95,6 +113,7 @@ void main() {
       workflow: workflow,
       subagents: [subagent],
       filter: const ThreadFilter(showSubagents: true),
+      labels: _labels,
     );
     final visible = texts(entries).where((t) => !t.startsWith('<')).toList();
 

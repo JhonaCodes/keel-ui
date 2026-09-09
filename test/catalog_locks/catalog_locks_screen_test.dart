@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
+
 import 'package:keel_ui/src/core/services/local_database.dart';
 import 'package:keel_ui/src/modules/catalog_locks/model/catalog_lock.dart';
 import 'package:keel_ui/src/modules/catalog_locks/ui/screen/catalog_locks_screen.dart';
@@ -20,7 +22,14 @@ void main() {
   });
 
   Future<void> abrir(WidgetTester tester) =>
-      tester.pumpWidget(const MaterialApp(home: CatalogLocksScreen()));
+      tester.pumpWidget(MaterialApp(
+        // The screen reads AppLocalizations; without the delegates
+        // `AppLocalizations.of` returns null and build throws.
+        locale: const Locale('es'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const CatalogLocksScreen(),
+      ));
 
   /// Bloquear toca el ViewModel, no la pantalla: va por afuera del reloj
   /// falso del test, misma razón que el panel de fallas.

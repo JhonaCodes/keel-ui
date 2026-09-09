@@ -114,7 +114,7 @@ class _SidebarListState extends State<_SidebarList> {
             kind: SidebarSectionKind.project,
             presentIds: [for (final project in state.projects) project.id],
             child: _GroupHead(
-              label: 'Proyectos',
+              label: AppLocalizations.of(context).sidebarSectionProjects,
               onAdd: widget.onNewProject,
               onManage: widget.onManageProjects,
             ),
@@ -270,7 +270,7 @@ class _SessionsSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         SidebarSectionRow(
-          label: 'Sesiones',
+          label: AppLocalizations.of(context).sidebarSectionSessions,
           selected: onSessions,
           expanded: expanded,
           onToggle: onToggle,
@@ -319,7 +319,7 @@ class _SessionsSection extends StatelessWidget {
               ),
           ],
           SidebarAddRow(
-            label: 'Nueva sesión',
+            label: AppLocalizations.of(context).buttonNewSession,
             onTap: () => navigator.openNewSession(project.id),
           ),
         ],
@@ -348,7 +348,7 @@ class _LooseAgentsHead extends StatelessWidget {
         children: [
           Expanded(
             child: Text(
-              'AGENTES SUELTOS',
+              AppLocalizations.of(context).sidebarSectionLooseAgents,
               style: TextStyle(
                 fontFamily: 'monospace',
                 fontSize: 10,
@@ -358,14 +358,14 @@ class _LooseAgentsHead extends StatelessWidget {
             ),
           ),
           IconButton(
-            tooltip: 'Registrar o editar agentes',
+            tooltip: AppLocalizations.of(context).sidebarTooltipManageAgents,
             icon: const Icon(Icons.tune, size: 15),
             constraints: const BoxConstraints.tightFor(width: 26, height: 26),
             padding: EdgeInsets.zero,
             onPressed: onManage,
           ),
           IconButton(
-            tooltip: 'Usar un agente registrado',
+            tooltip: AppLocalizations.of(context).sidebarTooltipUseAgent,
             icon: const Icon(Icons.add, size: 15),
             constraints: const BoxConstraints.tightFor(width: 26, height: 26),
             padding: EdgeInsets.zero,
@@ -462,14 +462,14 @@ class _GroupHead extends StatelessWidget {
             ),
           ),
           IconButton(
-            tooltip: 'Administrar proyectos',
+            tooltip: AppLocalizations.of(context).sidebarTooltipManageProjects,
             icon: const Icon(Icons.tune, size: 15),
             constraints: const BoxConstraints.tightFor(width: 28, height: 28),
             padding: EdgeInsets.zero,
             onPressed: onManage,
           ),
           IconButton(
-            tooltip: 'Nuevo proyecto',
+            tooltip: AppLocalizations.of(context).sidebarTooltipNewProject,
             icon: const Icon(Icons.add, size: 17),
             constraints: const BoxConstraints.tightFor(width: 28, height: 28),
             padding: EdgeInsets.zero,
@@ -543,7 +543,7 @@ class _ProjectRowState extends State<_ProjectRow> {
               child: InlineRenameField(
                 value: project.name,
                 handle: _rename,
-                hintText: 'Nombre del proyecto',
+                hintText: AppLocalizations.of(context).sidebarHintProjectName,
                 validate: validateProjectName,
                 onRename: (name) => ProjectsService.instance.notifier
                     .renameProject(project.id, name),
@@ -560,7 +560,7 @@ class _ProjectRowState extends State<_ProjectRow> {
             if (!project.maintained) ...[
               const SizedBox(width: 4),
               Tooltip(
-                message: 'No lo mantengo: solo lectura',
+                message: AppLocalizations.of(context).sidebarTooltipReadOnlyProject,
                 child: Icon(
                   Icons.lock_outline,
                   size: 12,
@@ -575,8 +575,10 @@ class _ProjectRowState extends State<_ProjectRow> {
               const SizedBox(width: 6),
               Tooltip(
                 message: widget.running == 1
-                    ? 'Una sesión trabajando'
-                    : '${widget.running} sesiones trabajando',
+                    ? AppLocalizations.of(context).sidebarTooltipOneSessionWorking
+                    : AppLocalizations.of(
+                        context,
+                      ).sidebarTooltipSessionsWorking(widget.running),
                 child: RunningDot(count: widget.running),
               ),
             ],
@@ -744,7 +746,7 @@ class _StateRow extends StatelessWidget {
     final badge = ProjectsService.instance.notifier.radarBadgeFor(project);
 
     return SidebarSectionRow(
-      label: 'Estado',
+      label: AppLocalizations.of(context).sidebarSectionStatus,
       selected: selected,
       onTap: onTap,
       trailing: badge.ok

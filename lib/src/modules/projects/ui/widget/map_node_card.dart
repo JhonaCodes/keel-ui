@@ -1,3 +1,4 @@
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:flutter/material.dart';
 
 import 'package:keel_ui/src/core/ui/app_theme.dart';
@@ -169,7 +170,11 @@ class _Head extends StatelessWidget {
               const SizedBox(width: 7),
               Expanded(
                 child: Text(
-                  node.label,
+                  switch (node.kind) {
+                    MapNodeKind.you => AppLocalizations.of(context).mapNodeYou,
+                    MapNodeKind.end => AppLocalizations.of(context).mapNodeEnd,
+                    _ => node.label,
+                  },
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
@@ -253,18 +258,21 @@ class _Foot extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 if (node.kind == MapNodeKind.consultation)
-                  _Chip(label: 'consulta')
+                  _Chip(label: AppLocalizations.of(context).mapChipConsultation)
                 else if (node.workNodeId != null)
                   _Chip(label: node.nodeTitle)
                 else if (node.kind == MapNodeKind.subagent)
-                  _Chip(label: 'subagente'),
+                  _Chip(label: AppLocalizations.of(context).mapChipSubagent),
                 if (node.elapsed > Duration.zero) ...[
                   const SizedBox(width: 8),
                   _Count(icon: Icons.schedule, label: _clock(node.elapsed)),
                 ],
                 if (node.kind == MapNodeKind.subagent) ...[
                   const SizedBox(width: 8),
-                  _Count(icon: Icons.chevron_right, label: 'entrar'),
+                  _Count(
+                    icon: Icons.chevron_right,
+                    label: AppLocalizations.of(context).mapCountEnter,
+                  ),
                 ],
                 if (node.backCalls > 0) ...[
                   const SizedBox(width: 8),
@@ -414,49 +422,49 @@ class _Resolution extends StatelessWidget {
 
     final (label, icon, color, body) = switch ((node.kind, node.state)) {
       (MapNodeKind.consultation, MapNodeState.replying) => (
-        'le pidió',
+        AppLocalizations.of(context).mapCalloutAsked,
         Icons.reply,
         kMapConsultColor,
         node.nodeInstruction,
       ),
       (MapNodeKind.subagent, MapNodeState.done) => (
-        'devolvió',
+        AppLocalizations.of(context).mapCalloutReturned,
         Icons.check,
         kMapDelegateColor,
         node.resolved,
       ),
       (MapNodeKind.subagent, MapNodeState.failed) => (
-        'cortó',
+        AppLocalizations.of(context).mapCalloutCut,
         Icons.warning_amber_rounded,
         scheme.error,
         node.resolved,
       ),
       (MapNodeKind.subagent, _) => (
-        'le pidió',
+        AppLocalizations.of(context).mapCalloutAsked,
         Icons.account_tree_outlined,
         kMapDelegateColor,
         node.nodeInstruction,
       ),
       (_, MapNodeState.failed) => (
-        'cortó',
+        AppLocalizations.of(context).mapCalloutCut,
         Icons.warning_amber_rounded,
         scheme.error,
         node.resolved,
       ),
       (_, MapNodeState.done) when node.answeredOnly => (
-        'contestó',
+        AppLocalizations.of(context).mapCalloutAnswered,
         Icons.reply,
         kMapConsultColor,
         node.resolved,
       ),
       (_, MapNodeState.done) => (
-        'resolvió',
+        AppLocalizations.of(context).mapCalloutResolved,
         Icons.check,
         scheme.tertiary,
         node.resolved,
       ),
       _ => (
-        'pensando',
+        AppLocalizations.of(context).mapCalloutThinking,
         Icons.psychology_outlined,
         kProjectMemberPalette[6],
         _tailOf(node.reasoning),

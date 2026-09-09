@@ -1,93 +1,109 @@
-# La documentación de Keel
+# Keel's documentation
 
-Cada archivo de `features/` cuenta **una** cosa: qué problema resuelve, cómo
-está resuelta, y qué decisiones se tomaron en el camino que no se ven en el
-código. Están numerados por orden de aparición, no de importancia.
+Each file in `features/` tells **one** thing: what problem it solves, how it is
+solved, and which decisions were taken along the way that are not visible in the
+code. They are numbered by order of appearance, not of importance.
 
-Si venís de afuera, el [README](../README.md) tiene el modelo mental
-completo; esto es el detalle.
+If you are coming from outside, the [README](../README.md) has the complete mental
+model; this is the detail. For the product view rather than the implementation,
+start at [`product/`](product/README.md).
 
-## Los cimientos
-
-| | |
-|---|---|
-| [F0](features/00-fundacion-multi-ventana.md) | Fundación multi-ventana |
-| [F1](features/01-ventana-asistente.md) | La ventana de Keel AI |
-| [F2](features/02-keelai-compilado-y-constructores.md) | Keel AI compilado + agentes constructores |
-| [F15](features/15-keelai-ojos-abiertos.md) | Keel AI con los ojos abiertos |
-
-## Lo que un agente lleva puesto
+## The foundations
 
 | | |
 |---|---|
-| [F3](features/03-skills-globales.md) | Skills globales |
-| [F4](features/04-secrets.md) | Secrets ocultos al LLM |
-| [F5](features/05-mcps-externos.md) | Integraciones MCP externas — el mecanismo |
-| [F28](features/28-catalogo-de-integraciones.md) | El catálogo, y poder probarlas |
-| [F16](features/16-bases-de-saber.md) | Bases de saber |
-| [F22](features/22-hooks.md) | Hooks: guardarraíles que corren solos |
-| [F39](features/39-candados-del-catalogo.md) | Candados: lo que una tool no toca sola |
-| [F6](features/06-proveedor-codex.md) | Proveedor codex por agente |
-| [F18](features/18-motor-por-proyecto.md) | Motor de un miembro por proyecto |
+| [F0](features/00-multi-window-foundation.md) | Multi-window foundation |
+| [F1](features/01-assistant-window.md) | Keel AI's window |
+| [F2](features/02-compiled-keelai-and-builders.md) | Compiled Keel AI + builder agents |
+| [F15](features/15-keelai-full-catalog.md) | Keel AI with the full catalog |
 
-## Trabajar
+## What an agent wears
 
 | | |
 |---|---|
-| [F24](features/24-proyectos-y-sesiones.md) | Un proyecto, y sus sesiones |
-| [F17](features/17-plan-de-sesion.md) | El plan de trabajo de una sesión |
-| [F23](features/23-roadmap-de-tareas.md) | El roadmap de un proyecto |
-| [F25](features/25-estado-del-proyecto.md) | El estado de un proyecto |
-| [F26](features/26-requerimientos-internos.md) | Requerimientos entre proyectos |
-| [F8](features/08-agente-por-sesion.md) | Agente temporal por sesión |
-| [F29](features/29-tableros.md) | Tableros de prueba |
-| [F32](features/32-una-sola-navegacion.md) | Una sola navegación |
-| [F42](features/42-grupos-en-el-sidebar.md) | Acomodar el sidebar: grupos y orden |
-| [F34](features/34-worktrees.md) | Trabajar en otro worktree, y volver |
-| [F37](features/37-un-workflow-por-sesion.md) | Workflows adaptativos por sesión |
+| [F3](features/03-global-skills.md) | Global skills |
+| [F4](features/04-secrets.md) | Secrets hidden from the LLM |
+| [F5](features/05-external-mcps.md) | External MCP integrations — the mechanism |
+| [F28](features/28-integrations-catalog.md) | The catalog, and being able to test them |
+| [F16](features/16-knowledge-bases.md) | Knowledge bases |
+| [F22](features/22-hooks.md) | Hooks: guardrails that run on their own |
+| [F39](features/39-catalog-locks.md) | Locks: what a tool cannot touch on its own |
+| [F6](features/06-codex-provider.md) | Codex provider per agent |
+| [F18](features/18-engine-per-project.md) | A member's engine, per project |
 
-## La conversación
+## Working
 
 | | |
 |---|---|
-| [F13](features/13-imagenes-en-el-chat.md) | Imágenes en el chat |
-| [F14](features/14-cola-de-mensajes.md) | Escribir mientras el agente trabaja |
-| [F19](features/19-enlaces-y-pr.md) | Enlaces clickeables y el PR de la sesión |
-| [F7](features/07-comunicacion-economica.md) | Comunicación económica + el ledger |
-| [F10](features/10-sugerencias-skills.md) | Sugerencias de skills recurrentes |
-| [F11](features/11-conocimiento.md) | La sección Conocimiento |
-| [F38](features/38-referencias-del-chat.md) | Referencias explícitas en el chat |
-| [F40](features/40-referencias-en-todos-los-chats.md) | Las mismas referencias, en todos los chats |
+| [F24](features/24-projects-and-sessions.md) | A project, and its sessions |
+| [F17](features/17-session-plan.md) | A session's work plan |
+| [F23](features/23-project-roadmap.md) | A project's roadmap |
+| [F25](features/25-project-status.md) | A project's status |
+| [F26](features/26-internal-requirements.md) | Requirements between projects |
+| [F50](features/50-target-activity-in-requirements.md) | What a requirement's target project is doing |
+| [F8](features/08-session-scoped-agent.md) | Session-scoped agent |
+| [F29](features/29-boards.md) | Test boards |
+| [F32](features/32-single-navigation.md) | A single navigation |
+| [F42](features/42-sidebar-groups.md) | Arranging the sidebar: groups and order |
+| [F34](features/34-worktrees.md) | Working in another worktree, and coming back |
+| [F37](features/37-adaptive-workflow-per-session.md) | Adaptive workflows per session |
 
-## La máquina
+## The conversation
 
 | | |
 |---|---|
-| [F20](features/20-respaldo-en-un-archivo.md) | Respaldo en un archivo |
-| [F21](features/21-vault-del-sistema.md) | El vault del sistema |
-| [F33](features/33-paquetes.md) | Paquetes: compartir un agente entero |
-| [F12](features/12-jobs-api.md) | API local de trabajos programados |
-| [F27](features/27-arranque-y-espera.md) | El arranque, y decir que estás esperando |
-| [F30](features/30-maquina.md) | Servicios, consumo y fierro |
-| [F31](features/31-mapa-de-razonamiento.md) | El mapa: ver cómo se piensa |
-| [F35](features/35-diario-de-fallas.md) | El diario de fallas |
-| [F36](features/36-actualizar-keel.md) | Qué Keel estás corriendo, y actualizarlo |
-| [F41](features/41-raices-y-volumenes.md) | Otros discos, y dónde están tus proyectos |
+| [F13](features/13-images-in-chat.md) | Images in the chat |
+| [F14](features/14-message-queue.md) | Writing while the agent works |
+| [F19](features/19-links-and-session-pr.md) | Clickable links and the session's PR |
+| [F7](features/07-economical-communication.md) | Economical communication + the ledger |
+| [F10](features/10-recurring-skill-suggestions.md) | Recurring skill suggestions |
+| [F11](features/11-knowledge-section.md) | The Knowledge section |
+| [F38](features/38-chat-references.md) | Explicit references in the chat |
+| [F40](features/40-references-in-every-chat.md) | The same references, in every chat |
+| [F49](features/49-chat-filters-and-retry.md) | Filters, subagents in view, retry, and a persisted live turn |
 
-## Lo demás
+## The machine
 
-- **`mockup/`** — los dibujos que se aprobaron antes de escribir Dart:
-  [proyectos y requerimientos](mockup/proyectos-y-requerimientos.html),
-  [integraciones, tableros y máquina](mockup/integraciones-tableros-y-maquina.html)
-  y [el mapa de razonamiento](mockup/mapa-de-razonamiento.html).
-  Están hechos con los tokens exactos de `app_theme.dart`, así que sirven
-  como referencia de lo que la UI tiene que parecer.
-- **`plantillas/TASKS/`** — el esqueleto de un roadmap de proyecto (F23),
-  para copiar dentro de un repo.
-- **[Compilar y distribuir](compilar-y-distribuir.md)** — cómo se produce lo
-  que la gente descarga: macOS, Linux, y por qué Windows todavía no. No es un
-  feature; es el proceso, con las restricciones de cada plataforma y las
-  trampas que ya nos costaron una vez.
+| | |
+|---|---|
+| [F20](features/20-single-file-backup.md) | Single-file backup |
+| [F21](features/21-system-vault.md) | The system vault |
+| [F33](features/33-packages.md) | Packages: sharing a whole agent |
+| [F12](features/12-jobs-api.md) | Local scheduled-jobs API |
+| [F27](features/27-startup-and-waiting.md) | Startup, and saying that you are waiting |
+| [F30](features/30-machine.md) | Services, consumption, and hardware |
+| [F31](features/31-resolution-map.md) | The map: seeing how it thinks |
+| [F35](features/35-failure-log.md) | The failure log |
+| [F36](features/36-updating-keel.md) | Which Keel you are running, and updating it |
+| [F41](features/41-roots-and-volumes.md) | Other disks, and where your projects are |
 
-> No hay F9. Se numeró y no se escribió, y renumerar veinte archivos para
-> tapar un hueco cuesta más de lo que vale.
+## The turn engine
+
+| | |
+|---|---|
+| [F43](features/43-turn-caps-and-watchdog.md) | Default caps, turn watchdog, and resuming after an interruption |
+| [F44](features/44-turn-closure-and-decisions.md) | Turn closure (`keel-outcome`), real gates, and pending decisions |
+| [F45](features/45-blocking-permissions.md) | Permissions and questions that suspend the turn |
+| [F46](features/46-context-between-nodes.md) | Context between nodes, session reuse, and the prompt budget |
+| [F47](features/47-subagent-quota-in-code.md) | The subagent quota is enforced in code |
+| [F48](features/48-keelai-supervisor-and-lint.md) | Keel AI supervises on request, workflow lint, four-node template |
+| [F51](features/51-codex-first-class.md) | Codex with the same surface as claude |
+
+## The rest
+
+- **`product/`** — the product view: what Keel is, navigation, delegation between
+  members, providers, and how it differs from other tools.
+- **`mockup/`** — the drawings approved before any Dart was written:
+  [projects and requirements](mockup/proyectos-y-requerimientos.html),
+  [integrations, boards, and machine](mockup/integraciones-tableros-y-maquina.html),
+  and [the reasoning map](mockup/mapa-de-razonamiento.html). They are built with the
+  exact tokens of `app_theme.dart`, so they serve as the reference for what the UI
+  has to look like.
+- **`templates/TASKS/`** — the skeleton of a project roadmap (F23), to copy into a
+  repo.
+- **[Build and distribute](build-and-distribute.md)** — how what people download is
+  produced: macOS, Linux, and why Windows not yet. It is not a feature; it is the
+  process, with each platform's constraints and the traps that already cost us once.
+
+> There is no F9. It was numbered and never written, and renumbering twenty files to
+> cover a gap costs more than it is worth.

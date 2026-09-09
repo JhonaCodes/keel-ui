@@ -104,7 +104,7 @@ class KnowledgeState {
 /// El área de Saber: bases de documentación con frontera de contexto. Una
 /// proyecto (o un perfil oráculo) declara qué bases ve por nombre, y en el
 /// turno de sus agentes entra el MAPA de esas bases — nunca los documentos
-/// enteros. Ver `docs/features/16-bases-de-saber.md`.
+/// enteros. Ver `docs/features/16-knowledge-bases.md`.
 class KnowledgeViewModel extends ViewModel<KnowledgeState> {
   KnowledgeViewModel() : super(const KnowledgeState());
 

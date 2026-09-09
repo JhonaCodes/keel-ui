@@ -1,3 +1,4 @@
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
@@ -273,7 +274,7 @@ class _AuthorLine extends StatelessWidget {
                 ),
               ),
               child: Text(
-                'consulta de ${bubble.askedBy!.name}',
+                AppLocalizations.of(context).threadConsultOf(bubble.askedBy!.name),
                 style: TextStyle(
                   fontFamily: 'monospace',
                   fontSize: 10,

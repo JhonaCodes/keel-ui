@@ -53,7 +53,7 @@ class RequirementsGroup extends StatelessWidget {
                   children: [
                     Expanded(
                       child: Text(
-                        'REQUERIMIENTOS',
+                        AppLocalizations.of(context).sidebarSectionRequirements,
                         style: TextStyle(
                           fontFamily: 'monospace',
                           fontSize: 10,
@@ -75,7 +75,7 @@ class RequirementsGroup extends StatelessWidget {
                         ),
                       ),
                     IconButton(
-                      tooltip: 'Todos los requerimientos',
+                      tooltip: AppLocalizations.of(context).sidebarTooltipAllRequirements,
                       icon: const Icon(Icons.tune, size: 15),
                       constraints: const BoxConstraints.tightFor(
                         width: 28,
@@ -85,7 +85,7 @@ class RequirementsGroup extends StatelessWidget {
                       onPressed: onManage,
                     ),
                     IconButton(
-                      tooltip: 'Abrir un requerimiento',
+                      tooltip: AppLocalizations.of(context).sidebarTooltipOpenRequirement,
                       icon: const Icon(Icons.add, size: 17),
                       constraints: const BoxConstraints.tightFor(
                         width: 28,
@@ -102,8 +102,7 @@ class RequirementsGroup extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.fromLTRB(14, 2, 14, 8),
                 child: Text(
-                  'Ninguno. Aparecen acá cuando un proyecto necesita algo de '
-                  'otro.',
+                  AppLocalizations.of(context).sidebarRequirementsEmpty,
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ),

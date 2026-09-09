@@ -1,3 +1,4 @@
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -15,16 +16,16 @@ class MapLegend extends StatelessWidget {
 
   final VoidCallback onClose;
 
-  static const _entries = <(MapEdgeKind, String)>[
-    (MapEdgeKind.forward, 'avanza un paso'),
-    (MapEdgeKind.back, 'consulta a otro nodo'),
-    (MapEdgeKind.answer, 'contesta esa consulta'),
-    (MapEdgeKind.delegate, 'abre un subagente'),
-    (MapEdgeKind.delegateBack, 'el subagente devolvió'),
-    (MapEdgeKind.spawn, 'lo registró'),
-    (MapEdgeKind.finish, 'entrega final'),
-    (MapEdgeKind.failed, 'cortó'),
-    (MapEdgeKind.untraveled, 'sin recorrer'),
+  static List<(MapEdgeKind, String)> _entriesOf(AppLocalizations t) => [
+    (MapEdgeKind.forward, t.mapLegendForward),
+    (MapEdgeKind.back, t.mapLegendBack),
+    (MapEdgeKind.answer, t.mapLegendAnswer),
+    (MapEdgeKind.delegate, t.mapLegendOpensSubagent),
+    (MapEdgeKind.delegateBack, t.mapLegendSubagentReturned),
+    (MapEdgeKind.spawn, t.mapLegendSpawn),
+    (MapEdgeKind.finish, t.mapLegendFinish),
+    (MapEdgeKind.failed, t.mapLegendFailed),
+    (MapEdgeKind.untraveled, t.mapLegendUntraveled),
   ];
 
   @override
@@ -69,7 +70,7 @@ class MapLegend extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
-          for (final (kind, label) in _entries)
+          for (final (kind, label) in _entriesOf(AppLocalizations.of(context)))
             Padding(
               padding: const EdgeInsets.only(bottom: 7),
               child: Row(

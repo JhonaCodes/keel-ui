@@ -1,7 +1,6 @@
 {
   "@@locale": "en",
   "@@author": "i18n-discovery workflow",
-
   "buttonApply": "Apply",
   "buttonApplySelection": "Apply selection",
   "buttonCancel": "Cancel",
@@ -19,7 +18,6 @@
   "buttonEdit": "Edit",
   "buttonSave": "Save",
   "buttonSearch": "Search",
-
   "actionCloneVault": "Clone vault",
   "actionCloneAndRead": "Clone and read",
   "actionChooseDestinationAndExport": "Choose destination and export",
@@ -36,7 +34,6 @@
   "actionReviewAgain": "Review again",
   "actionStartFromScratch": "Start from scratch",
   "actionReadyEnter": "All set — continue",
-
   "labelAgents": "Agents",
   "labelWorkflows": "Workflows",
   "labelSkills": "Skills",
@@ -49,7 +46,6 @@
   "labelKnowledgeBases": "Knowledge Bases",
   "labelSecrets": "Secrets",
   "labelSettings": "Settings",
-
   "messageErrorGeneric": "Something went wrong. Try again.",
   "messageErrorNetwork": "Could not connect. Check your network.",
   "messageErrorFileContainsNothing": "The file contains nothing applicable.",
@@ -73,7 +69,6 @@
       }
     }
   },
-
   "confirmationDeleteTitle": "Delete {entity}?",
   "@confirmationDeleteTitle": {
     "placeholders": {
@@ -85,27 +80,21 @@
   },
   "confirmationDeleteMessage": "Are you sure? This cannot be undone.",
   "confirmationProceed": "Proceed",
-
   "placeholderSearchByName": "Search by name…",
   "placeholderFilterResults": "Filter results…",
   "placeholderAskAboutLine": "Ask about this line…",
-
   "hintFieldRequired": "Field required.",
   "hintEmailInvalid": "Invalid email.",
   "hintPasswordTooShort": "Password must be at least 8 characters.",
-
   "tooltipWorktreeSeparate": "Separate worktree",
   "tooltipOpenInFinder": "Open in Finder",
   "tooltipCopyToClipboard": "Copy to clipboard",
-
   "languageEnglish": "English",
   "languageSpanish": "Español (Colombia)",
-
   "settingLanguage": "Language",
   "settingTheme": "Theme",
   "settingThemeDark": "Dark",
   "settingThemeLight": "Light",
-
   "countAgent": "{count, plural, =1 {1 agent} other {{count} agents}}",
   "@countAgent": {
     "placeholders": {
@@ -142,7 +131,6 @@
       }
     }
   },
-
   "pageTitleSettings": "Settings",
   "pageTitleSkillsRegistered": "Registered Skills",
   "pageTitleSecrets": "Secrets",
@@ -181,7 +169,6 @@
     }
   },
   "pageTitleRejectClosure": "Reject Closure",
-
   "settingTextSize": "Text Size",
   "settingWritePermissions": "Write Permissions",
   "settingScheduledJobsApi": "Scheduled Jobs API",
@@ -189,11 +176,9 @@
   "settingCanAdministrateSystem": "Can administer the system",
   "settingBlocksRequester": "Blocks the requester",
   "settingAccessEntireFilesystem": "Access to entire file system",
-
   "descriptionWritePermissions": "Reading files, searching, and consulting the web is always allowed. Here you decide what agents can modify. Applies to all.",
   "descriptionScheduledJobsApi": "For external schedulers (cron, keel): POST /projects/<name>/tasks with Bearer token. Loopback only.",
   "descriptionLockedElements": "What an agent cannot change or delete without asking your permission first. The lock is set from each item; here you see them all together.",
-
   "labelLockedElements": "Locked Elements",
   "labelAboutKeel": "About Keel",
   "labelGlobal": "global",
@@ -260,12 +245,10 @@
       }
     }
   },
-
   "buttonNew": "New",
   "buttonRegisterSkill": "Register skill",
   "buttonCreateSkill": "Create skill",
   "buttonReplace": "Replace",
-  "buttonEdit": "Edit",
   "buttonImport": "Import",
   "buttonRegenerateToken": "Regenerate token",
   "buttonViewLocked": "View locked…",
@@ -280,7 +263,7 @@
   "buttonReviewAgain": "Review again",
   "buttonDefineFormat": "Define the format",
   "buttonDocumentation": "Documentation",
-  "buttonTestConnection": "Test connection",
+  "buttonTestConnection": "Test the connection",
   "buttonRegisterMCP": "Register MCP",
   "buttonChoose": "Choose…",
   "buttonRegisterAgent": "Register agent",
@@ -314,7 +297,6 @@
   "buttonAssignAndEvaluate": "Take and evaluate",
   "buttonGoToSession": "Go to session",
   "buttonRejectAndExplain": "Reject and explain",
-
   "messageNoSkillsRegistered": "You haven't registered any skills yet.",
   "messageNoToolsRegistered": "You haven't registered any tools yet.",
   "messageNoRulesRegistered": "You haven't registered any rules yet.",
@@ -369,7 +351,6 @@
   "messageAskYourAgent": "Ask your agent something",
   "messageNoKnowledgeBases": "There are no knowledge bases yet.",
   "messageBackupEmpty": "The backup brings nothing applicable.",
-
   "optionCommand": "A command",
   "optionRegisteredTool": "A registered tool",
   "optionGiveToKeelAI": "Give it to Keel AI (the assistant)",
@@ -406,15 +387,11 @@
       }
     }
   },
-
   "titleReadOnly": "Read-only",
   "titleRequiresIndependentAgent": "Requires independent agent",
-
   "subtitleReadOnly": "Planners and auditors do not write.",
-
   "linkWebsite": "jhonacode.com",
   "linkCommunity": "Community on Discord",
-
   "tooltipRegisterNew": "Register new",
   "tooltipImportPackage": "Import a package",
   "tooltipDismiss": "Dismiss",
@@ -432,7 +409,6 @@
     }
   },
   "suggestionDraftFooter": "Write the final instruction here:",
-
   "formTitleRegisterAgent": "Register agent",
   "formTitleEditAgent": "Edit registered agent",
   "formLabelAgentName": "Name (lowercase, no spaces, max 16)",
@@ -442,7 +418,11 @@
   "formLabelProvider": "Provider (codex: no tools/MCPs/effort, and its own models)",
   "formLabelModel": "Default model ({provider})",
   "@formLabelModel": {
-    "placeholders": {"provider": {"type": "String"}}
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
   },
   "formLabelEffort": "Default effort",
   "formMessageCanManageSystem": "Can manage the system",
@@ -453,11 +433,9 @@
   "formDescriptionRolesHelp": "Workflow preflight looks for responsibles by this role.",
   "formConfirmDeleteAgent": "The \"{name}\" registration will be deleted. This doesn't affect chats you already had with this setup.",
   "formTitleDeleteAgent": "Delete registered agent",
-
   "tooltipEditAgent": "Edit",
   "tooltipExportAsPackage": "Export as package",
   "tooltipDeleteAgent": "Delete",
-
   "mapStateWaiting": "Waiting for you",
   "mapStateFailed": "Failed",
   "labelAskedFor": "Asked for",
@@ -473,7 +451,10 @@
   "placeholderWriteTo": "Write to @{name}…",
   "@placeholderWriteTo": {
     "placeholders": {
-      "name": {"type": "String", "example": "agent-name"}
+      "name": {
+        "type": "String",
+        "example": "agent-name"
+      }
     }
   },
   "messageNoReasoningVisible": "Did not leave visible reasoning. With models that don't emit it, there's nothing to show here.",
@@ -485,17 +466,24 @@
   "messageSubagentWriteLocked": "While running, you cannot write to a subagent: the CLI doesn't open that channel. What you write below goes to {parent}, who opened it.",
   "@messageSubagentWriteLocked": {
     "placeholders": {
-      "parent": {"type": "String", "example": "agent-name"}
+      "parent": {
+        "type": "String",
+        "example": "agent-name"
+      }
     }
   },
-
   "formLabelHookName": "Name",
   "formHintHookScript": "Also the name of the script that will be generated.",
   "formLabelWhatHookDoes": "What it does",
   "formMessageNoEventFilter": "This event doesn't filter: leave it empty.",
   "formHintEventFilter": "Empty = all. Examples: {matcherHint}",
   "@formHintEventFilter": {
-    "placeholders": {"matcherHint": {"type": "String", "example": "tool_called"}}
+    "placeholders": {
+      "matcherHint": {
+        "type": "String",
+        "example": "tool_called"
+      }
+    }
   },
   "formDescriptionHookScope": "Brief on purpose: a \"before tool use\" hook: if you reject it, it won't be called. A \"after\" one is rarer.",
   "formLabelHookRules": "Which rules does this hook enforce",
@@ -506,7 +494,6 @@
   "formDescriptionHookCode": "Code travels in backups and can use the secrets you set up. If the admin doesn't allow write, a hook from disk won't restore on another machine.",
   "formLabelHookTimeout": "Timeout (seconds)",
   "formDescriptionHookTimeout": "Receives the event as JSON on stdin. Exiting with code 2 blocks.",
-
   "pageTitleMachineTitle": "Machine",
   "messageDetectionNotIntegration": "Detecting is not integrating: those that say \"no adapter\" are on your machine but Keel still doesn't know how to talk to them, and can't be asked to do it alone.",
   "labelConsumption": "Consumption · last 14 days",
@@ -515,31 +502,47 @@
   "messageNoTokenCount": "No measurement — its CLI doesn't report tokens",
   "labelCoresShort": "{cores} cores",
   "@labelCoresShort": {
-    "placeholders": {"cores": {"type": "int", "example": "4"}}
+    "placeholders": {
+      "cores": {
+        "type": "int",
+        "example": "4"
+      }
+    }
   },
   "messageNotInPath": "Not in the PATH",
-
   "formLabelWorkflowIntent": "Intent and when it applies",
   "formDescriptionWorkflowEngine": "The engine decides the minimum nodes; you don't configure a chain of agents.",
   "labelMaxReplans": "Replan limit: {count}",
   "@labelMaxReplans": {
-    "placeholders": {"count": {"type": "int", "example": "5"}}
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "5"
+      }
+    }
   },
   "labelMaxSubagents": "Read/verify subagents: {count}",
   "@labelMaxSubagents": {
-    "placeholders": {"count": {"type": "int", "example": "10"}}
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "10"
+      }
+    }
   },
   "labelMaxReviewCycles": "Shared audit cycles: {count}",
   "@labelMaxReviewCycles": {
-    "placeholders": {"count": {"type": "int", "example": "3"}}
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "3"
+      }
+    }
   },
   "formLabelWorkflowTitle": "Visible title",
   "formLabelWorkflowInstruction": "Instruction",
   "formLabelWorkflowActivation": "Activation",
   "formLabelWorkflowExecution": "Execution",
-  "optionNewSession": "New session",
-  "optionResumeParentSession": "Resume parent session",
-  "optionManualApproval": "Manual approval",
   "formDescriptionParentSessionKept": "The parent session is kept and resumed.",
   "formLabelMaxAgenticTurns": "Maximum agentic turns",
   "formDescriptionMaxAgenticTurns": "Empty or 0 uses the provider limit.",
@@ -548,19 +551,33 @@
   "formLabelWorkflowResponsible": "Responsible for resolution",
   "formDescriptionResponsible": "A responsible integrates evidence and is the only writer.",
   "workflowKindMigration": "Migration",
-
   "labelAge": "{days, plural, =1 {1 day} other {{days} days}}",
   "@labelAge": {
-    "placeholders": {"days": {"type": "int", "example": "5"}}
+    "placeholders": {
+      "days": {
+        "type": "int",
+        "example": "5"
+      }
+    }
   },
   "labelWeekdayShort": "Mon, Tue, Wed, Thu, Fri, Sat, Sun",
   "messageRequirementTaken": "Taken by @{handle}",
   "@messageRequirementTaken": {
-    "placeholders": {"handle": {"type": "String", "example": "agent-name"}}
+    "placeholders": {
+      "handle": {
+        "type": "String",
+        "example": "agent-name"
+      }
+    }
   },
   "messageRequirementTask": "Became a task: {taskPath}",
   "@messageRequirementTask": {
-    "placeholders": {"taskPath": {"type": "String", "example": "project/task-id"}}
+    "placeholders": {
+      "taskPath": {
+        "type": "String",
+        "example": "project/task-id"
+      }
+    }
   },
   "messagePlanMode": "Plan mode: propose how they would do it. To actually implement it, \"Take and evaluate\" opens a session.",
   "messageRequirementAnswering": "Answering…",
@@ -568,14 +585,17 @@
   "messageWriteHere": "Write here — @ to ask an agent",
   "messageRequirementClosed": "The recipient asked for closure.",
   "messageOnlyOriginCanClose": "Only the side that opened it can close — they know if what they needed is there.",
-  "buttonGoToSession": "Go to session",
   "labelWithWorkflow": "With which workflow to evaluate",
   "messageNewSessionOpenedWorkflow": "Will open a new session in #{workflowName}. Choose the row below for each role.",
   "@messageNewSessionOpenedWorkflow": {
-    "placeholders": {"workflowName": {"type": "String", "example": "review"}}
+    "placeholders": {
+      "workflowName": {
+        "type": "String",
+        "example": "review"
+      }
+    }
   },
   "formLabelWhatMissing": "What's missing",
-
   "bundleExportNothingYet": "Nothing to export yet.",
   "bundleSectionWhatItTakes": "What it takes",
   "bundleSectionWhatItBrings": "What it brings",
@@ -584,15 +604,30 @@
   "bundleNoFindings": "no findings",
   "bundleFindingsCount": "{count, plural, =1 {1 finding} other {{count} findings}}",
   "@bundleFindingsCount": {
-    "placeholders": {"count": {"type": "int", "example": "3"}}
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "3"
+      }
+    }
   },
   "bundleMissingNote": "This is named but doesn't exist on this side, so it won't travel:\n{list}",
   "@bundleMissingNote": {
-    "placeholders": {"list": {"type": "String", "example": "· skill-x"}}
+    "placeholders": {
+      "list": {
+        "type": "String",
+        "example": "· skill-x"
+      }
+    }
   },
   "bundleSecretsToCreateNote": "Whoever installs it will need to create these secrets with these names: {names}. The values don't travel.",
   "@bundleSecretsToCreateNote": {
-    "placeholders": {"names": {"type": "String", "example": "API_KEY"}}
+    "placeholders": {
+      "names": {
+        "type": "String",
+        "example": "API_KEY"
+      }
+    }
   },
   "actionImportPackage": "Import a package",
   "bundleImportIntro": "A package brings an agent, a workflow or a skill with everything it needs to work: its skills, its rules, its tools, its hooks, its MCP servers and its documentation.",
@@ -604,66 +639,113 @@
   "bundleDocumentsLabel": "documents",
   "bundleSecretsRequiredNote": "It needs these secrets, which you have to create yourself with these names: {names}. A package never brings values.",
   "@bundleSecretsRequiredNote": {
-    "placeholders": {"names": {"type": "String", "example": "API_KEY"}}
+    "placeholders": {
+      "names": {
+        "type": "String",
+        "example": "API_KEY"
+      }
+    }
   },
   "actionInstall": "Install",
   "bundleHighRiskAck": "I read the {count} high-severity findings and want to install it anyway.",
   "@bundleHighRiskAck": {
-    "placeholders": {"count": {"type": "int", "example": "2"}}
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "2"
+      }
+    }
   },
   "bundleAuditCleanNote": "I reviewed {count} pieces of text and found nothing known. This isn't a guarantee: it only searches for what it knows to search for.",
   "@bundleAuditCleanNote": {
-    "placeholders": {"count": {"type": "int", "example": "42"}}
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "42"
+      }
+    }
   },
   "bundleRiskLevelLabel": "SEVERITY {level}",
   "@bundleRiskLevelLabel": {
-    "placeholders": {"level": {"type": "String", "example": "HIGH"}}
+    "placeholders": {
+      "level": {
+        "type": "String",
+        "example": "HIGH"
+      }
+    }
   },
-
   "actionSaveAsPng": "Save as PNG",
   "codeBlockLineCount": "{title} · {count, plural, =1 {1 line} other {{count} lines}}",
   "@codeBlockLineCount": {
     "placeholders": {
-      "title": {"type": "String", "example": "python"},
-      "count": {"type": "int", "example": "12"}
+      "title": {
+        "type": "String",
+        "example": "python"
+      },
+      "count": {
+        "type": "int",
+        "example": "12"
+      }
     }
   },
   "semanticsOpenImageFullSize": "Attached image, open at full size",
   "tooltipOpenFullSize": "Open at full size",
   "messageImageUnavailable": "Image unavailable",
-
   "labelDeletedProject": "deleted project",
   "labelOpenSince": "open for {age}",
   "@labelOpenSince": {
-    "placeholders": {"age": {"type": "String", "example": "2 h"}}
+    "placeholders": {
+      "age": {
+        "type": "String",
+        "example": "2 h"
+      }
+    }
   },
   "labelBlockingRequester": "blocks whoever asks",
   "durationMinutesShort": "{count} min",
   "@durationMinutesShort": {
-    "placeholders": {"count": {"type": "int", "example": "5"}}
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "5"
+      }
+    }
   },
   "durationHoursShort": "{count} h",
   "@durationHoursShort": {
-    "placeholders": {"count": {"type": "int", "example": "5"}}
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "5"
+      }
+    }
   },
   "durationDaysShort": "{count, plural, =1 {1 day} other {{count} days}}",
   "@durationDaysShort": {
-    "placeholders": {"count": {"type": "int", "example": "5"}}
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "5"
+      }
+    }
   },
   "messageTakenByYou": "You took it",
   "labelVerdict": "VERDICT",
   "tooltipPlanModeActive": "Plan mode active: proposes instead of asserting",
   "messageNewRequirementSessionNote": "It's going to open a new session in #{workflowName}. Choose the row of agents that matches this request — evaluating a requirement is rarely the same as resolving a ticket.",
   "@messageNewRequirementSessionNote": {
-    "placeholders": {"workflowName": {"type": "String", "example": "keel-ui"}}
+    "placeholders": {
+      "workflowName": {
+        "type": "String",
+        "example": "keel-ui"
+      }
+    }
   },
   "labelProjectNoLongerExists": "a project that no longer exists",
   "assistantWindowTitle": "Assistant",
   "buttonAskKeelAi": "Ask Keel AI",
   "buttonCreateByHand": "Create by hand",
   "buttonOverwriteAnyway": "Overwrite anyway",
-  "buttonNewSession": "New session",
-  "buttonTestConnection": "Test the connection",
   "hintAskAboutThisLine": "Ask about this line…",
   "hintQueuedMessage": "Message that will be sent on the next turn",
   "hintSessionName": "Session name",
@@ -674,19 +756,68 @@
   "labelHeadersKeyValue": "Headers (KEY=value, one per line)",
   "labelKnowledgeBaseAnswers": "What this base answers",
   "labelModelWithProvider": "Model ({provider})",
-  "@labelModelWithProvider": {"placeholders": {"provider": {"type": "String", "example": "OpenAI"}}},
+  "@labelModelWithProvider": {
+    "placeholders": {
+      "provider": {
+        "type": "String",
+        "example": "OpenAI"
+      }
+    }
+  },
   "labelMaxReplansLimit": "Replan limit: {count}",
-  "@labelMaxReplansLimit": {"placeholders": {"count": {"type": "int", "example": "2"}}},
+  "@labelMaxReplansLimit": {
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "2"
+      }
+    }
+  },
   "labelMaxReviewCyclesLimit": "Shared audit cycles: {count}",
-  "@labelMaxReviewCyclesLimit": {"placeholders": {"count": {"type": "int", "example": "4"}}},
+  "@labelMaxReviewCyclesLimit": {
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "4"
+      }
+    }
+  },
   "labelMaxSubagentsLimit": "Read/verification subagents: {count}",
-  "@labelMaxSubagentsLimit": {"placeholders": {"count": {"type": "int", "example": "1"}}},
+  "@labelMaxSubagentsLimit": {
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "1"
+      }
+    }
+  },
   "labelIdleTimeoutLimit": "Minutes without provider activity before a step is cut: {count}",
-  "@labelIdleTimeoutLimit": {"placeholders": {"count": {"type": "int", "example": "10"}}},
+  "@labelIdleTimeoutLimit": {
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "10"
+      }
+    }
+  },
   "labelNodeTimeoutLimit": "Maximum minutes per step: {count}",
-  "@labelNodeTimeoutLimit": {"placeholders": {"count": {"type": "int", "example": "45"}}},
+  "@labelNodeTimeoutLimit": {
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "45"
+      }
+    }
+  },
   "labelSessionCostLimit": "Session cost ceiling in USD (0 = no ceiling): {amount}",
-  "@labelSessionCostLimit": {"placeholders": {"amount": {"type": "int", "example": "20"}}},
+  "@labelSessionCostLimit": {
+    "placeholders": {
+      "amount": {
+        "type": "int",
+        "example": "20"
+      }
+    }
+  },
   "labelNoBoardsYet": "No boards yet",
   "labelNoSessionOpen": "No session open",
   "labelPasteBlockAsInDocs": "Paste the block exactly as shown in the docs",
@@ -700,9 +831,23 @@
   "labelTermsOfUse": "Terms of use",
   "labelWhichWorkflowRuns": "Which workflow runs",
   "messageCloseSessionBody": "This deletes the thread of \"{title}\" and the context the agents built up in it. The project stays the same, with its agents, rules, and documents.",
-  "@messageCloseSessionBody": {"placeholders": {"title": {"type": "String", "example": "Fix login bug"}}},
+  "@messageCloseSessionBody": {
+    "placeholders": {
+      "title": {
+        "type": "String",
+        "example": "Fix login bug"
+      }
+    }
+  },
   "messageDeleteIntegrationBody": "\"{name}\" gets deleted. Agents that had it assigned stop receiving its tools.",
-  "@messageDeleteIntegrationBody": {"placeholders": {"name": {"type": "String", "example": "GitHub"}}},
+  "@messageDeleteIntegrationBody": {
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "GitHub"
+      }
+    }
+  },
   "messageFileChangedBody": "This file was modified (for example, the agent edited it) since you opened this window. If you save now, you will overwrite that change with what you have here.",
   "messageNoAgentsToAdd": "No more registered agents to add",
   "messageNoBoardsExplainer": "A board is a small screen for triggering something against your own app: launch an offer, send yourself a push, hit an endpoint you're writing.\n\nThe fastest way is to ask a project agent for it: it reads your code and builds it on its own. It shows up in that project's Boards section.",
@@ -778,35 +923,55 @@
   "termsSection20Title": "20. Contact",
   "termsSection20Body": "To request permission for a use, donate, report something, or any other inquiry: jhonacode.com",
   "messageWriteToAgent": "Write something to your agent",
-
   "skillAlreadyExists": "The skill \"{name}\" already existed, I reused it.",
   "@skillAlreadyExists": {
-    "placeholders": {"name": {"type": "String"}}
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
   },
   "ruleAlreadyExists": "The rule \"{name}\" already existed, I reused it.",
   "@ruleAlreadyExists": {
-    "placeholders": {"name": {"type": "String"}}
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
   },
   "toolAlreadyExists": "The tool \"{name}\" already existed, I reused it.",
   "@toolAlreadyExists": {
-    "placeholders": {"name": {"type": "String"}}
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
   },
   "skillCreated": "I created the skill \"{name}\".",
   "@skillCreated": {
     "placeholders": {
-      "name": {"type": "String"}
+      "name": {
+        "type": "String"
+      }
     }
   },
   "ruleCreated": "I created the rule \"{name}\".",
   "@ruleCreated": {
-    "placeholders": {"name": {"type": "String"}}
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
   },
   "handleReserved": "The handle \"{handle}\" is reserved.",
   "@handleReserved": {
-    "placeholders": {"handle": {"type": "String"}}
+    "placeholders": {
+      "handle": {
+        "type": "String"
+      }
+    }
   },
   "keelAiModifyBlocked": "Keel AI requested to modify a locked element.",
-  "buttonRegister": "Register",
   "formEditEntity": "Edit {entity}",
   "formRegisterEntity": "Register {entity}",
   "formName": "Name",
@@ -840,92 +1005,504 @@
   "assistantExampleAgent": "Register a security reviewer agent and assign it the skill you just created.",
   "assistantExampleWorkflow": "Create a workflow for bugs with implementation and a review gate.",
   "assistantExampleSkill": "Create a skill with this project's style rules.",
-  "assistantExampleRule": "Add a rule that forbids obvious comments in the code."
-  ,"labelEnabled": "Enabled"
-  ,"labelDisabled": "Disabled"
-  ,"navAssistantTooltip": "Keel AI assistant"
-  ,"navRegisteredAgents": "Registered agents"
-  ,"navTestBoards": "Test boards"
-  ,"navMcpIntegrations": "MCP integrations"
-  ,"navKnowledge": "Knowledge"
-  ,"navMachine": "Machine"
-  ,"navBackup": "Backup"
-  ,"navSettings": "Settings"
-  ,"mapLaneBack": "back"
-  ,"mapLaneForward": "forward"
-  ,"mapLaneDelegate": "delegate"
-  ,"mapViewQuery": "View the full query"
-  ,"mapZoomOut": "Zoom out  ⌘−"
-  ,"mapZoomIn": "Zoom in  ⌘+"
-  ,"mapFit": "Fit everything on screen  ⌘0"
-  ,"mapFollow": "Follow the node taking its turn"
-  ,"mapHelp": "drag = pan · ⌘ + scroll = zoom"
-  ,"mapEmptyTitle": "This project has no nodes to map yet"
-  ,"mapEmptyDescription": "Add members and a workflow. The map opens with the roster in place, idle, before anything runs."
-  ,"chatCreateSession": "Create a session to get started"
-  ,"chatAskForPlan": "Ask for a plan…"
-  ,"chatSessionPrompt": "What do you need in this #{project} session?"
-  ,"chatMessagePrompt": "Message to #{project}"
-  ,"chatStop": "Stop"
-  ,"chatQueue": "Queue for later"
-  ,"chatSend": "Send"
-  ,"chatSessionsCreatedByButton": "Sessions are created with the \"New session\" button."
-  ,"chatRunsPreflight": "The workflow preflight runs in this session."
-  ,"chatQueueHelp": "You can queue messages, schedule them for the end of the turn, or interrupt and send them now."
-  ,"chatWorkflowHelp": "The workflow coordinates the graph. Write whenever you want to correct the course; it is recorded on the active node."
-  ,"chatReferencesHelp": "References: / directories · @ agents · $ skills and rules · # knowledge"
-  ,"labelNoOpenSession": "No session open"
-  ,"labelSessionTitle": "Session: {title}"
-  ,"labelContextUsage": "context {percent}%"
-  ,"assistantLegacyBlocked": "The automatic block was not executed: it tried to change locked elements ({names}). Use the MCP tools with change_intent and change_reason to request permission."
-  ,"assistantSkillExists": "The skill \"{name}\" already existed; I reused it."
-  ,"assistantSkillCreated": "I created the skill \"{name}\"{suffix}."
-  ,"assistantRuleExists": "The rule \"{name}\" already existed; I reused it."
-  ,"assistantRuleCreated": "I created the rule \"{name}\"."
-  ,"assistantToolExists": "The tool \"{name}\" already existed; I reused it."
-  ,"assistantToolCreated": "I created the tool \"{name}\" ({runtime})."
-  ,"assistantAgentCreated": "I registered @{handle}.{details}"
-  ,"assistantAgentUpdated": "I updated @{handle}.{details}"
-  ,"assistantWorkflowCreated": "I created the workflow \"{name}\" ({kind})."
-  ,"assistantProjectCreated": "I created the project \"{name}\"."
-  ,"updateAvailable": "New version {version} available. Click to download."
-  ,"readingInstalledVersion": "Reading installed version"
-  ,"reviewVersion": "Keel {version}. Click to check."
-  ,"faultsLabel": "Faults"
-  ,"faultsNone": "Nothing broken — all clear"
-  ,"faultsOne": "1 unseen fault"
-  ,"faultsMany": "{count} unseen faults"
-  ,"machineUpdateAvailable": "A new Keel version is available"
-  ,"machineStatus": "Services, usage, and machine status"
-  ,"machineOneWork": "1 job in progress"
-  ,"machineManyWork": "{count} jobs in progress"
-  ,"backupBusy": "Backing up"
-  ,"backupLabel": "Backup"
-  ,"backupSaving": "Writing the backup without interrupting you"
-  ,"backupReady": "Backup is current and uploaded remotely"
-  ,"mapLegend": "Legend"
-  ,"fileTypeImages": "Images"
-  ,"chatFilterSystem": "system"
-  ,"chatFilterSubagents": "subagents"
-  ,"chatFilterAll": "all"
-  ,"chatStepLabel": "step: {title}"
-  ,"chatRetryStep": "Retry \u00ab{title}\u00bb"
-  ,"buttonDeleteAgent": "Delete agent"
-  ,"deleteAgentConfirmation": "\"{name}\" and its chat history will be deleted."
-  ,"emptyProjectsHint": "None yet. Create one so multiple agents can work on the same repo."
-  ,"emptyAgentsHint": "None open. Use a registered agent to talk to it directly, without a project."
-  ,"filesystemAccessTitle": "Give access to the entire file system"
-  ,"filesystemAccessBody": "\"{name}\" will be able to read and write in any folder on the computer, not only your user folder."
-  ,"filesystemAccessGrant": "Give access"
-  ,"filesystemAccessEnabledTooltip": "Has access to the entire file system (click to remove it)"
-  ,"filesystemAccessGrantTooltip": "Give access to the entire file system"
-  ,"noOpenRequirements": "No open requirements in either direction."
-  ,"labelSubagents": "subagents"
-  ,"useAgentTitle": "Use an agent"
-  ,"filesystemAccessSubtitle": "This is decided here, not when registering the agent: the same agent can have different permissions depending on where you use it."
-  ,"chatHintStreaming": "It will be sent when the turn ends…"
-  ,"chatHintPlan": "Ask for a plan…"
-  ,"chatHintMessage": "Write a message…"
-  ,"noAgentsTitle": "No agents registered yet"
-  ,"noAgentsDescription": "Register one to make it available everywhere: for direct conversations, projects, and workflow steps that find agents by role."
+  "assistantExampleRule": "Add a rule that forbids obvious comments in the code.",
+  "labelEnabled": "Enabled",
+  "labelDisabled": "Disabled",
+  "navAssistantTooltip": "Keel AI assistant",
+  "navRegisteredAgents": "Registered agents",
+  "navTestBoards": "Test boards",
+  "navMcpIntegrations": "MCP integrations",
+  "navKnowledge": "Knowledge",
+  "navMachine": "Machine",
+  "navBackup": "Backup",
+  "navSettings": "Settings",
+  "mapLaneBack": "back",
+  "mapLaneForward": "forward",
+  "mapLaneDelegate": "delegate",
+  "mapViewQuery": "View the full query",
+  "mapZoomOut": "Zoom out  ⌘−",
+  "mapZoomIn": "Zoom in  ⌘+",
+  "mapFit": "Fit everything on screen  ⌘0",
+  "mapFollow": "Follow the node taking its turn",
+  "mapHelp": "drag = pan · ⌘ + scroll = zoom",
+  "mapEmptyTitle": "This project has no nodes to map yet",
+  "mapEmptyDescription": "Add members and a workflow. The map opens with the roster in place, idle, before anything runs.",
+  "chatCreateSession": "Create a session to get started",
+  "chatAskForPlan": "Ask for a plan…",
+  "chatSessionPrompt": "What do you need in this #{project} session?",
+  "chatMessagePrompt": "Message to #{project}",
+  "chatStop": "Stop",
+  "chatQueue": "Queue for later",
+  "chatSend": "Send",
+  "chatSessionsCreatedByButton": "Sessions are created with the \"New session\" button.",
+  "chatRunsPreflight": "The workflow preflight runs in this session.",
+  "chatQueueHelp": "You can queue messages, schedule them for the end of the turn, or interrupt and send them now.",
+  "chatWorkflowHelp": "The workflow coordinates the graph. Write whenever you want to correct the course; it is recorded on the active node.",
+  "chatReferencesHelp": "References: / directories · @ agents · $ skills and rules · # knowledge",
+  "labelNoOpenSession": "No session open",
+  "labelSessionTitle": "Session: {title}",
+  "labelContextUsage": "context {percent}%",
+  "assistantLegacyBlocked": "The automatic block was not executed: it tried to change locked elements ({names}). Use the MCP tools with change_intent and change_reason to request permission.",
+  "assistantSkillExists": "The skill \"{name}\" already existed; I reused it.",
+  "assistantSkillCreated": "I created the skill \"{name}\"{suffix}.",
+  "assistantRuleExists": "The rule \"{name}\" already existed; I reused it.",
+  "assistantRuleCreated": "I created the rule \"{name}\".",
+  "assistantToolExists": "The tool \"{name}\" already existed; I reused it.",
+  "assistantToolCreated": "I created the tool \"{name}\" ({runtime}).",
+  "assistantAgentCreated": "I registered @{handle}.{details}",
+  "assistantAgentUpdated": "I updated @{handle}.{details}",
+  "assistantWorkflowCreated": "I created the workflow \"{name}\" ({kind}).",
+  "assistantProjectCreated": "I created the project \"{name}\".",
+  "updateAvailable": "New version {version} available. Click to download.",
+  "readingInstalledVersion": "Reading installed version",
+  "reviewVersion": "Keel {version}. Click to check.",
+  "faultsLabel": "Faults",
+  "faultsNone": "Nothing broken — all clear",
+  "faultsOne": "1 unseen fault",
+  "faultsMany": "{count} unseen faults",
+  "machineUpdateAvailable": "A new Keel version is available",
+  "machineStatus": "Services, usage, and machine status",
+  "machineOneWork": "1 job in progress",
+  "machineManyWork": "{count} jobs in progress",
+  "backupBusy": "Backing up",
+  "backupLabel": "Backup",
+  "backupSaving": "Writing the backup without interrupting you",
+  "backupReady": "Backup is current and uploaded remotely",
+  "mapLegend": "Legend",
+  "fileTypeImages": "Images",
+  "chatFilterSystem": "system",
+  "chatFilterSubagents": "subagents",
+  "chatFilterAll": "all",
+  "chatStepLabel": "step: {title}",
+  "chatRetryStep": "Retry «{title}»",
+  "buttonDeleteAgent": "Delete agent",
+  "deleteAgentConfirmation": "\"{name}\" and its chat history will be deleted.",
+  "emptyProjectsHint": "None yet. Create one so multiple agents can work on the same repo.",
+  "emptyAgentsHint": "None open. Use a registered agent to talk to it directly, without a project.",
+  "filesystemAccessTitle": "Give access to the entire file system",
+  "filesystemAccessBody": "\"{name}\" will be able to read and write in any folder on the computer, not only your user folder.",
+  "filesystemAccessGrant": "Give access",
+  "filesystemAccessEnabledTooltip": "Has access to the entire file system (click to remove it)",
+  "filesystemAccessGrantTooltip": "Give access to the entire file system",
+  "noOpenRequirements": "No open requirements in either direction.",
+  "labelSubagents": "subagents",
+  "useAgentTitle": "Use an agent",
+  "filesystemAccessSubtitle": "This is decided here, not when registering the agent: the same agent can have different permissions depending on where you use it.",
+  "chatHintStreaming": "It will be sent when the turn ends…",
+  "chatHintPlan": "Ask for a plan…",
+  "chatHintMessage": "Write a message…",
+  "noAgentsTitle": "No agents registered yet",
+  "noAgentsDescription": "Register one to make it available everywhere: for direct conversations, projects, and workflow steps that find agents by role.",
+  "sidebarSectionProjects": "Projects",
+  "@sidebarSectionProjects": {
+    "description": "Sidebar string: sidebarSectionProjects"
+  },
+  "sidebarSectionSessions": "Sessions",
+  "@sidebarSectionSessions": {
+    "description": "Sidebar string: sidebarSectionSessions"
+  },
+  "sidebarSectionStatus": "Status",
+  "@sidebarSectionStatus": {
+    "description": "Sidebar string: sidebarSectionStatus"
+  },
+  "sidebarSectionLooseAgents": "LOOSE AGENTS",
+  "@sidebarSectionLooseAgents": {
+    "description": "Sidebar string: sidebarSectionLooseAgents"
+  },
+  "sidebarTooltipManageAgents": "Register or edit agents",
+  "@sidebarTooltipManageAgents": {
+    "description": "Sidebar string: sidebarTooltipManageAgents"
+  },
+  "sidebarTooltipUseAgent": "Use a registered agent",
+  "@sidebarTooltipUseAgent": {
+    "description": "Sidebar string: sidebarTooltipUseAgent"
+  },
+  "sidebarTooltipManageProjects": "Manage projects",
+  "@sidebarTooltipManageProjects": {
+    "description": "Sidebar string: sidebarTooltipManageProjects"
+  },
+  "sidebarTooltipNewProject": "New project",
+  "@sidebarTooltipNewProject": {
+    "description": "Sidebar string: sidebarTooltipNewProject"
+  },
+  "sidebarHintProjectName": "Project name",
+  "@sidebarHintProjectName": {
+    "description": "Sidebar string: sidebarHintProjectName"
+  },
+  "sidebarTooltipReadOnlyProject": "I do not maintain it: read-only",
+  "@sidebarTooltipReadOnlyProject": {
+    "description": "Sidebar string: sidebarTooltipReadOnlyProject"
+  },
+  "sidebarTooltipOneSessionWorking": "One session working",
+  "@sidebarTooltipOneSessionWorking": {
+    "description": "Sidebar string: sidebarTooltipOneSessionWorking"
+  },
+  "sidebarTooltipSessionsWorking": "{count} sessions working",
+  "@sidebarTooltipSessionsWorking": {
+    "description": "Sidebar string: sidebarTooltipSessionsWorking",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sidebarSectionBoards": "Boards",
+  "@sidebarSectionBoards": {
+    "description": "Sidebar string: sidebarSectionBoards"
+  },
+  "sidebarNewBoard": "New board",
+  "@sidebarNewBoard": {
+    "description": "Sidebar string: sidebarNewBoard"
+  },
+  "sidebarTooltipDeleteBoard": "Delete board",
+  "@sidebarTooltipDeleteBoard": {
+    "description": "Sidebar string: sidebarTooltipDeleteBoard"
+  },
+  "sidebarSectionRequirements": "REQUIREMENTS",
+  "@sidebarSectionRequirements": {
+    "description": "Sidebar string: sidebarSectionRequirements"
+  },
+  "sidebarTooltipAllRequirements": "All requirements",
+  "@sidebarTooltipAllRequirements": {
+    "description": "Sidebar string: sidebarTooltipAllRequirements"
+  },
+  "sidebarTooltipOpenRequirement": "Open a requirement",
+  "@sidebarTooltipOpenRequirement": {
+    "description": "Sidebar string: sidebarTooltipOpenRequirement"
+  },
+  "sidebarRequirementsEmpty": "None. They show up here when one project needs something from another.",
+  "@sidebarRequirementsEmpty": {
+    "description": "Sidebar string: sidebarRequirementsEmpty"
+  },
+  "panelTitleInProgress": "WORKFLOW IN PROGRESS",
+  "@panelTitleInProgress": {
+    "description": "Workflow panel string: panelTitleInProgress"
+  },
+  "panelNoWorkflowSelected": "This project has no workflow selected.",
+  "@panelNoWorkflowSelected": {
+    "description": "Workflow panel string: panelNoWorkflowSelected"
+  },
+  "panelProgressOf": "{done} of {active}",
+  "@panelProgressOf": {
+    "description": "Workflow panel string: panelProgressOf",
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "active": {
+        "type": "int"
+      }
+    }
+  },
+  "panelReviewCycles": "audits {done}/{max}",
+  "@panelReviewCycles": {
+    "description": "Workflow panel string: panelReviewCycles",
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "panelSectionSkills": "Skills",
+  "@panelSectionSkills": {
+    "description": "Workflow panel string: panelSectionSkills"
+  },
+  "panelSectionRules": "Rules",
+  "@panelSectionRules": {
+    "description": "Workflow panel string: panelSectionRules"
+  },
+  "panelSectionKnowledge": "Knowledge and documentation",
+  "@panelSectionKnowledge": {
+    "description": "Workflow panel string: panelSectionKnowledge"
+  },
+  "panelAddRule": "Add rule",
+  "@panelAddRule": {
+    "description": "Workflow panel string: panelAddRule"
+  },
+  "panelAddKnowledge": "Add knowledge",
+  "@panelAddKnowledge": {
+    "description": "Workflow panel string: panelAddKnowledge"
+  },
+  "panelAddToProject": "Add to this project",
+  "@panelAddToProject": {
+    "description": "Workflow panel string: panelAddToProject"
+  },
+  "panelRemoveFromProject": "Remove from this project",
+  "@panelRemoveFromProject": {
+    "description": "Workflow panel string: panelRemoveFromProject"
+  },
+  "panelRequiredByWorkflow": "Required by the workflow",
+  "@panelRequiredByWorkflow": {
+    "description": "Workflow panel string: panelRequiredByWorkflow"
+  },
+  "panelMissingBlocksPreflight": "Missing: blocks the preflight",
+  "@panelMissingBlocksPreflight": {
+    "description": "Workflow panel string: panelMissingBlocksPreflight"
+  },
+  "panelActivateOptional": "Activate this optional capability",
+  "@panelActivateOptional": {
+    "description": "Workflow panel string: panelActivateOptional"
+  },
+  "panelChangeDefaultRole": "Change the workflow default role",
+  "@panelChangeDefaultRole": {
+    "description": "Workflow panel string: panelChangeDefaultRole"
+  },
+  "panelApproveAndContinue": "Approve and continue",
+  "@panelApproveAndContinue": {
+    "description": "Workflow panel string: panelApproveAndContinue"
+  },
+  "panelNoAgentForRole": "no agent for {role}",
+  "@panelNoAgentForRole": {
+    "description": "Workflow panel string: panelNoAgentForRole",
+    "placeholders": {
+      "role": {}
+    }
+  },
+  "panelConsultedTo": "consulted {names}",
+  "@panelConsultedTo": {
+    "description": "Workflow panel string: panelConsultedTo",
+    "placeholders": {
+      "names": {}
+    }
+  },
+  "panelCoverageMatrix": "matrix {resolved}/{total}",
+  "@panelCoverageMatrix": {
+    "description": "Workflow panel string: panelCoverageMatrix",
+    "placeholders": {
+      "resolved": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "panelChangeSharedDefault": "Change the shared default",
+  "@panelChangeSharedDefault": {
+    "description": "Workflow panel string: panelChangeSharedDefault"
+  },
+  "panelUseDefaultRole": "Use default ({role})",
+  "@panelUseDefaultRole": {
+    "description": "Workflow panel string: panelUseDefaultRole",
+    "placeholders": {
+      "role": {}
+    }
+  },
+  "panelStateDone": "ready",
+  "@panelStateDone": {
+    "description": "Workflow panel string: panelStateDone"
+  },
+  "panelStateCurrent": "now",
+  "@panelStateCurrent": {
+    "description": "Workflow panel string: panelStateCurrent"
+  },
+  "panelStatePending": "pending",
+  "@panelStatePending": {
+    "description": "Workflow panel string: panelStatePending"
+  },
+  "panelStateBlocked": "blocked",
+  "@panelStateBlocked": {
+    "description": "Workflow panel string: panelStateBlocked"
+  },
+  "panelStateAvailable": "available",
+  "@panelStateAvailable": {
+    "description": "Workflow panel string: panelStateAvailable"
+  },
+  "panelStateNotRequired": "not required",
+  "@panelStateNotRequired": {
+    "description": "Workflow panel string: panelStateNotRequired"
+  },
+  "panelExecutorNewSession": "new session",
+  "@panelExecutorNewSession": {
+    "description": "Workflow panel string: panelExecutorNewSession"
+  },
+  "panelExecutorResumeParent": "resumes parent session",
+  "@panelExecutorResumeParent": {
+    "description": "Workflow panel string: panelExecutorResumeParent"
+  },
+  "panelExecutorSubagent": "subagent / external fallback",
+  "@panelExecutorSubagent": {
+    "description": "Workflow panel string: panelExecutorSubagent"
+  },
+  "panelExecutorManualApproval": "requires manual approval",
+  "@panelExecutorManualApproval": {
+    "description": "Workflow panel string: panelExecutorManualApproval"
+  },
+  "nodeKindTriage": "Triage and contract",
+  "@nodeKindTriage": {
+    "description": "Workflow panel string: nodeKindTriage"
+  },
+  "nodeKindImpact": "End-to-end impact",
+  "@nodeKindImpact": {
+    "description": "Workflow panel string: nodeKindImpact"
+  },
+  "nodeKindImplementation": "Implementation",
+  "@nodeKindImplementation": {
+    "description": "Workflow panel string: nodeKindImplementation"
+  },
+  "nodeKindVerification": "Verification",
+  "@nodeKindVerification": {
+    "description": "Workflow panel string: nodeKindVerification"
+  },
+  "mapNodeYou": "you",
+  "@mapNodeYou": {
+    "description": "Session map string: mapNodeYou"
+  },
+  "mapNodeEnd": "end",
+  "@mapNodeEnd": {
+    "description": "Session map string: mapNodeEnd"
+  },
+  "mapChipConsultation": "consultation",
+  "@mapChipConsultation": {
+    "description": "Session map string: mapChipConsultation"
+  },
+  "mapChipSubagent": "subagent",
+  "@mapChipSubagent": {
+    "description": "Session map string: mapChipSubagent"
+  },
+  "mapCountEnter": "open",
+  "@mapCountEnter": {
+    "description": "Session map string: mapCountEnter"
+  },
+  "mapCalloutAsked": "asked for",
+  "@mapCalloutAsked": {
+    "description": "Session map string: mapCalloutAsked"
+  },
+  "mapCalloutReturned": "returned",
+  "@mapCalloutReturned": {
+    "description": "Session map string: mapCalloutReturned"
+  },
+  "mapCalloutCut": "cut off",
+  "@mapCalloutCut": {
+    "description": "Session map string: mapCalloutCut"
+  },
+  "mapCalloutAnswered": "answered",
+  "@mapCalloutAnswered": {
+    "description": "Session map string: mapCalloutAnswered"
+  },
+  "mapCalloutResolved": "resolved",
+  "@mapCalloutResolved": {
+    "description": "Session map string: mapCalloutResolved"
+  },
+  "mapCalloutThinking": "thinking",
+  "@mapCalloutThinking": {
+    "description": "Session map string: mapCalloutThinking"
+  },
+  "mapLegendOpensSubagent": "opens a subagent",
+  "@mapLegendOpensSubagent": {
+    "description": "Session map string: mapLegendOpensSubagent"
+  },
+  "mapLegendSubagentReturned": "the subagent returned",
+  "@mapLegendSubagentReturned": {
+    "description": "Session map string: mapLegendSubagentReturned"
+  },
+  "subagentPhaseWorking": "working",
+  "@subagentPhaseWorking": {
+    "description": "Session map string: subagentPhaseWorking"
+  },
+  "turnPhaseWorking": "working…",
+  "@turnPhaseWorking": {
+    "description": "Session map string: turnPhaseWorking"
+  },
+  "mapLegendForward": "advances one step",
+  "@mapLegendForward": {
+    "description": "Map/phase string: mapLegendForward"
+  },
+  "mapLegendBack": "consults another node",
+  "@mapLegendBack": {
+    "description": "Map/phase string: mapLegendBack"
+  },
+  "mapLegendAnswer": "answers that consultation",
+  "@mapLegendAnswer": {
+    "description": "Map/phase string: mapLegendAnswer"
+  },
+  "mapLegendSpawn": "registered it",
+  "@mapLegendSpawn": {
+    "description": "Map/phase string: mapLegendSpawn"
+  },
+  "mapLegendFinish": "final delivery",
+  "@mapLegendFinish": {
+    "description": "Map/phase string: mapLegendFinish"
+  },
+  "mapLegendFailed": "cut off",
+  "@mapLegendFailed": {
+    "description": "Map/phase string: mapLegendFailed"
+  },
+  "mapLegendUntraveled": "not travelled",
+  "@mapLegendUntraveled": {
+    "description": "Map/phase string: mapLegendUntraveled"
+  },
+  "subagentPhaseThinking": "thinking",
+  "@subagentPhaseThinking": {
+    "description": "Map/phase string: subagentPhaseThinking"
+  },
+  "subagentPhaseWriting": "writing",
+  "@subagentPhaseWriting": {
+    "description": "Map/phase string: subagentPhaseWriting"
+  },
+  "subagentPhaseDone": "finished",
+  "@subagentPhaseDone": {
+    "description": "Map/phase string: subagentPhaseDone"
+  },
+  "subagentPhaseFailed": "failed",
+  "@subagentPhaseFailed": {
+    "description": "Map/phase string: subagentPhaseFailed"
+  },
+  "turnPhaseThinking": "thinking…",
+  "@turnPhaseThinking": {
+    "description": "Map/phase string: turnPhaseThinking"
+  },
+  "turnPhaseWriting": "writing…",
+  "@turnPhaseWriting": {
+    "description": "Map/phase string: turnPhaseWriting"
+  },
+  "threadAdaptiveResolution": "{workflow} · adaptive resolution",
+  "@threadAdaptiveResolution": {
+    "description": "Thread string: threadAdaptiveResolution",
+    "placeholders": {
+      "workflow": {}
+    }
+  },
+  "threadBackToOwner": "back to the owner",
+  "@threadBackToOwner": {
+    "description": "Thread string: threadBackToOwner"
+  },
+  "threadNextNode": "next {node}",
+  "@threadNextNode": {
+    "description": "Thread string: threadNextNode",
+    "placeholders": {
+      "node": {}
+    }
+  },
+  "threadConsultOf": "consultation from {name}",
+  "@threadConsultOf": {
+    "description": "Thread string: threadConsultOf",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "panelAgentForNode": "Agent for \"{title}\"",
+  "@panelAgentForNode": {
+    "description": "Workflow panel dialog: panelAgentForNode",
+    "placeholders": {
+      "title": {}
+    }
+  },
+  "panelOverrideScope": "This override only affects #{project}. The node stores the concrete agent once the preflight passes.",
+  "@panelOverrideScope": {
+    "description": "Workflow panel dialog: panelOverrideScope",
+    "placeholders": {
+      "project": {}
+    }
+  },
+  "panelSharedChangeScope": "This changes the workflow \"{workflow}\" in every project. Concrete overrides are preserved.",
+  "@panelSharedChangeScope": {
+    "description": "Workflow panel dialog: panelSharedChangeScope",
+    "placeholders": {
+      "workflow": {}
+    }
+  }
 }

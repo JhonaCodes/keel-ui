@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gpt_markdown/custom_widgets/code_field.dart';
 import 'package:gpt_markdown/gpt_markdown.dart';
@@ -28,6 +29,11 @@ void main() {
 
   Future<void> pump(WidgetTester tester, String text) => tester.pumpWidget(
     MaterialApp(
+      // Pinned: this test asserts the Spanish captions ("Ver", "Cerrar"), so
+      // the locale has to be stated rather than inherited from the host.
+      locale: const Locale('es'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
       home: Scaffold(
         body: SingleChildScrollView(
           child: MarkdownText(text, color: Colors.black),

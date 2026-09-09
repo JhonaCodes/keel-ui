@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
+
 import 'package:keel_ui/src/core/services/local_database.dart';
 import 'package:keel_ui/src/integrations/app_update/app_update.dart';
 
@@ -15,6 +17,11 @@ void main() {
     // de una copia arrastrada a /Aplicaciones.
     await tester.pumpWidget(
       MaterialApp(
+        // The widgets under test read AppLocalizations; without the
+        // delegates `AppLocalizations.of` returns null and build throws.
+        locale: const Locale('es'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: ListView(children: const [KeelVersionSection()]),
         ),

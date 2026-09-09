@@ -131,7 +131,6 @@
       }
     }
   },
-
   "pageTitleSettings": "Configuración",
   "pageTitleSkillsRegistered": "Skills registrados",
   "pageTitleSecrets": "Secretos",
@@ -170,7 +169,6 @@
     }
   },
   "pageTitleRejectClosure": "Rechazar el cierre",
-
   "settingTextSize": "Tamaño del texto",
   "settingWritePermissions": "Permisos de escritura",
   "settingScheduledJobsApi": "API de trabajos programados",
@@ -178,11 +176,9 @@
   "settingCanAdministrateSystem": "Puede administrar el sistema",
   "settingBlocksRequester": "Frena a quien lo pide",
   "settingAccessEntireFilesystem": "Acceso a todo el sistema de archivos",
-
   "descriptionWritePermissions": "Leer archivos, buscarlos y consultar la web siempre está permitido. Aquí decides qué pueden modificar los agentes. Aplica a todos.",
   "descriptionScheduledJobsApi": "Para schedulers externos (cron, keel): POST /projects/<nombre>/tasks con el token Bearer. Solo loopback.",
   "descriptionLockedElements": "Lo que un agente no puede cambiar ni borrar sin pedirte permiso primero. El candado se pone desde cada ítem; aquí se ven todos juntos.",
-
   "labelLockedElements": "Elementos bloqueados",
   "labelAboutKeel": "Acerca de Keel",
   "labelGlobal": "global",
@@ -249,12 +245,10 @@
       }
     }
   },
-
   "buttonNew": "Nuevo",
   "buttonRegisterSkill": "Registrar skill",
   "buttonCreateSkill": "Crear skill",
   "buttonReplace": "Reemplazar",
-  "buttonEdit": "Editar",
   "buttonImport": "Importar",
   "buttonRegenerateToken": "Regenerar token",
   "buttonViewLocked": "Ver bloqueados…",
@@ -303,7 +297,6 @@
   "buttonAssignAndEvaluate": "Tomar y evaluar",
   "buttonGoToSession": "Ir a la sesión",
   "buttonRejectAndExplain": "Rechazar y explicar",
-
   "messageNoSkillsRegistered": "Todavía no registraste ningún skill.",
   "messageNoToolsRegistered": "Todavía no registraste ninguna herramienta.",
   "messageNoRulesRegistered": "Todavía no registraste ninguna regla.",
@@ -358,7 +351,6 @@
   "messageAskYourAgent": "Escríbele algo a tu agente",
   "messageNoKnowledgeBases": "Todavía no hay ninguna base de saber.",
   "messageBackupEmpty": "El respaldo no trae nada aplicable.",
-
   "optionCommand": "Un comando",
   "optionRegisteredTool": "Una tool registrada",
   "optionGiveToKeelAI": "Dárselo a Keel AI (el asistente)",
@@ -395,15 +387,11 @@
       }
     }
   },
-
   "titleReadOnly": "Solo lectura",
   "titleRequiresIndependentAgent": "Requiere agente independiente",
-
   "subtitleReadOnly": "Planificadores y auditores no escriben.",
-
   "linkWebsite": "jhonacode.com",
   "linkCommunity": "Comunidad en Discord",
-
   "tooltipRegisterNew": "Registrar nuevo",
   "tooltipImportPackage": "Importar un paquete",
   "tooltipDismiss": "Descartar",
@@ -421,7 +409,6 @@
     }
   },
   "suggestionDraftFooter": "Redacta aquí la instrucción definitiva:",
-
   "formTitleRegisterAgent": "Registrar agente",
   "formTitleEditAgent": "Editar agente registrado",
   "formLabelAgentName": "Nombre (minúsculas, sin espacios, máx. 16)",
@@ -431,7 +418,11 @@
   "formLabelProvider": "Proveedor (codex: sin tools/MCPs/esfuerzo, y sus propios modelos)",
   "formLabelModel": "Modelo por defecto ({provider})",
   "@formLabelModel": {
-    "placeholders": {"provider": {"type": "String"}}
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
   },
   "formLabelEffort": "Esfuerzo por defecto",
   "formMessageCanManageSystem": "Puede administrar el sistema",
@@ -442,11 +433,9 @@
   "formDescriptionRolesHelp": "El preflight del workflow busca responsables por este rol.",
   "formConfirmDeleteAgent": "Se eliminará el registro \\\"{name}\\\". Esto no afecta a los chats que ya usaste con esta configuración.",
   "formTitleDeleteAgent": "Eliminar agente registrado",
-
   "tooltipEditAgent": "Editar",
   "tooltipExportAsPackage": "Exportar como paquete",
   "tooltipDeleteAgent": "Eliminar",
-
   "mapStateWaiting": "Esperándote",
   "mapStateFailed": "Cortó",
   "labelAskedFor": "Le pidió",
@@ -462,7 +451,10 @@
   "placeholderWriteTo": "Escribe a @{name}…",
   "@placeholderWriteTo": {
     "placeholders": {
-      "name": {"type": "String", "example": "nombre-agente"}
+      "name": {
+        "type": "String",
+        "example": "nombre-agente"
+      }
     }
   },
   "messageNoReasoningVisible": "No dejó pensamiento visible. Con modelos que no lo emiten, aquí no hay nada que mostrar.",
@@ -474,17 +466,24 @@
   "messageSubagentWriteLocked": "Mientras corre, no se puede escribirle a un subagente: el CLI no abre ese canal. Lo que escribas aquí le llega a {parent}, quien lo abrió.",
   "@messageSubagentWriteLocked": {
     "placeholders": {
-      "parent": {"type": "String", "example": "nombre-agente"}
+      "parent": {
+        "type": "String",
+        "example": "nombre-agente"
+      }
     }
   },
-
   "formLabelHookName": "Nombre",
   "formHintHookScript": "Es también el nombre del script que se genera.",
   "formLabelWhatHookDoes": "Qué hace",
   "formMessageNoEventFilter": "Este evento no filtra: dejalo vacío.",
   "formHintEventFilter": "Vacío = todo. Ejemplos: {matcherHint}",
   "@formHintEventFilter": {
-    "placeholders": {"matcherHint": {"type": "String", "example": "herramienta_usada"}}
+    "placeholders": {
+      "matcherHint": {
+        "type": "String",
+        "example": "herramienta_usada"
+      }
+    }
   },
   "formDescriptionHookScope": "Corto a propósito: un hook de \"antes de usar una herramienta\": si lo rechazas, no se llama. Uno de \"después\" es más raro.",
   "formLabelHookRules": "Qué reglas hace cumplir este hook",
@@ -495,7 +494,6 @@
   "formDescriptionHookCode": "El código viaja en el respaldo y puede usar los secrets que configuraste. Si el admin no permite write, un hook del disco no se restaura en otra máquina.",
   "formLabelHookTimeout": "Timeout (segundos)",
   "formDescriptionHookTimeout": "Recibe el evento como JSON por entrada estándar. Salir con código 2 bloquea.",
-
   "pageTitleMachineTitle": "Máquina",
   "messageDetectionNotIntegration": "Detectar no es integrar: los que dicen «sin adaptador» están en tu máquina pero Keel todavía no sabe hablarles, y no se le puede pedir que lo hagan solos.",
   "labelConsumption": "Consumo · últimos 14 días",
@@ -504,31 +502,47 @@
   "messageNoTokenCount": "Sin medición — su CLI no informa tokens",
   "labelCoresShort": "{cores} núcleos",
   "@labelCoresShort": {
-    "placeholders": {"cores": {"type": "int", "example": "4"}}
+    "placeholders": {
+      "cores": {
+        "type": "int",
+        "example": "4"
+      }
+    }
   },
   "messageNotInPath": "No está en el PATH",
-
   "formLabelWorkflowIntent": "Intención y cuándo se aplica",
   "formDescriptionWorkflowEngine": "El motor decide los nodos mínimos; no configuras una cadena de agentes.",
   "labelMaxReplans": "Límite de reformulaciones: {count}",
   "@labelMaxReplans": {
-    "placeholders": {"count": {"type": "int", "example": "5"}}
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "5"
+      }
+    }
   },
   "labelMaxSubagents": "Subagentes de lectura/verificación: {count}",
   "@labelMaxSubagents": {
-    "placeholders": {"count": {"type": "int", "example": "10"}}
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "10"
+      }
+    }
   },
   "labelMaxReviewCycles": "Ciclos compartidos de auditoría: {count}",
   "@labelMaxReviewCycles": {
-    "placeholders": {"count": {"type": "int", "example": "3"}}
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "3"
+      }
+    }
   },
   "formLabelWorkflowTitle": "Título visible",
   "formLabelWorkflowInstruction": "Instrucción",
   "formLabelWorkflowActivation": "Activación",
   "formLabelWorkflowExecution": "Ejecución",
-  "optionNewSession": "Nueva sesión",
-  "optionResumeParentSession": "Reanudar sesión padre",
-  "optionManualApproval": "Aprobación manual",
   "formDescriptionParentSessionKept": "La sesión del padre se conserva y se reanuda.",
   "formLabelMaxAgenticTurns": "Máximo de turnos agentic",
   "formDescriptionMaxAgenticTurns": "Vacío o 0 usa el límite del proveedor.",
@@ -537,19 +551,33 @@
   "formLabelWorkflowResponsible": "Responsable de resolución",
   "formDescriptionResponsible": "Un responsable integra evidencia y es el único escritor.",
   "workflowKindMigration": "Migración",
-
   "labelAge": "{days, plural, =1 {1 día} other {{days} días}}",
   "@labelAge": {
-    "placeholders": {"days": {"type": "int", "example": "5"}}
+    "placeholders": {
+      "days": {
+        "type": "int",
+        "example": "5"
+      }
+    }
   },
   "labelWeekdayShort": "lun, mar, mié, jue, vie, sáb, dom",
   "messageRequirementTaken": "Lo tomó @{handle}",
   "@messageRequirementTaken": {
-    "placeholders": {"handle": {"type": "String", "example": "nombre-agente"}}
+    "placeholders": {
+      "handle": {
+        "type": "String",
+        "example": "nombre-agente"
+      }
+    }
   },
   "messageRequirementTask": "Quedó como tarea: {taskPath}",
   "@messageRequirementTask": {
-    "placeholders": {"taskPath": {"type": "String", "example": "proyecto/id-tarea"}}
+    "placeholders": {
+      "taskPath": {
+        "type": "String",
+        "example": "proyecto/id-tarea"
+      }
+    }
   },
   "messagePlanMode": "Modo plan: que proponga cómo lo haría. Para implementarlo de verdad, «Tomar y evaluar» abre una sesión.",
   "messageRequirementAnswering": "Está contestando…",
@@ -557,14 +585,17 @@
   "messageWriteHere": "Escribe aquí — @ para preguntarle a un agente",
   "messageRequirementClosed": "El destino pidió el cierre.",
   "messageOnlyOriginCanClose": "Solo del lado que lo abrió se puede cerrar — es quien sabe si lo que necesitaba está.",
-  "buttonGoToSession": "Ir a la sesión",
   "labelWithWorkflow": "Con qué workflow lo evalúa",
   "messageNewSessionOpenedWorkflow": "Va a abrir una sesión nueva en #{workflowName}. Elige la fila de abajo para cada rol.",
   "@messageNewSessionOpenedWorkflow": {
-    "placeholders": {"workflowName": {"type": "String", "example": "revisión"}}
+    "placeholders": {
+      "workflowName": {
+        "type": "String",
+        "example": "revisión"
+      }
+    }
   },
   "formLabelWhatMissing": "Qué falta",
-
   "bundleExportNothingYet": "Todavía no hay nada para exportar.",
   "bundleSectionWhatItTakes": "Qué se lleva",
   "bundleSectionWhatItBrings": "Qué trae",
@@ -573,15 +604,30 @@
   "bundleNoFindings": "sin hallazgos",
   "bundleFindingsCount": "{count, plural, =1 {1 hallazgo} other {{count} hallazgos}}",
   "@bundleFindingsCount": {
-    "placeholders": {"count": {"type": "int", "example": "3"}}
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "3"
+      }
+    }
   },
   "bundleMissingNote": "Esto lo nombra pero de este lado no existe, así que no viaja:\n{list}",
   "@bundleMissingNote": {
-    "placeholders": {"list": {"type": "String", "example": "· skill-x"}}
+    "placeholders": {
+      "list": {
+        "type": "String",
+        "example": "· skill-x"
+      }
+    }
   },
   "bundleSecretsToCreateNote": "Quien lo instale va a tener que crear estos secrets con estos nombres: {names}. Los valores no viajan.",
   "@bundleSecretsToCreateNote": {
-    "placeholders": {"names": {"type": "String", "example": "API_KEY"}}
+    "placeholders": {
+      "names": {
+        "type": "String",
+        "example": "API_KEY"
+      }
+    }
   },
   "actionImportPackage": "Importar un paquete",
   "bundleImportIntro": "Un paquete trae un agente, un workflow o una skill con todo lo que necesita para funcionar: sus skills, sus reglas, sus tools, sus hooks, sus servidores MCP y su documentación.",
@@ -593,66 +639,113 @@
   "bundleDocumentsLabel": "documentos",
   "bundleSecretsRequiredNote": "Necesita estos secrets, que tienes que crear tú con estos nombres: {names}. Un paquete nunca trae valores.",
   "@bundleSecretsRequiredNote": {
-    "placeholders": {"names": {"type": "String", "example": "API_KEY"}}
+    "placeholders": {
+      "names": {
+        "type": "String",
+        "example": "API_KEY"
+      }
+    }
   },
   "actionInstall": "Instalar",
   "bundleHighRiskAck": "Leí los {count} hallazgos de gravedad alta y quiero instalarlo igual.",
   "@bundleHighRiskAck": {
-    "placeholders": {"count": {"type": "int", "example": "2"}}
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "2"
+      }
+    }
   },
   "bundleAuditCleanNote": "Revisé {count} textos y no encontré nada conocido. No es una garantía: busca lo que sabe buscar.",
   "@bundleAuditCleanNote": {
-    "placeholders": {"count": {"type": "int", "example": "42"}}
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "42"
+      }
+    }
   },
   "bundleRiskLevelLabel": "GRAVEDAD {level}",
   "@bundleRiskLevelLabel": {
-    "placeholders": {"level": {"type": "String", "example": "ALTA"}}
+    "placeholders": {
+      "level": {
+        "type": "String",
+        "example": "ALTA"
+      }
+    }
   },
-
   "actionSaveAsPng": "Guardar como PNG",
   "codeBlockLineCount": "{title} · {count, plural, =1 {1 línea} other {{count} líneas}}",
   "@codeBlockLineCount": {
     "placeholders": {
-      "title": {"type": "String", "example": "python"},
-      "count": {"type": "int", "example": "12"}
+      "title": {
+        "type": "String",
+        "example": "python"
+      },
+      "count": {
+        "type": "int",
+        "example": "12"
+      }
     }
   },
   "semanticsOpenImageFullSize": "Imagen adjunta, abrir en tamaño completo",
   "tooltipOpenFullSize": "Abrir en tamaño completo",
   "messageImageUnavailable": "Imagen no disponible",
-
   "labelDeletedProject": "proyecto eliminado",
   "labelOpenSince": "abierto hace {age}",
   "@labelOpenSince": {
-    "placeholders": {"age": {"type": "String", "example": "2 h"}}
+    "placeholders": {
+      "age": {
+        "type": "String",
+        "example": "2 h"
+      }
+    }
   },
   "labelBlockingRequester": "bloquea a quien lo pide",
   "durationMinutesShort": "{count} min",
   "@durationMinutesShort": {
-    "placeholders": {"count": {"type": "int", "example": "5"}}
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "5"
+      }
+    }
   },
   "durationHoursShort": "{count} h",
   "@durationHoursShort": {
-    "placeholders": {"count": {"type": "int", "example": "5"}}
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "5"
+      }
+    }
   },
   "durationDaysShort": "{count, plural, =1 {1 día} other {{count} días}}",
   "@durationDaysShort": {
-    "placeholders": {"count": {"type": "int", "example": "5"}}
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "5"
+      }
+    }
   },
   "messageTakenByYou": "Lo tomaste tú",
   "labelVerdict": "VEREDICTO",
   "tooltipPlanModeActive": "Modo plan activo: propone en vez de afirmar",
   "messageNewRequirementSessionNote": "Va a abrir una sesión nueva en #{workflowName}. Elige la fila de agentes que corresponde a este pedido — evaluar un requerimiento rara vez es lo mismo que resolver un ticket.",
   "@messageNewRequirementSessionNote": {
-    "placeholders": {"workflowName": {"type": "String", "example": "keel-ui"}}
+    "placeholders": {
+      "workflowName": {
+        "type": "String",
+        "example": "keel-ui"
+      }
+    }
   },
   "labelProjectNoLongerExists": "un proyecto que ya no existe",
   "assistantWindowTitle": "Asistente",
   "buttonAskKeelAi": "Pedírselo a Keel AI",
   "buttonCreateByHand": "Crearlo a mano",
   "buttonOverwriteAnyway": "Sobrescribir igual",
-  "buttonNewSession": "Nueva sesión",
-  "buttonTestConnection": "Probar la conexión",
   "hintAskAboutThisLine": "Pregunta sobre esta línea…",
   "hintQueuedMessage": "Mensaje que se enviará en el próximo turno",
   "hintSessionName": "Nombre de la sesión",
@@ -663,19 +756,68 @@
   "labelHeadersKeyValue": "Headers (KEY=valor, una por línea)",
   "labelKnowledgeBaseAnswers": "Qué contesta esta base",
   "labelModelWithProvider": "Modelo ({provider})",
-  "@labelModelWithProvider": {"placeholders": {"provider": {"type": "String", "example": "OpenAI"}}},
+  "@labelModelWithProvider": {
+    "placeholders": {
+      "provider": {
+        "type": "String",
+        "example": "OpenAI"
+      }
+    }
+  },
   "labelMaxReplansLimit": "Límite de reformulaciones: {count}",
-  "@labelMaxReplansLimit": {"placeholders": {"count": {"type": "int", "example": "2"}}},
+  "@labelMaxReplansLimit": {
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "2"
+      }
+    }
+  },
   "labelMaxReviewCyclesLimit": "Ciclos compartidos de auditoría: {count}",
-  "@labelMaxReviewCyclesLimit": {"placeholders": {"count": {"type": "int", "example": "4"}}},
+  "@labelMaxReviewCyclesLimit": {
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "4"
+      }
+    }
+  },
   "labelMaxSubagentsLimit": "Subagentes de lectura/verificación: {count}",
-  "@labelMaxSubagentsLimit": {"placeholders": {"count": {"type": "int", "example": "1"}}},
+  "@labelMaxSubagentsLimit": {
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "1"
+      }
+    }
+  },
   "labelIdleTimeoutLimit": "Minutos sin actividad del proveedor antes de cortar un paso: {count}",
-  "@labelIdleTimeoutLimit": {"placeholders": {"count": {"type": "int", "example": "10"}}},
+  "@labelIdleTimeoutLimit": {
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "10"
+      }
+    }
+  },
   "labelNodeTimeoutLimit": "Minutos máximos por paso: {count}",
-  "@labelNodeTimeoutLimit": {"placeholders": {"count": {"type": "int", "example": "45"}}},
+  "@labelNodeTimeoutLimit": {
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "45"
+      }
+    }
+  },
   "labelSessionCostLimit": "Techo de costo de la sesión en USD (0 = sin techo): {amount}",
-  "@labelSessionCostLimit": {"placeholders": {"amount": {"type": "int", "example": "20"}}},
+  "@labelSessionCostLimit": {
+    "placeholders": {
+      "amount": {
+        "type": "int",
+        "example": "20"
+      }
+    }
+  },
   "labelNoBoardsYet": "Todavía no hay tableros",
   "labelNoSessionOpen": "Ninguna sesión abierta",
   "labelPasteBlockAsInDocs": "Pega el bloque tal como está en la documentación",
@@ -689,9 +831,23 @@
   "labelTermsOfUse": "Términos de uso",
   "labelWhichWorkflowRuns": "Con qué workflow corre",
   "messageCloseSessionBody": "Se borra el hilo de \"{title}\" y el contexto que los agentes acumularon en ella. El proyecto queda igual, con sus agentes, reglas y documentos.",
-  "@messageCloseSessionBody": {"placeholders": {"title": {"type": "String", "example": "Fix login bug"}}},
+  "@messageCloseSessionBody": {
+    "placeholders": {
+      "title": {
+        "type": "String",
+        "example": "Fix login bug"
+      }
+    }
+  },
   "messageDeleteIntegrationBody": "Se elimina \"{name}\". Los agentes que la tenían asignada dejan de recibir sus tools.",
-  "@messageDeleteIntegrationBody": {"placeholders": {"name": {"type": "String", "example": "GitHub"}}},
+  "@messageDeleteIntegrationBody": {
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "GitHub"
+      }
+    }
+  },
   "messageFileChangedBody": "Este archivo se modificó (por ejemplo el agente lo editó) desde que abriste esta ventana. Si guardas ahora, vas a sobrescribir ese cambio con lo que tienes aquí.",
   "messageNoAgentsToAdd": "No quedan agentes registrados por sumar",
   "messageNoBoardsExplainer": "Un tablero es una pantallita para disparar algo contra tu propia app: lanzar una oferta, mandarte un push, pegarle a un endpoint que estás escribiendo.\n\nLo más rápido es pedírselo a un agente del proyecto: lee tu código y lo arma solo. Aparece en la sección Tableros de ese proyecto.",
@@ -767,35 +923,55 @@
   "termsSection20Title": "20. Contacto",
   "termsSection20Body": "Para pedir permiso de uso, donar, reportar algo o cualquier otra consulta: jhonacode.com",
   "messageWriteToAgent": "Escríbele algo a tu agente",
-
   "skillAlreadyExists": "La skill \"{name}\" ya existía, la reusé.",
   "@skillAlreadyExists": {
-    "placeholders": {"name": {"type": "String"}}
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
   },
   "ruleAlreadyExists": "La regla \"{name}\" ya existía, la reusé.",
   "@ruleAlreadyExists": {
-    "placeholders": {"name": {"type": "String"}}
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
   },
   "toolAlreadyExists": "La tool \"{name}\" ya existía, la reusé.",
   "@toolAlreadyExists": {
-    "placeholders": {"name": {"type": "String"}}
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
   },
   "skillCreated": "Creé la skill \"{name}\".",
   "@skillCreated": {
     "placeholders": {
-      "name": {"type": "String"}
+      "name": {
+        "type": "String"
+      }
     }
   },
   "ruleCreated": "Creé la regla \"{name}\".",
   "@ruleCreated": {
-    "placeholders": {"name": {"type": "String"}}
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
   },
   "handleReserved": "El handle \"{handle}\" está reservado.",
   "@handleReserved": {
-    "placeholders": {"handle": {"type": "String"}}
+    "placeholders": {
+      "handle": {
+        "type": "String"
+      }
+    }
   },
   "keelAiModifyBlocked": "Keel AI pidió modificar un elemento bloqueado.",
-  "buttonRegister": "Registrar",
   "formEditEntity": "Editar {entity}",
   "formRegisterEntity": "Registrar {entity}",
   "formName": "Nombre",
@@ -829,92 +1005,181 @@
   "assistantExampleAgent": "Registra un agente revisor de seguridad y asígnale la skill que acabas de crear.",
   "assistantExampleWorkflow": "Crea un workflow para bugs con implementación y una etapa de revisión.",
   "assistantExampleSkill": "Crea una skill con las reglas de estilo de este proyecto.",
-  "assistantExampleRule": "Agrega una regla que prohíba comentarios obvios en el código."
-  ,"labelEnabled": "Activo"
-  ,"labelDisabled": "Apagado"
-  ,"navAssistantTooltip": "Asistente Keel AI"
-  ,"navRegisteredAgents": "Agentes registrados"
-  ,"navTestBoards": "Tableros de prueba"
-  ,"navMcpIntegrations": "Integraciones MCP"
-  ,"navKnowledge": "Conocimiento"
-  ,"navMachine": "Máquina"
-  ,"navBackup": "Respaldo"
-  ,"navSettings": "Ajustes"
-  ,"mapLaneBack": "regresa"
-  ,"mapLaneForward": "avanza"
-  ,"mapLaneDelegate": "delega"
-  ,"mapViewQuery": "Ver la consulta completa"
-  ,"mapZoomOut": "Alejar  ⌘−"
-  ,"mapZoomIn": "Acercar  ⌘+"
-  ,"mapFit": "Mostrar todo en pantalla  ⌘0"
-  ,"mapFollow": "Seguir el nodo que tiene el turno"
-  ,"mapHelp": "arrastrar = mover · ⌘ + rueda = zoom"
-  ,"mapEmptyTitle": "Este proyecto todavía no tiene nodos para mapear"
-  ,"mapEmptyDescription": "Agrega miembros y un workflow. El mapa se abre con el elenco en su lugar, en reposo, antes de que corra algo."
-  ,"chatCreateSession": "Crea una sesión para empezar"
-  ,"chatAskForPlan": "Pide un plan…"
-  ,"chatSessionPrompt": "Qué necesitas en esta sesión de #{project}"
-  ,"chatMessagePrompt": "Mensaje para #{project}"
-  ,"chatStop": "Detener"
-  ,"chatQueue": "Guardar en espera"
-  ,"chatSend": "Enviar"
-  ,"chatSessionsCreatedByButton": "Las sesiones se crean con el botón \"Nueva sesión\"."
-  ,"chatRunsPreflight": "El preflight del workflow se ejecuta en esta sesión."
-  ,"chatQueueHelp": "Puedes guardar mensajes en espera, programarlos para el final del turno o interrumpir y enviarlos ahora."
-  ,"chatWorkflowHelp": "El workflow coordina el grafo. Escribe cuando quieras corregir el rumbo; queda registrado en el nodo activo."
-  ,"chatReferencesHelp": "Referencias: / directorios · @ agentes · $ skills y reglas · # conocimiento"
-  ,"labelNoOpenSession": "Sin sesión abierta"
-  ,"labelSessionTitle": "Sesión: {title}"
-  ,"labelContextUsage": "contexto {percent}%"
-  ,"assistantLegacyBlocked": "No ejecuté el bloque automático: intentaba cambiar elementos bloqueados ({names}). Usa las tools MCP con change_intent y change_reason para pedir permiso."
-  ,"assistantSkillExists": "La skill \"{name}\" ya existía; la reutilicé."
-  ,"assistantSkillCreated": "Creé la skill \"{name}\"{suffix}."
-  ,"assistantRuleExists": "La regla \"{name}\" ya existía; la reutilicé."
-  ,"assistantRuleCreated": "Creé la regla \"{name}\"."
-  ,"assistantToolExists": "La tool \"{name}\" ya existía; la reutilicé."
-  ,"assistantToolCreated": "Creé la tool \"{name}\" ({runtime})."
-  ,"assistantAgentCreated": "Registré a @{handle}.{details}"
-  ,"assistantAgentUpdated": "Actualicé a @{handle}.{details}"
-  ,"assistantWorkflowCreated": "Creé el workflow \"{name}\" ({kind})."
-  ,"assistantProjectCreated": "Creé el proyecto \"{name}\"."
-  ,"updateAvailable": "Nueva versión {version} disponible. Haz clic para descargarla."
-  ,"readingInstalledVersion": "Leyendo la versión instalada"
-  ,"reviewVersion": "Keel {version}. Haz clic para revisar."
-  ,"faultsLabel": "Fallas"
-  ,"faultsNone": "No hay fallas sin revisar"
-  ,"faultsOne": "1 falla sin revisar"
-  ,"faultsMany": "{count} fallas sin revisar"
-  ,"machineUpdateAvailable": "Hay una versión nueva de Keel"
-  ,"machineStatus": "Servicios, consumo y estado de la máquina"
-  ,"machineOneWork": "Hay 1 trabajo en curso"
-  ,"machineManyWork": "Hay {count} trabajos en curso"
-  ,"backupBusy": "Respaldando"
-  ,"backupLabel": "Respaldo"
-  ,"backupSaving": "Escribiendo el respaldo sin interrumpirte"
-  ,"backupReady": "Respaldo al día y subido al remoto"
-  ,"mapLegend": "Leyenda"
-  ,"fileTypeImages": "Imágenes"
-  ,"chatFilterSystem": "sistema"
-  ,"chatFilterSubagents": "subagentes"
-  ,"chatFilterAll": "todo"
-  ,"chatStepLabel": "paso: {title}"
-  ,"chatRetryStep": "Reintentar «{title}»"
-  ,"buttonDeleteAgent": "Eliminar agente"
-  ,"deleteAgentConfirmation": "Se eliminarán \"{name}\" y su historial de chat."
-  ,"emptyProjectsHint": "Todavía no hay proyectos. Crea uno para que varios agentes trabajen en el mismo repositorio."
-  ,"emptyAgentsHint": "No hay agentes abiertos. Usa un agente registrado para hablarle directamente, sin proyecto."
-  ,"filesystemAccessTitle": "Dar acceso a todo el sistema de archivos"
-  ,"filesystemAccessBody": "\"{name}\" podrá leer y escribir en cualquier carpeta del computador, no solo en tu carpeta de usuario."
-  ,"filesystemAccessGrant": "Dar acceso"
-  ,"filesystemAccessEnabledTooltip": "Tiene acceso a todo el sistema de archivos (haz clic para quitarlo)"
-  ,"filesystemAccessGrantTooltip": "Dar acceso a todo el sistema de archivos"
-  ,"noOpenRequirements": "No hay requisitos abiertos en ninguna dirección."
-  ,"labelSubagents": "subagentes"
-  ,"useAgentTitle": "Usar un agente"
-  ,"filesystemAccessSubtitle": "Esto se decide aquí, no al registrar el agente: el mismo agente puede tener permisos diferentes según dónde lo uses."
-  ,"chatHintStreaming": "Se enviará cuando termine el turno…"
-  ,"chatHintPlan": "Pide un plan…"
-  ,"chatHintMessage": "Escribe un mensaje…"
-  ,"noAgentsTitle": "Todavía no hay agentes registrados"
-  ,"noAgentsDescription": "Registra uno para tenerlo disponible en todas partes: para hablarle directamente, agregarlo a un proyecto y usarlo en pasos de workflow por rol."
+  "assistantExampleRule": "Agrega una regla que prohíba comentarios obvios en el código.",
+  "labelEnabled": "Activo",
+  "labelDisabled": "Apagado",
+  "navAssistantTooltip": "Asistente Keel AI",
+  "navRegisteredAgents": "Agentes registrados",
+  "navTestBoards": "Tableros de prueba",
+  "navMcpIntegrations": "Integraciones MCP",
+  "navKnowledge": "Conocimiento",
+  "navMachine": "Máquina",
+  "navBackup": "Respaldo",
+  "navSettings": "Ajustes",
+  "mapLaneBack": "regresa",
+  "mapLaneForward": "avanza",
+  "mapLaneDelegate": "delega",
+  "mapViewQuery": "Ver la consulta completa",
+  "mapZoomOut": "Alejar  ⌘−",
+  "mapZoomIn": "Acercar  ⌘+",
+  "mapFit": "Mostrar todo en pantalla  ⌘0",
+  "mapFollow": "Seguir el nodo que tiene el turno",
+  "mapHelp": "arrastrar = mover · ⌘ + rueda = zoom",
+  "mapEmptyTitle": "Este proyecto todavía no tiene nodos para mapear",
+  "mapEmptyDescription": "Agrega miembros y un workflow. El mapa se abre con el elenco en su lugar, en reposo, antes de que corra algo.",
+  "chatCreateSession": "Crea una sesión para empezar",
+  "chatAskForPlan": "Pide un plan…",
+  "chatSessionPrompt": "Qué necesitas en esta sesión de #{project}",
+  "chatMessagePrompt": "Mensaje para #{project}",
+  "chatStop": "Detener",
+  "chatQueue": "Guardar en espera",
+  "chatSend": "Enviar",
+  "chatSessionsCreatedByButton": "Las sesiones se crean con el botón \"Nueva sesión\".",
+  "chatRunsPreflight": "El preflight del workflow se ejecuta en esta sesión.",
+  "chatQueueHelp": "Puedes guardar mensajes en espera, programarlos para el final del turno o interrumpir y enviarlos ahora.",
+  "chatWorkflowHelp": "El workflow coordina el grafo. Escribe cuando quieras corregir el rumbo; queda registrado en el nodo activo.",
+  "chatReferencesHelp": "Referencias: / directorios · @ agentes · $ skills y reglas · # conocimiento",
+  "labelNoOpenSession": "Sin sesión abierta",
+  "labelSessionTitle": "Sesión: {title}",
+  "labelContextUsage": "contexto {percent}%",
+  "assistantLegacyBlocked": "No ejecuté el bloque automático: intentaba cambiar elementos bloqueados ({names}). Usa las tools MCP con change_intent y change_reason para pedir permiso.",
+  "assistantSkillExists": "La skill \"{name}\" ya existía; la reutilicé.",
+  "assistantSkillCreated": "Creé la skill \"{name}\"{suffix}.",
+  "assistantRuleExists": "La regla \"{name}\" ya existía; la reutilicé.",
+  "assistantRuleCreated": "Creé la regla \"{name}\".",
+  "assistantToolExists": "La tool \"{name}\" ya existía; la reutilicé.",
+  "assistantToolCreated": "Creé la tool \"{name}\" ({runtime}).",
+  "assistantAgentCreated": "Registré a @{handle}.{details}",
+  "assistantAgentUpdated": "Actualicé a @{handle}.{details}",
+  "assistantWorkflowCreated": "Creé el workflow \"{name}\" ({kind}).",
+  "assistantProjectCreated": "Creé el proyecto \"{name}\".",
+  "updateAvailable": "Nueva versión {version} disponible. Haz clic para descargarla.",
+  "readingInstalledVersion": "Leyendo la versión instalada",
+  "reviewVersion": "Keel {version}. Haz clic para revisar.",
+  "faultsLabel": "Fallas",
+  "faultsNone": "No hay fallas sin revisar",
+  "faultsOne": "1 falla sin revisar",
+  "faultsMany": "{count} fallas sin revisar",
+  "machineUpdateAvailable": "Hay una versión nueva de Keel",
+  "machineStatus": "Servicios, consumo y estado de la máquina",
+  "machineOneWork": "Hay 1 trabajo en curso",
+  "machineManyWork": "Hay {count} trabajos en curso",
+  "backupBusy": "Respaldando",
+  "backupLabel": "Respaldo",
+  "backupSaving": "Escribiendo el respaldo sin interrumpirte",
+  "backupReady": "Respaldo al día y subido al remoto",
+  "mapLegend": "Leyenda",
+  "fileTypeImages": "Imágenes",
+  "chatFilterSystem": "sistema",
+  "chatFilterSubagents": "subagentes",
+  "chatFilterAll": "todo",
+  "chatStepLabel": "paso: {title}",
+  "chatRetryStep": "Reintentar «{title}»",
+  "buttonDeleteAgent": "Eliminar agente",
+  "deleteAgentConfirmation": "Se eliminarán \"{name}\" y su historial de chat.",
+  "emptyProjectsHint": "Todavía no hay proyectos. Crea uno para que varios agentes trabajen en el mismo repositorio.",
+  "emptyAgentsHint": "No hay agentes abiertos. Usa un agente registrado para hablarle directamente, sin proyecto.",
+  "filesystemAccessTitle": "Dar acceso a todo el sistema de archivos",
+  "filesystemAccessBody": "\"{name}\" podrá leer y escribir en cualquier carpeta del computador, no solo en tu carpeta de usuario.",
+  "filesystemAccessGrant": "Dar acceso",
+  "filesystemAccessEnabledTooltip": "Tiene acceso a todo el sistema de archivos (haz clic para quitarlo)",
+  "filesystemAccessGrantTooltip": "Dar acceso a todo el sistema de archivos",
+  "noOpenRequirements": "No hay requisitos abiertos en ninguna dirección.",
+  "labelSubagents": "subagentes",
+  "useAgentTitle": "Usar un agente",
+  "filesystemAccessSubtitle": "Esto se decide aquí, no al registrar el agente: el mismo agente puede tener permisos diferentes según dónde lo uses.",
+  "chatHintStreaming": "Se enviará cuando termine el turno…",
+  "chatHintPlan": "Pide un plan…",
+  "chatHintMessage": "Escribe un mensaje…",
+  "noAgentsTitle": "Todavía no hay agentes registrados",
+  "noAgentsDescription": "Registra uno para tenerlo disponible en todas partes: para hablarle directamente, agregarlo a un proyecto y usarlo en pasos de workflow por rol.",
+  "sidebarSectionProjects": "Proyectos",
+  "sidebarSectionSessions": "Sesiones",
+  "sidebarSectionStatus": "Estado",
+  "sidebarSectionLooseAgents": "AGENTES SUELTOS",
+  "sidebarTooltipManageAgents": "Registrar o editar agentes",
+  "sidebarTooltipUseAgent": "Usar un agente registrado",
+  "sidebarTooltipManageProjects": "Administrar proyectos",
+  "sidebarTooltipNewProject": "Nuevo proyecto",
+  "sidebarHintProjectName": "Nombre del proyecto",
+  "sidebarTooltipReadOnlyProject": "No lo mantengo: solo lectura",
+  "sidebarTooltipOneSessionWorking": "Una sesión trabajando",
+  "sidebarTooltipSessionsWorking": "{count} sesiones trabajando",
+  "sidebarSectionBoards": "Tableros",
+  "sidebarNewBoard": "Nuevo tablero",
+  "sidebarTooltipDeleteBoard": "Eliminar tablero",
+  "sidebarSectionRequirements": "REQUERIMIENTOS",
+  "sidebarTooltipAllRequirements": "Todos los requerimientos",
+  "sidebarTooltipOpenRequirement": "Abrir un requerimiento",
+  "sidebarRequirementsEmpty": "Ninguno. Aparecen acá cuando un proyecto necesita algo de otro.",
+  "panelTitleInProgress": "WORKFLOW EN CURSO",
+  "panelNoWorkflowSelected": "Este proyecto no tiene un workflow seleccionado.",
+  "panelProgressOf": "{done} de {active}",
+  "panelReviewCycles": "auditorías {done}/{max}",
+  "panelSectionSkills": "Skills",
+  "panelSectionRules": "Reglas",
+  "panelSectionKnowledge": "Conocimiento y documentación",
+  "panelAddRule": "Agregar regla",
+  "panelAddKnowledge": "Agregar conocimiento",
+  "panelAddToProject": "Agregar a este proyecto",
+  "panelRemoveFromProject": "Quitar de este proyecto",
+  "panelRequiredByWorkflow": "Requerido por el workflow",
+  "panelMissingBlocksPreflight": "Faltante: bloquea el preflight",
+  "panelActivateOptional": "Activar esta capacidad opcional",
+  "panelChangeDefaultRole": "Modificar rol default del workflow",
+  "panelApproveAndContinue": "Aprobar y continuar",
+  "panelNoAgentForRole": "sin agente para {role}",
+  "panelConsultedTo": "consultó a {names}",
+  "panelCoverageMatrix": "matriz {resolved}/{total}",
+  "panelChangeSharedDefault": "Modificar default compartido",
+  "panelUseDefaultRole": "Usar default ({role})",
+  "panelStateDone": "listo",
+  "panelStateCurrent": "ahora",
+  "panelStatePending": "pendiente",
+  "panelStateBlocked": "bloqueado",
+  "panelStateAvailable": "disponible",
+  "panelStateNotRequired": "no requerido",
+  "panelExecutorNewSession": "sesión nueva",
+  "panelExecutorResumeParent": "reanuda sesión padre",
+  "panelExecutorSubagent": "subagente / fallback externo",
+  "panelExecutorManualApproval": "requiere aprobación manual",
+  "nodeKindTriage": "Triage y contrato",
+  "nodeKindImpact": "Impacto end-to-end",
+  "nodeKindImplementation": "Implementación",
+  "nodeKindVerification": "Verificación",
+  "mapNodeYou": "vos",
+  "mapNodeEnd": "fin",
+  "mapChipConsultation": "consulta",
+  "mapChipSubagent": "subagente",
+  "mapCountEnter": "entrar",
+  "mapCalloutAsked": "le pidió",
+  "mapCalloutReturned": "devolvió",
+  "mapCalloutCut": "cortó",
+  "mapCalloutAnswered": "contestó",
+  "mapCalloutResolved": "resolvió",
+  "mapCalloutThinking": "pensando",
+  "mapLegendOpensSubagent": "abre un subagente",
+  "mapLegendSubagentReturned": "el subagente devolvió",
+  "subagentPhaseWorking": "trabajando",
+  "turnPhaseWorking": "trabajando…",
+  "mapLegendForward": "avanza un paso",
+  "mapLegendBack": "consulta a otro nodo",
+  "mapLegendAnswer": "contesta esa consulta",
+  "mapLegendSpawn": "lo registró",
+  "mapLegendFinish": "entrega final",
+  "mapLegendFailed": "cortó",
+  "mapLegendUntraveled": "sin recorrer",
+  "subagentPhaseThinking": "pensando",
+  "subagentPhaseWriting": "escribiendo",
+  "subagentPhaseDone": "terminó",
+  "subagentPhaseFailed": "falló",
+  "turnPhaseThinking": "pensando…",
+  "turnPhaseWriting": "escribiendo…",
+  "threadAdaptiveResolution": "{workflow} · resolución adaptativa",
+  "threadBackToOwner": "vuelve al responsable",
+  "threadNextNode": "sigue {node}",
+  "threadConsultOf": "consulta de {name}",
+  "panelAgentForNode": "Agente para \"{title}\"",
+  "panelOverrideScope": "Este override solo afecta #{project}. El nodo guardará el agente concreto cuando pase el preflight.",
+  "panelSharedChangeScope": "Este cambio modifica el workflow \"{workflow}\" en todos los proyectos. Los overrides concretos se conservan."
 }

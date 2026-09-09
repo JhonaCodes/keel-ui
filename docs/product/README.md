@@ -36,4 +36,4 @@ There are no images or embedded screenshots in any file in this folder. Where it
 
 For technical detail feature by feature, see [`../features/`](../README.md).
 For how the app is compiled and distributed, see
-[`../compilar-y-distribuir.md`](../compilar-y-distribuir.md).
+[`../build-and-distribute.md`](../build-and-distribute.md).

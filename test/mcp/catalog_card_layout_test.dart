@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
+
 import 'package:keel_ui/src/core/ui/app_theme.dart';
 import 'package:keel_ui/src/integrations/mcp_catalog/mcp_catalog.dart';
 import 'package:keel_ui/src/modules/mcp_servers/model/mcp_probe_result.dart';
@@ -26,6 +28,11 @@ void main() {
       testWidgets('${entry.id} no desborda', (tester) async {
         await tester.pumpWidget(
           MaterialApp(
+            // The widgets under test read AppLocalizations; without the
+            // delegates `AppLocalizations.of` returns null and build throws.
+            locale: const Locale('es'),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
             theme: buildAppTheme(),
             home: Scaffold(
               body: Center(
@@ -65,6 +72,11 @@ void main() {
 
       await tester.pumpWidget(
         MaterialApp(
+          // The widgets under test read AppLocalizations; without the
+          // delegates `AppLocalizations.of` returns null and build throws.
+          locale: const Locale('es'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           theme: buildAppTheme(),
           home: Scaffold(
             body: Center(
@@ -88,6 +100,11 @@ void main() {
       // dos columnas cada tarjeta queda cerca de 140.
       await tester.pumpWidget(
         MaterialApp(
+          // The widgets under test read AppLocalizations; without the
+          // delegates `AppLocalizations.of` returns null and build throws.
+          locale: const Locale('es'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           theme: buildAppTheme(),
           home: Scaffold(
             body: Center(
@@ -127,6 +144,11 @@ void _instaladas() {
 
         await tester.pumpWidget(
           MaterialApp(
+            // The widgets under test read AppLocalizations; without the
+            // delegates `AppLocalizations.of` returns null and build throws.
+            locale: const Locale('es'),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
             theme: buildAppTheme(),
             home: Scaffold(
               body: Center(

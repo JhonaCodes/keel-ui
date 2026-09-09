@@ -302,11 +302,17 @@ class _ThreadListState extends State<_ThreadList> {
     final open = widget.session;
     if (open == null) return _EmptyChannel(projectId: widget.projectId);
 
+    final t = AppLocalizations.of(context);
     final entries = buildThreadEntries(
       messages: open.messages,
       workflow: widget.workflow,
       subagents: open.subagents,
       filter: _filter,
+      labels: ThreadLabels(
+        adaptiveResolution: t.threadAdaptiveResolution,
+        backToOwner: t.threadBackToOwner,
+        nextNode: t.threadNextNode,
+      ),
     );
     final nodeIds = <String>{
       for (final message in open.messages)
@@ -1001,16 +1007,16 @@ class _ChannelHeader extends StatelessWidget {
                       ),
                     ),
                   SegmentedButton<SessionTab>(
-                    segments: const [
+                    segments: [
                       ButtonSegment(
                         value: SessionTab.chat,
-                        icon: Icon(Icons.forum_outlined, size: 16),
-                        label: Text('Chat'),
+                        icon: const Icon(Icons.forum_outlined, size: 16),
+                        label: Text(AppLocalizations.of(context).labelChat),
                       ),
                       ButtonSegment(
                         value: SessionTab.map,
-                        icon: Icon(Icons.hub_outlined, size: 16),
-                        label: Text('Mapa'),
+                        icon: const Icon(Icons.hub_outlined, size: 16),
+                        label: Text(AppLocalizations.of(context).labelMap),
                       ),
                     ],
                     selected: {tab},

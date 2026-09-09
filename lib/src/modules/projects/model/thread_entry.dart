@@ -120,9 +120,28 @@ String nodeTitleFor(Workflow? workflow, String nodeId) {
 /// Markers show an adaptive case and consultations without implying a fixed
 /// sequence of roles. With [filter], only what it admits is listed, and the
 /// subagents it admits are interleaved by their start time.
+/// The three handoff captions the thread draws. They arrive already resolved
+/// instead of being built here, because this function is pure model code and
+/// has no [BuildContext] to reach the localizations from.
+class ThreadLabels {
+  const ThreadLabels({
+    required this.adaptiveResolution,
+    required this.backToOwner,
+    required this.nextNode,
+  });
+
+  /// Receives the workflow's name.
+  final String Function(String) adaptiveResolution;
+  final String backToOwner;
+
+  /// Receives the next node's resolved title.
+  final String Function(String) nextNode;
+}
+
 List<ThreadEntry> buildThreadEntries({
   required List<ChatMessage> messages,
   required Workflow? workflow,
+  required ThreadLabels labels,
   List<SessionSubagent> subagents = const [],
   ThreadFilter filter = const ThreadFilter(),
 }) {
@@ -152,7 +171,7 @@ List<ThreadEntry> buildThreadEntries({
     if (isAssistant && !openedFlow && workflow != null) {
       entries.add(
         ThreadHandoff(
-          '${workflow.name} · resolución adaptativa',
+          labels.adaptiveResolution(workflow.name),
           message.timestamp,
         ),
       );
@@ -161,11 +180,11 @@ List<ThreadEntry> buildThreadEntries({
 
     if (isAssistant && !isConsult) {
       if (wasConsult && nodeId != null) {
-        entries.add(ThreadHandoff('vuelve al responsable', message.timestamp));
+        entries.add(ThreadHandoff(labels.backToOwner, message.timestamp));
       } else if (lastNodeId != null && nodeId != null && lastNodeId != nodeId) {
         entries.add(
           ThreadHandoff(
-            'sigue ${nodeTitleFor(workflow, nodeId)}',
+            labels.nextNode(nodeTitleFor(workflow, nodeId)),
             message.timestamp,
           ),
         );

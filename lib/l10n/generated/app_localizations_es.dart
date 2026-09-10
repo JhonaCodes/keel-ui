@@ -2074,6 +2074,15 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
+  String get chatNoticeWarningTitle => 'Advertencia';
+
+  @override
+  String get chatNoticeFailureTitle => 'Falla';
+
+  @override
+  String get chatNoticeInfoTitle => 'Nota';
+
+  @override
   String chatRetryStep(Object title) {
     return 'Reintentar «$title»';
   }
@@ -4508,6 +4517,15 @@ class AppLocalizationsEsCo extends AppLocalizationsEs {
   String chatStepLabel(Object title) {
     return 'paso: $title';
   }
+
+  @override
+  String get chatNoticeWarningTitle => 'Advertencia';
+
+  @override
+  String get chatNoticeFailureTitle => 'Falla';
+
+  @override
+  String get chatNoticeInfoTitle => 'Nota';
 
   @override
   String chatRetryStep(Object title) {

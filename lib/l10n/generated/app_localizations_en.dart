@@ -2066,6 +2066,15 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get chatNoticeWarningTitle => 'Warning';
+
+  @override
+  String get chatNoticeFailureTitle => 'Failure';
+
+  @override
+  String get chatNoticeInfoTitle => 'Note';
+
+  @override
   String chatRetryStep(Object title) {
     return 'Retry «$title»';
   }

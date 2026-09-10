@@ -3579,6 +3579,24 @@ abstract class AppLocalizations {
   /// **'step: {title}'**
   String chatStepLabel(Object title);
 
+  /// No description provided for @chatNoticeWarningTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Warning'**
+  String get chatNoticeWarningTitle;
+
+  /// No description provided for @chatNoticeFailureTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Failure'**
+  String get chatNoticeFailureTitle;
+
+  /// No description provided for @chatNoticeInfoTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Note'**
+  String get chatNoticeInfoTitle;
+
   /// No description provided for @chatRetryStep.
   ///
   /// In en, this message translates to:

@@ -8,7 +8,7 @@ import 'package:keel_ui/src/modules/agents/model/file_edit.dart';
 import 'package:keel_ui/src/modules/agents/service/chat_actions.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/bubble_width.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/chat_message_body.dart';
-import 'package:keel_ui/src/modules/agents/ui/widget/chat_notice_label.dart';
+import 'package:keel_ui/src/modules/agents/ui/widget/chat_notice_bubble.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/reasoning_panel.dart';
 import 'package:keel_ui/src/modules/agents/viewmodel/agents_viewmodel.dart';
 import 'package:keel_ui/src/modules/settings/model/app_settings.dart';
@@ -84,7 +84,7 @@ class _ChatMessageBubbleContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (message.role == ChatRole.error || message.role == ChatRole.blocked) {
-      return ChatNoticeLabel(
+      return ChatNoticeBubble(
         role: message.role,
         text: message.text,
         fontSize: 13 * fontScale,

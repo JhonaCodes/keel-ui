@@ -34,7 +34,7 @@ const double kDefaultMaxSessionCostUsd = 0;
 /// pasara a «sin techo». Un workflow guardado con exactamente este valor lo
 /// heredó de ese default, no de una decisión, y por eso
 /// [normalizeLegacyCostCeilings] lo lleva a cero una única vez.
-const double kLegacyDefaultMaxSessionCostUsd = 20;
+const double kLegacyDefaultMaxSessionCostUsd = 200;
 
 enum WorkflowKind { general, bug, migration, roadmap }
 

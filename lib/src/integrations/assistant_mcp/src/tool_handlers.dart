@@ -2021,7 +2021,7 @@ List<WorkflowCapability>? _workflowCapabilities(Object? value) {
         parentCapabilityId: (data['parent_capability_id'] as String? ?? '')
             .trim(),
         maxAgenticTurns: ((data['max_agentic_turns'] as num?)?.toInt() ?? 0)
-            .clamp(0, 20)
+            .clamp(0, kMaxDeclarableTurns)
             .toInt(),
         readOnly: data['read_only'] as bool? ?? false,
         approvalRequired: data['approval_required'] as bool? ?? false,

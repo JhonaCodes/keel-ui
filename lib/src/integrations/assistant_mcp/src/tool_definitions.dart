@@ -569,7 +569,11 @@ final List<Tool> keelAiTools = _withCatalogChangeParameters([
                     'Nodo padre obligatorio para resumeParent y providerSubagent.',
               ),
               'max_agentic_turns': Schema.int(
-                description: 'Presupuesto de turnos, de 0 a 20.',
+                description:
+                    'Presupuesto de turnos, de 0 a $kMaxDeclarableTurns. '
+                    '0 no es ilimitado: cae al default del nodo '
+                    '($kDefaultWriteNodeTurns si escribe, '
+                    '$kDefaultReadOnlyNodeTurns si es de solo lectura).',
               ),
               'approval_required': Schema.bool(
                 description:
@@ -1061,7 +1065,11 @@ final List<Tool> keelAiTools = _withCatalogChangeParameters([
                     'Nodo padre obligatorio para resumeParent y providerSubagent.',
               ),
               'max_agentic_turns': Schema.int(
-                description: 'Presupuesto de turnos, de 0 a 20.',
+                description:
+                    'Presupuesto de turnos, de 0 a $kMaxDeclarableTurns. '
+                    '0 no es ilimitado: cae al default del nodo '
+                    '($kDefaultWriteNodeTurns si escribe, '
+                    '$kDefaultReadOnlyNodeTurns si es de solo lectura).',
               ),
               'approval_required': Schema.bool(
                 description:

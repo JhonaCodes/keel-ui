@@ -34,8 +34,13 @@ import 'package:keel_ui/src/core/services/local_database.dart';
 
 final _date = DateTime.utc(2026, 8, 31, 12);
 final _productFont = File('/System/Library/Fonts/Supplemental/Arial.ttf');
+/// Resolved from the environment so the golden runs on any machine: a
+/// hardcoded home directory only ever works on the one it was written on.
+final _pubCache =
+    Platform.environment['PUB_CACHE'] ??
+    '${Platform.environment['HOME']}/.pub-cache';
 final _materialIconsFont = File(
-  '/Users/jhonacode/.pub-cache/hosted/pub.dev/provider-6.1.2/'
+  '$_pubCache/hosted/pub.dev/provider-6.1.2/'
   'extension/devtools/build/assets/fonts/MaterialIcons-Regular.otf',
 );
 

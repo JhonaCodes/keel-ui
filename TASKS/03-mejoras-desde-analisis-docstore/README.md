@@ -9,7 +9,7 @@ intentó refutar esas citas antes de darlas por buenas.
 
 El informe completo (contexto de los dos documentos, comparación mecanismo por
 mecanismo, qué de ahí NO vale la pena copiar y por qué) vive en
-`/Users/jhonacode/keel-projects/doc-analysis/INFORME-keel-vs-closed-loop.md`. Estas
+un informe externo de análisis (fuera de este repo). Estas
 tareas son solo la parte accionable, ya verificada contra este repo.
 
 ## Carpetas

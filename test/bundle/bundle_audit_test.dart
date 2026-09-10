@@ -130,12 +130,12 @@ void main() {
 
   group('rutas personales', () {
     test('la carpeta de otro se marca, con el nombre adentro', () {
-      final audit = _tool('cd /Users/jhonacode/Projects/keel && ./run.sh');
+      final audit = _tool('cd /Users/ana/Projects/keel && ./run.sh');
       final finding = audit.findings.firstWhere(
         (f) => f.kind == 'ruta personal',
       );
       expect(finding.risk, BundleRisk.media);
-      expect(finding.excerpt, contains('/Users/jhonacode'));
+      expect(finding.excerpt, contains('/Users/ana'));
     });
 
     test('linux y windows también', () {

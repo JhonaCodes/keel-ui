@@ -515,3 +515,19 @@ universal DMG, and Linux x86_64 builds in a container. **Linux arm64 and
 Windows do not work**, and why is written down in
 [build and distribute](docs/build-and-distribute.md). If it is useful to you,
 take it.
+
+## Contributing
+
+Contributions are welcome — bugs, fixes, docs, and new providers especially.
+For anything larger than a small fix, open an issue first: Keel has strong
+opinions about its architecture and it is cheaper to agree on the shape before
+the code exists. The rules a review will always check, and the contract for
+adding an LLM provider, are in [`CONTRIBUTING.md`](CONTRIBUTING.md).
+
+## License
+
+Keel is released under the [MIT License](LICENSE) — © 2026 Jhonatan Ortiz
+([JhonaCode](https://jhonacode.com)).
+
+Use it, fork it, ship it, sell it. The only thing asked in return is that the
+copyright notice stays with it, so credit for the work lands where it belongs.

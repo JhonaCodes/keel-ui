@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 
 import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/core/ui/app_theme.dart';
+import 'package:keel_ui/src/core/ui/keel_mark.dart';
 import 'package:keel_ui/src/modules/agents/model/chat_message.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/bubble_width.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/markdown_text.dart';
+import 'package:keel_ui/src/modules/projects/model/session_message_reference.dart';
+import 'package:keel_ui/src/modules/projects/ui/widget/session_message_bubble.dart';
 
 /// El tono de una nota del hilo: qué color la enmarca, qué ícono la firma y
 /// cómo se titula.
@@ -50,11 +53,18 @@ class ChatNoticeBubble extends StatelessWidget {
     required this.role,
     required this.text,
     required this.fontSize,
+    this.reference,
   });
 
   final ChatRole role;
   final String text;
   final double fontSize;
+
+  /// Con qué token se cita esta nota. Una nota del hilo se cita igual que
+  /// cualquier otro mensaje: el informe que bloqueó un caso es justo lo que
+  /// uno quiere pegarle a otro agente, y sin el botón había que copiar el
+  /// texto a mano y perder el vínculo con la sesión.
+  final SessionMessageReference? reference;
 
   _NoticeTone _toneFor(AppLocalizations l10n, ColorScheme scheme) {
     // Sin `default`: un rol nuevo rompe la compilación acá, en vez de
@@ -111,7 +121,7 @@ class ChatNoticeBubble extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                _NoticeHeader(tone: tone),
+                _NoticeHeader(tone: tone, reference: reference),
                 Divider(
                   height: 1,
                   thickness: 1,
@@ -137,27 +147,19 @@ class ChatNoticeBubble extends StatelessWidget {
 /// La franja de identidad: de quién es la nota, de qué tipo es y cómo se
 /// llama.
 class _NoticeHeader extends StatelessWidget {
-  const _NoticeHeader({required this.tone});
+  const _NoticeHeader({required this.tone, this.reference});
 
   final _NoticeTone tone;
+  final SessionMessageReference? reference;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 9, 14, 9),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
         children: [
-          // El logo firma la nota: la escribió Keel, no el agente ni vos.
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: Image.asset(
-              'assets/icon.png',
-              width: 16,
-              height: 16,
-              filterQuality: FilterQuality.medium,
-            ),
-          ),
+          // La marca firma la nota: la escribió Keel, no el agente ni vos.
+          const KeelMark(size: 18),
           const SizedBox(width: 8),
           Icon(tone.icon, size: 15, color: tone.accent),
           const SizedBox(width: 7),
@@ -176,6 +178,10 @@ class _NoticeHeader extends StatelessWidget {
               ),
             ),
           ),
+          if (reference != null) ...[
+            const SizedBox(width: 8),
+            CopyMessageReferenceButton(reference: reference!),
+          ],
         ],
       ),
     );

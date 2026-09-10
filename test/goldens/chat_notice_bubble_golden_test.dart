@@ -24,6 +24,14 @@ final _materialIconsFont = File(
   'extension/devtools/build/assets/fonts/MaterialIcons-Regular.otf',
 );
 
+/// El código en línea del markdown se pinta con la monoespaciada que trae
+/// `gpt_markdown`. Sin cargarla, cada carácter sale como una cajita y el
+/// golden deja de mostrar justamente lo que vino a mostrar.
+final _monoFont = File(
+  '$_pubCache/hosted/pub.dev/gpt_markdown-1.2.1/lib/fonts/'
+  'JetBrainsMono-Regular.ttf',
+);
+
 const _report = '''
 **Caso bloqueado** en «Implementar la feature»: el nodo cerró con evidencia
 pero el checklist quedó incompleto.
@@ -48,6 +56,23 @@ pero el checklist quedó incompleto.
 - `payments`: 14 handlers; los guards del service se preservan por contrato.
 ''';
 
+/// Los assets declarados en el `pubspec` no se resuelven bajo `flutter test`:
+/// `Image.asset` cae siempre al `errorBuilder`. Este bundle los lee del disco
+/// para que el golden muestre la marca de Keel de VERDAD y no su reemplazo
+/// tipográfico — que es justamente lo que hay que poder revisar acá.
+class _DiskAssetBundle extends CachingAssetBundle {
+  @override
+  Future<ByteData> load(String key) async {
+    final file = File(key);
+    if (file.existsSync()) {
+      return ByteData.sublistView(await file.readAsBytes());
+    }
+    // `AssetImage` pide primero el manifiesto para elegir la variante de
+    // resolución; eso no es un archivo del repo, lo resuelve el bundle real.
+    return rootBundle.load(key);
+  }
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   LocalDatabase.markUnavailable();
@@ -63,9 +88,20 @@ void main() {
     final iconBytes = ByteData.sublistView(
       await _materialIconsFont.readAsBytes(),
     );
-    await (FontLoader('MaterialIcons')
-          ..addFont(Future.value(iconBytes)))
-        .load();
+    await (FontLoader(
+      'MaterialIcons',
+    )..addFont(Future.value(iconBytes))).load();
+    if (await _monoFont.exists()) {
+      final monoBytes = ByteData.sublistView(await _monoFont.readAsBytes());
+      // El nombre con prefijo `packages/` es el que resuelve una fuente que
+      // vive dentro de otro paquete.
+      for (final family in [
+        'JetBrainsMono',
+        'packages/gpt_markdown/JetBrainsMono',
+      ]) {
+        await (FontLoader(family)..addFont(Future.value(monoBytes))).load();
+      }
+    }
   });
 
   testWidgets('notice bubble golden', (tester) async {
@@ -79,37 +115,48 @@ void main() {
 
     final theme = buildAppTheme();
     await tester.pumpWidget(
-      MaterialApp(
-        theme: theme.copyWith(
-          textTheme: theme.textTheme.apply(fontFamily: 'GoldenArial'),
-        ),
-        locale: const Locale('es'),
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        home: Scaffold(
-          body: Padding(
-            padding: const EdgeInsets.all(24),
-            child: ListView(
-              children: const [
-                ChatNoticeBubble(
-                  role: ChatRole.blocked,
-                  text: _report,
-                  fontSize: 13,
-                ),
-                SizedBox(height: 4),
-                ChatNoticeBubble(
-                  role: ChatRole.error,
-                  text:
-                      'El turno murió: `cargo test` salió con código 101 y el '
-                      'proceso no dejó salida en `stderr`.',
-                  fontSize: 13,
-                ),
-              ],
+      DefaultAssetBundle(
+        bundle: _DiskAssetBundle(),
+        child: MaterialApp(
+          theme: theme.copyWith(
+            textTheme: theme.textTheme.apply(fontFamily: 'GoldenArial'),
+          ),
+          locale: const Locale('es'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(
+            body: Padding(
+              padding: const EdgeInsets.all(24),
+              child: ListView(
+                children: const [
+                  ChatNoticeBubble(
+                    role: ChatRole.blocked,
+                    text: _report,
+                    fontSize: 13,
+                  ),
+                  SizedBox(height: 4),
+                  ChatNoticeBubble(
+                    role: ChatRole.error,
+                    text:
+                        'El turno murió: `cargo test` salió con código 101 y el '
+                        'proceso no dejó salida en `stderr`.',
+                    fontSize: 13,
+                  ),
+                ],
+              ),
             ),
           ),
         ),
       ),
     );
+    // `Image.asset` decodifica fuera del reloj falso del test: sin esto la
+    // marca de Keel nunca llega a pintarse y el golden la muestra vacía.
+    await tester.runAsync(() async {
+      for (final element in find.byType(Image).evaluate()) {
+        final image = element.widget as Image;
+        await precacheImage(image.image, element);
+      }
+    });
     await tester.pump(const Duration(milliseconds: 350));
 
     await expectLater(

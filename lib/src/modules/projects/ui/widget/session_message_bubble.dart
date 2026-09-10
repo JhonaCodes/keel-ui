@@ -72,6 +72,11 @@ class _Content extends StatelessWidget {
         role: message.role,
         text: message.text,
         fontSize: 13 * fontScale,
+        reference: SessionMessageReference(
+          projectId: bubble.projectId,
+          sessionId: bubble.sessionId,
+          messageId: message.id,
+        ),
       );
     }
 
@@ -170,7 +175,11 @@ class _Content extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              MemberAvatar(color: accent, size: isConsult ? 22 : 28),
+              MemberAvatar(
+                color: accent,
+                size: isConsult ? 22 : 28,
+                isKeelAi: bubble.author?.name == kKeelAiHandle,
+              ),
               const SizedBox(width: 10),
               if (isConsult) ...[
                 Container(width: 3, height: 34, color: askedByColor),

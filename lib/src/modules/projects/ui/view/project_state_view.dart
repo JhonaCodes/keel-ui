@@ -6,6 +6,7 @@ import 'package:reactive_notifier/reactive_notifier.dart';
 import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/integrations/project_radar/project_radar.dart';
 import 'package:keel_ui/src/integrations/roadmap_mcp/roadmap_mcp.dart';
+import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
 import 'package:keel_ui/src/modules/agent_profiles/viewmodel/agent_profiles_viewmodel.dart';
 import 'package:keel_ui/src/modules/projects/model/member_color.dart';
 import 'package:keel_ui/src/modules/projects/model/project.dart';
@@ -222,7 +223,11 @@ class _Facepile extends StatelessWidget {
             offset: Offset(-7.0 * i, 0),
             child: Tooltip(
               message: '@${shown[i].name} · ${shown[i].role}',
-              child: MemberAvatar(color: memberColorFor(i), size: 24),
+              child: MemberAvatar(
+                color: memberColorFor(i),
+                size: 24,
+                isKeelAi: shown[i].name == kKeelAiHandle,
+              ),
             ),
           ),
         Transform.translate(
@@ -575,7 +580,11 @@ class _EnCurso extends StatelessWidget {
             _Mono(item.taskPath),
             Row(
               children: [
-                MemberAvatar(color: colorOf(item.profileHandle), size: 20),
+                MemberAvatar(
+                  color: colorOf(item.profileHandle),
+                  size: 20,
+                  isKeelAi: item.profileHandle == kKeelAiHandle,
+                ),
                 const SizedBox(width: 6),
                 Flexible(
                   child: Text(

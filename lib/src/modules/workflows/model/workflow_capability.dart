@@ -87,10 +87,15 @@ String? validateWorkflowCapabilities(List<WorkflowCapability> capabilities) {
 /// entrega reales. Cien deja terminar ese trabajo y sigue estando lejos de
 /// los 577 que motivaron el tope; el que necesite otro número lo declara en
 /// el nodo.
-const int kDefaultWriteNodeTurns = 100;
+const int kDefaultWriteNodeTurns = 200;
 
 /// Lo mismo para un nodo de solo lectura (planificar, auditar).
-const int kDefaultReadOnlyNodeTurns = 10;
+///
+/// Diez alcanzaba cuando auditar era leer un diff. Ya no: un auditor tiene que
+/// correr él mismo el análisis estático y los tests del área para no heredar lo
+/// que reportó el implementador, y eso son varios turnos de compilación antes
+/// de escribir la primera línea del veredicto.
+const int kDefaultReadOnlyNodeTurns = 200;
 
 /// El número más alto que alguien puede declarar en un nodo.
 ///

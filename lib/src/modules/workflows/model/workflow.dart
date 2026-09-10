@@ -19,10 +19,31 @@ const int kMaxSubagentsPerNode = 6;
 /// Minutos sin un solo evento del proveedor antes de cortar el turno. Diez
 /// es el piso: un `flutter build` o una suite larga pueden callar varios
 /// minutos sin estar colgados.
-const int kDefaultIdleTimeoutMinutes = 10;
+/// How many times a workflow may re-plan before it gives up.
+///
+/// This is the default AND the number the form seeds a new workflow with:
+/// the value used to be written by hand in three places (the policy, the
+/// form's fallback, and the slider ceiling), and they drifted apart until
+/// raising one of them crashed the editor.
+const int kDefaultMaxReplans = 10;
+
+/// The highest [kDefaultMaxReplans] anyone can dial in from the form.
+const int kMaxReplans = 20;
+
+/// Subagents a node may fan out to by default. The hard ceiling is
+/// [kMaxSubagentsPerNode].
+const int kDefaultMaxSubagents = 5;
+
+/// Review rounds a capability may go through before the workflow moves on.
+const int kDefaultMaxReviewCycles = 5;
+
+/// The highest [kDefaultMaxReviewCycles] anyone can dial in from the form.
+const int kMaxReviewCycles = 10;
+
+const int kDefaultIdleTimeoutMinutes = 20;
 
 /// Minutos que puede durar un turno de nodo, con o sin actividad.
-const int kDefaultNodeTimeoutMinutes = 45;
+const int kDefaultNodeTimeoutMinutes = 60;
 
 /// Techo de gasto reportado por sesión, en dólares. Cero es «sin techo», y es
 /// el default: un caso no se corta por precio salvo que alguien declare un
@@ -83,9 +104,9 @@ class WorkflowPolicy {
       WorkflowQualityGate.analysis,
       WorkflowQualityGate.focusedTests,
     ],
-    this.maxReplans = 2,
-    this.maxSubagents = 1,
-    this.maxReviewCycles = 4,
+    this.maxReplans = kDefaultMaxReplans,
+    this.maxSubagents = kDefaultMaxSubagents,
+    this.maxReviewCycles = kDefaultMaxReviewCycles,
     this.idleTimeoutMinutes = kDefaultIdleTimeoutMinutes,
     this.nodeTimeoutMinutes = kDefaultNodeTimeoutMinutes,
     this.maxSessionCostUsd = kDefaultMaxSessionCostUsd,
@@ -159,15 +180,22 @@ class WorkflowPolicy {
           .map((entry) => _qualityGateFromName(entry as String?))
           .whereType<WorkflowQualityGate>()
           .toList(),
-      maxReplans: (data['maxReplans'] as int? ?? 2).clamp(0, 2),
-      // El techo se aplica también al LEER: si acá quedaba en 1, un workflow
-      // guardado con más subagentes los perdía en silencio al recargarse, y el
-      // valor que el usuario eligió en la UI no sobrevivía a reiniciar la app.
-      maxSubagents: (data['maxSubagents'] as int? ?? 1).clamp(
+      // El techo se aplica también al LEER: si acá queda por debajo del que
+      // acepta la UI, un workflow guardado con un número más alto lo pierde en
+      // silencio al recargarse, y el valor que el usuario eligió no sobrevive a
+      // reiniciar la app. Los tres salen de las mismas constantes que el
+      // formulario y el constructor, justamente para que no puedan separarse.
+      maxReplans: (data['maxReplans'] as int? ?? kDefaultMaxReplans).clamp(
         0,
-        kMaxSubagentsPerNode,
+        kMaxReplans,
       ),
-      maxReviewCycles: (data['maxReviewCycles'] as int? ?? 4).clamp(1, 4),
+      maxSubagents: (data['maxSubagents'] as int? ?? kDefaultMaxSubagents)
+          .clamp(0, kMaxSubagentsPerNode),
+      maxReviewCycles:
+          (data['maxReviewCycles'] as int? ?? kDefaultMaxReviewCycles).clamp(
+            1,
+            kMaxReviewCycles,
+          ),
       idleTimeoutMinutes:
           (data['idleTimeoutMinutes'] as int? ?? kDefaultIdleTimeoutMinutes)
               .clamp(1, 240),

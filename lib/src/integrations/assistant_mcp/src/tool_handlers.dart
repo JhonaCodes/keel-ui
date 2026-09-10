@@ -1962,7 +1962,7 @@ List<WorkflowQualityGate> _workflowQualityGates(Object? value) => [
 
 int? _boundedReplanLimit(Object? value) {
   final number = value as num?;
-  return number?.toInt().clamp(0, 2).toInt();
+  return number?.toInt().clamp(0, kMaxReplans).toInt();
 }
 
 int? _boundedSubagentLimit(Object? value) {
@@ -1972,7 +1972,7 @@ int? _boundedSubagentLimit(Object? value) {
 
 int? _boundedReviewCycles(Object? value) {
   final number = value as num?;
-  return number?.toInt().clamp(1, 4).toInt();
+  return number?.toInt().clamp(1, kMaxReviewCycles).toInt();
 }
 
 /// Los dos topes de tiempo del turno, con los mismos límites que los sliders

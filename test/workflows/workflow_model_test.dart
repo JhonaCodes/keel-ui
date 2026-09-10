@@ -316,8 +316,8 @@ void main() {
 
     test('la policy trae plazos y techo de costo, y sobreviven al disco', () {
       const policy = WorkflowPolicy();
-      expect(policy.idleTimeoutMinutes, 10);
-      expect(policy.nodeTimeoutMinutes, 45);
+      expect(policy.idleTimeoutMinutes, kDefaultIdleTimeoutMinutes);
+      expect(policy.nodeTimeoutMinutes, kDefaultNodeTimeoutMinutes);
       // El techo de costo no tiene default: ver workflow_cost_ceiling_test.
       expect(policy.maxSessionCostUsd, 0);
 
@@ -329,7 +329,30 @@ void main() {
       expect(WorkflowPolicy.fromJson(custom.toJson()), custom);
 
       // Un registro anterior a estos campos lee los defaults, no cero.
-      expect(WorkflowPolicy.fromJson({'maxReplans': 1}).idleTimeoutMinutes, 10);
+      expect(
+        WorkflowPolicy.fromJson({'maxReplans': 1}).idleTimeoutMinutes,
+        kDefaultIdleTimeoutMinutes,
+      );
+    });
+
+    test('los topes altos sobreviven al disco: leer no los recorta', () {
+      // Regresión: `fromJson` recortaba `maxReplans` a 0..2 y
+      // `maxReviewCycles` a 1..4 con números escritos a mano, más bajos que
+      // los que acepta el formulario. Un workflow guardado con los defaults
+      // volvía del disco con otros valores, y el editor —cuyo slider llega
+      // hasta el techo real— reventaba al renderizar el valor recortado.
+      const policy = WorkflowPolicy();
+      final leido = WorkflowPolicy.fromJson(policy.toJson());
+      expect(leido.maxReplans, kDefaultMaxReplans);
+      expect(leido.maxReviewCycles, kDefaultMaxReviewCycles);
+      expect(leido.maxSubagents, kDefaultMaxSubagents);
+
+      // Y el techo declarable entra entero, no recortado.
+      final alTope = policy.copyWith(
+        maxReplans: kMaxReplans,
+        maxReviewCycles: kMaxReviewCycles,
+      );
+      expect(WorkflowPolicy.fromJson(alTope.toJson()), alTope);
     });
 
     test('la policy trae reuso de sesión, umbral de compactación y tope de '

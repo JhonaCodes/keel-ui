@@ -251,12 +251,12 @@ List<WorkflowCapability> _workflowCapabilities(String? raw) {
 
 int? _boundedInt(String? raw) {
   final value = int.tryParse(raw?.trim() ?? '');
-  return value?.clamp(0, 2).toInt();
+  return value?.clamp(0, kMaxReplans).toInt();
 }
 
 int? _reviewCycles(String? raw) {
   final value = int.tryParse(raw?.trim() ?? '');
-  return value?.clamp(1, 4).toInt();
+  return value?.clamp(1, kMaxReviewCycles).toInt();
 }
 
 int? _subagentLimit(String? raw) {

@@ -36,9 +36,21 @@ class _WorkflowFormScreenState extends State<WorkflowFormScreen> {
   );
   late WorkflowKind _kind = widget.initial?.kind ?? WorkflowKind.bug;
   late String _ownerRole = widget.initial?.policy.resolutionRole ?? '';
-  late int _maxReplans = widget.initial?.policy.maxReplans ?? 2;
-  late int _maxSubagents = widget.initial?.policy.maxSubagents ?? 1;
-  late int _maxReviewCycles = widget.initial?.policy.maxReviewCycles ?? 4;
+  // Clamped, not just defaulted: a workflow saved before a ceiling moved can
+  // hold a value the slider no longer accepts, and Slider asserts on that.
+  // Rendering a stored workflow must never be able to crash the editor.
+  late int _maxReplans = (widget.initial?.policy.maxReplans ?? kDefaultMaxReplans)
+      .clamp(0, kMaxReplans);
+  late int _maxSubagents =
+      (widget.initial?.policy.maxSubagents ?? kDefaultMaxSubagents).clamp(
+        0,
+        kMaxSubagentsPerNode,
+      );
+  late int _maxReviewCycles =
+      (widget.initial?.policy.maxReviewCycles ?? kDefaultMaxReviewCycles).clamp(
+        1,
+        kMaxReviewCycles,
+      );
   late int _idleTimeoutMinutes =
       widget.initial?.policy.idleTimeoutMinutes ?? kDefaultIdleTimeoutMinutes;
   late int _nodeTimeoutMinutes =
@@ -236,8 +248,8 @@ class _WorkflowFormScreenState extends State<WorkflowFormScreen> {
           Slider(
             value: _maxReplans.toDouble(),
             min: 0,
-            max: 2,
-            divisions: 2,
+            max: kMaxReplans.toDouble(),
+            divisions: kMaxReplans,
             label: '$_maxReplans',
             onChanged: (value) => setState(() => _maxReplans = value.round()),
           ),
@@ -260,8 +272,8 @@ class _WorkflowFormScreenState extends State<WorkflowFormScreen> {
           Slider(
             value: _maxReviewCycles.toDouble(),
             min: 1,
-            max: 4,
-            divisions: 3,
+            max: kMaxReviewCycles.toDouble(),
+            divisions: kMaxReviewCycles - 1,
             label: '$_maxReviewCycles',
             onChanged: (value) =>
                 setState(() => _maxReviewCycles = value.round()),

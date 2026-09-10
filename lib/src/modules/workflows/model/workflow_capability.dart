@@ -83,12 +83,14 @@ String? validateWorkflowCapabilities(List<WorkflowCapability> capabilities) {
 /// estático y suite— lo agotaba de rutina. Medido contra el caso que lo
 /// destapó: el nodo se cortó en el turno 21 con la suite en verde
 /// (`test result: ok. 13 passed`), o sea trabajando bien, no dando vueltas.
-/// Sesenta deja terminar ese trabajo y sigue estando lejos de los 577 que
-/// motivaron el tope; el que necesite otro número lo declara en el nodo.
-const int kDefaultWriteNodeTurns = 60;
+/// Sesenta fue el intento siguiente y también se quedó corto en los nodos de
+/// entrega reales. Cien deja terminar ese trabajo y sigue estando lejos de
+/// los 577 que motivaron el tope; el que necesite otro número lo declara en
+/// el nodo.
+const int kDefaultWriteNodeTurns = 100;
 
 /// Lo mismo para un nodo de solo lectura (planificar, auditar).
-const int kDefaultReadOnlyNodeTurns = 8;
+const int kDefaultReadOnlyNodeTurns = 10;
 
 /// El número más alto que alguien puede declarar en un nodo.
 ///

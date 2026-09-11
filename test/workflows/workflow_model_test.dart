@@ -285,7 +285,7 @@ void main() {
   });
 
   group('topes por defecto', () {
-    test('un nodo de escritura sin tope declarado corre con el default', () {
+    test('un nodo sin tope declarado corre SIN tope; el declarado se respeta', () {
       // 26 de 31 workflows guardados tenían `maxAgenticTurns: 0`: "sin
       // tope" significaba turnos ilimitados, no "el default".
       const writes = WorkflowCapability(
@@ -309,8 +309,12 @@ void main() {
         maxAgenticTurns: 3,
       );
 
-      expect(writes.effectiveMaxAgenticTurns, kDefaultWriteNodeTurns);
-      expect(reads.effectiveMaxAgenticTurns, kDefaultReadOnlyNodeTurns);
+      // 0 = SIN TOPE, por decisión explícita del usuario: un default de
+      // turnos cortaba trabajo legítimo (un nodo real se pausó a los 200
+      // turnos trabajando bien). Los frenos son el vigilante de inactividad,
+      // los minutos por paso y el techo de costo — no un contador.
+      expect(writes.effectiveMaxAgenticTurns, 0);
+      expect(reads.effectiveMaxAgenticTurns, 0);
       expect(explicit.effectiveMaxAgenticTurns, 3);
     });
 

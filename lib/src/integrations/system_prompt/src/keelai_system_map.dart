@@ -94,10 +94,11 @@ Mapa de lo que existe en esta app y cómo se relaciona:
   (default 10), minutos máximos por paso (default 45) y techo de costo de la
   sesión en dólares (sin techo por defecto; 0 = sin techo, y solo cuenta el
   costo que el proveedor informa — codex no lo informa). Un nodo sin
-  `maxAgenticTurns`
-  declarado corre con 20 turnos si escribe y 8 si es de solo lectura, nunca
-  ilimitado. Se editan en el formulario del workflow; `create_workflow` y
-  `update_workflow` todavía no los exponen.
+  `maxAgenticTurns` declarado corre SIN tope de turnos — el default es
+  ilimitado, por decisión del usuario; lo frenan el vigilante de inactividad,
+  los minutos por paso y el techo de costo. Declarar un número (hasta 200)
+  acota ese nodo puntual. Se editan en el formulario del workflow;
+  `create_workflow` y `update_workflow` todavía no los exponen.
   CIERRE DE TURNO: todo turno de un nodo termina con un bloque
   ```keel-outcome (status done|blocked|needs_user|needs_permission|failed,
   summary con evidencia, files, artifacts, verdict GO|NO-GO en nodos de

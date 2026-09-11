@@ -570,10 +570,10 @@ final List<Tool> keelAiTools = _withCatalogChangeParameters([
               ),
               'max_agentic_turns': Schema.int(
                 description:
-                    'Presupuesto de turnos, de 0 a $kMaxDeclarableTurns. '
-                    '0 no es ilimitado: cae al default del nodo '
-                    '($kDefaultWriteNodeTurns si escribe, '
-                    '$kDefaultReadOnlyNodeTurns si es de solo lectura).',
+                    'Tope de turnos del paso, de 0 a $kMaxDeclarableTurns. '
+                    '0 es el default y significa SIN tope: el paso corre '
+                    'hasta terminar; lo frenan el vigilante de inactividad, '
+                    'los minutos por paso y el techo de costo.',
               ),
               'approval_required': Schema.bool(
                 description:
@@ -1066,10 +1066,10 @@ final List<Tool> keelAiTools = _withCatalogChangeParameters([
               ),
               'max_agentic_turns': Schema.int(
                 description:
-                    'Presupuesto de turnos, de 0 a $kMaxDeclarableTurns. '
-                    '0 no es ilimitado: cae al default del nodo '
-                    '($kDefaultWriteNodeTurns si escribe, '
-                    '$kDefaultReadOnlyNodeTurns si es de solo lectura).',
+                    'Tope de turnos del paso, de 0 a $kMaxDeclarableTurns. '
+                    '0 es el default y significa SIN tope: el paso corre '
+                    'hasta terminar; lo frenan el vigilante de inactividad, '
+                    'los minutos por paso y el techo de costo.',
               ),
               'approval_required': Schema.bool(
                 description:

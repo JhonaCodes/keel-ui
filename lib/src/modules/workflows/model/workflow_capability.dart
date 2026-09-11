@@ -74,37 +74,14 @@ String? validateWorkflowCapabilities(List<WorkflowCapability> capabilities) {
   return null;
 }
 
-/// Turnos agénticos de un nodo que escribe cuando el workflow no declara un
-/// tope. Antes `0` significaba «ilimitado», y 26 de 31 workflows guardados
-/// corrían así: un nodo llegó a 577 turnos. El tope existe por eso.
+/// El número más alto que alguien puede DECLARAR como tope de un nodo.
 ///
-/// Empezó en 20 y era demasiado justo: al retrofitearse sobre esos 26
-/// workflows, un nodo de implementación real —cambio, test, análisis
-/// estático y suite— lo agotaba de rutina. Medido contra el caso que lo
-/// destapó: el nodo se cortó en el turno 21 con la suite en verde
-/// (`test result: ok. 13 passed`), o sea trabajando bien, no dando vueltas.
-/// Sesenta fue el intento siguiente y también se quedó corto en los nodos de
-/// entrega reales. Cien deja terminar ese trabajo y sigue estando lejos de
-/// los 577 que motivaron el tope; el que necesite otro número lo declara en
-/// el nodo.
-const int kDefaultWriteNodeTurns = 200;
-
-/// Lo mismo para un nodo de solo lectura (planificar, auditar).
-///
-/// Diez alcanzaba cuando auditar era leer un diff. Ya no: un auditor tiene que
-/// correr él mismo el análisis estático y los tests del área para no heredar lo
-/// que reportó el implementador, y eso son varios turnos de compilación antes
-/// de escribir la primera línea del veredicto.
-const int kDefaultReadOnlyNodeTurns = 200;
-
-/// El número más alto que alguien puede declarar en un nodo.
-///
-/// Existía como un `20` suelto repetido en tres lugares (la validación, el
-/// `fromJson` y el parser del asistente), y era un techo DURO, no un
-/// default: ni subiendo el campo en el formulario se podía pasar de ahí, así
-/// que un nodo que necesitaba más turnos no tenía ninguna salida. Sigue
-/// siendo un tope —para que un tipeo no deje un nodo dando vueltas para
-/// siempre— pero con margen para el trabajo real.
+/// Solo valida el valor tipeado en el formulario o por el asistente — un
+/// guard contra el dedo, no una política. El default de un nodo que no
+/// declara nada es SIN TOPE (`effectiveMaxAgenticTurns` = 0): la historia de
+/// este archivo probó que cualquier número default corta trabajo legítimo
+/// (20 cortó una implementación con la suite en verde; 200 pausó un nodo de
+/// unificación real que iba bien). Quien quiere acotar un nodo, lo declara.
 const int kMaxDeclarableTurns = 200;
 
 @immutable
@@ -147,12 +124,15 @@ class WorkflowCapability {
     this.approvalRequired = false,
   });
 
-  /// El tope que corre de verdad: el declarado, o el default según el nodo
-  /// escriba o no. Es lo que llega a `--max-turns`; [maxAgenticTurns] queda
-  /// como lo que el usuario escribió.
-  int get effectiveMaxAgenticTurns => maxAgenticTurns > 0
-      ? maxAgenticTurns
-      : (readOnly ? kDefaultReadOnlyNodeTurns : kDefaultWriteNodeTurns);
+  /// El tope que corre de verdad: el declarado, o **0 = sin tope**.
+  ///
+  /// Es lo que llega a `--max-turns` (claude lo omite con 0), al hook de
+  /// codex (no se instala con 0) y a los runners de API (sin contador de
+  /// rondas). Sin tope por decisión explícita del usuario: un default de
+  /// turnos cortaba trabajo legítimo. Los frenos de un nodo sin tope son el
+  /// vigilante de inactividad, los minutos máximos por paso y el techo de
+  /// costo de la sesión.
+  int get effectiveMaxAgenticTurns => maxAgenticTurns;
 
   WorkflowCapability copyWith({
     String? title,
@@ -217,8 +197,10 @@ class WorkflowCapability {
           orElse: () => WorkflowExecutor.newSession,
         ),
         parentCapabilityId: json['parentCapabilityId'] as String? ?? '',
-        maxAgenticTurns: (json['maxAgenticTurns'] as int? ?? 0)
-            .clamp(0, kMaxDeclarableTurns),
+        maxAgenticTurns: (json['maxAgenticTurns'] as int? ?? 0).clamp(
+          0,
+          kMaxDeclarableTurns,
+        ),
         readOnly: json['readOnly'] as bool? ?? false,
         outputContract: json['outputContract'] as String? ?? '',
         requiresIndependentOwner:
@@ -319,10 +301,12 @@ List<WorkflowLint> lintWorkflowCapabilities(
       !c.readOnly && c.executor != WorkflowExecutor.manualApproval;
   bool auditLike(WorkflowCapability c) {
     final role = c.role.toLowerCase();
-    final roleSaysSo = role.contains('audit') ||
+    final roleSaysSo =
+        role.contains('audit') ||
         role.contains('revis') ||
         role.contains('review');
-    final readsAWriter = c.readOnly &&
+    final readsAWriter =
+        c.readOnly &&
         c.dependencyIds.any((id) => byId[id] != null && writes(byId[id]!));
     return roleSaysSo || readsAWriter;
   }
@@ -346,15 +330,6 @@ List<WorkflowLint> lintWorkflowCapabilities(
           "'${c.id}' audita (rol o solo lectura sobre un nodo que escribe) "
           "sin outputContract 'audit-feedback': el motor no leería su "
           'veredicto ni le pasaría el informe al nodo siguiente.',
-        ),
-      );
-    }
-    if (writes(c) && c.maxAgenticTurns == 0) {
-      lints.add(
-        WorkflowLint(
-          WorkflowLintSeverity.warning,
-          "'${c.id}' escribe sin tope declarado: corre con el default de "
-          '$kDefaultWriteNodeTurns turnos.',
         ),
       );
     }

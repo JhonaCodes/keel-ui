@@ -8,7 +8,6 @@ import 'package:http/testing.dart';
 import 'package:keel_ui/src/core/services/local_database.dart';
 import 'package:keel_ui/src/integrations/llm/llm.dart';
 import 'package:keel_ui/src/integrations/llm/openai_compatible/openai_compatible_api_runner.dart';
-import 'package:keel_ui/src/integrations/llm/openai_compatible/openai_model_profile.dart';
 import 'package:keel_ui/src/integrations/llm/openai_compatible/openai_tool_bridge.dart';
 
 const _spec = LlmTurnSpec(
@@ -57,8 +56,7 @@ void main() {
         expect(deepSeek.headers.containsKey('x-title'), isFalse);
 
         // `gpt-oss` razona en canales y gasta vueltas anunciando: se le pide
-        // esfuerzo bajo aunque el agente esté en el máximo, y a cambio recibe
-        // más rondas que el resto.
+        // esfuerzo bajo aunque el agente esté en el máximo.
         final harmony = await _capturedRequest(
           baseUrl: 'https://openrouter.ai/api/v1',
           secretRef: 'OPENROUTER_API_KEY',
@@ -69,10 +67,6 @@ void main() {
         expect((jsonDecode(harmony.body) as Map<String, dynamic>)['reasoning'], {
           'effort': 'low',
         });
-        expect(
-          OpenAiModelProfile.fromModel('openai/gpt-oss-20b').maxToolRounds,
-          greaterThan(OpenAiModelProfile.fromModel('openai/gpt-5').maxToolRounds),
-        );
 
         // Un modelo que no razona no recibe el campo: en el dialecto plano un
         // parámetro no soportado es un 400, y acá un 400 mata el turno.
@@ -103,29 +97,6 @@ void main() {
         );
       },
     );
-
-    test('el tope de rondas es un presupuesto de trabajo, no solo una red', () {
-      final runner = OpenAiCompatibleApiRunner(
-        baseUrl: 'https://api.deepseek.com',
-        secretRef: 'DEEPSEEK_API_KEY',
-        dialect: OpenAiCompatibleDialect.plain,
-        resolveSecret: (_) async => 'test-token-deepseek',
-      );
-
-      // Sin override el número lo decide el perfil del modelo, que recién se
-      // conoce con el spec del turno.
-      expect(runner.maxToolRounds, isNull);
-
-      // Cada ronda reenvía el historial completo: el tope es el multiplicador
-      // de costo, no una red. Con el bloque de cierre de turno un nodo cortado
-      // se retoma, así que el número es un presupuesto — y un presupuesto
-      // plano le cobraba a todos el precio de la clase más charlatana.
-      expect(OpenAiModelProfile.generic.maxToolRounds, lessThan(40));
-      expect(
-        OpenAiModelProfile.harmony.maxToolRounds,
-        greaterThan(OpenAiModelProfile.generic.maxToolRounds),
-      );
-    });
 
     test('sin límite declarado el techo es el tope, nunca cero', () {
       // La mitad que importa del `Math.min(...) || outputTokenMax` de opencode:
@@ -172,7 +143,14 @@ void main() {
       );
     });
 
-    test('el default corta una cadena de tools infinita, y no antes', () async {
+    test('las rondas de tools no tienen tope: corta el modelo, no un contador', () async {
+      // 30 rondas supera el presupuesto de 24 que existía acá: con el contador
+      // vivo este turno se cortaba en la ronda 25 con el aviso "[keel] Corté".
+      // Eliminado por decisión explícita del usuario — el contador cortaba
+      // trabajo legítimo. Los frenos que quedan son los del motor (vigilante
+      // de inactividad, minutos por paso, techo de costo) y el corte de
+      // reintentos estériles del propio runner.
+      const chain = 30;
       var requests = 0;
       final runner = OpenAiCompatibleApiRunner(
         baseUrl: 'https://api.deepseek.com',
@@ -182,9 +160,19 @@ void main() {
         toolBridge: _FakeToolBridge(),
         client: MockClient((request) async {
           requests++;
+          if (requests <= chain) {
+            return http.Response(
+              [
+                'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_$requests","type":"function","function":{"name":"Read","arguments":"{\\"path\\":\\"file-$requests.md\\"}"}}]},"finish_reason":"tool_calls"}]}',
+                'data: [DONE]',
+                '',
+              ].join('\n'),
+              200,
+            );
+          }
           return http.Response(
             [
-              'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_$requests","type":"function","function":{"name":"Read","arguments":"{\\"path\\":\\"file-$requests.md\\"}"}}]},"finish_reason":"tool_calls"}]}',
+              'data: {"choices":[{"delta":{"content":"listo"}}]}',
               'data: [DONE]',
               '',
             ].join('\n'),
@@ -197,13 +185,19 @@ void main() {
           .run(_spec, userPath: '', cancel: const Stream<void>.empty())
           .toList();
 
-      // El modelo pide tool para siempre: la red tiene que frenarlo. `_spec`
-      // corre `openai/gpt-4`, o sea la clase genérica: el número sale de SU
-      // perfil, no de una constante plana ni de un número escrito a mano.
-      expect(requests, OpenAiModelProfile.generic.maxToolRounds + 1);
-      // Y frena SIN romper el turno: el trabajo hecho se entrega.
+      // Las 30 rondas salieron a la red, más la respuesta final sin tools:
+      // el turno lo cerró el modelo, no un contador.
+      expect(requests, chain + 1);
       expect(events.where((event) => event['type'] == 'failure'), isEmpty);
       expect(events.last, containsPair('isError', false));
+      // Y ningún aviso de corte en el texto entregado.
+      expect(
+        events
+            .where((event) => event['type'] == 'assistantText')
+            .map((event) => event['text'] as String)
+            .where((text) => text.contains('Corté el ciclo')),
+        isEmpty,
+      );
     });
 
     test('entrega el historial aislado antes del mensaje actual', () async {
@@ -440,7 +434,10 @@ void main() {
       expect(bridge.closed, isTrue);
     });
 
-    test('corta un reintento estéril antes de agotar todas las rondas', () async {
+    test('corta un reintento estéril: el freno anti-bucle que queda', () async {
+      // Con las rondas sin tope, ESTE es el corte que detiene un modelo
+      // clavado en un bucle: mismo tool + mismos argumentos sin contexto
+      // nuevo se rechaza una vez y a la segunda insistencia se cierra.
       final requests = <http.Request>[];
       final bridge = _FakeToolBridge();
       final runner = OpenAiCompatibleApiRunner(
@@ -449,7 +446,6 @@ void main() {
         dialect: OpenAiCompatibleDialect.plain,
         resolveSecret: (_) async => 'test-token-deepseek',
         toolBridge: bridge,
-        maxToolRounds: 8,
         client: MockClient((request) async {
           requests.add(request);
           return http.Response(
@@ -484,48 +480,6 @@ void main() {
         contains('reintento estéril'),
       );
     });
-
-    test(
-      'un límite interno informa que la causa concreta ya fue mostrada',
-      () async {
-        var requests = 0;
-        final runner = OpenAiCompatibleApiRunner(
-          baseUrl: 'https://openrouter.ai/api/v1',
-          secretRef: 'OPENROUTER_API_KEY',
-          dialect: OpenAiCompatibleDialect.openRouter,
-          resolveSecret: (_) async => 'test-token-openrouter',
-          toolBridge: _FakeToolBridge(),
-          maxToolRounds: 1,
-          client: MockClient((request) async {
-            requests++;
-            return http.Response(
-              [
-                'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_$requests","type":"function","function":{"name":"Read","arguments":"{\\"path\\":\\"file-$requests.md\\"}"}}]},"finish_reason":"tool_calls"}]}',
-                'data: [DONE]',
-                '',
-              ].join('\n'),
-              200,
-            );
-          }),
-        );
-
-        final events = await runner
-            .run(_spec, userPath: '', cancel: const Stream<void>.empty())
-            .toList();
-
-        // Agotar la red NO es un fallo del turno: marcarlo como error tiraba
-        // todo el trabajo del nodo y obligaba a pagarlo dos veces. Se cierra
-        // bien, con el aviso en el texto para que el siguiente lo continúe.
-        expect(events.where((event) => event['type'] == 'failure'), isEmpty);
-        expect(events.last, containsPair('isError', false));
-        expect(
-          events
-              .where((event) => event['type'] == 'assistantText')
-              .last['text'],
-          allOf(contains('Corté el ciclo'), contains('no lo repitas')),
-        );
-      },
-    );
 
     test('un 429 se reintenta en vez de matar el nodo', () async {
       var requests = 0;

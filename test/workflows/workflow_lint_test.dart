@@ -20,7 +20,7 @@ void main() {
   ];
 
   test('la plantilla vieja da error por cantidad y por aprobación opcional, '
-      'y warning por auditorías duplicadas y por nodos sin tope', () {
+      'y warning por auditorías duplicadas', () {
     final lints = lintWorkflowCapabilities(legacyEleven());
     final errors = lints
         .where((lint) => lint.severity == WorkflowLintSeverity.error)
@@ -35,7 +35,9 @@ void main() {
     expect(errors, anyElement(contains('publish-approval')));
     expect(warnings, anyElement(contains('code-audit')));
     expect(warnings, anyElement(contains('test-audit')));
-    expect(warnings, anyElement(contains('implementation')));
+    // Un nodo sin tope declarado ya NO es un warning: sin tope es el default
+    // deseado (0 = ilimitado, frenado por los watchdogs de tiempo y costo).
+    expect(warnings, isNot(anyElement(contains('sin tope'))));
   });
 
   test('la plantilla nueva pasa limpia', () {

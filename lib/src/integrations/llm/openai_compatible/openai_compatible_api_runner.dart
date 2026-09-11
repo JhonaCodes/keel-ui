@@ -41,8 +41,6 @@ typedef LlmSecretResolver = Future<String?> Function(String secretRef);
 /// menos, así que 32.000 ya deja varias veces el aire necesario, y recortar más
 /// solo arriesga cortar una respuesta a mitad de camino — lo que obliga a
 /// relanzar el nodo entero y sale más caro que los tokens reservados de más.
-/// Es el mismo razonamiento que le deja aire al presupuesto de rondas de
-/// [OpenAiModelProfile.maxToolRounds].
 const kOpenAiCompatibleOutputTokenMax = 32000;
 
 /// El techo efectivo: el menor entre lo que el modelo declara poder emitir y
@@ -93,10 +91,6 @@ class OpenAiCompatibleApiRunner implements LlmRunner {
   final LlmSecretResolver? _resolveSecret;
   final OpenAiToolBridge? _toolBridge;
 
-  /// Override del presupuesto de rondas. Nulo —lo normal— deja que lo decida
-  /// el perfil del modelo, que recién se conoce con el `spec` del turno.
-  final int? maxToolRounds;
-
   const OpenAiCompatibleApiRunner({
     required this.baseUrl,
     required this.secretRef,
@@ -105,7 +99,6 @@ class OpenAiCompatibleApiRunner implements LlmRunner {
     http.Client? client,
     LlmSecretResolver? resolveSecret,
     OpenAiToolBridge? toolBridge,
-    this.maxToolRounds,
   }) : // Public constructor names keep infrastructure injectable in tests.
        // ignore: prefer_initializing_formals
        _apiKey = apiKey,
@@ -125,7 +118,6 @@ class OpenAiCompatibleApiRunner implements LlmRunner {
   }) async* {
     final started = Stopwatch()..start();
     final profile = OpenAiModelProfile.fromModel(spec.model);
-    final rounds = maxToolRounds ?? profile.maxToolRounds;
     var cancelled = false;
     final client = _client ?? http.Client();
     final toolBridge = _toolBridge ?? DefaultOpenAiToolBridge();
@@ -179,7 +171,14 @@ class OpenAiCompatibleApiRunner implements LlmRunner {
       String? lastSuccessfulToolSignature;
       String? warnedSterileToolSignature;
 
-      for (var round = 0; round <= rounds; round++) {
+      // Sin tope de rondas, por decisión explícita: el contador cortaba
+      // trabajo legítimo (un nodo de workflow quedó bloqueado dos veces a 24
+      // rondas trabajando bien). El turno termina cuando el modelo deja de
+      // pedir herramientas; los frenos reales son los del motor —vigilante de
+      // inactividad, minutos máximos por paso, techo de costo de sesión— y el
+      // corte de reintentos estériles de más abajo, que es lo que detiene un
+      // bucle de verdad (mismo tool + mismos argumentos, sin contexto nuevo).
+      while (true) {
         // Un 429 o un 5xx no significan que el trabajo esté mal: significan
         // que el proveedor está ocupado. Sin reintento, cada uno mataba el
         // nodo y obligaba a pagarlo dos veces.
@@ -270,24 +269,6 @@ class OpenAiCompatibleApiRunner implements LlmRunner {
 
         final calls = parsed.toolCalls;
         if (calls.isEmpty) {
-          yield _completed(spec, started, isError: false, usage: usage);
-          return;
-        }
-        if (round == rounds) {
-          final roundsLabel = rounds == 1 ? 'ronda' : 'rondas';
-          // Agotar la red de seguridad NO es un fallo del turno. Marcarlo como
-          // error tiraba TODO lo que el nodo ya había producido y obligaba a
-          // relanzarlo desde cero: el corte terminaba costando más que las
-          // rondas que evitaba. Se cierra con lo que hay y se deja dicho en el
-          // hilo, para que el nodo siguiente lo continúe en vez de repetirlo.
-          yield {
-            'type': 'assistantText',
-            'text':
-                '\n\n[keel] Corté el ciclo de herramientas al llegar a '
-                '$rounds $roundsLabel. Lo de arriba es el trabajo '
-                'hecho hasta ese punto y puede estar incompleto: continualo, '
-                'no lo repitas desde cero.',
-          };
           yield _completed(spec, started, isError: false, usage: usage);
           return;
         }

@@ -35,19 +35,13 @@ const kOpenAiHarmonyModelMarker = 'gpt-oss';
 
 /// Cómo se le habla a un modelo, según su clase.
 ///
-/// Las decisiones que dependen de la clase —cuántas vueltas de herramientas se
-/// le presupuestan y cuánto razonamiento se le pide— se mueven JUNTAS. Repartidas
-/// en dos `if` sobre el identificador, el día que entre un modelo nuevo se
-/// acuerda uno y se olvida el otro, y el síntoma aparece en producción como
-/// «a veces no ejecuta».
-///
 /// El perfil NO decide permisos, NO elige herramientas y NO cambia el catálogo:
-/// solo ajusta cómo se le habla al modelo. Un perfil equivocado hace un turno
-/// más caro o más corto, nunca uno más permisivo.
+/// solo ajusta cómo se le habla al modelo (el formato y el esfuerzo de
+/// razonamiento que se le pide). Un perfil equivocado hace un turno más caro,
+/// nunca uno más permisivo.
 enum OpenAiModelProfile {
-  /// Familia `gpt-oss`. Chica, razona en canales y gasta vueltas anunciando lo
-  /// que va a hacer, así que necesita MÁS rondas que el resto y le alcanza con
-  /// el esfuerzo bajo.
+  /// Familia `gpt-oss`. Chica, razona en canales; le alcanza con el esfuerzo
+  /// bajo aunque el agente pida el máximo.
   harmony,
 
   /// Los grandes de razonamiento. Entienden el protocolo solos; lo único que
@@ -73,20 +67,6 @@ enum OpenAiModelProfile {
     }
     return OpenAiModelProfile.generic;
   }
-
-  /// Presupuesto de rondas de herramientas del turno.
-  ///
-  /// Cada ronda reenvía el historial COMPLETO: el tope es el multiplicador de
-  /// costo, no el trabajo. Agotarlo NO es un fallo —el turno se cierra con lo
-  /// hecho y el nodo siguiente lo continúa—, así que el número es un
-  /// presupuesto y no una red. 40 plano para todos pagaba el precio de la
-  /// clase más charlatana en cada turno de cualquier modelo; 24 cubre de sobra
-  /// una tarea agéntica real (leer varios archivos, editar, correr un test,
-  /// iterar) y `harmony` conserva las 40 porque quema vueltas anunciando.
-  int get maxToolRounds => switch (this) {
-    OpenAiModelProfile.harmony => 40,
-    OpenAiModelProfile.reasoning || OpenAiModelProfile.generic => 24,
-  };
 
   /// El esfuerzo que se le pide a este modelo, o null para omitir el campo.
   String? reasoningEffortFor(String keelEffort) => switch (this) {

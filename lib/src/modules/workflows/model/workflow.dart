@@ -458,7 +458,6 @@ List<WorkflowCapability> defaultWorkflowCapabilities(
             'se van a tocar. No escribir código.',
         role: fallback,
         readOnly: true,
-        maxAgenticTurns: kDefaultReadOnlyNodeTurns,
       ),
       WorkflowCapability(
         id: 'implement',
@@ -469,7 +468,6 @@ List<WorkflowCapability> defaultWorkflowCapabilities(
             'afectada corriendo. Dejar en summary qué corriste y qué dio.',
         role: fallback,
         dependencyIds: const ['plan'],
-        maxAgenticTurns: kDefaultWriteNodeTurns,
       ),
       WorkflowCapability(
         id: 'audit',
@@ -481,7 +479,7 @@ List<WorkflowCapability> defaultWorkflowCapabilities(
         role: 'auditor',
         dependencyIds: const ['implement'],
         readOnly: true,
-        maxAgenticTurns: kDefaultReadOnlyNodeTurns,
+
         outputContract: 'audit-feedback',
         requiresIndependentOwner: true,
       ),
@@ -495,7 +493,7 @@ List<WorkflowCapability> defaultWorkflowCapabilities(
         dependencyIds: const ['audit'],
         executor: WorkflowExecutor.resumeParent,
         parentCapabilityId: 'implement',
-        maxAgenticTurns: kDefaultWriteNodeTurns,
+
         approvalRequired: true,
       ),
     ];
@@ -510,7 +508,6 @@ List<WorkflowCapability> defaultWorkflowCapabilities(
       instruction: 'Definir alcance, riesgos y criterios de aceptación.',
       role: fallback,
       readOnly: true,
-      maxAgenticTurns: kDefaultReadOnlyNodeTurns,
     ),
     WorkflowCapability(
       id: 'impact',
@@ -520,7 +517,6 @@ List<WorkflowCapability> defaultWorkflowCapabilities(
       instruction: 'Inventariar impacto end-to-end y compatibilidad.',
       role: fallback,
       dependencyIds: const ['planner'],
-      maxAgenticTurns: kDefaultWriteNodeTurns,
     ),
     WorkflowCapability(
       id: 'implementation',
@@ -528,7 +524,6 @@ List<WorkflowCapability> defaultWorkflowCapabilities(
       instruction: 'Aplicar la corrección mínima integrada y verificable.',
       role: fallback,
       dependencyIds: const ['impact'],
-      maxAgenticTurns: kDefaultWriteNodeTurns,
     ),
     WorkflowCapability(
       id: 'code-audit',
@@ -539,7 +534,7 @@ List<WorkflowCapability> defaultWorkflowCapabilities(
       role: 'auditor',
       dependencyIds: const ['implementation'],
       readOnly: true,
-      maxAgenticTurns: kDefaultReadOnlyNodeTurns,
+
       outputContract: 'audit-feedback',
       requiresIndependentOwner: true,
     ),
@@ -551,7 +546,6 @@ List<WorkflowCapability> defaultWorkflowCapabilities(
       dependencyIds: const ['code-audit'],
       executor: WorkflowExecutor.resumeParent,
       parentCapabilityId: 'implementation',
-      maxAgenticTurns: kDefaultWriteNodeTurns,
     ),
     WorkflowCapability(
       id: 'test-audit',
@@ -562,18 +556,19 @@ List<WorkflowCapability> defaultWorkflowCapabilities(
       role: 'test-auditor',
       dependencyIds: const ['tests'],
       readOnly: true,
-      maxAgenticTurns: kDefaultReadOnlyNodeTurns,
+
       outputContract: 'audit-feedback',
       requiresIndependentOwner: true,
     ),
     WorkflowCapability(
       id: 'device-e2e',
-      title: l10n?.workflowTitleDeviceE2e ?? 'End-to-end verification on device',
+      title:
+          l10n?.workflowTitleDeviceE2e ?? 'End-to-end verification on device',
       instruction: 'Validar el comportamiento completo en el entorno real.',
       role: 'verifier',
       dependencyIds: const ['test-audit'],
       activation: WorkflowCapabilityActivation.optional,
-      maxAgenticTurns: kDefaultWriteNodeTurns,
+
       requiresIndependentOwner: true,
     ),
     WorkflowCapability(
@@ -586,7 +581,7 @@ List<WorkflowCapability> defaultWorkflowCapabilities(
       dependencyIds: const ['test-audit'],
       executor: WorkflowExecutor.resumeParent,
       parentCapabilityId: 'implementation',
-      maxAgenticTurns: kDefaultWriteNodeTurns,
+
       approvalRequired: true,
     ),
   ];

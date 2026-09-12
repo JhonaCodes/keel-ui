@@ -269,6 +269,13 @@ all binaries is included in the Debian package's dependencies. These packages do
 not support Ubuntu 22.04 or Debian 12. Restoring that compatibility requires a
 reproducible rebuild of the database dependency against an older glibc first.
 
+The tracked Linux CMake configuration disables optional JNI discovery.
+`path_provider_android` brings JNI transitively, but Keel uses
+`path_provider_linux` on this platform. A JDK preinstalled on a CI runner must
+not cause a `libdartjni.so` that requires a missing `libjvm.so` to be bundled.
+Packaging rejects that accidental library rather than requiring users to install
+Java for a feature the Linux app does not use.
+
 ### How it is done
 
 The image (`ubuntu:24.04` + Flutter's toolchain + `libgtk-3-dev`) is built once and

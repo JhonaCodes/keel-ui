@@ -37,6 +37,13 @@ if [[ $# -eq 1 ]]; then
   mkdir -p "$1"
   cp "$DEB" "$1/"
 fi
+cp "$WORK_DIR/bundle/lib/libfixture_plugin.so" "$WORK_DIR/bundle/lib/libdartjni.so"
+if bash "$WORK_DIR/scripts/package_linux_release.sh" "$WORK_DIR/bundle" "$WORK_DIR/jni-bundle"; then
+  echo 'Packaging accepted an accidental Java runtime dependency.' >&2
+  exit 1
+fi
+test ! -d "$WORK_DIR/jni-bundle"
+rm "$WORK_DIR/bundle/lib/libdartjni.so"
 rm "$WORK_DIR/bundle/lib/liboffline_first_core.so"
 if bash "$WORK_DIR/scripts/package_linux_release.sh" "$WORK_DIR/bundle" "$WORK_DIR/incomplete"; then
   echo 'Packaging accepted a missing database library.' >&2

@@ -16,6 +16,10 @@ done
   echo 'Incomplete bundle: keel and lib/liboffline_first_core.so are required.' >&2
   exit 66
 }
+[[ ! -e "$BUNDLE_DIR/lib/libdartjni.so" ]] || {
+  echo 'Unexpected desktop JNI library. Rebuild with the tracked Linux CMake configuration.' >&2
+  exit 66
+}
 VERSION="$(python3 "$ROOT_DIR/scripts/release_metadata.py" --pubspec "$ROOT_DIR/pubspec.yaml" |
   python3 -c 'import json,sys; print(json.load(sys.stdin)["version"])')"
 mkdir -p "$OUTPUT_DIR"

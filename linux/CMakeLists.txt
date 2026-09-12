@@ -72,6 +72,10 @@ set_target_properties(${BINARY_NAME}
 
 # Generated plugin build rules, which manage building the plugins and adding
 # them to the application.
+# path_provider_android brings the optional jni FFI plugin transitively. Keel
+# uses path_provider_linux here and has no JVM integration. Do not let a JDK
+# installed on the build host add an undeclared Java runtime to the bundle.
+set(CMAKE_DISABLE_FIND_PACKAGE_JNI TRUE)
 include(flutter/generated_plugins.cmake)
 
 

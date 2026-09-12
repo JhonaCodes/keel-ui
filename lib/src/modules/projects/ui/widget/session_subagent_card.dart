@@ -2,6 +2,7 @@ import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:flutter/material.dart';
 
 import 'package:keel_ui/src/modules/projects/model/session_subagent.dart';
+import 'package:keel_ui/src/modules/projects/ui/widget/session_subagent_activity.dart';
 
 /// Un subagente, en el hilo: qué se le pidió, en qué anda o qué devolvió.
 ///
@@ -77,10 +78,15 @@ class _SessionSubagentCardState extends State<SessionSubagentCard> {
                       ),
                     ),
                     const Spacer(),
-                    Text(
-                      '$phaseLabel · $elapsedLabel',
-                      style: TextStyle(fontSize: 11, color: scheme.outline),
-                    ),
+                    if (subagent.isRunning)
+                      Flexible(
+                        child: SessionSubagentActivity(subagent: subagent),
+                      )
+                    else
+                      Text(
+                        '$phaseLabel · $elapsedLabel',
+                        style: TextStyle(fontSize: 11, color: scheme.outline),
+                      ),
                   ],
                 ),
                 const SizedBox(height: 4),

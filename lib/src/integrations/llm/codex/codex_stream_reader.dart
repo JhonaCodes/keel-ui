@@ -1,14 +1,10 @@
-/// Traduce el dialecto JSONL de `codex exec --json` a los mismos mensajes
-/// planos que emite `ClaudeStreamReader` — el contrato normalizado que
-/// `TaskEvent.fromMessage` ya sabe parsear. Sin estado propio hoy (a
-/// diferencia de `ClaudeStreamReader`, que sí recuerda qué `Task` abrió
-/// cada subagente); queda como clase para no cambiar la forma de la API si
-/// codex necesita ese mismo seguimiento más adelante.
-///
-/// Portado literal de `CodexCliService._parseEvent` / el `_isCodex=true` de
-/// `task_runner_isolate.dart` (verificado contra codex-cli 0.142.3:
-/// eventos `thread.started` / `turn.*` / `item.*`).
+/// Normalizes codex exec JSONL into the task runner event contract.
+/// Collaboration item completion ends the tool call, not the child: child
+/// lifecycle comes from agents_states and is deduplicated across updates.
 class CodexStreamReader {
+  final Set<String> _knownAgents = {};
+  final Set<String> _finishedAgents = {};
+
   List<Map<String, dynamic>> read(Map<String, dynamic> event) {
     switch (event['type'] as String?) {
       case 'thread.started':
@@ -27,6 +23,8 @@ class CodexStreamReader {
         final isCompleted = event['type'] == 'item.completed';
 
         switch (item['type'] as String?) {
+          case 'collab_tool_call':
+            return _readCollaboration(item);
           case 'agent_message':
             final text = item['text'] as String?;
             return (isCompleted && text != null && text.isNotEmpty)
@@ -136,6 +134,64 @@ class CodexStreamReader {
       default:
         return const [];
     }
+  }
+
+  List<Map<String, dynamic>> _readCollaboration(Map<String, dynamic> item) {
+    final tool = item['tool'] as String? ?? '';
+    final sender = item['sender_thread_id'] as String?;
+    final prompt = item['prompt'] as String? ?? '';
+    final states =
+        (item['agents_states'] as Map?)?.cast<String, dynamic>() ??
+        const <String, dynamic>{};
+    final recipients = {
+      ...(item['receiver_thread_ids'] as List? ?? const []).whereType<String>(),
+      ...states.keys,
+    };
+    final events = <Map<String, dynamic>>[
+      {
+        'type': 'toolUse',
+        'name': tool,
+        'input': {'description': prompt},
+      },
+    ];
+    for (final id in recipients) {
+      if (id.isEmpty) continue;
+      if (_knownAgents.add(id)) {
+        events.add({
+          'type': 'subagentStarted',
+          'id': id,
+          if (_knownAgents.contains(sender)) 'parentSubagentId': sender,
+          'agentType': 'codex',
+          'ask': prompt,
+          'prompt': prompt,
+        });
+      }
+      final state = (states[id] as Map?)?.cast<String, dynamic>();
+      final status = state?['status'] as String?;
+      switch (status) {
+        case 'completed':
+        case 'errored':
+        case 'interrupted':
+        case 'shutdown':
+        case 'not_found':
+          if (_finishedAgents.add(id)) {
+            events.add({
+              'type': 'subagentFinished',
+              'id': id,
+              'result': state?['message'] as String? ?? '',
+              'isError': status != 'completed',
+            });
+          }
+        case 'pending_init':
+        case 'running':
+          // A follow-up can reactivate an existing child without spawning
+          // a second node. Null status conveys no lifecycle transition.
+          if (_finishedAgents.remove(id)) {
+            events.add({'type': 'subagentReasoning', 'id': id, 'text': ''});
+          }
+      }
+    }
+    return events;
   }
 }
 

@@ -17,6 +17,9 @@ import 'package:keel_ui/src/core/services/turn_usage.dart';
 /// el puerto para descartarlos del otro lado.
 class ClaudeStreamReader {
   final Set<String> _subagentToolUseIds = {};
+  final Set<String> _knownSubagents = {};
+  final Set<String> _backgroundSubagents = {};
+  final Map<String, String> _taskSubagents = {};
 
   /// Cuánto contexto ocupaba la ÚLTIMA llamada del hilo principal.
   ///
@@ -36,6 +39,14 @@ class ClaudeStreamReader {
   String _turnModel = '';
 
   List<Map<String, dynamic>> read(Map<String, dynamic> event) {
+    if (event['type'] == 'system' &&
+        const {
+          'task_started',
+          'task_progress',
+          'task_notification',
+        }.contains(event['subtype'])) {
+      return _readTaskLifecycle(event);
+    }
     // Un subagente habla con el id del `Task` que lo abrió. Sin esta rama su
     // texto y su pensamiento entran al buffer del padre y quedan firmados por
     // alguien que no los escribió.
@@ -78,7 +89,6 @@ class ClaudeStreamReader {
         if (content.isEmpty) return const [];
 
         final events = <Map<String, dynamic>>[];
-        final textBuffer = StringBuffer();
         for (final block in content) {
           switch (block['type']) {
             case 'thinking':
@@ -87,7 +97,10 @@ class ClaudeStreamReader {
                 events.add({'type': 'reasoningChunk', 'text': thinking});
               }
             case 'text':
-              textBuffer.write(block['text'] as String? ?? '');
+              final text = block['text'] as String? ?? '';
+              if (text.isNotEmpty) {
+                events.add({'type': 'assistantText', 'text': text});
+              }
             case 'tool_use':
               final name = block['name'] as String?;
               if (name == null) continue;
@@ -96,10 +109,6 @@ class ClaudeStreamReader {
               final opened = _subagentOpenedBy(block, name, input);
               if (opened != null) events.add(opened);
           }
-        }
-        final text = textBuffer.toString();
-        if (text.isNotEmpty) {
-          events.add({'type': 'assistantText', 'text': text});
         }
         return events;
 
@@ -154,18 +163,22 @@ class ClaudeStreamReader {
   Map<String, dynamic>? _subagentOpenedBy(
     Map<String, dynamic> block,
     String name,
-    Map<String, dynamic>? input,
-  ) {
-    if (name != 'Task') return null;
+    Map<String, dynamic>? input, {
+    String? parentSubagentId,
+  }) {
+    if (name != 'Task' && name != 'Agent') return null;
     final id = block['id'] as String?;
     if (id == null || id.isEmpty) return null;
+    if (!_knownSubagents.add(id)) return null;
     _subagentToolUseIds.add(id);
+    if (input?['run_in_background'] == true) _backgroundSubagents.add(id);
 
     final prompt = input?['prompt'] as String? ?? '';
     final description = input?['description'] as String? ?? '';
     return {
       'type': 'subagentStarted',
       'id': id,
+      'parentSubagentId': ?parentSubagentId,
       'agentType': input?['subagent_type'] as String? ?? 'subagente',
       'ask': description.isNotEmpty ? description : firstSentenceOf(prompt),
       'prompt': prompt,
@@ -180,7 +193,14 @@ class ClaudeStreamReader {
     for (final part in content) {
       if (part['type'] != 'tool_result') continue;
       final id = part['tool_use_id'] as String?;
-      if (id == null || !_subagentToolUseIds.remove(id)) continue;
+      if (id == null || !_subagentToolUseIds.contains(id)) continue;
+      // The tool result of a background spawn only acknowledges launch.
+      // Its task notification, not that acknowledgement, closes the child.
+      if (_backgroundSubagents.contains(id) && part['is_error'] != true) {
+        continue;
+      }
+      _subagentToolUseIds.remove(id);
+      _backgroundSubagents.remove(id);
       events.add({
         'type': 'subagentFinished',
         'id': id,
@@ -191,16 +211,61 @@ class ClaudeStreamReader {
     return events;
   }
 
+  List<Map<String, dynamic>> _readTaskLifecycle(Map<String, dynamic> event) {
+    final taskId = event['task_id'] as String?;
+    final toolId = event['tool_use_id'] as String?;
+    final id = toolId ?? _taskSubagents[taskId] ?? taskId;
+    if (id == null || id.isEmpty) return const [];
+    if (event['subtype'] == 'task_started') {
+      if (event['task_type'] != 'local_agent' &&
+          event['task_type'] != 'remote_agent' &&
+          !_knownSubagents.contains(id)) {
+        return const [];
+      }
+      if (taskId != null) _taskSubagents[taskId] = id;
+      if (event['is_backgrounded'] == true) _backgroundSubagents.add(id);
+      return [
+        ?_subagentOpenedBy(
+          {'id': id},
+          'Agent',
+          event,
+          parentSubagentId: event['parent_tool_use_id'] as String?,
+        ),
+      ];
+    }
+    if (!_subagentToolUseIds.contains(id)) return const [];
+    if (event['subtype'] == 'task_notification') {
+      _subagentToolUseIds.remove(id);
+      _backgroundSubagents.remove(id);
+      return [
+        {
+          'type': 'subagentFinished',
+          'id': id,
+          'result': event['summary'] as String? ?? '',
+          'isError': event['status'] != 'completed',
+        },
+      ];
+    }
+    if (event['last_tool_name'] case final String name) {
+      return [
+        {'type': 'subagentToolUse', 'id': id, 'name': name, 'input': null},
+      ];
+    }
+    return const [];
+  }
+
   List<Map<String, dynamic>> _readSubagent(
     Map<String, dynamic> event,
     String parentId,
   ) {
+    if (event['type'] == 'user') {
+      return [..._hookBlock(event), ..._subagentResult(event)];
+    }
     if (event['type'] != 'assistant') return const [];
     final content = _messageContentBlocks(event);
     if (content.isEmpty) return const [];
 
     final events = <Map<String, dynamic>>[];
-    final textBuffer = StringBuffer();
     for (final block in content) {
       switch (block['type']) {
         case 'thinking':
@@ -213,10 +278,20 @@ class ClaudeStreamReader {
             });
           }
         case 'text':
-          textBuffer.write(block['text'] as String? ?? '');
+          final text = block['text'] as String? ?? '';
+          if (text.isNotEmpty) {
+            events.add({'type': 'subagentText', 'id': parentId, 'text': text});
+          }
         case 'tool_use':
           final name = block['name'] as String?;
           if (name == null) continue;
+          final opened = _subagentOpenedBy(
+            block,
+            name,
+            block['input'] as Map<String, dynamic>?,
+            parentSubagentId: parentId,
+          );
+          if (opened != null) events.add(opened);
           events.add({
             'type': 'subagentToolUse',
             'id': parentId,
@@ -224,10 +299,6 @@ class ClaudeStreamReader {
             'input': block['input'] as Map<String, dynamic>?,
           });
       }
-    }
-    final text = textBuffer.toString();
-    if (text.isNotEmpty) {
-      events.add({'type': 'subagentText', 'id': parentId, 'text': text});
     }
     return events;
   }

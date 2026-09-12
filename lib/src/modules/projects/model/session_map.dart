@@ -320,6 +320,68 @@ class SessionMap {
     return null;
   }
 
+  static void _appendNestedSubagents(
+    List<MapNode> nodes,
+    List<MapEdge> edges,
+    List<SessionSubagent> subagents,
+  ) {
+    final byId = {for (final node in nodes) node.id: node};
+    final pending = subagents
+        .where((agent) => agent.parentSubagentId != null)
+        .toList();
+    while (pending.isNotEmpty) {
+      final before = pending.length;
+      for (final agent in [...pending]) {
+        final parent = byId['sub:${agent.parentSubagentId}'];
+        if (parent == null) continue;
+        pending.remove(agent);
+        final id = 'sub:${agent.id}';
+        if (byId.containsKey(id)) continue;
+        final slot =
+            nodes
+                .where((node) => node.column == parent.column)
+                .fold(
+                  0,
+                  (value, node) =>
+                      node.laneSlot > value ? node.laneSlot : value,
+                ) +
+            1;
+        final node = MapNode(
+          id: id,
+          kind: .subagent,
+          label: agent.agentType,
+          column: parent.column,
+          lane: parent.lane + 1,
+          laneSlot: slot,
+          parentId: parent.id,
+          profileId: agent.parentProfileId,
+          workNodeId: agent.parentWorkNodeId,
+          nodeInstruction: agent.ask,
+          state: _subagentStateOf(agent),
+          reasoning: agent.reasoning,
+          activity: agent.activity,
+          elapsed: agent.elapsed,
+          subagent: agent,
+          resolved: agent.phase == .done ? firstSentenceOf(agent.result) : '',
+          said: agent.phase == .done ? agent.result.trim() : '',
+        );
+        nodes.add(node);
+        byId[id] = node;
+        edges.add(
+          MapEdge(
+            fromId: parent.id,
+            toId: id,
+            kind: agent.isRunning ? .delegate : .delegateBack,
+            label: agent.ask,
+            live: agent.isRunning,
+          ),
+        );
+      }
+      // Missing or collapsed parents cannot create orphan nodes or loops.
+      if (pending.length == before) break;
+    }
+  }
+
   factory SessionMap.from({
     required Session? session,
     required List<AgentProfile> members,
@@ -430,7 +492,8 @@ class SessionMap {
       ];
       final mine = [
         for (final subagent in subagents)
-          if (subagent.parentProfileId == post.profileId &&
+          if (subagent.parentSubagentId == null &&
+              subagent.parentProfileId == post.profileId &&
               subagent.parentWorkNodeId == post.workNodeId)
             subagent,
       ];
@@ -576,6 +639,8 @@ class SessionMap {
       nodes.addAll(branches.nodes);
       edges.addAll(branches.edges);
     }
+
+    _appendNestedSubagents(nodes, edges, subagents);
 
     // ── el final ─────────────────────────────────────────────────────────
     final finished = session?.status == SessionStatus.finished;
@@ -766,7 +831,8 @@ class SessionMap {
         : (latest?.ask ?? '').trim();
     final matchingSubagents = [
       for (final subagent in subagents)
-        if (!drawnSubagents.contains(subagent.id) &&
+        if (subagent.parentSubagentId == null &&
+            !drawnSubagents.contains(subagent.id) &&
             subagent.parentProfileId == target &&
             subagent.parentWorkNodeId == workNodeId)
           subagent,
@@ -838,7 +904,10 @@ class SessionMap {
 
   final childIndexByParent = <String, int>{};
   for (final subagent in subagents) {
-    if (drawnSubagents.contains(subagent.id)) continue;
+    if (subagent.parentSubagentId != null ||
+        drawnSubagents.contains(subagent.id)) {
+      continue;
+    }
     final workNodeId = subagent.parentWorkNodeId;
     if (workNodeId == null) continue;
     final parentId =

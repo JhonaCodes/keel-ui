@@ -3,14 +3,6 @@ import 'package:keel_ui/src/modules/agents/model/agent_model_option.dart'
     show codexModelArgument;
 import 'package:keel_ui/src/shared/utils/toml_string.dart';
 
-/// Cuántas llamadas a herramientas vale un «turno» en codex.
-///
-/// Codex no tiene `--max-turns`. El tope del nodo se aplica con un hook que
-/// cuenta llamadas a herramientas y deniega la que excede
-/// `maxTurns × este factor`. Un turno de claude suele encadenar entre una y
-/// tres tools antes de volver a pensar; tres es el techo de esa observación.
-const kCodexToolCallsPerTurn = 3;
-
 /// El prompt del usuario para un turno de codex.
 ///
 /// Solo el pedido, más el modo plan cuando corresponde. Las instrucciones de

@@ -16,8 +16,6 @@ import 'package:keel_ui/src/integrations/session_plan_mcp/session_plan_mcp_serve
 import 'package:keel_ui/src/integrations/decisions_mcp/decisions_mcp_server.dart';
 import 'package:keel_ui/src/integrations/user_tools_mcp/user_tools_mcp_server.dart';
 import 'package:keel_ui/src/integrations/hook_delivery/hook_delivery.dart';
-import 'package:keel_ui/src/integrations/llm/codex/codex_arguments.dart'
-    show kCodexToolCallsPerTurn;
 import 'package:keel_ui/src/integrations/project_radar/project_radar.dart';
 import 'package:keel_ui/src/modules/requirements/model/internal_requirement.dart';
 import 'package:keel_ui/src/modules/requirements/viewmodel/requirements_viewmodel.dart';
@@ -111,16 +109,6 @@ typedef TurnOutcome = ({
 /// esto, donde los turnos del mismo nodo costaron entre US$ 1.33 y US$ 10.90
 /// y el último murió con US$ 0.10 sin recibir el `tool_result` de un Bash.
 const double kMinTurnBudgetUsd = 2;
-
-/// Turnos agénticos del turno de cierre (el que se lanza cuando el nodo se
-/// quedó sin turnos y hay que pedirle cómo quedó).
-///
-/// Valía 1, que es lo mismo que cero: la primera llamada a una tool agotaba
-/// el tope, el CLI salía con código distinto de cero y el cierre que se
-/// estaba pidiendo nunca llegaba. Un cierre honesto suele necesitar mirar
-/// algo antes de escribir el bloque `keel-outcome` — un `git status`, la
-/// salida de un test — y para eso hace falta margen, no un turno seco.
-const int kFollowUpTurns = 4;
 
 class _AdaptivePreflightResult {
   const _AdaptivePreflightResult({
@@ -2724,9 +2712,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     final effectiveInstruction = reports.isEmpty
         ? instruction
         : '$instruction\n\nINFORMES DE AUDITORÍA A RESOLVER:\n$reports';
-    final turnCap = followUp
-        ? kFollowUpTurns
-        : capability.effectiveMaxAgenticTurns;
+    final turnCap = capability.effectiveMaxAgenticTurns;
 
     switch (capability.executor) {
       case WorkflowExecutor.newSession:
@@ -2869,7 +2855,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
             executionId: usedExternal
                 ? externalId
                 : _workflowExecutionId(sessionId, parentId),
-            maxTurns: kFollowUpTurns,
+            maxTurns: turnCap,
             maxBudgetUsd: maxBudgetUsd,
             planMode: usedExternal && capability.readOnly,
           );
@@ -2900,9 +2886,14 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
             allowConsults: false,
             executionId: _workflowExecutionId(sessionId, parentId),
             maxTurns: capability.effectiveMaxAgenticTurns,
-          maxBudgetUsd: maxBudgetUsd,
+            maxBudgetUsd: maxBudgetUsd,
           );
-          final after = _sessionById(project, sessionId)?.subagents.length ?? 0;
+          final after =
+              _sessionById(
+                _projectById(projectId) ?? project,
+                sessionId,
+              )?.subagents.length ??
+              0;
           if (after > before) return native;
           // El padre no abrió el Task porque se quedó sin turnos, no porque
           // no quisiera: re-correr la auditoría externa con EL MISMO tope
@@ -3229,9 +3220,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
               'informa)'
         : 'sin techo de costo';
     return '${policy.idleTimeoutMinutes} min sin actividad · '
-        '${policy.nodeTimeoutMinutes} min por paso · $ceiling · en codex el '
-        'tope de turnos de cada paso se aplica como tope de herramientas '
-        '(×$kCodexToolCallsPerTurn)';
+        '${policy.nodeTimeoutMinutes} min por paso · $ceiling';
   }
 
   WorkNode? _nextReadyNode(ResolutionCase resolution) {
@@ -3624,6 +3613,11 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
       final activeRunWillDispatch = _activeSessionRuns.contains(sessionId);
       stopSession(projectId, sessionId, interrupting: true);
       if (activeRunWillDispatch) return;
+      // No Future owns this stale running flag, so no finalizer will clear
+      // it. Settle before dispatch; otherwise dispatch sees isRunning and
+      // leaves the interrupting message queued forever.
+      await _settleSessionRunAndDispatch(projectId, sessionId);
+      return;
     }
     await _dispatchNextQueuedMessage(projectId, sessionId);
   }
@@ -4094,6 +4088,18 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
       return _abandonedTurn('El turno fue detenido antes de arrancar.');
     }
 
+    // The channel is shared, so the live strip has to say *who* is working.
+    _updateSession(
+      projectId,
+      sessionId,
+      (session) => session.copyWith(
+        liveTurn: SessionLiveTurn(
+          profileId: member.id,
+          consultOfProfileId: consultOfProfileId,
+        ),
+      ),
+    );
+
     // The current user request is delivered as `prompt` below. Everything
     // before it is reconstructed for remote APIs; removing that final user
     // entry avoids sending it twice to the provider.
@@ -4303,17 +4309,11 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     final subagentCap = engine.provider == AgentProvider.claude
         ? (_workflowRunning(project, sessionId)?.policy.maxSubagents ?? 0)
         : null;
-    // El tope de turnos de un nodo codex también es un hook: codex no tiene
-    // `--max-turns`, así que se cuentan llamadas a herramientas.
-    final toolCallCap = isCodex && maxTurns > 0
-        ? maxTurns * kCodexToolCallsPerTurn
-        : null;
     final turnHooks = await _resolveTurnHooks(
       project,
       engine,
       gate: gate,
       subagentCap: subagentCap,
-      toolCallCap: toolCallCap,
     );
     for (final note in turnHooks.notes) {
       _appendMessage(
@@ -4392,18 +4392,6 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
       ),
     );
     _runningSessions[sessionId] = run;
-    // The channel is shared, so the live strip has to say *who* is working.
-    _updateSession(
-      projectId,
-      sessionId,
-      (session) => session.copyWith(
-        liveTurn: SessionLiveTurn(
-          profileId: member.id,
-          consultOfProfileId: consultOfProfileId,
-        ),
-      ),
-    );
-
     // El pid del CLI de este turno. Se anota para que la pantalla de Máquina
     // pueda decir de parte de quién corre cada proceso, y se suelta al
     // terminar: una lista que no se limpia es una lista que miente.
@@ -4425,6 +4413,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     );
     _turnWatchdogs.putIfAbsent(sessionId, () => {}).add(watchdog);
     var subagentLimitExceeded = false;
+    final turnSubagentIds = <String>{};
     // Ver la fila sin medición más abajo: [turnMeasured] evita anotar dos
     // veces y [providerEngaged] evita anotar un turno que murió antes de
     // gastar un token.
@@ -4500,7 +4489,9 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
           agentType: final agentType,
           ask: final ask,
           prompt: final prompt,
+          parentSubagentId: final parentSubagentId,
         ):
+          turnSubagentIds.add(id);
           // Cuando llega este evento el CLI YA abrió el subagente: no hay
           // forma de impedirlo, solo de cancelar la corrida entera. Cancelar
           // mataba el nodo con todo su trabajo ya hecho —producción migrada,
@@ -4535,16 +4526,29 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
             sessionId,
             (session) => session.copyWith(
               subagents: [
-                ...session.subagents,
-                SessionSubagent(
-                  id: id,
-                  parentProfileId: member.id,
-                  parentWorkNodeId: workNodeId,
-                  agentType: agentType,
-                  ask: ask,
-                  prompt: prompt,
-                  startedAt: DateTime.now(),
+                ...session.subagents.map(
+                  (agent) => agent.id == id
+                      ? agent.copyWith(
+                          phase: .thinking,
+                          clearActivity: true,
+                          clearFinishedAt: true,
+                          result: '',
+                          text: '',
+                          reasoning: '',
+                        )
+                      : agent,
                 ),
+                if (!session.subagents.any((agent) => agent.id == id))
+                  SessionSubagent(
+                    id: id,
+                    parentProfileId: member.id,
+                    parentWorkNodeId: workNodeId,
+                    parentSubagentId: parentSubagentId,
+                    agentType: agentType,
+                    ask: ask,
+                    prompt: prompt,
+                    startedAt: DateTime.now(),
+                  ),
               ],
             ),
           );
@@ -4556,7 +4560,8 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
             id,
             (subagent) => subagent.copyWith(
               reasoning: subagent.reasoning + chunk,
-              phase: SubagentPhase.thinking,
+              clearFinishedAt: true,
+              phase: .thinking,
               clearActivity: true,
             ),
           );
@@ -4573,7 +4578,8 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
             id,
             (subagent) => subagent.copyWith(
               activity: activity,
-              phase: SubagentPhase.working,
+              clearFinishedAt: true,
+              phase: .working,
               tools: [...subagent.tools, activity],
             ),
           );
@@ -4585,7 +4591,8 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
             id,
             (subagent) => subagent.copyWith(
               text: subagent.text + chunk,
-              phase: SubagentPhase.writing,
+              clearFinishedAt: true,
+              phase: .writing,
               clearActivity: true,
             ),
           );
@@ -4791,6 +4798,23 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
           );
       }
     }
+    _updateSession(
+      projectId,
+      sessionId,
+      (session) => session.copyWith(
+        subagents: session.subagents
+            .map(
+              (agent) => turnSubagentIds.contains(agent.id) && agent.isRunning
+                  ? agent.copyWith(
+                      phase: .failed,
+                      finishedAt: DateTime.now(),
+                      clearActivity: true,
+                    )
+                  : agent,
+            )
+            .toList(),
+      ),
+    );
     if (livePid != 0) RunningProcesses.unregister(livePid);
     _turnWatchdogs[sessionId]?.remove(watchdog);
     if (_turnWatchdogs[sessionId]?.isEmpty ?? false) {
@@ -5894,14 +5918,10 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     AgentProfile member, {
     DecisionGateSpec? gate,
     int? subagentCap,
-    int? toolCallCap,
   }) async {
     await HooksService.instance.notifier.ready;
     final catalog = HooksService.instance.notifier.data.hooks;
-    if (catalog.isEmpty &&
-        gate == null &&
-        subagentCap == null &&
-        toolCallCap == null) {
+    if (catalog.isEmpty && gate == null && subagentCap == null) {
       return TurnHooks.none;
     }
 
@@ -5919,7 +5939,6 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
       project: project,
       gate: gate,
       subagentCap: subagentCap,
-      toolCallCap: toolCallCap,
     );
   }
 

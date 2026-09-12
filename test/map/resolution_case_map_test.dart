@@ -24,6 +24,71 @@ AgentProfile _member(String name) => AgentProfile(
 );
 
 void main() {
+  test('native grandchildren retain their parent and survive persistence', () {
+    final child = SessionSubagent(
+      id: 'child',
+      parentProfileId: 'resolver',
+      parentWorkNodeId: 'diagnosis',
+      agentType: 'Explore',
+      ask: 'Investigar',
+      prompt: 'Investigar',
+      startedAt: _epoch,
+      phase: .done,
+      finishedAt: _epoch,
+    );
+    final grandchild = SessionSubagent(
+      id: 'grandchild',
+      parentProfileId: 'resolver',
+      parentWorkNodeId: 'diagnosis',
+      parentSubagentId: 'child',
+      agentType: 'Audit',
+      ask: 'Verificar',
+      prompt: 'Verificar',
+      startedAt: _epoch,
+      phase: .done,
+      finishedAt: _epoch,
+    );
+    expect(SessionSubagent.fromJson(grandchild.toJson()), grandchild);
+    expect(grandchild.copyWith(result: 'OK').parentSubagentId, 'child');
+    final map = SessionMap.from(
+      session: Session(
+        id: 's',
+        title: 'Árbol',
+        createdAt: _epoch,
+        // Deliberately out of order, as can happen after replay.
+        subagents: [grandchild, child],
+        resolutionCase: const ResolutionCase(
+          id: 'case',
+          ownerRole: 'resolver',
+          nodes: [
+            WorkNode(
+              id: 'diagnosis',
+              kind: .triage,
+              ownerRole: 'resolver',
+              ownerProfileId: 'resolver',
+            ),
+          ],
+        ),
+      ),
+      members: [_member('resolver')],
+      workflow: null,
+    );
+    expect(map.nodeById('sub:grandchild')?.parentId, 'sub:child');
+    expect(
+      map.nodes.where((node) => node.id == 'sub:grandchild'),
+      hasLength(1),
+    );
+    expect(
+      map.edges.where((edge) => edge.toId == 'sub:grandchild').single.fromId,
+      'sub:child',
+    );
+    final layout = MapLayout.of(map);
+    expect(
+      layout.rectOf('sub:grandchild')!.top,
+      greaterThan(layout.rectOf('sub:child')!.bottom),
+    );
+  });
+
   test('el mapa representa el grafo adaptativo y su nodo en ejecución', () {
     final session = Session(
       id: 's',

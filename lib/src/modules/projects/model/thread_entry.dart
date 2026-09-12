@@ -50,11 +50,11 @@ class ThreadFilter {
     this.authorIds = const {},
     this.nodeIds = const {},
     this.showSystem = true,
-    this.showSubagents = false,
+    this.showSubagents = true,
   });
 
   bool get isDefault =>
-      authorIds.isEmpty && nodeIds.isEmpty && showSystem && !showSubagents;
+      authorIds.isEmpty && nodeIds.isEmpty && showSystem && showSubagents;
 
   ThreadFilter copyWith({
     Set<String>? authorIds,

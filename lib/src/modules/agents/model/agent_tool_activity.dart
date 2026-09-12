@@ -53,7 +53,7 @@ class AgentToolActivity {
     'Glob' => AgentToolKind.glob,
     'WebFetch' => AgentToolKind.webFetch,
     'WebSearch' => AgentToolKind.webSearch,
-    'Task' => AgentToolKind.task,
+    'Task' || 'Agent' || 'spawn_agent' => .task,
     'TodoWrite' => AgentToolKind.todoWrite,
     'NotebookEdit' => AgentToolKind.notebookEdit,
     'BashOutput' => AgentToolKind.bashOutput,

@@ -18,6 +18,7 @@ sealed class TaskEvent {
         agentType: message['agentType'] as String,
         ask: message['ask'] as String,
         prompt: message['prompt'] as String,
+        parentSubagentId: message['parentSubagentId'] as String?,
       ),
       'subagentText' => TaskSubagentText(
         message['id'] as String,
@@ -185,11 +186,13 @@ class TaskSubagentStarted extends TaskEvent {
   final String agentType;
   final String ask;
   final String prompt;
+  final String? parentSubagentId;
   const TaskSubagentStarted({
     required this.id,
     required this.agentType,
     required this.ask,
     required this.prompt,
+    this.parentSubagentId,
   });
 }
 

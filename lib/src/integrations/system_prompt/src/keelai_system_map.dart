@@ -139,10 +139,10 @@ Mapa de lo que existe en esta app y cómo se relaciona:
   `developer_instructions` (codex lo guarda en el hilo y lo reenvía al
   reanudar), los mismos MCP que claude por `-c mcp_servers.*` (plan,
   decisiones, roadmap, requerimientos, tableros, tools del usuario; los
-  secrets van por variables de entorno, nunca en argv), y el tope de turnos
-  del nodo como hook `keel-tool-cap` que deniega la llamada a herramienta que
-  excede `maxTurns × 3` pidiendo el cierre con keel-outcome. Codex no informa
-  costo: el techo de costo por sesión no lo frena.
+  secrets van por variables de entorno, nunca en argv). Las llamadas a
+  herramientas no tienen contador ni tope automático. Las capacidades sin
+  tope de turnos mantienen ese comportamiento en sus seguimientos. Codex no
+  informa costo: el techo de costo por sesión no lo frena.
   CUPO DE SUBAGENTES EN CÓDIGO: `max_subagents` de la policy se aplica con
   un hook interno `keel-subagent-guard` (PreToolUse sobre `Task`) que deniega
   la tarea de más; cero deniega desde la primera. Solo aplica a agentes

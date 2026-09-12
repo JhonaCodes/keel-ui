@@ -27,6 +27,7 @@ class SessionSubagent {
   /// Nodo de resolución que lo abrió, o null fuera de un caso. La relación
   /// no depende de una posición que pueda cambiar durante una reformulación.
   final String? parentWorkNodeId;
+  final String? parentSubagentId;
 
   final String agentType;
   final String ask;
@@ -45,6 +46,7 @@ class SessionSubagent {
     required this.parentProfileId,
     required this.agentType,
     this.parentWorkNodeId,
+    this.parentSubagentId,
     required this.ask,
     required this.prompt,
     required this.startedAt,
@@ -71,11 +73,13 @@ class SessionSubagent {
     List<AgentToolActivity>? tools,
     DateTime? finishedAt,
     bool clearActivity = false,
+    bool clearFinishedAt = false,
   }) {
     return SessionSubagent(
       id: id,
       parentProfileId: parentProfileId,
       parentWorkNodeId: parentWorkNodeId,
+      parentSubagentId: parentSubagentId,
       agentType: agentType,
       ask: ask,
       prompt: prompt,
@@ -86,7 +90,7 @@ class SessionSubagent {
       phase: phase ?? this.phase,
       activity: clearActivity ? null : (activity ?? this.activity),
       tools: tools ?? this.tools,
-      finishedAt: finishedAt ?? this.finishedAt,
+      finishedAt: clearFinishedAt ? null : (finishedAt ?? this.finishedAt),
     );
   }
 
@@ -94,6 +98,7 @@ class SessionSubagent {
     'id': id,
     'parentProfileId': parentProfileId,
     'parentWorkNodeId': parentWorkNodeId,
+    'parentSubagentId': parentSubagentId,
     'agentType': agentType,
     'ask': ask,
     'prompt': prompt,
@@ -115,6 +120,7 @@ class SessionSubagent {
       id: json['id'] as String,
       parentProfileId: json['parentProfileId'] as String,
       parentWorkNodeId: json['parentWorkNodeId'] as String?,
+      parentSubagentId: json['parentSubagentId'] as String?,
       agentType: json['agentType'] as String,
       ask: json['ask'] as String,
       prompt: json['prompt'] as String,
@@ -146,6 +152,7 @@ class SessionSubagent {
           id == other.id &&
           parentProfileId == other.parentProfileId &&
           parentWorkNodeId == other.parentWorkNodeId &&
+          parentSubagentId == other.parentSubagentId &&
           agentType == other.agentType &&
           ask == other.ask &&
           prompt == other.prompt &&
@@ -163,6 +170,7 @@ class SessionSubagent {
     id,
     parentProfileId,
     parentWorkNodeId,
+    parentSubagentId,
     agentType,
     ask,
     prompt,

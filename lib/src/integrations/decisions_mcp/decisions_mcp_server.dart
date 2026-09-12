@@ -267,10 +267,13 @@ final class _DecisionsMcpServer extends mcp.MCPServer with mcp.ToolsSupport {
   static final _askTool = mcp.Tool(
     name: 'ask_user',
     description:
-        'Le hace UNA pregunta a la persona y espera la respuesta en este '
-        'mismo turno. Usala cuando te falta una decisión o un dato que solo '
-        'ella tiene; no la uses para confirmar lo que ya sabés. `options` es '
-        'opcional: si hay respuestas claras, ofrecelas.',
+        'Solicita una decisión o un dato que solo el usuario tiene. La primera '
+        'llamada del turno puede devolver CONTEXTO RECUPERADO POR KEEL: revisa '
+        'el pedido, encargo y avance; esto NO es una respuesta del usuario. '
+        'Si resuelve la duda, continúa trabajando. Si falta una decisión real, '
+        'vuelve a llamar con la pregunta concreta y entonces se mostrará al '
+        'usuario. No selecciones otra tarea por haber perdido el contexto. '
+        '`options` es opcional: incluye alternativas claras cuando existan.',
     inputSchema: mcp.ObjectSchema(
       properties: {
         'question': mcp.Schema.string(

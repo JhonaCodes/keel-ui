@@ -103,3 +103,33 @@ dependiendo del modelo; esta prueba valida la orquestación determinista.
 Los fallos de setup y avisos previos impiden declarar verde toda la base.
 La compilación local está lista; este cambio no corresponde a una nueva
 versión publicada en GitHub Releases.
+
+## Recuperación del contexto antes de preguntar
+
+La primera llamada a `ask_user` de cada agente y turno devuelve el contexto
+persistido cuando existe un pedido original o un mensaje humano recuperable.
+Incluye el encargo del agente, sus dependencias, el plan, las correcciones
+recientes del usuario y las decisiones registradas. No clasifica preguntas
+mediante palabras clave ni selecciona tareas del roadmap.
+
+Esta respuesta se identifica como contexto de Keel, nunca como respuesta o
+autorización del usuario. Si resuelve la duda, el agente continúa. Si necesita
+una decisión real, una segunda llamada muestra la pregunta normalmente.
+Sin contexto recuperable, la pregunta llega directamente al usuario. Stop y
+las aprobaciones de herramientas conservan su comportamiento.
+
+La decisión se vincula al nodo del agente que pregunta, aunque otro agente
+esté ejecutando un nodo diferente. Las tarjetas pendientes de sesiones
+anteriores no se responden ni se cancelan automáticamente.
+
+La regresión reproduce la pregunta «Se perdió el contexto» con un pedido de
+corregir un error 500: antes creaba una decisión pendiente; ahora recupera el
+pedido y permite una pregunta real posterior. El test de proceso también
+llama a `ask_user` por HTTP al MCP real y continúa hasta implementar y auditar
+sin otra intervención humana. El proveedor de esa prueba es un CLI simulado;
+no mide la obediencia de un modelo real.
+
+Validación de esta corrección: 153 pruebas de proyectos, prompts y workflows
+correctas; la prueba de proceso omitida por esa suite pasa con
+`test/run_workflow_continuation.sh`. Análisis de los cinco archivos Dart
+afectados sin diagnósticos y compilación macOS debug correcta.

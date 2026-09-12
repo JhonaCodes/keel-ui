@@ -63,6 +63,7 @@ import 'package:keel_ui/src/modules/projects/repository/projects_repository.dart
 import 'package:keel_ui/src/integrations/chat_references/chat_references.dart';
 import 'package:keel_ui/src/modules/projects/service/resolution_engine.dart';
 import 'package:keel_ui/src/modules/projects/service/node_context.dart';
+import 'package:keel_ui/src/modules/projects/service/session_context_recovery.dart';
 import 'package:keel_ui/src/modules/projects/service/subagent_budget.dart';
 import 'package:keel_ui/src/modules/projects/service/turn_watchdog.dart';
 import 'package:keel_ui/src/modules/projects/service/turn_prompt.dart';
@@ -179,6 +180,8 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
   /// includes nested consultations and their continuations. A new workflow
   /// turn can consult the same peers without resetting its subagent quota.
   final Set<String> _consultedPairs = {};
+  final Set<({String sessionId, String profileId})> _questionContextRecovered =
+      {};
   final SubagentBudget _subagentBudget = SubagentBudget();
 
   static const _maxConsultDepth = 3;
@@ -195,6 +198,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
   void _purgeConsultLedgerIfIdle() {
     if (_runningSessions.isEmpty) {
       _consultedPairs.clear();
+      _questionContextRecovered.clear();
       _subagentBudget.clear();
     }
   }
@@ -2380,9 +2384,35 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     if (_stoppedSessionIds.contains(sessionId)) {
       return 'El turno fue detenido.';
     }
-    final member = membersOf(project, session: session)
-        .where((entry) => entry.id == profileId)
-        .firstOrNull;
+    // La primera consulta con contexto disponible devuelve los hechos al
+    // agente. No crea una decisión ni elige una opción por el usuario.
+    final member = membersOf(
+      project,
+      session: session,
+    ).where((entry) => entry.id == profileId).firstOrNull;
+    if (session.recoverableRequest.isNotEmpty &&
+        _questionContextRecovered.add((
+          sessionId: sessionId,
+          profileId: profileId,
+        ))) {
+      _appendMessage(
+        projectId,
+        sessionId,
+        ChatMessage(
+          role: .system,
+          text:
+              'Keel recuperó el pedido, el encargo y el avance para '
+              '@${member?.name ?? profileId} antes de trasladar su pregunta.',
+          timestamp: DateTime.now(),
+          workNodeId: session.contextNodeFor(profileId)?.id,
+        ),
+      );
+      return session.questionRecoveryContext(
+        profileId: profileId,
+        workingDirectory: project.workingDirectory,
+        question: question,
+      );
+    }
     final resolved = await _awaitDecision(
       projectId,
       sessionId,
@@ -2390,7 +2420,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
         id: generateUuidV4(),
         kind: SessionDecisionKind.question,
         profileId: profileId,
-        workNodeId: _activeWorkNodeId(session) ?? '',
+        workNodeId: session.contextNodeFor(profileId)?.id ?? '',
         title: 'Necesita una decisión tuya',
         detail: question,
         options: options,
@@ -4112,6 +4142,12 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
         : maxBudgetUsd;
 
     // The channel is shared, so the live strip has to say *who* is working.
+    if (!retriedWithoutSession) {
+      _questionContextRecovered.remove((
+        sessionId: sessionId,
+        profileId: member.id,
+      ));
+    }
     _updateSession(
       projectId,
       sessionId,

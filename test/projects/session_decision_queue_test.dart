@@ -4,6 +4,9 @@ import 'package:keel_ui/src/core/services/local_database.dart';
 import 'package:keel_ui/src/modules/projects/model/project.dart';
 import 'package:keel_ui/src/modules/projects/model/session.dart';
 import 'package:keel_ui/src/modules/projects/model/session_decision.dart';
+import 'package:keel_ui/src/modules/projects/model/resolution_case.dart';
+import 'package:keel_ui/src/modules/projects/model/work_node.dart';
+import 'package:keel_ui/src/modules/agents/model/chat_message.dart';
 import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
 
 final _epoch = DateTime(2026, 9, 5);
@@ -106,6 +109,57 @@ void main() {
     );
   });
 
+  test(
+    'una sesión antigua recupera el pedido del hilo y respeta Stop',
+    () async {
+      const sessionId = 's-legacy-context';
+      await open(sessionId);
+      final current = vm().data.projects.single;
+      vm().updateState(
+        vm().data.copyWith(
+          projects: [
+            current.copyWith(
+              sessions: [
+                session().copyWith(
+                  messages: [
+                    ChatMessage(
+                      role: .user,
+                      text: 'Corregir el error 500 al crear una actividad.',
+                      timestamp: _epoch,
+                    ),
+                    ChatMessage(
+                      role: .user,
+                      text: 'Corrección: no crear worktrees; usar main.',
+                      timestamp: _epoch,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+      final context = await vm().askUser(
+        projectId: 'project',
+        sessionId: sessionId,
+        profileId: 'planner',
+        question: 'Which task should I work on?',
+      );
+      expect(context, contains('error 500'));
+      expect(context, contains('no crear worktrees; usar main'));
+      expect(session().pendingDecisions, isEmpty);
+      vm().stopSession('project', sessionId);
+      final stopped = await vm().askUser(
+        projectId: 'project',
+        sessionId: sessionId,
+        profileId: 'planner',
+        question: '¿Qué tarea hago?',
+      );
+      expect(stopped, 'El turno fue detenido.');
+      expect(session().pendingDecisions, isEmpty);
+    },
+  );
+
   test('una pregunta bloqueante devuelve el texto que contestaste', () async {
     const sessionId = 's-ask';
     await open(sessionId);
@@ -131,4 +185,91 @@ void main() {
     expect(await answer, 'develop');
     expect(session().waitingForUser, isFalse);
   });
+
+  test(
+    'recupera el bug existente antes de preguntar y conserva las decisiones reales',
+    () async {
+      const sessionId = 's-recover-context';
+      await open(sessionId);
+      final current = vm().data.projects.single;
+      vm().updateState(
+        vm().data.copyWith(
+          projects: [
+            current.copyWith(
+              sessions: [
+                session().copyWith(
+                  request:
+                      'Corregir el error 500 al crear la actividad Estudiar un tema. Trabajar en main.',
+                  resolutionCase: const ResolutionCase(
+                    id: 'case',
+                    ownerRole: 'dev',
+                    nodes: [
+                      WorkNode(
+                        id: 'plan',
+                        kind: .custom,
+                        ownerRole: 'planner',
+                        ownerProfileId: 'planner',
+                        instruction: 'Planificar la corrección del error 500.',
+                        status: .pending,
+                      ),
+                      WorkNode(
+                        id: 'implement',
+                        kind: .implementation,
+                        ownerRole: 'dev',
+                        ownerProfileId: 'dev',
+                        instruction: 'Implementar el arreglo.',
+                        status: .running,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+      addTearDown(() => vm().stopSession('project', sessionId));
+
+      final recovered = vm().askUser(
+        projectId: 'project',
+        sessionId: sessionId,
+        profileId: 'planner',
+        question:
+            'Se perdió el contexto de esta sesión. ¿Sobre qué tarea armo el plan?',
+        options: ['Otra tarea del roadmap'],
+      );
+      await Future<void>.delayed(Duration.zero);
+      expect(session().pendingDecisions, isEmpty);
+      final context = await recovered;
+      expect(context, contains('error 500'));
+      expect(context, contains('Trabajar en main'));
+      expect(context, contains('Planificar la corrección'));
+      expect(
+        context,
+        contains('no es una respuesta ni una autorización del usuario'),
+      );
+      expect(session().waitingForUser, isFalse);
+
+      final realQuestion = vm().askUser(
+        projectId: 'project',
+        sessionId: sessionId,
+        profileId: 'planner',
+        question:
+            'El bug tiene dos comportamientos válidos. ¿Se permite repetir la actividad?',
+        options: ['Permitir', 'Rechazar'],
+      );
+      await Future<void>.delayed(Duration.zero);
+      final decision = session().pendingDecisions.single;
+      expect(decision.workNodeId, 'plan');
+      expect(decision.profileId, 'planner');
+      expect(decision.options, ['Permitir', 'Rechazar']);
+      await vm().answerSessionDecision(
+        'project',
+        sessionId,
+        decision.id,
+        answer: 'Rechazar',
+      );
+      expect(await realQuestion, 'Rechazar');
+    },
+  );
 }

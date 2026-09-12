@@ -3,6 +3,7 @@
 import json
 from pathlib import Path
 import sys
+from urllib.request import Request, urlopen
 
 args = sys.argv[1:]
 prompt = args[args.index('-p') + 1]
@@ -25,6 +26,19 @@ elif 'respondió tu consulta' in prompt:
         answer = report('blocked', 'La continuación perdió la sesión o la respuesta del especialista.')
 elif 'PLAN_FIXTURE' in prompt and 'Contrato del nodo: PLAN_FIXTURE' in prompt:
     role = 'planner'
+    config = json.loads(Path(args[args.index('--mcp-config') + 1]).read_text())
+    gate = config['mcpServers']['keel-decisions']
+    question = 'Se perdió el contexto de esta sesión. ¿Sobre qué tarea armo el plan?'
+    call = {'jsonrpc': '2.0', 'id': 1, 'method': 'tools/call', 'params': {
+        'name': 'ask_user', 'arguments': {'question': question, 'options': ['Otra tarea del roadmap']}}}
+    request = Request(gate['url'], data=json.dumps(call).encode(),
+                      headers={**gate['headers'], 'Content-Type': 'application/json'})
+    with urlopen(request, timeout=5) as response:
+        reply = json.load(response)
+    recovered = '\n'.join(block.get('text', '') for block in reply['result']['content'])
+    Path('recovered-context.txt').write_text(recovered)
+    if 'CONTEXTO RECUPERADO POR KEEL' not in recovered or 'PLAN_FIXTURE' not in recovered:
+        raise RuntimeError('El MCP no devolvió el encargo al planificador.')
     answer = '''```plan
 puntos:
 Definir criterio | planner

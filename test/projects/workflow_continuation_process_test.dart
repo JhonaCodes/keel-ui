@@ -134,6 +134,15 @@ void main() {
           .timeout(const Duration(seconds: 30));
 
       final session = projects.data.projects.single.sessions.single;
+      final recoveredContext = File(
+        '${directory.path}/recovered-context.txt',
+      ).readAsStringSync();
+      expect(
+        recoveredContext,
+        contains('Implementa el cambio y verifícalo con los especialistas.'),
+      );
+      expect(recoveredContext, contains('PLAN_FIXTURE'));
+      expect(session.decisions, isEmpty);
       expect(
         File('${directory.path}/implementation.txt').existsSync(),
         isTrue,

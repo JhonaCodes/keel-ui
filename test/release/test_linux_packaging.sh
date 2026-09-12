@@ -5,7 +5,8 @@ ROOT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
 WORK_DIR="$(mktemp -d)"
 trap 'rm -rf "$WORK_DIR"' EXIT
 mkdir -p "$WORK_DIR/scripts" "$WORK_DIR/assets" "$WORK_DIR/bundle/lib"
-cp "$ROOT_DIR/scripts/package_linux_release.sh" "$ROOT_DIR/scripts/release_metadata.py" "$WORK_DIR/scripts/"
+cp "$ROOT_DIR/scripts/package_linux_release.sh" "$ROOT_DIR/scripts/release_metadata.py" \
+  "$ROOT_DIR/scripts/linux_runtime.py" "$WORK_DIR/scripts/"
 cp "$ROOT_DIR/assets/icon.png" "$WORK_DIR/assets/"
 cp "$ROOT_DIR/LICENSE" "$WORK_DIR/"
 printf 'version: 1.2.3+44\n' > "$WORK_DIR/pubspec.yaml"

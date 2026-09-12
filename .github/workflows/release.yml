@@ -1,4 +1,5 @@
 name: Build and publish installers
+run-name: Keel ${{ github.ref_name }} · macOS + Linux · ${{ github.event_name }}
 
 on:
   push:
@@ -23,7 +24,7 @@ defaults:
 
 jobs:
   metadata:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:
       version: ${{ steps.release.outputs.version }}
@@ -41,10 +42,20 @@ jobs:
             args+=(--tag "$GITHUB_REF_NAME")
           fi
           python3 scripts/release_metadata.py --github-output "${args[@]}"
+      - name: Require a tag signature verified by GitHub
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          tag_sha="$(gh api "repos/$GH_REPO/git/ref/tags/$GITHUB_REF_NAME" --jq 'select(.object.type == "tag") | .object.sha')"
+          test -n "$tag_sha"
+          verification="$(gh api "repos/$GH_REPO/git/tags/$tag_sha" --jq '.verification')"
+          printf '%s\n' "$verification" | jq -e '.verified == true'
       - name: Check packaging scripts
         run: |
-          bash -n scripts/build_macos_release.sh scripts/package_linux_release.sh scripts/verify_linux_release.sh
-          shellcheck scripts/build_macos_release.sh scripts/package_linux_release.sh scripts/verify_linux_release.sh
+          bash -n scripts/build_macos_release.sh scripts/package_linux_release.sh scripts/verify_linux_release.sh scripts/deploy.sh
+          shellcheck scripts/build_macos_release.sh scripts/package_linux_release.sh scripts/verify_linux_release.sh scripts/deploy.sh test/release/test_linux_packaging.sh
           python3 -m unittest discover -s test/release -p 'test_*.py'
 
   macos:
@@ -94,8 +105,8 @@ jobs:
 
   linux:
     needs: metadata
-    # Native x86_64; keep the Ubuntu 22.04 ABI rather than using latest.
-    runs-on: ubuntu-22.04
+    # The published database library requires GLIBC_2.38; Ubuntu 22.04 cannot load it.
+    runs-on: ubuntu-24.04
     timeout-minutes: 35
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -133,14 +144,14 @@ jobs:
           git diff --exit-code -- pubspec.yaml pubspec.lock
       - name: Package Debian installer and portable archive
         run: scripts/package_linux_release.sh
-      - name: Verify installation in a clean Ubuntu 22.04 container
+      - name: Verify installation in a clean Ubuntu 24.04 container
         env:
           BUILD_NAME: ${{ needs.metadata.outputs.version }}
         run: |
           docker run --rm --platform linux/amd64 \
             -v "$PWD/build/release:/artifacts:ro" \
             -v "$PWD/scripts/verify_linux_release.sh:/verify.sh:ro" \
-            ubuntu:22.04 bash /verify.sh "/artifacts/keel_${BUILD_NAME}_amd64.deb"
+            ubuntu:24.04 bash /verify.sh "/artifacts/keel_${BUILD_NAME}_amd64.deb"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: linux-installers
@@ -157,7 +168,7 @@ jobs:
   publish:
     needs: [metadata, macos, linux]
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
       contents: write
@@ -196,13 +207,24 @@ jobs:
               printf 'Keel %s (build %s)\n\n' "$BUILD_NAME" "$BUILD_NUMBER"
               printf '%s\n' \
                 '- macOS: universal DMG for Apple Silicon and Intel; ad-hoc signed, not notarized.' \
-                '- Linux: x86_64 Debian installer and portable archive, built on Ubuntu 22.04.' \
+                '- Linux: x86_64 Debian installer and portable archive, built on Ubuntu 24.04.' \
                 '- Verify downloads against SHA256SUMS.txt.' \
                 '- Windows and Linux ARM are not included: the current database plugin lacks their native binaries.'
             } > release-notes.md
             gh release create "$RELEASE_TAG" --verify-tag --target "$GITHUB_SHA" \
-              --draft --title "Keel $BUILD_NAME" --notes-file release-notes.md
+              --draft --title "Keel $RELEASE_TAG — macOS + Linux" --notes-file release-notes.md
           fi
           # A retry may finish uploading a draft, but never overwrite a public release.
           gh release upload "$RELEASE_TAG" dist/* --clobber
           gh release edit "$RELEASE_TAG" --draft=false --latest
+      - name: Confirm public installer downloads
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ needs.metadata.outputs.tag }}
+        run: |
+          gh release view "$RELEASE_TAG" --json assets --jq '.assets[].url' > download-urls.txt
+          while IFS= read -r url; do
+            curl --fail --silent --show-error --location --head --retry 5 "$url" > /dev/null
+            printf '%s\n' "$url" >> "$GITHUB_STEP_SUMMARY"
+          done < download-urls.txt

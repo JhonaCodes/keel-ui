@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Package an existing, versioned Flutter Linux release bundle on Ubuntu 22.04.
+# Package an existing, versioned Flutter Linux release bundle on Ubuntu 24.04.
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
@@ -70,6 +70,8 @@ CONTROL
 DEPENDENCIES="$(cd "$WORK_DIR" && dpkg-shlibdeps -O --ignore-missing-info \
   -l"$STAGE_DIR/opt/keel/lib" "${ELF_ARGS[@]}")"
 DEPENDENCIES="${DEPENDENCIES#shlibs:Depends=}"
+DEPENDENCIES="$(python3 "$ROOT_DIR/scripts/linux_runtime.py" \
+  --dependencies "$DEPENDENCIES" "${ELF_ARGS[@]#-e}")"
 [[ "$DEPENDENCIES" == *libc6* ]] || {
   echo 'Could not resolve native runtime dependencies.' >&2
   exit 68

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Run as root in a fresh Ubuntu 22.04 container, separate from the build host.
+# Run as root in a fresh Ubuntu 24.04 container, separate from the build host.
 set -euo pipefail
 [[ $# -eq 1 && -f "$1" ]] || { echo 'Pass the .deb to verify.' >&2; exit 64; }
 export DEBIAN_FRONTEND=noninteractive

@@ -9,7 +9,7 @@ obvious, and because half the decisions below were taken after something failed.
 | Platform | State | Where it builds |
 |---|---|---|
 | macOS (arm64 + x86_64) | ✅ works | local Mac or GitHub Actions `macos-15` |
-| Linux x86_64 | ✅ works | GitHub Actions `ubuntu-22.04`, or the existing server container |
+| Linux x86_64 | Ubuntu 24.04 baseline | GitHub Actions `ubuntu-24.04` |
 | Linux arm64 | ❌ impossible today | — |
 | Windows x64 | ❌ does not compile | — |
 
@@ -23,12 +23,43 @@ this repository. The tag must match the version committed in `pubspec.yaml`:
 `version: 1.2.4+45` means tag `v1.2.4`, app version `1.2.4`, build `45`.
 CI **does not bump or commit the version**. Update it before creating the tag.
 
-After the workflow and version are committed and pushed:
+### Deploy from this checkout
+
+Commit your code changes on `main`, then run:
 
 ```sh
-git tag v1.2.4
-git push origin v1.2.4
+./scripts/deploy.sh --check
+./scripts/deploy.sh
 ```
+
+The script uses the project's existing version increment policy (patch and build,
+with the patch rollover at twenty), creates a signed version commit and a **signed
+OpenPGP tag**, and pushes both atomically. Starting at `1.2.4+45`, it releases
+`1.2.5+46` with tag `v1.2.5`. It requires Git, GitHub CLI authenticated to the repo,
+Dart, and the user's configured GPG signing key. No private key is sent to Actions.
+The working tree must be clean; the script never commits unrelated changes.
+
+It verifies the tag locally **and through GitHub**, waits for both build jobs and
+publication, and downloads all assets to `build/downloads/vVERSION/`. Success means
+the release is public, all expected installers exist, and their downloaded bytes
+match `SHA256SUMS.txt`. Actions also checks unauthenticated public download URLs.
+
+To choose a higher version explicitly or resume after a connection failure:
+
+```sh
+./scripts/deploy.sh --version 1.3.0
+./scripts/deploy.sh --resume v1.2.5
+```
+
+Resume requires the same commit and a valid signed tag; it can finish a tag push
+that did not reach GitHub or rerun failed jobs. If code needs fixing, commit the
+fix and run a new deployment, which creates a new version instead of rewriting a
+remote tag. `--check` validates prerequisites without committing or publishing.
+
+Actions displays `Keel v1.2.5 · macOS + Linux · push`; GitHub's appended `#N` is
+the workflow run number, not the release version. A manually created tag must use
+`git tag -s`, not `git tag -a`: annotation alone does not sign a tag. The metadata
+job refuses publication runs whose tag GitHub cannot verify.
 
 Use a new version/tag for every public release. A tag mismatch, missing build
 number, prerelease suffix, or malformed version stops the workflow before
@@ -56,11 +87,13 @@ signature, both architectures in the launcher, AOT framework and Flutter engine,
 and the DMG checksum. It is **not notarized**; distributing a notarized app would
 require Apple signing credentials and a separate notarization step.
 
-Linux compiles on native x86_64 Ubuntu 22.04. The packaging script derives Debian
+Linux compiles on native x86_64 Ubuntu 24.04. The packaging script derives Debian
 dependencies from **all** bundled ELF binaries with `dpkg-shlibdeps`, including
-the database library. A fresh Ubuntu 22.04 container then installs the `.deb`
+the database library. A fresh Ubuntu 24.04 container then installs the `.deb`
 with `apt`, checks architecture, launcher/icon entries and the database library,
-and checks every ELF with `ldd`. Any missing runtime library prevents publishing.
+and checks every ELF with `ldd`. The packager also reads ELF version requirements
+directly so a prebuilt plugin cannot silently understate its glibc dependency.
+Any missing runtime library prevents publishing.
 
 ### Try the workflow without publishing
 
@@ -222,19 +255,23 @@ Docker Desktop on Apple Silicon brings up **arm64** containers. The database's
 but it is slow and there is no reason to pay for it when `hp-server` exists and is
 natively x86_64.
 
-### Why in a container and not on the host
+### Supported Linux baseline
 
-`hp-server` runs Ubuntu 24.04 with **glibc 2.39**. A binary compiled there requires
-glibc ≥ 2.39, and that leaves out Ubuntu 22.04, Debian 12, and Mint — meaning most
-real machines. Building inside an Ubuntu 22.04 container, the binary asks for
-**glibc 2.34**, which covers Ubuntu 21.10 and RHEL 9 onward.
+The reproducible package `flutter_local_db` 1.5.1 from pub.dev includes a database
+library that requires **GLIBC_2.38**. The `v1.2.4` Actions run proved that Ubuntu
+22.04 cannot load it, even though the Flutter runner itself compiled successfully.
+The earlier claim that building the runner on 22.04 guarantees glibc 2.34 support
+was incorrect: it overlooked this prebuilt dependency.
 
-It is still natively x86_64: the container emulates nothing, it only fixes which
-libraries it links against.
+Releases now compile on **Ubuntu 24.04 x86_64**, and installation is checked in a
+separate clean Ubuntu 24.04 container. The actual maximum glibc requirement across
+all binaries is included in the Debian package's dependencies. These packages do
+not support Ubuntu 22.04 or Debian 12. Restoring that compatibility requires a
+reproducible rebuild of the database dependency against an older glibc first.
 
 ### How it is done
 
-The image (`ubuntu:22.04` + Flutter's toolchain + `libgtk-3-dev`) is built once and
+The image (`ubuntu:24.04` + Flutter's toolchain + `libgtk-3-dev`) is built once and
 stays cached on the server. Then, per release:
 
 ```sh
@@ -257,7 +294,7 @@ come out different without anybody noticing.
 Compiling is not enough. Every time:
 
 ```sh
-docker run --rm -v ~/keel-build/out:/out ubuntu:22.04 bash -c '
+docker run --rm -v ~/keel-build/out:/out ubuntu:24.04 bash -c '
   apt-get update -qq && apt-get install -y /out/keel_*.deb
   ldd /opt/keel/keel | grep "not found"       # has to come out empty
   ls /opt/keel/lib/liboffline_first_core.so'  # the database has to travel
@@ -270,7 +307,8 @@ objdump -T <binary> | grep -o 'GLIBC_[0-9.]*' | sort -Vu | tail -1
 ```
 
 Over-declaring is not conservative, it is a package that refuses to install where it
-would have worked. It happened to us: it said 2.35 when it asked for 2.34.
+would have worked. Both under-declaring and over-declaring must be avoided; inspect all bundled
+libraries, not just the launcher.
 
 ## Windows
 

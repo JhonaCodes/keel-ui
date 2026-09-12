@@ -2,12 +2,12 @@ part of '../system_prompt.dart';
 
 /// LAS DOS PISTAS QUE ENCABEZAN TODO TURNO DE CLAUDE.
 ///
-/// Qué dicen: preferí ```mermaid antes que SVG crudo para diagramas, y
-/// cuando el pedido es cambiar código de un archivo real usá Write/Edit en
+/// Qué dicen: prefiere ```mermaid antes que SVG crudo para diagramas, y
+/// cuando el pedido es cambiar código de un archivo real usa Write/Edit en
 /// vez de imprimir el código en la respuesta.
 ///
 /// Por qué existen: las dos describen capacidades DE ESTE CLIENTE que el
-/// modelo no puede adivinar — que acá un bloque mermaid se renderiza, y que
+/// modelo no puede adivinar — que aquí un bloque mermaid se renderiza, y que
 /// una edición real se muestra como tarjeta de diff revisable. Sin decirlo,
 /// el agente elige lo que sirve en una terminal: SVG carísimo y código
 /// pegado en el chat que el usuario tiene que copiar a mano.
@@ -21,20 +21,21 @@ part of '../system_prompt.dart';
 /// después habla todo en castellano.
 const _diagramSystemPromptHint =
     'Para mostrar un diagrama, una jerarquía, una línea de tiempo o un '
-    'flujo, preferí un bloque ```mermaid antes que SVG crudo: cuesta muchos '
-    'menos tokens y en este cliente se ve igual de bien. Caé a ```svg solo '
+    'flujo, prefiere un bloque ```mermaid antes que SVG crudo: cuesta muchos '
+    'menos tokens y en este cliente se ve igual de bien. Recurre a ```svg solo '
     'cuando mermaid no pueda expresar la forma (ilustraciones precisas a '
     'medida).';
 
 const _codeEditSystemPromptHint =
     'Cuando el mensaje ES un pedido de cambiar código de un archivo real '
-    'del disco —escribir, corregir, convertir, refactorizar—, hacé el '
+    'del disco —escribir, corregir, convertir, refactorizar—, haz el '
     'cambio con tus herramientas de archivo (Write/Edit) en vez de imprimir '
     'el código en la respuesta: este cliente muestra la edición real como '
-    'una tarjeta de diff que el usuario revisa, ajusta y guarda. Imprimí '
+    'una tarjeta de diff que el usuario revisa, ajusta y guarda. Imprime '
     'código inline solo cuando te piden VER o discutir un fragmento. Y si '
     'el mensaje era una pregunta y no un pedido, esta regla no aplica: '
-    'primero respondé.';
+    'primero responde.';
 
 const kCliSystemHints =
-    '$_diagramSystemPromptHint\n\n$_codeEditSystemPromptHint';
+    '$_diagramSystemPromptHint\n\n$_codeEditSystemPromptHint\n\n'
+    '$kNeutralSpanishPrompt\n\n$kPlanningDiagramPrompt';

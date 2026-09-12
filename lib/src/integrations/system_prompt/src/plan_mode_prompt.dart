@@ -22,6 +22,7 @@ part of '../system_prompt.dart';
 /// prometiendo «ahora lo implemento» y el usuario espera una segunda mitad que
 /// nunca llega, porque el turno ya terminó.
 const kPlanModePrompt =
+    '$kPlanningDiagramPrompt\n\n'
     'PLAN MODE — THIS TURN PLANS, IT DOES NOT BUILD. Read whatever you need '
     'to understand the problem: open files, search, inspect, run read-only '
     'commands. Then stop and describe how you would do the work.\n'
@@ -34,6 +35,8 @@ const kPlanModePrompt =
     'and in what order, and is honest about what could go wrong or what you '
     'are unsure of. If the request is ambiguous enough that two readings lead '
     'to different work, say so and ask instead of guessing.\n'
-    'End your turn with the plan. Do not promise to implement it next — the '
-    'person reading it decides whether the work happens, and they will say '
-    'so. If they approve it, you will get a new turn that can write.';
+    'In an assigned workflow node, finish its read-only contract and report '
+    'the outcome so the engine can hand work to the next owner automatically; '
+    'do not request another approval unless the contract requires one. '
+    'For a standalone plan-only request, end with the plan and wait for the '
+    'user to authorize implementation.';

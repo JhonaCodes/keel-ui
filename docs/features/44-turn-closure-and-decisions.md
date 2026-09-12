@@ -25,7 +25,7 @@ The engine had no way of knowing how a turn ended. It inferred from prose:
 
 ```
 ```keel-outcome
-status: done | blocked | needs_user | needs_permission | failed
+status: in_progress | done | blocked | needs_user | needs_permission | failed
 summary: what changed and what evidence validates it
 files: paths touched
 artifacts: PR, test command, report
@@ -42,6 +42,8 @@ The spec travels in the system prompt only on node turns
 
 **The engine decides from the block.** `ResolutionEngine.applyOutcome` is pure:
 
+- `in_progress` → output stored, node `pending` and automatically resumed with
+  its previous progress. Findings stay open and dependent nodes stay waiting.
 - `done` → node `done`, output stored in `WorkNode.output`, assigned findings
   resolved.
 - an audit with `NO-GO` → a `review` finding on the audited node (or the first
@@ -55,11 +57,17 @@ The spec travels in the system prompt only on node turns
 - `next` → the ViewModel activates the optional capability through the path that
   already existed (`activateWorkflowCapability`).
 
-**A follow-up, not a guess.** A turn that closed without a block — or an audit
-with no verdict — receives ONE single-step turn over the same session
-(`kOutcomeFollowUpPrompt`) that asks only for the status. If there is still no
-block: `done` with the text as summary if it spoke, `blocked` if it stayed quiet.
+**Recovery keeps execution available.** A turn that closed without a block —
+or an audit with no verdict — receives a follow-up over the same execution,
+with the node contract, prior progress, tools and role consultations available.
+If there is still no block, it is `blocked`; prose never implies completion.
 An audit that gives no verdict counts as `blocked`.
+
+**Consultations return to their owner.** The requesting agent resumes the same
+execution with its contract and the specialist's answer. Its resulting outcome
+returns to the workflow engine. Nested consultations preserve read-only scope,
+and follow-ups share the session's configured cost budget. The consultation
+conversation has its own loop guard without resetting the node's subagent quota.
 
 **The turn cap is not a failure.** `hitTurnCap` marks `capHit`, leaves a system
 message with the number, and the node goes through the same follow-up.
@@ -101,6 +109,10 @@ only for nodes that closed before the block existed.
 
 ## How to verify it
 
+- `test/run_workflow_continuation.sh`: one user request drives planner →
+  implementer progress → specialist consultation → resumed implementation →
+  audit through real isolates and a deterministic external CLI. It runs before
+  macOS installer builds in Actions. See [validation](autonomous-workflow-continuation.md).
 - `test/projects/turn_outcome_report_test.dart`: an embedded block with NO-GO,
   the last block wins, status variants, JSON.
 - `test/projects/resolution_engine_test.dart` (`applyOutcome`): NO-GO → audited

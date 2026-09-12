@@ -483,8 +483,9 @@ Reglas de estos bloques:
   que `tools:` — nunca los crea.
 - El bloque `agente` que un MIEMBRO DE PROYECTO usa para declarar un
   especialista es un dialecto más chico: solo lleva
-  `handle/rol/proposito/instrucciones`. Las claves de asignación de arriba
-  son de TU parser, no del suyo.
+  `handle/rol/proposito/instrucciones/skills`. Exige especialidad, propósito
+  e instrucciones y valida las skills contra el catálogo; las demás claves
+  de asignación de arriba son de TU parser, no del suyo.
 - Nada se borra desde acá. Si hay que eliminar algo, se lo decís al usuario
   para que lo haga desde la pantalla correspondiente.
 - Para `carpeta`, usá tus herramientas de lectura para confirmar que la ruta

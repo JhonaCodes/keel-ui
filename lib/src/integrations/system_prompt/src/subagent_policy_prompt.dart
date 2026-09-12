@@ -8,7 +8,7 @@ part of '../system_prompt.dart';
 /// escribe. Con cualquier otro proveedor o con el cupo en cero, se resuelve
 /// el nodo en el hilo.
 ///
-/// El cupo se declara acá porque el evento de apertura llega cuando el CLI YA
+/// El cupo se declara aquí porque el evento de apertura llega cuando el CLI YA
 /// abrió el subagente: para entonces lo único que queda es cancelar la corrida
 /// entera, que destruye el trabajo del nodo. Decirle el número por adelantado
 /// es lo que hace que el tope se respete; `SubagentBudget` solo lo observa.
@@ -25,21 +25,28 @@ String subagentPolicyPrompt({
 }) {
   if (provider != AgentProvider.claude || maxSubagents == 0) {
     return 'Este proveedor no tiene delegación interna habilitada en este '
-        'workflow. Resolvé el nodo en este hilo.';
+        'workflow. Resuelve el nodo en este hilo.';
   }
   final several = maxSubagents > 1;
-  return 'SUBAGENTES CONTROLADOS: podés abrir hasta $maxSubagents tarea(s) '
+  return 'SUBAGENTES ESPECIALIZADOS: cada tarea debe definir una especialidad '
+      'concreta, skills aplicables, contexto y archivos relevantes, una pregunta '
+      'acotada y un contrato de salida con evidencia y criterio de verificación. '
+      'Usa perfiles expertos disponibles; si el proveedor permite subagent_type, '
+      'selecciona el perfil adecuado. Si solo ofrece un agente genérico, incluye '
+      'explícitamente la especialidad y sus instrucciones en el encargo. '
+      'No envíes tareas vagas como "revisa todo". '
+      'SUBAGENTES CONTROLADOS: puedes abrir hasta $maxSubagents tarea(s) '
       'interna(s) EN ESTE NODO, únicamente para investigación, inventario de '
       'impacto o verificación independiente. El cupo es por nodo: lo que '
-      'gastes acá no se lo quitás al que sigue.'
-      '${several ? ' Si son independientes entre sí, abrilas TODAS EN EL '
+      'gastes aquí no se lo quitas al que sigue.'
+      '${several ? ' Si son independientes entre sí, ábrelas TODAS EN EL '
                 'MISMO MENSAJE para que corran en paralelo — abrirlas de a una '
                 'multiplica la espera sin mejorar la evidencia. Dales lentes '
                 'distintos (correctitud, seguridad, reproducción) en vez de '
                 'repetir la misma pregunta: la diversidad es lo que encuentra '
                 'lo que una sola pasada no ve.' : ''}'
       ' Sus resultados quedan visibles en el mapa. No les delegues '
-      'implementación ni escritura: vos sos el único escritor y debés '
+      'implementación ni escritura: tú eres el único escritor y debes '
       'sintetizar su evidencia antes de cerrar el nodo. El cupo se aplica '
       'en código: la tarea $maxSubagents+1 se deniega, así que cada una '
       'tiene que llevar una pregunta concreta y un contrato de salida '

@@ -179,7 +179,7 @@ final class _SessionPlanMcpServer extends mcp.MCPServer with mcp.ToolsSupport {
            version: '1.0.0',
          ),
          // La prosa de proceso (para qué es el plan, cuándo escribirlo) vive
-         // en la sección PLAN del system prompt del turno; acá solo la
+         // en la sección PLAN del system prompt del turno; aquí solo la
          // mecánica de la llamada, para no repetir la misma regla en dos
          // lugares que después divergen.
          instructions: kSessionPlanMcpInstructions,
@@ -207,6 +207,10 @@ final class _SessionPlanMcpServer extends mcp.MCPServer with mcp.ToolsSupport {
         'y, opcionalmente, `puesto`.',
     inputSchema: mcp.ObjectSchema(
       properties: {
+        'logic_mermaid': mcp.Schema.string(
+          description:
+              'Diagrama Mermaid sin cercas: flujo de la solución con decisiones, condiciones y resultados; etiquetas breves en español neutro.',
+        ),
         'items': mcp.Schema.list(
           items: mcp.ObjectSchema(
             properties: {
@@ -217,7 +221,7 @@ final class _SessionPlanMcpServer extends mcp.MCPServer with mcp.ToolsSupport {
                 description:
                     'El ROL que lo tiene que hacer (implementador, revisor, '
                     'auditor…), igual que lo nombra un paso del workflow. '
-                    'Nunca un @handle. Omitilo si todavía no está claro.',
+                    'Nunca un @handle. Omítelo si todavía no está claro.',
               ),
             },
             required: ['texto'],
@@ -225,14 +229,14 @@ final class _SessionPlanMcpServer extends mcp.MCPServer with mcp.ToolsSupport {
           description: 'Los puntos del plan, en orden.',
         ),
       },
-      required: ['items'],
+      required: ['items', 'logic_mermaid'],
     ),
   );
 
   static final _completeTool = mcp.Tool(
     name: 'complete_plan_items',
     description:
-        'Marca puntos del plan como cumplidos. Pasá el texto de cada punto '
+        'Marca puntos del plan como cumplidos. Pasa el texto de cada punto '
         '(la comparación ignora mayúsculas, acentos y puntuación) o su id. '
         'Marcá solo lo que tu turno resolvió.',
     inputSchema: mcp.ObjectSchema(
@@ -251,7 +255,12 @@ final class _SessionPlanMcpServer extends mcp.MCPServer with mcp.ToolsSupport {
     if (items.isEmpty) {
       return _text('El plan tiene que tener al menos un punto.');
     }
-    _projects.setSessionPlan(projectId, sessionId, items);
+    _projects.setSessionPlan(
+      projectId,
+      sessionId,
+      items,
+      logicMermaid: request.arguments?['logic_mermaid'] as String? ?? '',
+    );
     final asignados = items.where((entry) => entry.ownerRole != null).length;
     return _text(
       'Plan fijado: ${items.length} puntos, $asignados con puesto asignado.',
@@ -301,7 +310,7 @@ final class _SessionPlanMcpServer extends mcp.MCPServer with mcp.ToolsSupport {
           ? 'Marqué $marcados. Van ${plan.doneCount} de ${plan.length}.'
           : 'Marqué $marcados. No encontré en el plan: '
                 '${noEncontrados.join(' | ')}. Van ${plan.doneCount} de '
-                '${plan.length} — copiá el texto del punto tal como figura '
+                '${plan.length} — copia el texto del punto tal como figura '
                 'en el plan (mayúsculas, acentos y puntuación no importan; '
                 'las palabras sí).',
     );

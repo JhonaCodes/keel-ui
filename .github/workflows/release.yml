@@ -83,6 +83,10 @@ jobs:
           fi
       - name: Verify release version behavior
         run: flutter test --no-pub test/update/release_pipeline_contract_test.dart
+      - name: Verify autonomous workflow continuation
+        run: |
+          test/run_workflow_continuation.sh
+          flutter test --no-pub test/projects/session_plan_diagram_test.dart test/system_prompt
       - name: Build, sign, and verify universal DMG
         env:
           RELEASE_TAG: ${{ needs.metadata.outputs.tag }}

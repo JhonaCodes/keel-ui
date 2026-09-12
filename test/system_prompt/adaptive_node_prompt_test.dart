@@ -57,6 +57,6 @@ void main() {
     );
 
     expect(prompt, isNot(contains('LO QUE DEJARON')));
-    expect(prompt, isNot(contains('ESTADO DEL CASO')));
+    expect(prompt, isNot(contains('ESTADO ACTUAL DEL CASO')));
   });
 }

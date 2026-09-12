@@ -1,5 +1,16 @@
 part of '../system_prompt.dart';
 
+const kPlanningDiagramPrompt =
+    'EN TODA PLANIFICACIÓN O REPLANIFICACIÓN: muestra un bloque ```mermaid '
+    'con la lógica de la solución, además de los puntos de trabajo. Usa '
+    'flowchart para decisiones, sequenceDiagram para interacciones o '
+    'stateDiagram-v2 para estados. Incluye entradas, decisiones, condiciones '
+    'en las flechas y resultados; usa etiquetas breves en español neutro. '
+    'Divide un diagrama grande en partes legibles. No sustituyas la lógica '
+    'del problema por una lista genérica de etapas. Con set_session_plan '
+    'envía el código sin cercas en logic_mermaid; sin esa herramienta, '
+    'incluye el bloque mermaid junto al bloque plan en tu respuesta.';
+
 /// EL PLAN DE LA SESIÓN, TAL COMO ESTÁ, dentro del turno.
 ///
 /// Qué dice: si la sesión no tiene plan, la orden de escribirlo antes que
@@ -33,23 +44,24 @@ String planSectionPrompt(
     if (isConsult) return '';
     // Codex no tiene las tools del plan: escribe con el bloque fenced.
     final como = hasPlanTools
-        ? 'escribilo con `set_session_plan`'
-        : 'escribilo dejando en tu respuesta un bloque exactamente así:\n'
+        ? 'escríbelo con `set_session_plan`'
+        : 'escríbelo dejando en tu respuesta un bloque exactamente así:\n'
               '```plan\n'
               'puntos:\n'
               'Primer punto concreto y verificable | puesto que lo hace\n'
               'Segundo punto\n'
               '```\n'
               'El puesto (tras el último "|") es opcional; no uses "|" '
-              'dentro del texto del punto. Escribilo';
-    return 'PLAN DE LA SESIÓN: esta sesión todavía no tiene plan, y el plan '
+              'dentro del texto del punto. Escríbelo';
+    return '$kPlanningDiagramPrompt\n\n'
+        'PLAN DE LA SESIÓN: esta sesión todavía no tiene plan, y el plan '
         'es lo que el usuario mira para saber qué falta. ANTES que nada en '
         'este turno, $como: entre 3 y 8 puntos '
         'concretos y verificables que haya que cumplir para darla por '
         'terminada — no las etapas del workflow, que ya se ven aparte. A '
-        'cada punto ponele el PUESTO que lo tiene que hacer cuando esté '
+        'cada punto asigna el PUESTO que lo tiene que hacer cuando esté '
         'claro. No importa cómo se llame tu paso: si no hay plan, lo '
-        'escribís vos. Después seguí con tu trabajo normal.\n'
+        'escribes tú. Después continúa con tu trabajo normal.\n'
         'Cada punto se trabaja después en su propia vuelta del workflow: '
         'un punto es una unidad entregable, no una sesión de media hora.';
   }
@@ -72,39 +84,41 @@ String planSectionPrompt(
   if (isConsult) {
     buffer.writeln(
       'Va como contexto: el plan lo marca quien está ejecutando el paso — '
-      'en este turno no tenés las tools del plan.',
+      'en este turno no tienes las tools del plan.',
     );
     return buffer.toString().trim();
   }
 
+  buffer.writeln(kPlanningDiagramPrompt);
+
   if (hasPlanTools) {
     buffer.writeln(
-      'Al cerrar tu turno marcá con `complete_plan_items` los puntos que '
-      'efectivamente resolviste, copiando su texto tal como está acá '
+      'Al cerrar tu turno marca con `complete_plan_items` los puntos que '
+      'efectivamente resolviste, copiando su texto tal como está aquí '
       'arriba — la comparación ignora mayúsculas, acentos y puntuación, '
-      'pero no adivina: cambiá una palabra y no lo encuentra. Solo esos: '
+      'pero no adivina: cambia una palabra y no lo encuentra. Solo esos: '
       'marcar de más deja al usuario ciego. Si el plan quedó viejo, '
-      'reescribilo entero con `set_session_plan` — lo hecho que no cambie de '
+      'reescríbelo entero con `set_session_plan` — lo hecho que no cambie de '
       'texto se conserva marcado.',
     );
   } else {
     buffer.writeln(
-      'Al cerrar tu turno marcá lo que efectivamente resolviste dejando en '
+      'Al cerrar tu turno marca lo que efectivamente resolviste dejando en '
       'tu respuesta un bloque así, un punto por línea con su texto tal '
-      'como está acá arriba:\n'
+      'como está aquí arriba:\n'
       '```cumplido\n'
       'puntos:\n'
       'Texto del punto resuelto\n'
       '```\n'
       'Solo esos: marcar de más deja al usuario ciego. Si el plan quedó '
-      'viejo, reescribilo entero con un bloque ```plan — lo hecho que no '
+      'viejo, reescríbelo entero con un bloque ```plan — lo hecho que no '
       'cambie de texto se conserva marcado.',
     );
   }
   buffer.writeln(
     'El plan es el contrato de la sesión: terminados los pasos, si queda un '
     'punto sin cumplir la sesión NO se da por terminada y pasa a '
-    'verificación. Si algo de tu paso queda afuera, decilo en el momento.',
+    'verificación. Si algo de tu paso queda fuera, indícalo en el momento.',
   );
   return buffer.toString().trim();
 }

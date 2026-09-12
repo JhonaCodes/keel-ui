@@ -46,9 +46,14 @@ void main() {
     );
     // Sin nodos de corrección: el NO-GO de una auditoría devuelve el nodo
     // auditado solo (ver applyOutcome).
-    expect(resolution.nodes.any((node) => node.id == 'code-correction'), isFalse);
     expect(
-      resolution.nodes.firstWhere((node) => node.id == 'verification').dependencyIds,
+      resolution.nodes.any((node) => node.id == 'code-correction'),
+      isFalse,
+    );
+    expect(
+      resolution.nodes
+          .firstWhere((node) => node.id == 'verification')
+          .dependencyIds,
       ['test-audit'],
     );
     expect(resolution.coverage, hasLength(MigrationCoverageArea.values.length));
@@ -318,12 +323,50 @@ void main() {
       expect(ResolutionEngine.canComplete(resolution), isFalse);
       expect(noGo.decision, isNull);
 
+      // Un avance de la corrección conserva el hallazgo y la auditoría
+      // pendiente; ni replanifica ni pide que una persona la vuelva a iniciar.
+      final progress = parseKeelOutcome('''
+```keel-outcome
+status: in_progress
+summary: Gate inicial limpio; falta reemplazar el unwrap y verificar.
+```
+''')!;
+      final continuing = ResolutionEngine.applyOutcome(
+        resolution,
+        nodeId: 'implement',
+        report: TurnOutcomeReport.fromJson(progress.toJson()),
+        isAudit: false,
+        maxReplans: 2,
+        profileId: 'dev',
+        now: DateTime(2026),
+        newId: nextId,
+      );
+      expect(continuing.resolution.status, ResolutionCaseStatus.active);
+      expect(continuing.decision, isNull);
+      expect(continuing.resolution.findings, resolution.findings);
+      expect(
+        continuing.resolution.reviewCycleCount,
+        resolution.reviewCycleCount,
+      );
+      final implementation = continuing.resolution.nodes.firstWhere(
+        (node) => node.id == 'implement',
+      );
+      expect(implementation.status, WorkNodeStatus.pending);
+      expect(implementation.output, progress);
+      expect(
+        continuing.resolution.nodes
+            .firstWhere((node) => node.id == 'audit')
+            .status,
+        WorkNodeStatus.pending,
+      );
+      expect(ResolutionEngine.canComplete(continuing.resolution), isFalse);
+
       // La corrección cierra y la auditoría vuelve con GO: el hallazgo queda
       // resuelto y el caso puede cerrar cuando el resto termine.
       final fixed = ResolutionEngine.applyOutcome(
-        resolution,
+        continuing.resolution,
         nodeId: 'implement',
-        report: const TurnOutcomeReport(
+        report: progress.copyWith(
           status: TurnOutcomeStatus.done,
           summary: 'unwrap reemplazado por ?',
         ),

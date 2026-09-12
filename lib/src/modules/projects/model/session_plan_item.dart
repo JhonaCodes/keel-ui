@@ -108,6 +108,25 @@ typedef PlanEntry = ({String text, String? ownerRole});
 
 /// Resumen del plan para mostrar sin recorrer la lista en la UI.
 extension SessionPlanSummary on List<SessionPlanItem> {
+  /// Mapa de alcance cuando un cliente antiguo no envía la lógica Mermaid.
+  /// No inventa dependencias entre puntos independientes.
+  String get responsibilityDiagram {
+    final lines = <String>['flowchart TD', '  plan["Plan de trabajo"]'];
+    for (var index = 0; index < length; index++) {
+      final item = this[index];
+      final label =
+          '${item.text} — ${item.ownerRole ?? 'Responsable por asignar'}'
+              .replaceAll('&', '&amp;')
+              .replaceAll('"', '&quot;')
+              .replaceAll('<', '&lt;')
+              .replaceAll('>', '&gt;')
+              .replaceAll('`', '')
+              .replaceAll('\n', ' ');
+      lines.add('  plan --> p$index["$label"]');
+    }
+    return lines.join('\n');
+  }
+
   int get doneCount => where((item) => item.done).length;
 
   int get discardedCount => where((item) => item.discarded).length;

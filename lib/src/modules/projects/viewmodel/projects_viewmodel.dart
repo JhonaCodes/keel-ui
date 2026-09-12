@@ -78,7 +78,13 @@ final RegExp _mentionPattern = RegExp(r'@([a-z0-9_-]{1,16})');
 /// The fields a `\`\`\`agente` declaration block recognizes. Parsed by the
 /// shared [parseFencedBlocks] — kept deliberately rigid so reading it is a
 /// decision, not a guess about prose.
-const _agentDeclarationKeys = {'handle', 'rol', 'proposito', 'instrucciones'};
+const _agentDeclarationKeys = {
+  'handle',
+  'rol',
+  'proposito',
+  'instrucciones',
+  'skills',
+};
 
 const _coverageBlockKeys = {'area', 'estado', 'motivo'};
 
@@ -169,11 +175,9 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
   /// resumes that member and not whoever happened to speak last.
   final Map<String, String> _permissionBlockedProfileBySession = {};
 
-  /// `turn:asker>target` pairs already consulted. Scoped to a single turn on
-  /// purpose: it stops two agents rebounding inside one answer, while a new
-  /// question from the user opens a fresh turn where they may consult each
-  /// other again. Keying it per step instead blocked every later consult for
-  /// the rest of that step.
+  /// `conversation:asker>target` pairs already consulted. The conversation
+  /// includes nested consultations and their continuations. A new workflow
+  /// turn can consult the same peers without resetting its subagent quota.
   final Set<String> _consultedPairs = {};
   final SubagentBudget _subagentBudget = SubagentBudget();
 
@@ -751,8 +755,9 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
   void setSessionPlan(
     String projectId,
     String sessionId,
-    List<PlanEntry> entries,
-  ) {
+    List<PlanEntry> entries, {
+    String logicMermaid = '',
+  }) {
     final anterior = planOf(projectId, sessionId);
 
     _updateSession(projectId, sessionId, (session) {
@@ -789,8 +794,13 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
       );
       for (final item in plan) {
         final marca = item.discarded ? '–' : (item.done ? '✓' : '○');
-        buffer.write('\n$marca  ${item.text}');
+        buffer.write(
+          '\n$marca  ${item.text}${item.ownerRole == null ? '' : ' — ${item.ownerRole}'}',
+        );
       }
+      buffer.write(
+        '\n\n${logicMermaid.trim().isEmpty ? 'Mapa de responsabilidades del plan' : 'Lógica del plan'}\n\n```mermaid\n${logicMermaid.trim().isEmpty ? plan.responsibilityDiagram : logicMermaid.trim()}\n```',
+      );
       _appendMessage(
         projectId,
         sessionId,
@@ -1948,6 +1958,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
           isAudit: isAudit,
           dependencyContext: renderDependencyOutputs(outputs),
           digest: hasClosedHistory ? sessionDigest(resolution) : '',
+          members: membersOf(project, session: session),
         );
         // Lo que el usuario contestó a este nodo viaja en la instrucción: la
         // sesión del CLI se reanuda con el prompt nuevo, no lee el hilo.
@@ -1993,9 +2004,8 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
               sessionId,
             )?.resolutionCase ??
             resolution;
-        // Un turno que cerró sin el bloque (o una auditoría sin veredicto)
-        // recibe UN seguimiento: un turno de un paso sobre la misma sesión
-        // que solo pide el estado. Barato, y evita adivinar.
+        // Un aviso de progreso no cierra el contrato. Reanudar conserva
+        // herramientas y consultas para completar el trabajo autorizado.
         if (outcome.ok && !_outcomeIsComplete(outcome.report, isAudit)) {
           outcome = await _runWorkflowCapability(
             projectId: projectId,
@@ -2010,6 +2020,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
             preflight: preflight,
             maxBudgetUsd: remainingBudgetUsd,
             followUp: true,
+            previousAnswer: outcome.answer,
           );
           if (_stoppedSessionIds.contains(sessionId)) break;
           resolution =
@@ -2097,17 +2108,15 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
           continue;
         }
 
-        // Sin bloque ni después del seguimiento: si habló, se toma lo que
-        // dijo como cierre; si calló del todo, se bloquea con motivo.
+        // Sin contrato después de la recuperación no hay evidencia de cierre.
+        // Nunca convertir prosa como «sigo trabajando» en implementación hecha.
         final report =
             outcome.report ??
             TurnOutcomeReport(
-              status: outcome.answer.trim().isEmpty
-                  ? TurnOutcomeStatus.blocked
-                  : TurnOutcomeStatus.done,
-              summary: outcome.answer.trim().isEmpty
-                  ? 'El nodo terminó sin bloque keel-outcome y sin texto.'
-                  : _excerpt(outcome.answer, 600),
+              status: .blocked,
+              summary:
+                  'El nodo no declaró un resultado verificable después de '
+                  'retomar el trabajo. Última respuesta: ${_excerpt(outcome.answer, 600)}',
             );
         final effectiveReport =
             isAudit &&
@@ -2242,31 +2251,14 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     hitTurnCap: false,
   );
 
-  /// El seguimiento de cierre, con el caso adentro solo cuando hace falta.
-  ///
-  /// Si la sesión del CLI sigue viva, el agente ya tiene todo y dos frases
-  /// alcanzan. Si no —la compactación la descartó, o el reintento por sesión
-  /// muerta la limpió—, el CLI arranca de cero: sin el pedido original y el
-  /// estado del caso contesta que no sabe de qué se le habla, y el nodo
-  /// pierde su única chance de declarar cómo quedó.
+  /// La recuperación conserva el contrato y el último avance incluso si el
+  /// proveedor descartó su sesión. El mismo dueño puede trabajar y consultar.
   String _followUpInstruction({
-    required String projectId,
-    required String sessionId,
-    required String executionId,
-    required ResolutionCase resolution,
-  }) {
-    final project = _projectById(projectId);
-    final session = project == null ? null : _sessionById(project, sessionId);
-    final resumes =
-        session?.cliSessionsByExecutionId.containsKey(executionId) ?? false;
-    if (resumes) return kOutcomeFollowUpPrompt;
-
-    final request = session?.request.trim() ?? '';
-    final digest = sessionDigest(resolution).trim();
-    return '${request.isEmpty ? '' : 'Pedido original:\n$request\n\n'}'
-        '${digest.isEmpty ? '' : 'ESTADO DEL CASO HASTA ACÁ:\n$digest\n\n'}'
-        '$kOutcomeFollowUpPrompt';
-  }
+    required String instruction,
+    required String previousAnswer,
+  }) =>
+      '$instruction\n\nAVANCE DEL TURNO ANTERIOR:\n'
+      '${_excerpt(previousAnswer, 4000)}\n\n$kOutcomeFollowUpPrompt';
 
   /// Un bloque alcanza si existe y, en un nodo de auditoría, trae veredicto.
   bool _outcomeIsComplete(TurnOutcomeReport? report, bool isAudit) {
@@ -2703,9 +2695,9 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     required _AdaptivePreflightResult preflight,
     double maxBudgetUsd = 0,
 
-    /// El seguimiento de un turno que cerró sin bloque: UN turno sobre la
-    /// misma sesión que solo pide el estado. No trabaja, no consulta.
+    /// Recuperación de un turno sin contrato completo, con ejecución normal.
     bool followUp = false,
+    String previousAnswer = '',
   }) async {
     final project = _projectById(projectId);
     if (project == null) return _abandonedTurn('Proyecto no disponible.');
@@ -2795,16 +2787,14 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
           workNodeId: node.id,
           instruction: followUp
               ? _followUpInstruction(
-                  projectId: projectId,
-                  sessionId: sessionId,
-                  executionId: executionId,
-                  resolution: resolution,
+                  instruction: effectiveInstruction,
+                  previousAnswer: previousAnswer,
                 )
               : effectiveInstruction,
           consultOfProfileId: null,
           turnId: turnId,
           depth: 0,
-          allowConsults: !followUp,
+          allowConsults: true,
           executionId: executionId,
           maxTurns: turnCap,
           maxBudgetUsd: maxBudgetUsd,
@@ -2829,16 +2819,14 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
           workNodeId: node.id,
           instruction: followUp
               ? _followUpInstruction(
-                  projectId: projectId,
-                  sessionId: sessionId,
-                  executionId: _workflowExecutionId(sessionId, parentId),
-                  resolution: resolution,
+                  instruction: effectiveInstruction,
+                  previousAnswer: previousAnswer,
                 )
               : effectiveInstruction,
           consultOfProfileId: null,
           turnId: turnId,
           depth: 0,
-          allowConsults: !followUp,
+          allowConsults: true,
           executionId: _workflowExecutionId(sessionId, parentId),
           maxTurns: turnCap,
           maxBudgetUsd: maxBudgetUsd,
@@ -2861,12 +2849,8 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
             member: usedExternal ? nodeOwner : parentOwner,
             workNodeId: node.id,
             instruction: _followUpInstruction(
-              projectId: projectId,
-              sessionId: sessionId,
-              executionId: usedExternal
-                  ? externalId
-                  : _workflowExecutionId(sessionId, parentId),
-              resolution: resolution,
+              instruction: effectiveInstruction,
+              previousAnswer: previousAnswer,
             ),
             consultOfProfileId: usedExternal ? parentOwner.id : null,
             turnId: turnId,
@@ -4091,6 +4075,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     required String turnId,
     required int depth,
     String? executionId,
+    String? consultationTurnId,
     int maxTurns = 0,
     double maxBudgetUsd = 0,
     bool allowConsults = true,
@@ -4107,6 +4092,24 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     if (_stoppedSessionIds.contains(sessionId)) {
       return _abandonedTurn('El turno fue detenido antes de arrancar.');
     }
+
+    // Cada consulta y continuación consume el mismo presupuesto de sesión.
+    // El remanente del turno anterior ya puede haberse gastado.
+    final costCeiling =
+        _workflowRunning(project, sessionId)?.policy.maxSessionCostUsd ?? 0;
+    final remainingBudgetUsd =
+        costCeiling -
+        (_sessionById(project, sessionId)?.usage.reportedCostUsd ?? 0);
+    if (costCeiling > 0 && remainingBudgetUsd < kMinTurnBudgetUsd) {
+      return _abandonedTurn(
+        'El presupuesto de la sesión no alcanza para otro turno.',
+      );
+    }
+    final effectiveBudgetUsd = costCeiling > 0
+        ? (maxBudgetUsd > 0 && maxBudgetUsd < remainingBudgetUsd
+              ? maxBudgetUsd
+              : remainingBudgetUsd)
+        : maxBudgetUsd;
 
     // The channel is shared, so the live strip has to say *who* is working.
     _updateSession(
@@ -4406,7 +4409,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
         conversationHistory: conversationHistory,
         planMode: planMode,
         maxTurns: maxTurns,
-        maxBudgetUsd: maxBudgetUsd,
+        maxBudgetUsd: effectiveBudgetUsd,
         provider: engine.provider.alias,
         providerApiKey: providerApiKey,
       ),
@@ -4926,6 +4929,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
         maxTurns: maxTurns,
         maxBudgetUsd: maxBudgetUsd,
         retriedWithoutSession: true,
+        consultationTurnId: consultationTurnId,
       );
     }
 
@@ -4952,6 +4956,9 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
       sessionId: sessionId,
       text: answer.toString(),
     );
+    if (!isConsult && !turnFailed && !_stoppedSessionIds.contains(sessionId)) {
+      _applyDeclaredPlan(projectId, sessionId, member.id, answer.toString());
+    }
 
     // «Sin texto» ya no es fallo: un turno que trabajó por tools y calló
     // cuenta como turno, y el motor decide con el bloque keel-outcome (o lo
@@ -4969,7 +4976,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     );
 
     if (!turnFailed && allowConsults && depth < _maxConsultDepth) {
-      await _resolveConsultations(
+      final continuation = await _resolveConsultations(
         projectId: projectId,
         sessionId: sessionId,
         asker: member,
@@ -4977,7 +4984,17 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
         text: answer.toString(),
         turnId: turnId,
         depth: depth,
+        executionId: effectiveExecutionId,
+        maxTurns: maxTurns,
+        maxBudgetUsd: maxBudgetUsd,
+        planMode: planMode,
+        instruction: instruction,
+        consultOfProfileId: consultOfProfileId,
+        // Una conversación nueva puede consultar a los mismos compañeros.
+        // Su identidad no reinicia la cuota de subagentes del nodo.
+        consultationTurnId: consultationTurnId ?? generateUuidV4(),
       );
+      return continuation ?? outcome;
     } else {
       _noteUndeliverableMentions(
         projectId: projectId,
@@ -5023,16 +5040,61 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
             'La mención a ${mentioned.map((handle) => '@$handle').join(', ')} '
             'no dispara un turno acá: este turno no puede abrir consultas. '
             'Lo que quedó pendiente lo toma la verificación del cierre o el '
-            'próximo ciclo — o respondelo vos con un mensaje.',
+            'próximo ciclo. El responsable debe resolver la consulta o '
+            'explicar el impedimento.',
         timestamp: DateTime.now(),
       ),
     );
   }
 
-  /// Registers every agent [author] declared in [text] and adds it to the
-  /// project, so the specialist it asked for exists for real — with its specs
-  /// visible, its creator recorded, and a line in the thread saying so —
-  /// instead of running as a subagent nobody can inspect.
+  /// Persiste el plan y su lógica cuando el proveedor utiliza bloques de texto.
+  void _applyDeclaredPlan(
+    String projectId,
+    String sessionId,
+    String profileId,
+    String text,
+  ) {
+    final blocks = parseFencedBlocks(text, tag: 'plan', keys: const {'puntos'});
+    final points = blocks.lastOrNull?['puntos'];
+    if (points != null) {
+      final entries = <PlanEntry>[];
+      for (final line in points.split('\n')) {
+        final parts = line.split('|');
+        final point = parts.first.trim();
+        if (point.isEmpty) continue;
+        entries.add((
+          text: point,
+          ownerRole: parts.length > 1 ? parts.last.trim() : null,
+        ));
+      }
+      if (entries.isNotEmpty) {
+        final diagram =
+            RegExp(
+              r'```mermaid[^\S\n]*\n([\s\S]*?)```',
+            ).allMatches(text).lastOrNull?.group(1) ??
+            '';
+        setSessionPlan(projectId, sessionId, entries, logicMermaid: diagram);
+      }
+    }
+    for (final block in parseFencedBlocks(
+      text,
+      tag: 'cumplido',
+      keys: const {'puntos'},
+    )) {
+      completePlanItems(
+        projectId,
+        sessionId,
+        items: (block['puntos'] ?? '')
+            .split('\n')
+            .map((line) => line.trim())
+            .where((line) => line.isNotEmpty)
+            .toList(),
+        byProfileId: profileId,
+      );
+    }
+  }
+
+  /// Registra especialistas completos y conserva su autor y skills reales.
   Future<void> _registerDeclaredAgents({
     required String projectId,
     required String sessionId,
@@ -5078,6 +5140,42 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
       // the whole point of registering agents globally.
       var profileId = existing?.id;
       if (existing == null) {
+        final skillNames = (fields['skills'] ?? '')
+            .split(',')
+            .map((name) => name.trim())
+            .where((name) => name.isNotEmpty)
+            .toSet()
+            .toList();
+        final availableSkills = SkillsService.instance.notifier.data.skills;
+        final missing = skillNames
+            .where(
+              (name) => !availableSkills.any(
+                (skill) =>
+                    skill.name == name && skill.content.trim().isNotEmpty,
+              ),
+            )
+            .toList();
+        final incomplete = [
+          'rol',
+          'proposito',
+          'instrucciones',
+        ].where((key) => (fields[key] ?? '').trim().isEmpty).toList();
+        if (incomplete.isNotEmpty || missing.isNotEmpty) {
+          _appendMessage(
+            projectId,
+            sessionId,
+            ChatMessage(
+              role: .error,
+              text:
+                  'No se registró @$handle: ${incomplete.isEmpty ? '' : 'faltan ${incomplete.join(', ')}. '}'
+                  '${missing.isEmpty ? '' : 'Skills inexistentes o vacías: ${missing.join(', ')}. '}'
+                  'Define la especialidad, su propósito e instrucciones y usa skills del catálogo.',
+              timestamp: DateTime.now(),
+              workNodeId: workNodeId,
+            ),
+          );
+          continue;
+        }
         final error = profiles.createProfile(
           name: handle,
           role: fields['rol'] ?? handle,
@@ -5085,7 +5183,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
             if (fields['proposito'] != null) fields['proposito']!,
             if (fields['instrucciones'] != null) fields['instrucciones']!,
           ].join('\n\n'),
-          skills: const [],
+          skills: skillNames,
           rules: const [],
           model: author.model,
           effort: author.effort,
@@ -5191,7 +5289,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
 
   /// Turns every `@handle` [asker] wrote into a turn for that member, then
   /// hands the answer back to [asker] so it can continue its own step.
-  Future<void> _resolveConsultations({
+  Future<TurnOutcome?> _resolveConsultations({
     required String projectId,
     required String sessionId,
     required AgentProfile asker,
@@ -5199,9 +5297,17 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     required String text,
     required String turnId,
     required int depth,
+    required String executionId,
+    required int maxTurns,
+    required double maxBudgetUsd,
+    required bool planMode,
+    required String instruction,
+    required String? consultOfProfileId,
+    required String consultationTurnId,
   }) async {
+    TurnOutcome? continuation;
     final project = _projectById(projectId);
-    if (project == null) return;
+    if (project == null) return continuation;
 
     final open = _sessionById(project, sessionId);
     final members = membersOf(project, session: open);
@@ -5210,7 +5316,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     // Sobre el texto SIN código: un @handle dentro de un diff o de un
     // ejemplo es texto, no una mención — y disparaba turnos reales.
     for (final match in _mentionPattern.allMatches(stripCodeSpans(text))) {
-      if (_stoppedSessionIds.contains(sessionId)) return;
+      if (_stoppedSessionIds.contains(sessionId)) return continuation;
 
       final handle = match.group(1);
       if (handle == null || handle == asker.name) continue;
@@ -5240,7 +5346,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
       // esto, un turno con varios miembros mencionándose entre sí podía
       // disparar decenas de turnos CLI reales.
       final gastadas = _consultedPairs
-          .where((pair) => pair.startsWith('$turnId:'))
+          .where((pair) => pair.startsWith('$consultationTurnId:'))
           .length;
       if (gastadas >= _maxConsultsPerRootTurn) {
         _appendMessage(
@@ -5260,12 +5366,14 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
       // El par inverso no rebota: si A ya le consultó a B en este turno, la
       // mención de B a A es la respuesta volviendo — vuelve sola por la
       // continuación, no hace falta otro turno. A→B→A muere acá.
-      if (_consultedPairs.contains('$turnId:${target.id}>${asker.id}')) {
+      if (_consultedPairs.contains(
+        '$consultationTurnId:${target.id}>${asker.id}',
+      )) {
         continue;
       }
 
       // One consult per pair per turn — see [_consultedPairs].
-      final pair = '$turnId:${asker.id}>${target.id}';
+      final pair = '$consultationTurnId:${asker.id}>${target.id}';
       if (!_consultedPairs.add(pair)) continue;
 
       final consulta = await _runTurn(
@@ -5281,8 +5389,9 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
         consultOfProfileId: asker.id,
         turnId: turnId,
         depth: depth + 1,
+        consultationTurnId: consultationTurnId,
       );
-      if (_stoppedSessionIds.contains(sessionId)) return;
+      if (_stoppedSessionIds.contains(sessionId)) return continuation;
 
       // La respuesta es LO QUE DIJO el consultado — no el último mensaje del
       // hilo, que podía ser un error o un aviso de sistema presentado como
@@ -5303,25 +5412,32 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
         continue;
       }
 
-      // The asker's continuation must NOT open new consults. Otherwise a
-      // courteous sign-off that names the other agent ("quedo a la espera de
-      // @revision") is read as a fresh question, and the two of them
-      // ping-pong confirmations at real cost.
-      await _runTurn(
+      // La respuesta vuelve a la misma ejecución y su resultado vuelve al
+      // motor. La profundidad y el registro de pares evitan rebotes.
+      continuation = await _runTurn(
         projectId: projectId,
         sessionId: sessionId,
         member: asker,
         workNodeId: workNodeId,
-        instruction: consultAnswerPrompt(
-          targetHandle: target.name,
-          answer: consulta.answer,
-        ),
-        consultOfProfileId: null,
+        instruction:
+            '$instruction\n\n${consultAnswerPrompt(targetHandle: target.name, answer: consulta.answer)}',
+        consultOfProfileId: consultOfProfileId,
         turnId: turnId,
         depth: depth + 1,
-        allowConsults: false,
+        allowConsults: true,
+        executionId: executionId,
+        maxTurns: maxTurns,
+        maxBudgetUsd: maxBudgetUsd,
+        planMode: planMode,
+        consultationTurnId: consultationTurnId,
       );
+      if (!continuation.ok ||
+          continuation.report?.status == TurnOutcomeStatus.needsUser ||
+          continuation.report?.status == TurnOutcomeStatus.needsPermission) {
+        return continuation;
+      }
     }
+    return continuation;
   }
 
   // ── prompts ─────────────────────────────────────────────────────────
@@ -5451,6 +5567,13 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     ).where((m) => m.id != member.id).toList();
 
     final contracts = StringBuffer();
+    contracts.writeln(
+      specialistDeclarationPrompt(
+        skills
+            .where((skill) => skill.content.trim().isNotEmpty)
+            .map((skill) => skill.name),
+      ),
+    );
     // IDENTIDAD — siempre, haya compañeros o no. Cuando estaba adentro del
     // `if` de compañeros, un proyecto de un solo miembro perdía entero el
     // "SOS @handle" y el nombre del proyecto.

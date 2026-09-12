@@ -1,0 +1,85 @@
+#!/usr/bin/env python3
+"""Deterministic external provider for the real workflow/process integration test."""
+import json
+from pathlib import Path
+import sys
+
+args = sys.argv[1:]
+prompt = args[args.index('-p') + 1]
+log = Path('provider-turns.jsonl')
+history = [json.loads(line) for line in log.read_text().splitlines()] if log.exists() else []
+resume = args[args.index('--resume') + 1] if '--resume' in args else None
+
+def report(status, summary, verdict=''):
+    return f'```keel-outcome\nstatus: {status}\nsummary: {summary}\nverdict: {verdict}\n```'
+
+if 'te pide una consulta acotada' in prompt:
+    role = 'specialist'
+    system = args[args.index('--append-system-prompt') + 1] if '--append-system-prompt' in args else ''
+    answer = 'SPECIALIST_CONTEXT: devolver 409 y preservar la visibilidad.' if 'VISIBILITY_SKILL' in system else 'Falta la skill de visibilidad.'
+elif 'respondió tu consulta' in prompt:
+    role = 'implementer'
+    if resume == 'fake-implementer' and 'SPECIALIST_CONTEXT' in prompt and 'Contrato del nodo: IMPLEMENT_FIXTURE' in prompt:
+        answer = report('in_progress', 'CONSULTATION_ACCEPTED: escribir 409 preservando visibilidad en implementation.txt.')
+    else:
+        answer = report('blocked', 'La continuación perdió la sesión o la respuesta del especialista.')
+elif 'PLAN_FIXTURE' in prompt and 'Contrato del nodo: PLAN_FIXTURE' in prompt:
+    role = 'planner'
+    answer = '''```plan
+puntos:
+Definir criterio | planner
+Implementar visibilidad | implementer
+Auditar resultado | auditor
+```
+```mermaid
+flowchart TD
+  A["Comprobar visibilidad"] --> B{"¿Recurso visible?"}
+  B -->|"Privado ajeno"| C["Responder 404"]
+  B -->|"Propio deprecado"| D["Responder 409"]
+```
+''' + report('done', 'PLAN_CONTEXT: implementar 409 preservando visibilidad y luego auditar.')
+elif 'Contrato del nodo: AUDIT_FIXTURE' in prompt:
+    role = 'auditor'
+    answer = '```cumplido\npuntos:\nDefinir criterio\nImplementar visibilidad\nAuditar resultado\n```\n' + report('done', 'Archivo verificado.', 'GO') if Path('implementation.txt').exists() else report('blocked', 'No existe la implementación.')
+elif 'AVANCE DE TU TURNO ANTERIOR' in prompt and 'CONSULTATION_ACCEPTED' in prompt:
+    role = 'implementer'
+    Path('implementation.txt').write_text('409; visibility preserved\n')
+    answer = report('done', 'Implementación escrita y verificada en implementation.txt.')
+else:
+    role = 'implementer'
+    previous = sum(turn['role'] == role for turn in history)
+    if previous == 0:
+        answer = 'cargo check limpio. Sigo con el resto del gate mientras leo el código.'
+    elif 'No hagas más' in prompt:
+        answer = 'Sigo con el resto del gate mientras leo el código.'
+    elif 'PLAN_CONTEXT' in prompt and 'cargo check limpio' in prompt:
+        answer = '''```agente
+handle: incomplete
+rol: general
+```
+```agente
+handle: nonexistent
+rol: Experto HTTP
+proposito: Verificar la respuesta HTTP.
+instrucciones: Revisar evidencia y devolver la conclusión.
+skills: absent-skill
+```
+```agente
+handle: specialist
+rol: Experto en visibilidad y contratos HTTP
+proposito: Validar el contrato de visibilidad antes de implementar.
+instrucciones: Revisa visibilidad y estado; devuelve evidencia, objeciones y una recomendación verificable. No escribas archivos.
+skills: visibility-contract
+```
+
+@specialist, confirma el criterio de visibilidad antes de implementar.
+
+''' + report('in_progress', 'Gate inicial correcto; integro la consulta y escribo el cambio.')
+    else:
+        answer = report('blocked', 'La continuación perdió el plan o el progreso previo.')
+
+with log.open('a') as output:
+    output.write(json.dumps({'role': role, 'resume': resume, 'prompt': prompt, 'budget': float(args[args.index('--max-budget-usd') + 1]) if '--max-budget-usd' in args else 0}) + '\n')
+print(json.dumps({'type': 'system', 'subtype': 'init', 'session_id': f'fake-{role}'}))
+print(json.dumps({'type': 'assistant', 'message': {'content': [{'type': 'text', 'text': answer}]}}))
+print(json.dumps({'type': 'result', 'subtype': 'success', 'is_error': False, 'result': answer, 'session_id': f'fake-{role}', 'total_cost_usd': 0.5}))

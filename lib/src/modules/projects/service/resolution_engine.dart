@@ -128,6 +128,11 @@ class ResolutionEngine {
     final activate = report.next.trim().isEmpty ? null : report.next.trim();
 
     switch (report.status) {
+      case TurnOutcomeStatus.inProgress:
+        return OutcomeApplication(
+          resolution: _replaceNodeStatus(stamped, nodeId, .pending),
+          activateCapabilityId: activate,
+        );
       case TurnOutcomeStatus.done:
         if (isAudit && report.verdict == TurnVerdict.noGo) {
           return OutcomeApplication(

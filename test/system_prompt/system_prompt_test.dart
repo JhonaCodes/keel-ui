@@ -56,7 +56,7 @@ void main() {
         projectName: 'keel-ui',
         projectPurpose: 'la app',
       );
-      expect(prompt, contains('SOS @flutter-experto (desarrollo)'));
+      expect(prompt, contains('ERES @flutter-experto (desarrollo)'));
       expect(prompt, contains('"keel-ui"'));
       expect(prompt, contains('— la app'));
     });

@@ -4,6 +4,9 @@ import 'package:keel_ui/src/shared/shared.dart';
 
 /// Cómo dice el agente que quedó su turno.
 enum TurnOutcomeStatus {
+  /// El trabajo sigue abierto y puede continuar sin una decisión humana.
+  inProgress,
+
   /// Terminó lo que el nodo pedía, con evidencia en el resumen.
   done,
 
@@ -54,6 +57,25 @@ class TurnOutcomeReport {
     this.next = '',
     this.question = '',
   });
+
+  TurnOutcomeReport copyWith({
+    TurnOutcomeStatus? status,
+    String? summary,
+    List<String>? files,
+    String? artifacts,
+    TurnVerdict? verdict,
+    bool clearVerdict = false,
+    String? next,
+    String? question,
+  }) => TurnOutcomeReport(
+    status: status ?? this.status,
+    summary: summary ?? this.summary,
+    files: files ?? this.files,
+    artifacts: artifacts ?? this.artifacts,
+    verdict: clearVerdict ? null : verdict ?? this.verdict,
+    next: next ?? this.next,
+    question: question ?? this.question,
+  );
 
   Map<String, dynamic> toJson() => {
     'status': status.name,
@@ -147,6 +169,7 @@ TurnOutcomeStatus? _statusFromName(String? raw) {
   final name = (raw ?? '').trim().toLowerCase().replaceAll('-', '_');
   return switch (name) {
     'done' => TurnOutcomeStatus.done,
+    'in_progress' || 'inprogress' => TurnOutcomeStatus.inProgress,
     'blocked' => TurnOutcomeStatus.blocked,
     'needs_user' || 'needsuser' => TurnOutcomeStatus.needsUser,
     'needs_permission' || 'needspermission' => TurnOutcomeStatus.needsPermission,

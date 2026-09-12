@@ -51,7 +51,10 @@ class SessionLiveTurnStrip extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              _LiveMemberAvatar(accent: accent),
+              Semantics(
+                label: AppLocalizations.of(context).sessionTurnOpen,
+                child: _LiveMemberAvatar(accent: accent),
+              ),
               const SizedBox(width: 10),
               Expanded(
                 child: _LiveHeader(
@@ -110,15 +113,6 @@ class _LiveHeader extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        SizedBox.square(
-          dimension: 14,
-          child: CircularProgressIndicator(
-            strokeWidth: 2,
-            color: accent,
-            semanticsLabel: AppLocalizations.of(context).sessionTurnOpen,
-          ),
-        ),
-        const SizedBox(width: 8),
         Text(
           name,
           style: TextStyle(

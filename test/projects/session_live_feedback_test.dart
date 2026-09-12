@@ -37,7 +37,8 @@ void main() {
       ),
     );
     expect(find.text('Awaiting provider output…'), findsOneWidget);
-    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+    expect(find.bySemanticsLabel('Turn open'), findsOneWidget);
     expect(find.byType(TurnPhaseLabel), findsNothing);
     state.value = state.value.copyWith(reasoning: 'Inspecting evidence');
     await tester.pump();

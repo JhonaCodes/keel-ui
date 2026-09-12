@@ -160,7 +160,7 @@ class MapNode {
   /// desincronizar del otro.
   int get backCalls => consults.length;
 
-  /// Cuántos subagentes abrió, contando los que no entran en el carril.
+  /// Delegaciones y consultas directas, incluidas las ramas agrupadas.
   final int subagentCount;
 
   /// Los que quedaron afuera del dibujo, para la píldora que los abre.
@@ -541,7 +541,10 @@ class SessionMap {
             (total, message) => total + (message.costUsd ?? 0),
           ),
           consults: consults,
-          subagentCount: mine.length,
+          subagentCount:
+              mine.length +
+              (session?.consultationsFrom(post.profileId, post.workNodeId) ??
+                  0),
           hiddenSubagents: mine.length - drawn,
         ),
       );
@@ -718,13 +721,15 @@ class SessionMap {
   required Map<String, int> colorOf,
   required Map<String, String> handleOf,
 }) {
+  final history = [...messages]
+    ..sort((left, right) => left.timestamp.compareTo(right.timestamp));
   final answersByKey = <String, List<({ChatMessage message, String ask})>>{};
   final askerByKey = <String, String>{};
   final targetByKey = <String, String>{};
   final workByKey = <String, String>{};
 
-  for (var index = 0; index < messages.length; index++) {
-    final message = messages[index];
+  for (var index = 0; index < history.length; index++) {
+    final message = history[index];
     final asker = message.consultOfProfileId;
     final target = message.authorProfileId;
     final workNodeId = message.workNodeId;
@@ -741,11 +746,7 @@ class SessionMap {
     workByKey[key] = workNodeId;
     answersByKey.putIfAbsent(key, () => []).add((
       message: message,
-      ask: _askedIn(
-        messages.take(index),
-        asker,
-        targetHandle: handleOf[target],
-      ),
+      ask: _askedIn(history.take(index), asker, targetHandle: handleOf[target]),
     ));
   }
 
@@ -812,94 +813,107 @@ class SessionMap {
   };
   final maxSubagentsByParent = <String, int>{};
 
-  for (final entry in answersByKey.entries) {
-    final key = entry.key;
-    final asker = askerByKey[key]!;
-    final target = targetByKey[key]!;
-    final workNodeId = workByKey[key]!;
-    final parentId = actorAtWork[_actorAtWorkKey(asker, workNodeId)];
-    final parent = parentId == null ? null : allNodes[parentId];
-    final member = members.where((item) => item.id == target).firstOrNull;
-    if (parent == null || member == null) continue;
+  final pendingConsultations = answersByKey.entries.toList();
+  while (pendingConsultations.isNotEmpty) {
+    final before = pendingConsultations.length;
+    for (final entry in [...pendingConsultations]) {
+      final key = entry.key;
+      final asker = askerByKey[key]!;
+      final target = targetByKey[key]!;
+      final workNodeId = workByKey[key]!;
+      final parentId = actorAtWork[_actorAtWorkKey(asker, workNodeId)];
+      final parent = parentId == null ? null : allNodes[parentId];
+      final member = members.where((item) => item.id == target).firstOrNull;
+      if (parent == null || member == null) continue;
+      pendingConsultations.remove(entry);
 
-    final id = 'consult:$workNodeId:$asker:$target';
-    final answers = entry.value;
-    final latest = answers.lastOrNull;
-    final isLive = key == liveKey;
-    final ask = isLive
-        ? _askedIn(messages, asker, targetHandle: member.name)
-        : (latest?.ask ?? '').trim();
-    final matchingSubagents = [
-      for (final subagent in subagents)
-        if (subagent.parentSubagentId == null &&
-            !drawnSubagents.contains(subagent.id) &&
-            subagent.parentProfileId == target &&
-            subagent.parentWorkNodeId == workNodeId)
-          subagent,
-    ];
-    final drawn = expandedParents.contains(id)
-        ? matchingSubagents.length
-        : _minInt(matchingSubagents.length, kSubagentsDrawn);
-    maxSubagentsByParent[id] = drawn;
+      final id = 'consult:$workNodeId:$asker:$target';
+      final answers = entry.value;
+      final latest = answers.lastOrNull;
+      final isLive = key == liveKey;
+      final ask = isLive
+          ? _askedIn(history, asker, targetHandle: member.name)
+          : (latest?.ask ?? '').trim();
+      final matchingSubagents = [
+        for (final subagent in subagents)
+          if (subagent.parentSubagentId == null &&
+              !drawnSubagents.contains(subagent.id) &&
+              subagent.parentProfileId == target &&
+              subagent.parentWorkNodeId == workNodeId)
+            subagent,
+      ];
+      final drawn = expandedParents.contains(id)
+          ? matchingSubagents.length
+          : _minInt(matchingSubagents.length, kSubagentsDrawn);
+      maxSubagentsByParent[id] = drawn;
 
-    final node = MapNode(
-      id: id,
-      kind: MapNodeKind.consultation,
-      label: member.name,
-      column: parent.column,
-      lane: parent.lane + 1,
-      laneSlot: takeSlot(parent),
-      parentId: parent.id,
-      profileId: member.id,
-      colorIndex: colorOf[member.id] ?? -1,
-      workNodeId: workNodeId,
-      nodeTitle: parent.nodeTitle,
-      nodeInstruction: ask,
-      state: isLive ? MapNodeState.replying : MapNodeState.done,
-      resolved: latest == null ? '' : firstSentenceOf(latest.message.text),
-      said: latest?.message.text.trim() ?? '',
-      answeredOnly: true,
-      reasoning: isLive
-          ? (live?.reasoning ?? '')
-          : (latest?.message.reasoning ?? ''),
-      activity: isLive ? live?.activity : null,
-      elapsed: Duration(
-        milliseconds: answers.fold(
-          0,
-          (total, answer) => total + (answer.message.durationMs ?? 0),
-        ),
-      ),
-      costUsd: answers.fold(
-        0.0,
-        (total, answer) => total + (answer.message.costUsd ?? 0),
-      ),
-      consults: [
-        for (final answer in answers)
-          MapConsult(
-            askedBy: handleOf[asker] ?? asker,
-            ask: answer.ask,
-            answer: answer.message.text.trim(),
+      final node = MapNode(
+        id: id,
+        kind: MapNodeKind.consultation,
+        label: member.name,
+        column: parent.column,
+        lane: parent.lane + 1,
+        laneSlot: takeSlot(parent),
+        parentId: parent.id,
+        profileId: member.id,
+        colorIndex: colorOf[member.id] ?? -1,
+        workNodeId: workNodeId,
+        nodeTitle: parent.nodeTitle,
+        nodeInstruction: ask,
+        state: isLive ? MapNodeState.replying : MapNodeState.done,
+        resolved: latest == null ? '' : firstSentenceOf(latest.message.text),
+        said: latest?.message.text.trim() ?? '',
+        answeredOnly: true,
+        reasoning: isLive
+            ? (live?.reasoning ?? '')
+            : (latest?.message.reasoning ?? ''),
+        activity: isLive ? live?.activity : null,
+        elapsed: Duration(
+          milliseconds: answers.fold(
+            0,
+            (total, answer) => total + (answer.message.durationMs ?? 0),
           ),
-      ],
-      subagentCount: matchingSubagents.length,
-      hiddenSubagents: matchingSubagents.length - drawn,
-    );
-    nodes.add(node);
-    allNodes[id] = node;
-    actorAtWork[_actorAtWorkKey(target, workNodeId)] = id;
+        ),
+        costUsd: answers.fold(
+          0.0,
+          (total, answer) => total + (answer.message.costUsd ?? 0),
+        ),
+        consults: [
+          for (final answer in answers)
+            MapConsult(
+              askedBy: handleOf[asker] ?? asker,
+              ask: answer.ask,
+              answer: answer.message.text.trim(),
+            ),
+        ],
+        subagentCount:
+            matchingSubagents.length +
+            (session?.consultationsFrom(target, workNodeId) ?? 0),
+        hiddenSubagents: matchingSubagents.length - drawn,
+      );
+      nodes.add(node);
+      allNodes[id] = node;
+      actorAtWork[_actorAtWorkKey(target, workNodeId)] = id;
 
-    edges.add(
-      MapEdge(
-        fromId: parent.id,
-        toId: id,
-        kind: MapEdgeKind.back,
-        label: ask,
-        live: isLive,
-      ),
-    );
-    if (answers.isNotEmpty) {
-      edges.add(MapEdge(fromId: id, toId: parent.id, kind: MapEdgeKind.answer));
+      edges.add(
+        MapEdge(
+          fromId: parent.id,
+          toId: id,
+          kind: MapEdgeKind.back,
+          label: ask,
+          live: isLive,
+        ),
+      );
+      if (answers.isNotEmpty) {
+        edges.add(
+          MapEdge(fromId: id, toId: parent.id, kind: MapEdgeKind.answer),
+        );
+      }
     }
+
+    // Un padre puede aparecer después que su respuesta en el historial.
+    // Sin progreso, detenerse también protege frente a referencias cíclicas.
+    if (pendingConsultations.length == before) break;
   }
 
   final childIndexByParent = <String, int>{};
@@ -1313,4 +1327,31 @@ List<MapEdge> _spawnEdges({
             if (from != to)
               MapEdge(fromId: from, toId: to, kind: MapEdgeKind.spawn),
   ];
+}
+
+extension _SessionConsultationCounts on Session {
+  int consultationsFrom(String profileId, String? workNodeId) {
+    final targets = {
+      for (final message in messages)
+        if (message.role == .assistant &&
+            message.consultOfProfileId == profileId &&
+            message.workNodeId == workNodeId &&
+            message.authorProfileId != profileId)
+          ...{message.authorProfileId}.nonNulls,
+    };
+    final live = liveTurn;
+    if (isRunning &&
+        live != null &&
+        live.consultOfProfileId == profileId &&
+        live.profileId != profileId &&
+        _workNodeOfLiveConsult(
+              session: this,
+              messages: messages,
+              askerId: profileId,
+            ) ==
+            workNodeId) {
+      targets.add(live.profileId);
+    }
+    return targets.length;
+  }
 }

@@ -24,6 +24,101 @@ AgentProfile _member(String name) => AgentProfile(
 );
 
 void main() {
+  test(
+    'native delegation and two expert consultations remain separate after reload',
+    () {
+      final session = Session(
+        id: 'mixed',
+        title: 'Mixed tree',
+        createdAt: _epoch,
+        subagents: [
+          SessionSubagent(
+            id: 'native-audit',
+            parentProfileId: 'dev',
+            parentWorkNodeId: 'implementation',
+            agentType: 'auditor',
+            ask: 'Audit implementation',
+            prompt: 'Audit implementation',
+            startedAt: _epoch,
+            phase: .done,
+          ),
+        ],
+        messages: [
+          // Replies can precede the parent entry after merging persisted events.
+          for (final expert in ['tests', 'flutter'])
+            ChatMessage(
+              role: .assistant,
+              text: 'Verified $expert',
+              timestamp: _epoch,
+              authorProfileId: expert,
+              workNodeId: 'planning',
+              consultOfProfileId: 'auditor',
+            ),
+          ChatMessage(
+            role: .assistant,
+            text: 'Audit complete',
+            timestamp: _epoch,
+            authorProfileId: 'auditor',
+            workNodeId: 'planning',
+            consultOfProfileId: 'planner',
+          ),
+        ],
+        resolutionCase: const ResolutionCase(
+          id: 'case',
+          ownerRole: 'planner',
+          nodes: [
+            WorkNode(
+              id: 'planning',
+              kind: .triage,
+              ownerRole: 'planner',
+              ownerProfileId: 'planner',
+            ),
+            WorkNode(
+              id: 'implementation',
+              kind: .triage,
+              ownerRole: 'dev',
+              ownerProfileId: 'dev',
+            ),
+          ],
+        ),
+      );
+      final map = SessionMap.from(
+        session: Session.fromJson(session.toJson()),
+        members: [
+          'dev',
+          'planner',
+          'auditor',
+          'tests',
+          'flutter',
+        ].map(_member).toList(),
+        workflow: null,
+      );
+      final auditor = map.nodes.singleWhere(
+        (node) => node.kind == .consultation && node.label == 'auditor',
+      );
+      expect(map.nodeById('sub:native-audit')!.parentId, 'node:implementation');
+      expect(map.nodeById('node:implementation')!.subagentCount, 1);
+      expect(map.nodeById('node:planning')!.subagentCount, 1);
+      expect(auditor.parentId, 'node:planning');
+      expect(auditor.subagentCount, 2);
+      for (final expert in ['tests', 'flutter']) {
+        final node = map.nodes.singleWhere((node) => node.label == expert);
+        expect(node.parentId, auditor.id);
+        expect(node.lane, auditor.lane + 1);
+        expect(
+          map.edges.any(
+            (edge) => edge.fromId == auditor.id && edge.toId == node.id,
+          ),
+          isTrue,
+        );
+      }
+      expect(
+        map.nodes.where((node) => node.kind == .consultation),
+        hasLength(3),
+      );
+    },
+  );
+
   test('native grandchildren retain their parent and survive persistence', () {
     final child = SessionSubagent(
       id: 'child',
@@ -488,19 +583,19 @@ void main() {
         ),
         ChatMessage(
           role: ChatRole.assistant,
-          text: 'Necesito que @datos confirme la persistencia.',
-          timestamp: _epoch.add(const Duration(seconds: 1)),
-          authorProfileId: 'arquitecto',
-          workNodeId: 'diagnosis',
-          consultOfProfileId: 'resolver',
-        ),
-        ChatMessage(
-          role: ChatRole.assistant,
           text: 'La persistencia conserva el identificador.',
           timestamp: _epoch.add(const Duration(seconds: 2)),
           authorProfileId: 'datos',
           workNodeId: 'diagnosis',
           consultOfProfileId: 'arquitecto',
+        ),
+        ChatMessage(
+          role: ChatRole.assistant,
+          text: 'Necesito que @datos confirme la persistencia.',
+          timestamp: _epoch.add(const Duration(seconds: 1)),
+          authorProfileId: 'arquitecto',
+          workNodeId: 'diagnosis',
+          consultOfProfileId: 'resolver',
         ),
       ],
       resolutionCase: const ResolutionCase(
@@ -534,6 +629,8 @@ void main() {
     final data = map.nodes.singleWhere((node) => node.label == 'datos');
     final layout = MapLayout.of(map);
 
+    expect(map.nodeById('node:diagnosis')!.subagentCount, 1);
+    expect(architect.subagentCount, 1);
     expect(architect.parentId, 'node:diagnosis');
     expect(architect.lane, 1);
     expect(data.parentId, architect.id);

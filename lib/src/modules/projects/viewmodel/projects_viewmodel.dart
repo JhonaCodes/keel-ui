@@ -1614,7 +1614,13 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     if (session.isRunning || _activeSessionRuns.contains(sessionId)) return;
     if (!resolution.preflight.ready) return;
     if (resolution.status != ResolutionCaseStatus.active) return;
-    if (_nextReadyNode(resolution) == null) return;
+    // Sin la segunda condición, un caso cuyo único nodo abierto quedó en
+    // `running` no podía ni entrar a repararse: la guarda lo rebotaba acá y
+    // el trabajo terminado se quedaba adentro de una sesión muerta.
+    if (_nextReadyNode(resolution) == null &&
+        !ResolutionEngine.hasOrphanRunningNodes(resolution)) {
+      return;
+    }
     await _runWorkflow(projectId, sessionId, session.request);
   }
 
@@ -1726,6 +1732,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
 
     final workflowTurnId = generateUuidV4();
     try {
+      workflowLoop:
       while (!_stoppedSessionIds.contains(sessionId)) {
         // El techo de costo se mira ANTES de elegir nodo: un nodo que ya no
         // entra en el presupuesto no arranca, y lo que le queda al que sí
@@ -1772,26 +1779,39 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
         }
         final node = _nextReadyNode(resolution);
         if (node == null) {
-          if (ResolutionEngine.canComplete(resolution)) {
-            _storeResolution(
-              projectId,
-              sessionId,
-              resolution.copyWith(status: ResolutionCaseStatus.completed),
-            );
-            _finishSession(projectId, sessionId, SessionStatus.finished);
-          } else {
-            _appendMessage(
-              projectId,
-              sessionId,
-              ChatMessage(
-                role: ChatRole.error,
-                text:
-                    'El caso no cierra: quedan gates, evidencia o cobertura '
-                    'de migración sin registrar.',
-                timestamp: DateTime.now(),
-              ),
-            );
-            _finishSession(projectId, sessionId, SessionStatus.failed);
+          final stalled = ResolutionEngine.settleStalled(resolution);
+          resolution = stalled.resolution;
+          _storeResolution(projectId, sessionId, resolution);
+          final anchorNodeId = stalled.anchorNodeId.isEmpty
+              ? null
+              : stalled.anchorNodeId;
+          switch (stalled.outcome) {
+            case StalledCaseOutcome.completed:
+              _finishSession(projectId, sessionId, SessionStatus.finished);
+            case StalledCaseOutcome.reopened:
+              _appendMessage(
+                projectId,
+                sessionId,
+                ChatMessage(
+                  role: ChatRole.system,
+                  text: stalled.reason,
+                  timestamp: DateTime.now(),
+                  workNodeId: anchorNodeId,
+                ),
+              );
+              continue workflowLoop;
+            case StalledCaseOutcome.unresolved:
+              _appendMessage(
+                projectId,
+                sessionId,
+                ChatMessage(
+                  role: ChatRole.blocked,
+                  text: stalled.reason,
+                  timestamp: DateTime.now(),
+                  workNodeId: anchorNodeId,
+                ),
+              );
+              _finishSession(projectId, sessionId, SessionStatus.failed);
           }
           break;
         }

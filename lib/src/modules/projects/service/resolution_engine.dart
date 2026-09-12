@@ -301,6 +301,92 @@ class ResolutionEngine {
     );
   }
 
+  /// Nodos que quedaron `running` sin ningún turno vivo detrás.
+  ///
+  /// El loop del workflow es secuencial: solo vuelve a pedir nodo listo
+  /// cuando el turno del anterior ya se resolvió. Un `running` en ese punto
+  /// no es trabajo en curso, es un nodo abandonado.
+  static bool hasOrphanRunningNodes(ResolutionCase resolution) =>
+      resolution.nodes.any((node) => node.status == WorkNodeStatus.running);
+
+  /// Qué hacer cuando el loop no encuentra nodo listo para correr.
+  ///
+  /// Vive acá y no adentro del ViewModel porque es la decisión que sella la
+  /// sesión: si se equivoca, tira a la basura trabajo terminado. Un nodo
+  /// abandonado en `running` es un estado inconsistente que el motor sabe
+  /// reparar, así que se repara y el caso retoma; recién cuando no queda
+  /// nada que reparar se dice qué falta, con nombre y apellido.
+  static StalledCase settleStalled(ResolutionCase resolution) {
+    if (canComplete(resolution)) {
+      return StalledCase(
+        resolution: resolution.copyWith(
+          status: ResolutionCaseStatus.completed,
+        ),
+        outcome: StalledCaseOutcome.completed,
+      );
+    }
+
+    final orphans = [
+      for (final node in resolution.nodes)
+        if (node.status == WorkNodeStatus.running) node,
+    ];
+    if (orphans.isNotEmpty) {
+      return StalledCase(
+        resolution: releaseRunningNodes(resolution),
+        outcome: StalledCaseOutcome.reopened,
+        reason:
+            'Quedaron pasos abiertos sin turno vivo: '
+            '${orphans.map(_nodeName).join(', ')}. Se reabren y el caso '
+            'retoma desde ahí.',
+        anchorNodeId: orphans.first.id,
+      );
+    }
+
+    // `canComplete` ya dijo que no, así que al menos una de las tres listas
+    // trae algo: el texto nunca queda sin motivo.
+    final openNodes = [
+      for (final node in resolution.nodes)
+        if (node.status != WorkNodeStatus.done) node,
+    ];
+    final openCoverage = [
+      for (final entry in resolution.coverage)
+        if (entry.status == MigrationCoverageStatus.pending) entry.area.name,
+    ];
+    final openFindings = [
+      for (final finding in resolution.findings)
+        if (finding.status != ResolutionFindingStatus.resolved)
+          finding.evidence.summary,
+    ];
+    final missing = [
+      if (openNodes.isNotEmpty)
+        'pasos sin cerrar: '
+            '${openNodes.map((node) => '${_nodeName(node)} (${_statusLabel(node.status)})').join(', ')}',
+      if (openCoverage.isNotEmpty)
+        'cobertura de migración sin registrar: ${openCoverage.join(', ')}',
+      if (openFindings.isNotEmpty)
+        'hallazgos sin resolver: ${openFindings.join(' · ')}',
+    ];
+    return StalledCase(
+      // Bloqueado, no completado: el caso sigue siendo retomable a mano
+      // desde el paso que [anchorNodeId] señala.
+      resolution: resolution.copyWith(status: ResolutionCaseStatus.blocked),
+      outcome: StalledCaseOutcome.unresolved,
+      reason: 'El caso no cierra. Falta ${missing.join('; ')}.',
+      anchorNodeId: openNodes.firstOrNull?.id ?? '',
+    );
+  }
+
+  static String _nodeName(WorkNode node) =>
+      '"${node.title.isEmpty ? node.id : node.title}"';
+
+  static String _statusLabel(WorkNodeStatus status) => switch (status) {
+    WorkNodeStatus.pending => 'pendiente',
+    WorkNodeStatus.running => 'abierto sin turno',
+    WorkNodeStatus.paused => 'en pausa',
+    WorkNodeStatus.done => 'cerrado',
+    WorkNodeStatus.blocked => 'bloqueado',
+  };
+
   static bool canComplete(ResolutionCase resolution) {
     final nodesDone = resolution.nodes.every(
       (node) => node.status == WorkNodeStatus.done,
@@ -443,6 +529,42 @@ WorkNodeKind _kindFor(String capabilityId) => switch (capabilityId) {
   'verification' => WorkNodeKind.verification,
   _ => WorkNodeKind.custom,
 };
+
+/// Cómo termina la decisión de [ResolutionEngine.settleStalled].
+enum StalledCaseOutcome {
+  /// Todo cerrado: el caso se completa.
+  completed,
+
+  /// Había nodos abiertos sin turno vivo: se reabrieron y el loop sigue.
+  reopened,
+
+  /// No hay nada que reparar y el caso igual no puede cerrar.
+  unresolved,
+}
+
+/// Lo que sale de [ResolutionEngine.settleStalled].
+///
+/// Portador de resultado del turno en curso: no se serializa ni se compara,
+/// igual que [OutcomeApplication] y [FindingRegistration].
+class StalledCase {
+  /// El grafo con la decisión ya aplicada: cerrado, reparado o intacto.
+  final ResolutionCase resolution;
+  final StalledCaseOutcome outcome;
+
+  /// Qué pasó, en el idioma del hilo. Vacío cuando el caso cerró bien.
+  final String reason;
+
+  /// El nodo al que anclar el mensaje, para que el hilo pueda ofrecer
+  /// reintentarlo. Vacío cuando no hay ninguno señalable.
+  final String anchorNodeId;
+
+  const StalledCase({
+    required this.resolution,
+    required this.outcome,
+    this.reason = '',
+    this.anchorNodeId = '',
+  });
+}
 
 /// Lo que sale de [ResolutionEngine.applyOutcome].
 class OutcomeApplication {

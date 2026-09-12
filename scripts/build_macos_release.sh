@@ -7,13 +7,18 @@ PUBSPEC_PATH="$ROOT_DIR/pubspec.yaml"
 OUTPUT_DIR="${KEEL_COMPILED_DIR:-$(cd "$ROOT_DIR/.." && pwd)/compiled}"
 DOWNLOAD_BASE_URL="${KEEL_DOWNLOAD_BASE_URL:-https://jhonacode.com/keel}"
 DRY_RUN=false
+BUMP_VERSION=true
 
 usage() {
-  echo "Uso: scripts/build_macos_release.sh [--dry-run] [--output-dir RUTA]"
+  echo "Uso: scripts/build_macos_release.sh [--dry-run] [--no-bump] [--output-dir RUTA]"
 }
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --no-bump)
+      BUMP_VERSION=false
+      shift
+      ;;
     --dry-run)
       DRY_RUN=true
       shift
@@ -47,7 +52,10 @@ CURRENT_VERSION="$(sed -nE 's/^version:[[:space:]]*([^[:space:]]+).*/\1/p' "$PUB
   echo "No se encontró version: en pubspec.yaml" >&2
   exit 65
 }
-NEXT_VERSION="$(cd "$ROOT_DIR" && dart run tool/release_version.dart next "$CURRENT_VERSION")"
+NEXT_VERSION="$CURRENT_VERSION"
+if [[ "$BUMP_VERSION" == true ]]; then
+  NEXT_VERSION="$(cd "$ROOT_DIR" && dart run tool/release_version.dart next "$CURRENT_VERSION")"
+fi
 
 [[ "$DOWNLOAD_BASE_URL" == https://* ]] || {
   echo "KEEL_DOWNLOAD_BASE_URL debe usar HTTPS." >&2
@@ -68,7 +76,7 @@ cp "$PUBSPEC_PATH" "$ORIGINAL_PUBSPEC"
 PUBLISHED=false
 cleanup() {
   local status=$?
-  if [[ "$PUBLISHED" != true && -f "$ORIGINAL_PUBSPEC" ]]; then
+  if [[ "$BUMP_VERSION" == true && "$PUBLISHED" != true && -f "$ORIGINAL_PUBSPEC" ]]; then
     cp "$ORIGINAL_PUBSPEC" "$PUBSPEC_PATH"
     echo "La release no terminó; se restauró la versión anterior." >&2
   fi
@@ -83,7 +91,10 @@ cleanup() {
 }
 trap cleanup EXIT
 
-RELEASE_VERSION="$(cd "$ROOT_DIR" && dart run tool/release_version.dart bump "$PUBSPEC_PATH")"
+RELEASE_VERSION="$CURRENT_VERSION"
+if [[ "$BUMP_VERSION" == true ]]; then
+  RELEASE_VERSION="$(cd "$ROOT_DIR" && dart run tool/release_version.dart bump "$PUBSPEC_PATH")"
+fi
 BUILD_NAME="${RELEASE_VERSION%%+*}"
 BUILD_NUMBER="${RELEASE_VERSION##*+}"
 
@@ -108,11 +119,15 @@ EXECUTABLE_PATH="$APP_PATH/Contents/MacOS/Keel"
 codesign --force --deep --sign - "$APP_PATH"
 codesign --verify --deep --strict --verbose=2 "$APP_PATH"
 
-ARCHITECTURES="$(lipo -archs "$EXECUTABLE_PATH")"
-[[ "$ARCHITECTURES" == *arm64* && "$ARCHITECTURES" == *x86_64* ]] || {
-  echo "La app no es universal: $ARCHITECTURES" >&2
-  exit 67
-}
+for binary_path in "$EXECUTABLE_PATH" \
+  "$APP_PATH/Contents/Frameworks/App.framework/App" \
+  "$APP_PATH/Contents/Frameworks/FlutterMacOS.framework/FlutterMacOS"; do
+  ARCHITECTURES="$(lipo -archs "$binary_path")"
+  [[ "$ARCHITECTURES" == *arm64* && "$ARCHITECTURES" == *x86_64* ]] || {
+    echo "La app no es universal: $binary_path ($ARCHITECTURES)" >&2
+    exit 67
+  }
+done
 
 STAGE_DIR="$WORK_DIR/stage"
 mkdir -p "$STAGE_DIR"
@@ -126,7 +141,7 @@ cp "$ROOT_DIR/LICENSE" "$STAGE_DIR/LICENSE.txt"
   echo
   echo "1. Arrastrá Keel.app a Applications."
   echo "2. En la primera apertura, hacé clic derecho sobre Keel y elegí Abrir."
-  echo "3. Descargá actualizaciones únicamente desde jhonacode.com."
+  echo "3. Canal de descarga: $DOWNLOAD_BASE_URL"
 } > "$STAGE_DIR/LEEME.txt"
 
 DMG_NAME="Keel-$BUILD_NAME-macos-universal.dmg"

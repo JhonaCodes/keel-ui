@@ -13,6 +13,23 @@ void main() {
   setUpAll(LocalDatabase.markUnavailable);
 
   group('versionado de compilaciones', () {
+    test('CI conserva la versión del tag con --no-bump', () async {
+      final before = await File('pubspec.yaml').readAsString();
+      final current = RegExp(
+        r'^version:\s*(\S+)',
+        multiLine: true,
+      ).firstMatch(before)!.group(1)!;
+      final result = await Process.run('scripts/build_macos_release.sh', [
+        '--dry-run',
+        '--no-bump',
+        '--output-dir',
+        'build/release',
+      ]);
+      expect(result.exitCode, 0, reason: '${result.stderr}');
+      expect('${result.stdout}', contains('Próxima compilación: $current'));
+      expect(await File('pubspec.yaml').readAsString(), before);
+    });
+
     Future<String> nextVersion(String current) async {
       final result = await Process.run('dart', [
         'run',

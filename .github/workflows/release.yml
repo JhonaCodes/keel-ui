@@ -1,0 +1,208 @@
+name: Build and publish installers
+
+on:
+  push:
+    tags: ['v*']
+  # Build artifacts from a branch for review; manual runs never publish.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  FLUTTER_VERSION: '3.44.9'
+  TZ: UTC
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  metadata:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.release.outputs.version }}
+      build: ${{ steps.release.outputs.build }}
+      tag: ${{ steps.release.outputs.tag }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Validate version and tag
+        id: release
+        run: |
+          args=()
+          if [[ "$GITHUB_REF_TYPE" == tag ]]; then
+            args+=(--tag "$GITHUB_REF_NAME")
+          fi
+          python3 scripts/release_metadata.py --github-output "${args[@]}"
+      - name: Check packaging scripts
+        run: |
+          bash -n scripts/build_macos_release.sh scripts/package_linux_release.sh scripts/verify_linux_release.sh
+          shellcheck scripts/build_macos_release.sh scripts/package_linux_release.sh scripts/verify_linux_release.sh
+          python3 -m unittest discover -s test/release -p 'test_*.py'
+
+  macos:
+    needs: metadata
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - name: Resolve locked dependencies
+        run: flutter pub get --enforce-lockfile
+      - name: Optional build configuration
+        env:
+          KEEL_BUILD_DEFINES_JSON: ${{ secrets.KEEL_BUILD_DEFINES_JSON }}
+        run: |
+          if [[ -n "$KEEL_BUILD_DEFINES_JSON" ]]; then
+            umask 077
+            printf '%s' "$KEEL_BUILD_DEFINES_JSON" > keel_secrets.json
+          fi
+      - name: Verify release version behavior
+        run: flutter test --no-pub test/update/release_pipeline_contract_test.dart
+      - name: Build, sign, and verify universal DMG
+        env:
+          RELEASE_TAG: ${{ needs.metadata.outputs.tag }}
+        run: |
+          export KEEL_DOWNLOAD_BASE_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/download/$RELEASE_TAG"
+          scripts/build_macos_release.sh --no-bump --output-dir "$PWD/build/release"
+          git diff --exit-code -- pubspec.yaml pubspec.lock
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: macos-installers
+          path: |
+            build/release/Keel-${{ needs.metadata.outputs.version }}-macos-universal.dmg
+            build/release/latest.json
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+      - name: Remove build configuration
+        if: always()
+        run: rm -f keel_secrets.json
+
+  linux:
+    needs: metadata
+    # Native x86_64; keep the Ubuntu 22.04 ABI rather than using latest.
+    runs-on: ubuntu-22.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev \
+            liblzma-dev libstdc++-12-dev dpkg-dev file binutils
+      - name: Test Linux packaging with a native fixture
+        run: bash test/release/test_linux_packaging.sh
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - name: Resolve locked dependencies
+        run: flutter pub get --enforce-lockfile
+      - name: Build Linux x86_64
+        env:
+          BUILD_NAME: ${{ needs.metadata.outputs.version }}
+          BUILD_NUMBER: ${{ needs.metadata.outputs.build }}
+          KEEL_BUILD_DEFINES_JSON: ${{ secrets.KEEL_BUILD_DEFINES_JSON }}
+        run: |
+          test -f linux/CMakeLists.txt
+          args=()
+          if [[ -n "$KEEL_BUILD_DEFINES_JSON" ]]; then
+            umask 077
+            printf '%s' "$KEEL_BUILD_DEFINES_JSON" > keel_secrets.json
+            args+=(--dart-define-from-file=keel_secrets.json)
+          fi
+          flutter build linux --release --target-platform=linux-x64 \
+            "--build-name=$BUILD_NAME" "--build-number=$BUILD_NUMBER" "${args[@]}"
+          git diff --exit-code -- pubspec.yaml pubspec.lock
+      - name: Package Debian installer and portable archive
+        run: scripts/package_linux_release.sh
+      - name: Verify installation in a clean Ubuntu 22.04 container
+        env:
+          BUILD_NAME: ${{ needs.metadata.outputs.version }}
+        run: |
+          docker run --rm --platform linux/amd64 \
+            -v "$PWD/build/release:/artifacts:ro" \
+            -v "$PWD/scripts/verify_linux_release.sh:/verify.sh:ro" \
+            ubuntu:22.04 bash /verify.sh "/artifacts/keel_${BUILD_NAME}_amd64.deb"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: linux-installers
+          path: |
+            build/release/*.deb
+            build/release/*.tar.gz
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+      - name: Remove build configuration
+        if: always()
+        run: rm -f keel_secrets.json
+
+  publish:
+    needs: [metadata, macos, linux]
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          pattern: '*-installers'
+          merge-multiple: true
+          path: dist
+      - name: Check artifacts and create checksums
+        working-directory: dist
+        env:
+          BUILD_NAME: ${{ needs.metadata.outputs.version }}
+        run: |
+          test -s "Keel-${BUILD_NAME}-macos-universal.dmg"
+          test -s "keel_${BUILD_NAME}_amd64.deb"
+          test -s "Keel-${BUILD_NAME}-linux-x64.tar.gz"
+          test -s latest.json
+          sha256sum -- *.dmg *.deb *.tar.gz latest.json > SHA256SUMS.txt
+          sha256sum --check SHA256SUMS.txt
+      - name: Publish the verified tag as a GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ needs.metadata.outputs.tag }}
+          BUILD_NAME: ${{ needs.metadata.outputs.version }}
+          BUILD_NUMBER: ${{ needs.metadata.outputs.build }}
+        run: |
+          if existing_draft="$(gh release view "$RELEASE_TAG" --json isDraft --jq .isDraft 2>/dev/null)"; then
+            if [[ "$existing_draft" != true ]]; then
+              echo 'This tag already has a published release; use a new version.' >&2
+              exit 1
+            fi
+          else
+            {
+              printf 'Keel %s (build %s)\n\n' "$BUILD_NAME" "$BUILD_NUMBER"
+              printf '%s\n' \
+                '- macOS: universal DMG for Apple Silicon and Intel; ad-hoc signed, not notarized.' \
+                '- Linux: x86_64 Debian installer and portable archive, built on Ubuntu 22.04.' \
+                '- Verify downloads against SHA256SUMS.txt.' \
+                '- Windows and Linux ARM are not included: the current database plugin lacks their native binaries.'
+            } > release-notes.md
+            gh release create "$RELEASE_TAG" --verify-tag --target "$GITHUB_SHA" \
+              --draft --title "Keel $BUILD_NAME" --notes-file release-notes.md
+          fi
+          # A retry may finish uploading a draft, but never overwrite a public release.
+          gh release upload "$RELEASE_TAG" dist/* --clobber
+          gh release edit "$RELEASE_TAG" --draft=false --latest

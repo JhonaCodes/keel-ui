@@ -8,12 +8,91 @@ obvious, and because half the decisions below were taken after something failed.
 
 | Platform | State | Where it builds |
 |---|---|---|
-| macOS (arm64 + x86_64) | ✅ works | the Mac, natively |
-| Linux x86_64 | ✅ works | `hp-server`, in a container |
+| macOS (arm64 + x86_64) | ✅ works | local Mac or GitHub Actions `macos-15` |
+| Linux x86_64 | ✅ works | GitHub Actions `ubuntu-22.04`, or the existing server container |
 | Linux arm64 | ❌ impossible today | — |
 | Windows x64 | ❌ does not compile | — |
 
 Both ❌ have the **same** cause, and it is not the lack of a machine.
+
+## GitHub Actions: installers from a tag
+
+The repository workflow is [release.yml](../.github/workflows/release.yml).
+Pushing a stable tag such as `v1.2.4` builds and publishes a GitHub Release in
+this repository. The tag must match the version committed in `pubspec.yaml`:
+`version: 1.2.4+45` means tag `v1.2.4`, app version `1.2.4`, build `45`.
+CI **does not bump or commit the version**. Update it before creating the tag.
+
+After the workflow and version are committed and pushed:
+
+```sh
+git tag v1.2.4
+git push origin v1.2.4
+```
+
+Use a new version/tag for every public release. A tag mismatch, missing build
+number, prerelease suffix, or malformed version stops the workflow before
+compilation. Re-running a failed release can finish an existing draft; it cannot
+overwrite an already published release.
+
+### What gets published
+
+| Asset | Purpose |
+|---|---|
+| `Keel-VERSION-macos-universal.dmg` | macOS installer, Apple Silicon + Intel |
+| `keel_VERSION_amd64.deb` | Debian/Ubuntu x86_64 installer |
+| `Keel-VERSION-linux-x64.tar.gz` | Portable Linux x86_64 bundle |
+| `latest.json` | Existing macOS update manifest format, pointing to this release |
+| `SHA256SUMS.txt` | SHA-256 for all four files |
+
+The two build jobs run independently. Publishing starts only when **both** pass.
+The release stays a draft while assets upload and becomes public only afterward.
+Only the publish job has `contents: write`; builds have read-only repository
+access. Actions are pinned to commit SHAs and Flutter to **3.44.9**, matching the
+validated local toolchain. Dependency resolution enforces `pubspec.lock`.
+
+macOS uses `scripts/build_macos_release.sh --no-bump`. It verifies the ad-hoc
+signature, both architectures in the launcher, AOT framework and Flutter engine,
+and the DMG checksum. It is **not notarized**; distributing a notarized app would
+require Apple signing credentials and a separate notarization step.
+
+Linux compiles on native x86_64 Ubuntu 22.04. The packaging script derives Debian
+dependencies from **all** bundled ELF binaries with `dpkg-shlibdeps`, including
+the database library. A fresh Ubuntu 22.04 container then installs the `.deb`
+with `apt`, checks architecture, launcher/icon entries and the database library,
+and checks every ELF with `ldd`. Any missing runtime library prevents publishing.
+
+### Try the workflow without publishing
+
+In GitHub, open **Actions → Build and publish installers → Run workflow** and
+select the branch to build. This produces the same downloadable Actions
+artifacts, retained for 14 days, but **never creates a release**, even when run
+manually against a tag. Public release assets do not use that retention period.
+
+No custom token or build secret is required. Optionally configure the Actions
+secret `KEEL_BUILD_DEFINES_JSON` with the contents of `keel_secrets.json` to enable
+the existing build-time error reporting configuration. It is written only during
+the build and removed afterward. As explained below, values embedded into a
+distributed client are recoverable from that client.
+
+The app's existing updater still reads `https://jhonacode.com/keel/latest.json`.
+Publishing a GitHub Release does **not** upload anything to that website or change
+the updater URL. The manifest is included so that a separate website publishing
+step can use it when desired.
+
+### Local checks for changes to this pipeline
+
+```sh
+actionlint .github/workflows/release.yml
+shellcheck scripts/build_macos_release.sh scripts/package_linux_release.sh scripts/verify_linux_release.sh test/release/test_linux_packaging.sh
+python3 -m unittest discover -s test/release -p 'test_*.py'
+TZ=UTC flutter test test/update/release_pipeline_contract_test.dart
+```
+
+On Linux, `bash test/release/test_linux_packaging.sh` compiles a small ELF fixture,
+packages it, extracts and runs both distributions, and verifies that a missing
+database library is rejected. It requires `clang`, `dpkg-dev`, `file`, and Python.
+The Linux workflow runs this before building Keel itself.
 
 ## The cause: `flutter_local_db` does not cover all three
 
@@ -37,7 +116,8 @@ From which the two consequences follow:
   generates the plugin registrant, runs `add_subdirectory` over a directory that
   does not exist, and CMake dies there. No PC fixes that.
 
-1.5.1 is the latest published version; there is no update that resolves it.
+This repository currently locks 1.5.1. Windows should be enabled only after a
+dependency version with its Windows runner and native binary is validated.
 
 ## macOS
 
@@ -210,10 +290,10 @@ Linux only runs Linux containers. Neither the Mac nor `hp-server` can produce an
 
 ### The two real routes
 
-**GitHub Actions with `windows-latest`** — the recommended one. A real Windows
-runner with Visual Studio 2022 preinstalled, without buying or configuring
-hardware. A build takes ~10 min and the free plan gives 2000 min/month on private
-repos. The `.exe` comes out as an artifact.
+**GitHub Actions with a Windows runner** — a real Windows host with Visual Studio,
+without buying or configuring hardware. Actions supports Windows builds; this
+project's missing database binary is the blocker. See the current
+[GitHub-hosted runner reference](https://docs.github.com/en/actions/reference/runners/github-hosted-runners).
 
 **A Windows VM on `hp-server`** — also viable: it has `/dev/kvm`, 8 threads with
 virtualization, 15 GB of RAM, and 755 GB free. Give a Windows 11 8 GB and 100 GB,

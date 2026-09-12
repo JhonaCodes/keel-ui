@@ -791,7 +791,7 @@
       }
     }
   },
-  "labelIdleTimeoutLimit": "Minutos sin actividad del proveedor antes de cortar un paso: {count}",
+  "labelIdleTimeoutLimit": "Minutos sin actividad del proveedor antes de cortar un paso: {count} (0 = sin límite)",
   "@labelIdleTimeoutLimit": {
     "placeholders": {
       "count": {
@@ -800,7 +800,7 @@
       }
     }
   },
-  "labelNodeTimeoutLimit": "Minutos máximos por paso: {count}",
+  "labelNodeTimeoutLimit": "Minutos máximos por paso: {count} (0 = sin límite)",
   "@labelNodeTimeoutLimit": {
     "placeholders": {
       "count": {
@@ -1184,5 +1184,8 @@
   "threadConsultOf": "consulta de {name}",
   "panelAgentForNode": "Agente para \"{title}\"",
   "panelOverrideScope": "Este override solo afecta #{project}. El nodo guardará el agente concreto cuando pase el preflight.",
-  "panelSharedChangeScope": "Este cambio modifica el workflow \"{workflow}\" en todos los proyectos. Los overrides concretos se conservan."
+  "panelSharedChangeScope": "Este cambio modifica el workflow \"{workflow}\" en todos los proyectos. Los overrides concretos se conservan.",
+  "subagentPhaseUnconfirmed": "resultado sin confirmar",
+  "sessionAwaitingOutput": "Esperando salida del proveedor…",
+  "sessionTurnOpen": "Turno abierto"
 }

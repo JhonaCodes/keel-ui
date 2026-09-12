@@ -7,6 +7,74 @@ import 'package:keel_ui/src/modules/projects/model/thread_entry.dart';
 import 'package:keel_ui/src/modules/projects/model/session_subagent.dart';
 
 void main() {
+  test('reloaded unfinished child has unconfirmed outcome, not failure', () {
+    final child = SessionSubagent(
+      id: 'child',
+      parentProfileId: 'parent',
+      agentType: 'Expert',
+      ask: 'Audit',
+      prompt: 'Audit',
+      startedAt: DateTime(2026),
+    );
+    final restored = SessionSubagent.fromJson(child.toJson());
+    expect(restored.phase, SubagentPhase.unconfirmed);
+    expect(restored.isRunning, false);
+    for (final phase in [SubagentPhase.done, SubagentPhase.failed]) {
+      expect(
+        SessionSubagent.fromJson(child.copyWith(phase: phase).toJson()).phase,
+        phase,
+      );
+    }
+  });
+
+  test('implicit background acknowledgement is not a result', () {
+    final reader = ClaudeStreamReader();
+    reader.read({
+      'type': 'assistant',
+      'message': {
+        'content': [
+          {
+            'type': 'tool_use',
+            'id': 'child',
+            'name': 'Agent',
+            'input': {'prompt': 'Audit'},
+          },
+        ],
+      },
+    });
+    expect(
+      reader.read({
+        'type': 'user',
+        'message': {
+          'content': [
+            {
+              'type': 'tool_result',
+              'tool_use_id': 'child',
+              'content': [
+                {
+                  'type': 'text',
+                  'text':
+                      'Async agent launched successfully.\nagentId: agent123\nThe agent is working in the background.',
+                },
+              ],
+            },
+          ],
+        },
+      }),
+      isEmpty,
+    );
+    final done = reader.read({
+      'type': 'system',
+      'subtype': 'task_notification',
+      'task_id': 'agent123',
+      'status': 'completed',
+      'summary': 'Audit passed',
+    });
+    expect(done.single['id'], 'child');
+    expect(done.single['result'], 'Audit passed');
+    expect(done.single['isError'], false);
+  });
+
   test(
     'background launch acknowledgement keeps child active until notification',
     () {

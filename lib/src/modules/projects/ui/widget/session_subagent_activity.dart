@@ -29,6 +29,6 @@ extension SubagentPhasePresentation on SubagentPhase {
     .thinking => .thinking,
     .working => .working,
     .writing => .writing,
-    .done || .failed => null,
+    .done || .failed || .unconfirmed => null,
   };
 }

@@ -40,10 +40,10 @@ const int kDefaultMaxReviewCycles = 5;
 /// The highest [kDefaultMaxReviewCycles] anyone can dial in from the form.
 const int kMaxReviewCycles = 10;
 
-const int kDefaultIdleTimeoutMinutes = 20;
+const int kDefaultIdleTimeoutMinutes = 0;
 
 /// Minutos que puede durar un turno de nodo, con o sin actividad.
-const int kDefaultNodeTimeoutMinutes = 60;
+const int kDefaultNodeTimeoutMinutes = 0;
 
 /// Techo de gasto reportado por sesión, en dólares. Cero es «sin techo», y es
 /// el default: un caso no se corta por precio salvo que alguien declare un
@@ -198,10 +198,10 @@ class WorkflowPolicy {
           ),
       idleTimeoutMinutes:
           (data['idleTimeoutMinutes'] as int? ?? kDefaultIdleTimeoutMinutes)
-              .clamp(1, 240),
+              .clamp(0, 240),
       nodeTimeoutMinutes:
           (data['nodeTimeoutMinutes'] as int? ?? kDefaultNodeTimeoutMinutes)
-              .clamp(1, 1440),
+              .clamp(0, 1440),
       maxSessionCostUsd:
           ((data['maxSessionCostUsd'] as num?)?.toDouble() ??
                   kDefaultMaxSessionCostUsd)

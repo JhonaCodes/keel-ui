@@ -194,6 +194,15 @@ class ClaudeStreamReader {
       if (part['type'] != 'tool_result') continue;
       final id = part['tool_use_id'] as String?;
       if (id == null || !_subagentToolUseIds.contains(id)) continue;
+      final resultText = _flatten(part['content']);
+      if (part['is_error'] != true &&
+          resultText.contains('Async agent launched successfully.')) {
+        _backgroundSubagents.add(id);
+        final agentId = RegExp(
+          r'agentId:\s*([A-Za-z0-9_-]+)',
+        ).firstMatch(resultText)?.group(1);
+        if (agentId != null) _taskSubagents[agentId] = id;
+      }
       // The tool result of a background spawn only acknowledges launch.
       // Its task notification, not that acknowledgement, closes the child.
       if (_backgroundSubagents.contains(id) && part['is_error'] != true) {
@@ -204,7 +213,7 @@ class ClaudeStreamReader {
       events.add({
         'type': 'subagentFinished',
         'id': id,
-        'result': _flatten(part['content']),
+        'result': resultText,
         'isError': part['is_error'] == true,
       });
     }
@@ -235,6 +244,9 @@ class ClaudeStreamReader {
     }
     if (!_subagentToolUseIds.contains(id)) return const [];
     if (event['subtype'] == 'task_notification') {
+      if (event['status'] != 'completed' && event['status'] != 'failed') {
+        return const [];
+      }
       _subagentToolUseIds.remove(id);
       _backgroundSubagents.remove(id);
       return [
@@ -375,8 +387,19 @@ class ClaudeStreamReader {
     ];
   }
 
-  static String _flatten(Object? content) =>
-      content is String ? content : jsonEncode(content);
+  static String _flatten(Object? content) => switch (content) {
+    String text => text,
+    List blocks =>
+      blocks
+          .map(
+            (block) => switch (block) {
+              {'type': 'text', 'text': final String text} => text,
+              _ => jsonEncode(block),
+            },
+          )
+          .join('\n'),
+    _ => jsonEncode(content),
+  };
 }
 
 /// La primera frase de un texto, recortada a algo que entre en un cuadro.

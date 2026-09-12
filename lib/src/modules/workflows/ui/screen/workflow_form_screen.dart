@@ -285,9 +285,9 @@ class _WorkflowFormScreenState extends State<WorkflowFormScreen> {
           ),
           Slider(
             value: _idleTimeoutMinutes.toDouble(),
-            min: 1,
+            min: 0,
             max: 60,
-            divisions: 59,
+            divisions: 60,
             label: '$_idleTimeoutMinutes',
             onChanged: (value) =>
                 setState(() => _idleTimeoutMinutes = value.round()),
@@ -299,9 +299,9 @@ class _WorkflowFormScreenState extends State<WorkflowFormScreen> {
           ),
           Slider(
             value: _nodeTimeoutMinutes.toDouble(),
-            min: 5,
+            min: 0,
             max: 240,
-            divisions: 47,
+            divisions: 48,
             label: '$_nodeTimeoutMinutes',
             onChanged: (value) =>
                 setState(() => _nodeTimeoutMinutes = value.round()),

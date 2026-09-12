@@ -39,3 +39,31 @@ native delegation alongside two nested expert consultations, parent edges,
 depth and counts. Validation: 191 map/project/prompt/workflow tests passed,
 one separately gated process test skipped; affected-file analysis and macOS
 debug compilation passed.
+
+Background launch acknowledgements are not child results. The Claude adapter
+also recognizes the implicit async launch response and correlates its agent ID
+with the original tool invocation, so the later task notification closes the
+same child. Text blocks are decoded before display rather than shown as JSON.
+
+If the parent stream closes without a child's terminal notification, the child
+becomes `unconfirmed`, not `failed`. Reloading unfinished history uses the same
+state. Chat and map inspection label it as an unconfirmed result; there is no
+claim that the external process is still running. Explicit failures remain
+failures. Previously saved failures are not guessed into successes.
+
+Idle and duration watchdog limits default to zero (disabled). Positive limits
+saved on existing workflows still apply. Both the form and MCP policy updates
+accept zero, and the form explains that zero means unlimited.
+
+Validation includes a process fixture with a completed child, an explicitly
+failed child and a child without a completion notification, plus a virtual
+three-day idle interval with disabled watchdogs. The area regression passed
+194 tests; the separately invoked process integration passed as well.
+
+The chat distinguishes an open turn awaiting provider output from received
+reasoning. Missing reasoning is no longer presented as proof that a model does
+not expose reasoning. An explicit progress indicator denotes an open turn,
+not verified external process health. Tool events retain their specific
+activity widget, and incoming text switches to writing before file collection.
+Stopped sessions and sessions awaiting a user decision hide the live strip.
+The widget transition test and area regression pass (195 tests).

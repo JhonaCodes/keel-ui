@@ -144,6 +144,26 @@ void main() {
       expect(recoveredContext, contains('PLAN_FIXTURE'));
       expect(session.decisions, isEmpty);
       expect(
+        session.subagents
+            .singleWhere((child) => child.id == 'complete')
+            .phase
+            .name,
+        'done',
+      );
+      expect(
+        session.subagents
+            .singleWhere((child) => child.id == 'error')
+            .phase
+            .name,
+        'failed',
+      );
+      final pendingChild = session.subagents.singleWhere(
+        (child) => child.id == 'pending',
+      );
+      expect(pendingChild.phase.name, 'unconfirmed');
+      expect(pendingChild.result, isEmpty);
+      expect(pendingChild.isRunning, false);
+      expect(
         File('${directory.path}/implementation.txt').existsSync(),
         isTrue,
         reason: session.messages.map((message) => message.text).join('\n'),

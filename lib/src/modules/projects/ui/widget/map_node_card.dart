@@ -427,6 +427,12 @@ class _Resolution extends StatelessWidget {
         kMapConsultColor,
         node.nodeInstruction,
       ),
+      (MapNodeKind.subagent, _) when node.subagent?.phase == .unconfirmed => (
+        AppLocalizations.of(context).subagentPhaseUnconfirmed,
+        Icons.help_outline,
+        scheme.onSurfaceVariant,
+        node.nodeInstruction,
+      ),
       (MapNodeKind.subagent, MapNodeState.done) => (
         AppLocalizations.of(context).mapCalloutReturned,
         Icons.check,

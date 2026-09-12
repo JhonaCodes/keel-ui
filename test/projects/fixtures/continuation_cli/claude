@@ -95,5 +95,16 @@ skills: visibility-contract
 with log.open('a') as output:
     output.write(json.dumps({'role': role, 'resume': resume, 'prompt': prompt, 'budget': float(args[args.index('--max-budget-usd') + 1]) if '--max-budget-usd' in args else 0}) + '\n')
 print(json.dumps({'type': 'system', 'subtype': 'init', 'session_id': f'fake-{role}'}))
+if role == 'planner':
+    for child in ['complete', 'error', 'pending']:
+        print(json.dumps({'type': 'assistant', 'message': {'content': [
+            {'type': 'tool_use', 'id': child, 'name': 'Agent', 'input': {'prompt': 'Audit', 'subagent_type': 'Explore'}}]}}))
+        print(json.dumps({'type': 'user', 'message': {'content': [
+            {'type': 'tool_result', 'tool_use_id': child, 'content': [
+                {'type': 'text', 'text': f'Async agent launched successfully.\nagentId: task-{child}'}]}]}}))
+        if child != 'pending':
+            print(json.dumps({'type': 'system', 'subtype': 'task_notification',
+                'task_id': f'task-{child}', 'status': 'completed' if child == 'complete' else 'failed',
+                'summary': 'Audit passed' if child == 'complete' else 'Explicit failure'}))
 print(json.dumps({'type': 'assistant', 'message': {'content': [{'type': 'text', 'text': answer}]}}))
 print(json.dumps({'type': 'result', 'subtype': 'success', 'is_error': False, 'result': answer, 'session_id': f'fake-{role}', 'total_cost_usd': 0.5}))

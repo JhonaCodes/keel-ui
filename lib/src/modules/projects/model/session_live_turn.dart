@@ -37,6 +37,9 @@ class SessionLiveTurn {
     this.consultOfProfileId,
   });
 
+  /// An open turn without reasoning evidence is awaiting provider output.
+  bool get awaitingOutput => phase == .thinking && (reasoning?.isEmpty ?? true);
+
   SessionLiveTurn copyWith({
     String? reasoning,
     AgentToolActivity? activity,

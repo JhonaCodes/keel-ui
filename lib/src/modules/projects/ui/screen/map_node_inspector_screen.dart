@@ -315,7 +315,9 @@ class _Header extends StatelessWidget {
                 ),
                 const SizedBox(width: 5),
                 Text(
-                  _stateLabel(node.state, AppLocalizations.of(context)!),
+                  node.subagent?.phase == .unconfirmed
+                      ? AppLocalizations.of(context).subagentPhaseUnconfirmed
+                      : _stateLabel(node.state, AppLocalizations.of(context)!),
                   style: TextStyle(
                     fontSize: 10.5,
                     color: mapStateIconColor(node.state, scheme),

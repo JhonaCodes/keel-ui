@@ -5,7 +5,7 @@ import 'package:keel_ui/src/modules/agents/model/agent_tool_activity.dart';
 /// En qué anda un subagente. Corre en paralelo al [TurnPhase] del padre y por
 /// eso es un enum aparte: mientras el hijo piensa, el padre está trabajando, y
 /// el mapa tiene que poder decir las dos cosas a la vez.
-enum SubagentPhase { thinking, working, writing, done, failed }
+enum SubagentPhase { thinking, working, writing, done, failed, unconfirmed }
 
 /// Un subagente que un miembro abrió con `Task`, con nombre propio.
 ///
@@ -60,7 +60,7 @@ class SessionSubagent {
   });
 
   bool get isRunning =>
-      phase != SubagentPhase.done && phase != SubagentPhase.failed;
+      phase == .thinking || phase == .working || phase == .writing;
 
   Duration get elapsed => (finishedAt ?? DateTime.now()).difference(startedAt);
 
@@ -130,7 +130,7 @@ class SessionSubagent {
       phase: switch (phase) {
         SubagentPhase.done => SubagentPhase.done,
         SubagentPhase.failed => SubagentPhase.failed,
-        _ => SubagentPhase.failed,
+        _ => SubagentPhase.unconfirmed,
       },
       tools: [
         for (final tool in json['tools'] as List)

@@ -1,3 +1,4 @@
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:flutter/material.dart';
 
 import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
@@ -58,24 +59,11 @@ class SessionLiveTurnStrip extends StatelessWidget {
                   accent: accent,
                   phase: turn.phase,
                   activity: activity,
+                  awaitingOutput: turn.awaitingOutput,
                 ),
               ),
             ],
           ),
-          // Un modelo que no expone su razonamiento no está trabado: decirlo
-          // evita la sensación de «se quedó pensando» sin nada que mirar.
-          if (turn.phase == TurnPhase.thinking &&
-              (reasoning == null || reasoning.isEmpty))
-            Padding(
-              padding: const EdgeInsets.only(left: _kIndent, top: 4),
-              child: Text(
-                'pensando (este modelo no expone su razonamiento en vivo)',
-                style: TextStyle(
-                  fontSize: 11,
-                  color: Theme.of(context).colorScheme.outline,
-                ),
-              ),
-            ),
           if (reasoning != null && reasoning.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(left: _kIndent, top: 6),
@@ -106,12 +94,14 @@ class _LiveHeader extends StatelessWidget {
     required this.accent,
     required this.phase,
     required this.activity,
+    required this.awaitingOutput,
   });
 
   final String name;
   final Color accent;
   final TurnPhase phase;
   final AgentToolActivity? activity;
+  final bool awaitingOutput;
 
   @override
   Widget build(BuildContext context) {
@@ -120,6 +110,15 @@ class _LiveHeader extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
+        SizedBox.square(
+          dimension: 14,
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            color: accent,
+            semanticsLabel: AppLocalizations.of(context).sessionTurnOpen,
+          ),
+        ),
+        const SizedBox(width: 8),
         Text(
           name,
           style: TextStyle(
@@ -134,6 +133,10 @@ class _LiveHeader extends StatelessWidget {
         // beside it would be noise.
         if (current != null)
           Expanded(child: AgentActivityIndicator(activity: current))
+        else if (awaitingOutput)
+          Flexible(
+            child: Text(AppLocalizations.of(context).sessionAwaitingOutput),
+          )
         else
           TurnPhaseLabel(phase: phase, accent: accent),
       ],

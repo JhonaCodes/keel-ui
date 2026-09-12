@@ -121,7 +121,10 @@ class _ProjectChannel extends StatelessWidget {
     final session = project.activeSession;
     final running = session?.isRunning ?? false;
     final pendingPermission = session?.pendingPermission;
-    final liveTurn = session?.liveTurn;
+    final liveTurn = session?.isRunning == true &&
+            session?.waitingForUser == false && session?.pendingPermission == null
+        ? session?.liveTurn
+        : null;
 
     return Row(
       children: [

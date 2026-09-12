@@ -1351,12 +1351,12 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String labelIdleTimeoutLimit(int count) {
-    return 'Minutos sin actividad del proveedor antes de cortar un paso: $count';
+    return 'Minutos sin actividad del proveedor antes de cortar un paso: $count (0 = sin límite)';
   }
 
   @override
   String labelNodeTimeoutLimit(int count) {
-    return 'Minutos máximos por paso: $count';
+    return 'Minutos máximos por paso: $count (0 = sin límite)';
   }
 
   @override
@@ -2447,6 +2447,15 @@ class AppLocalizationsEs extends AppLocalizations {
   String panelSharedChangeScope(Object workflow) {
     return 'Este cambio modifica el workflow \"$workflow\" en todos los proyectos. Los overrides concretos se conservan.';
   }
+
+  @override
+  String get subagentPhaseUnconfirmed => 'resultado sin confirmar';
+
+  @override
+  String get sessionAwaitingOutput => 'Esperando salida del proveedor…';
+
+  @override
+  String get sessionTurnOpen => 'Turno abierto';
 }
 
 /// The translations for Spanish Castilian, as used in Colombia (`es_CO`).
@@ -3796,12 +3805,12 @@ class AppLocalizationsEsCo extends AppLocalizationsEs {
 
   @override
   String labelIdleTimeoutLimit(int count) {
-    return 'Minutos sin actividad del proveedor antes de cortar un paso: $count';
+    return 'Minutos sin actividad del proveedor antes de cortar un paso: $count (0 = sin límite)';
   }
 
   @override
   String labelNodeTimeoutLimit(int count) {
-    return 'Minutos máximos por paso: $count';
+    return 'Minutos máximos por paso: $count (0 = sin límite)';
   }
 
   @override
@@ -4892,4 +4901,13 @@ class AppLocalizationsEsCo extends AppLocalizationsEs {
   String panelSharedChangeScope(Object workflow) {
     return 'Este cambio modifica el workflow \"$workflow\" en todos los proyectos. Los overrides concretos se conservan.';
   }
+
+  @override
+  String get subagentPhaseUnconfirmed => 'resultado sin confirmar';
+
+  @override
+  String get sessionAwaitingOutput => 'Esperando salida del proveedor…';
+
+  @override
+  String get sessionTurnOpen => 'Turno abierto';
 }

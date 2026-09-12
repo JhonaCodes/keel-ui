@@ -95,11 +95,13 @@ class TurnWatchdog {
   void _armIdle() {
     if (_paused || tripped || _finished) return;
     _idleTimer?.cancel();
+    if (idle <= Duration.zero) return;
     _idleTimer = Timer(idle, () => _fire(TurnWatchdogTrip.idle));
   }
 
   void _armHard() {
     _hardTimer?.cancel();
+    if (hard <= Duration.zero) return;
     _hardTimer = Timer(hard, () {
       if (_paused) {
         _hardDueWhilePaused = true;

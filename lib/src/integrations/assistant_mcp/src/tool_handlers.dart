@@ -1982,12 +1982,12 @@ int? _boundedReviewCycles(Object? value) {
 /// mientras que por acá la policy viaja sola.
 int? _boundedIdleTimeout(Object? value) {
   final number = value as num?;
-  return number?.toInt().clamp(1, 60).toInt();
+  return number?.toInt().clamp(0, 60).toInt();
 }
 
 int? _boundedNodeTimeout(Object? value) {
   final number = value as num?;
-  return number?.toInt().clamp(5, 240).toInt();
+  return number?.toInt().clamp(0, 240).toInt();
 }
 
 List<WorkflowCapability>? _workflowCapabilities(Object? value) {

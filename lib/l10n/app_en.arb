@@ -791,7 +791,7 @@
       }
     }
   },
-  "labelIdleTimeoutLimit": "Minutes without provider activity before a step is cut: {count}",
+  "labelIdleTimeoutLimit": "Minutes without provider activity before a step is cut: {count} (0 = unlimited)",
   "@labelIdleTimeoutLimit": {
     "placeholders": {
       "count": {
@@ -800,7 +800,7 @@
       }
     }
   },
-  "labelNodeTimeoutLimit": "Maximum minutes per step: {count}",
+  "labelNodeTimeoutLimit": "Maximum minutes per step: {count} (0 = unlimited)",
   "@labelNodeTimeoutLimit": {
     "placeholders": {
       "count": {
@@ -1507,5 +1507,8 @@
     "placeholders": {
       "workflow": {}
     }
-  }
+  },
+  "subagentPhaseUnconfirmed": "result unconfirmed",
+  "sessionAwaitingOutput": "Awaiting provider output…",
+  "sessionTurnOpen": "Turn open"
 }

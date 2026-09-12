@@ -42,6 +42,7 @@ class _SessionSubagentCardState extends State<SessionSubagentCard> {
       SubagentPhase.writing => t.subagentPhaseWriting,
       SubagentPhase.done => t.subagentPhaseDone,
       SubagentPhase.failed => t.subagentPhaseFailed,
+      SubagentPhase.unconfirmed => t.subagentPhaseUnconfirmed,
     };
     final result = subagent.result.trim();
 

@@ -1347,12 +1347,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String labelIdleTimeoutLimit(int count) {
-    return 'Minutes without provider activity before a step is cut: $count';
+    return 'Minutes without provider activity before a step is cut: $count (0 = unlimited)';
   }
 
   @override
   String labelNodeTimeoutLimit(int count) {
-    return 'Maximum minutes per step: $count';
+    return 'Maximum minutes per step: $count (0 = unlimited)';
   }
 
   @override
@@ -2437,4 +2437,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String panelSharedChangeScope(Object workflow) {
     return 'This changes the workflow \"$workflow\" in every project. Concrete overrides are preserved.';
   }
+
+  @override
+  String get subagentPhaseUnconfirmed => 'result unconfirmed';
+
+  @override
+  String get sessionAwaitingOutput => 'Awaiting provider output…';
+
+  @override
+  String get sessionTurnOpen => 'Turn open';
 }

@@ -3253,8 +3253,13 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
               '(solo cuenta el costo que el proveedor informa; codex no lo '
               'informa)'
         : 'sin techo de costo';
-    return '${policy.idleTimeoutMinutes} min sin actividad · '
-        '${policy.nodeTimeoutMinutes} min por paso · $ceiling';
+    final idle = policy.idleTimeoutMinutes > 0
+        ? '${policy.idleTimeoutMinutes} min sin actividad'
+        : 'sin límite de inactividad';
+    final duration = policy.nodeTimeoutMinutes > 0
+        ? '${policy.nodeTimeoutMinutes} min por paso'
+        : 'sin límite de duración';
+    return '$idle · $duration · $ceiling';
   }
 
   WorkNode? _nextReadyNode(ResolutionCase resolution) {
@@ -4506,6 +4511,17 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
         case TaskAssistantText(text: final chunk):
           providerEngaged = true;
           answer.write(chunk);
+          _updateLiveTurn(
+            projectId,
+            sessionId,
+            (turn) => turn.copyWith(
+              clearReasoning: true,
+              clearActivity: true,
+              phase: TurnPhase.writing,
+            ),
+          );
+
+
           _appendStreamingAssistantMessage(
             projectId,
             sessionId,
@@ -4521,16 +4537,6 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
             ),
           );
           reasoning.clear();
-          _updateLiveTurn(
-            projectId,
-            sessionId,
-            (turn) => turn.copyWith(
-              clearReasoning: true,
-              clearActivity: true,
-              phase: TurnPhase.writing,
-            ),
-          );
-
         case TaskToolUse(name: final name, input: final input):
           _updateLiveTurn(
             projectId,
@@ -4865,7 +4871,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
             .map(
               (agent) => turnSubagentIds.contains(agent.id) && agent.isRunning
                   ? agent.copyWith(
-                      phase: .failed,
+                      phase: .unconfirmed,
                       finishedAt: DateTime.now(),
                       clearActivity: true,
                     )

@@ -6,6 +6,29 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:keel_ui/src/modules/projects/service/turn_watchdog.dart';
 
 void main() {
+  test('zero disables both timers while events and closure still work', () {
+    fakeAsync((async) {
+      final source = StreamController<int>();
+      final trips = <TurnWatchdogTrip>[];
+      final events = <int>[];
+      var closed = false;
+      TurnWatchdog(
+        idle: Duration.zero,
+        hard: Duration.zero,
+        onTrip: trips.add,
+      ).guard(source.stream).listen(events.add, onDone: () => closed = true);
+      async.elapse(const Duration(days: 3));
+      expect(trips, isEmpty);
+      expect(closed, false);
+      source.add(1);
+      async.flushMicrotasks();
+      expect(events, [1]);
+      source.close();
+      async.flushMicrotasks();
+      expect(closed, true);
+    });
+  });
+
   group('TurnWatchdog', () {
     test('corta por inactividad una sola vez y cierra el stream', () {
       fakeAsync((async) {

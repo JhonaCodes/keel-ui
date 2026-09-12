@@ -2376,13 +2376,13 @@ abstract class AppLocalizations {
   /// No description provided for @labelIdleTimeoutLimit.
   ///
   /// In en, this message translates to:
-  /// **'Minutes without provider activity before a step is cut: {count}'**
+  /// **'Minutes without provider activity before a step is cut: {count} (0 = unlimited)'**
   String labelIdleTimeoutLimit(int count);
 
   /// No description provided for @labelNodeTimeoutLimit.
   ///
   /// In en, this message translates to:
-  /// **'Maximum minutes per step: {count}'**
+  /// **'Maximum minutes per step: {count} (0 = unlimited)'**
   String labelNodeTimeoutLimit(int count);
 
   /// No description provided for @labelSessionCostLimit.
@@ -4244,6 +4244,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'This changes the workflow \"{workflow}\" in every project. Concrete overrides are preserved.'**
   String panelSharedChangeScope(Object workflow);
+
+  /// No description provided for @subagentPhaseUnconfirmed.
+  ///
+  /// In en, this message translates to:
+  /// **'result unconfirmed'**
+  String get subagentPhaseUnconfirmed;
+
+  /// No description provided for @sessionAwaitingOutput.
+  ///
+  /// In en, this message translates to:
+  /// **'Awaiting provider output…'**
+  String get sessionAwaitingOutput;
+
+  /// No description provided for @sessionTurnOpen.
+  ///
+  /// In en, this message translates to:
+  /// **'Turn open'**
+  String get sessionTurnOpen;
 }
 
 class _AppLocalizationsDelegate

@@ -1165,6 +1165,7 @@ MapNodeState _subagentStateOf(SessionSubagent subagent) =>
       SubagentPhase.writing => MapNodeState.writing,
       SubagentPhase.done => MapNodeState.done,
       SubagentPhase.failed => MapNodeState.failed,
+      SubagentPhase.unconfirmed => MapNodeState.idle,
     };
 
 /// Las réplicas hacia atrás, sus respuestas, y el cuadro de cada par.

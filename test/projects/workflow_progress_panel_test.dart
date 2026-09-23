@@ -97,7 +97,8 @@ void main() {
     expect(find.text('WORKFLOW EN CURSO'), findsOneWidget);
     expect(find.text('Triage y contrato'), findsOneWidget);
     expect(find.text('flutter-expert'), findsWidgets);
-    expect(find.textContaining('Sonnet 5'), findsWidgets);
+    // Family label: the version is only known once a turn reports it.
+    expect(find.textContaining('Sonnet · '), findsWidgets);
     expect(find.text('ahora'), findsOneWidget);
     expect(find.text('Skills'), findsOneWidget);
     expect(find.text('flutter-dart-expert'), findsOneWidget);

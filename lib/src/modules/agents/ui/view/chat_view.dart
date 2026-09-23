@@ -387,11 +387,19 @@ class _ChatViewState extends State<ChatView> {
                     const SizedBox(width: 8),
                     // Each provider runs its own CLI with its own model
                     // names: a codex agent must never be offered `sonnet`.
+                    // Keyed by provider: a FutureBuilder keeps the previous
+                    // future's data while the next one loads, which would
+                    // offer Claude's models under Codex for a moment.
                     FutureBuilder<List<AgentModelOption>>(
+                      key: ValueKey(agent.provider),
                       future: _modelOptions,
                       builder: (context, snapshot) {
                         final options =
                             snapshot.data ?? modelOptionsFor(agent.provider);
+                        final selected = initialModelFor(
+                          agent.provider,
+                          agent.model,
+                        );
                         return MultiSelectField<String>.chip(
                           key: ValueKey('model-${agent.provider.alias}'),
                           label: 'Modelo',
@@ -403,11 +411,8 @@ class _ChatViewState extends State<ChatView> {
                           ],
                           defaultData: [
                             Choice(
-                              initialModelFor(agent.provider, agent.model),
-                              modelLabelFor(
-                                agent.provider,
-                                initialModelFor(agent.provider, agent.model),
-                              ),
+                              selected,
+                              options.labelOf(agent.provider, selected),
                             ),
                           ],
                           onChanged: _onModelChanged,

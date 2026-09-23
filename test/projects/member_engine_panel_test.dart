@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -8,6 +10,8 @@ import 'package:http/testing.dart';
 import 'package:keel_ui/src/core/services/local_database.dart';
 import 'package:keel_ui/src/integrations/llm/openai_compatible/remote_model_catalog.dart';
 import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
+import 'package:keel_ui/src/modules/agents/model/agent_model_option.dart';
+import 'package:keel_ui/src/modules/agents/model/agent_provider.dart';
 import 'package:keel_ui/src/modules/projects/model/project.dart';
 import 'package:keel_ui/src/modules/projects/ui/widget/member_engine_panel.dart';
 
@@ -18,6 +22,8 @@ void main() {
   testWidgets('OpenRouter normaliza modelo, carga catálogo y enlaza Secrets', (
     tester,
   ) async {
+    final home = Directory.systemTemp.createTempSync('claude_home');
+    addTearDown(() => home.deleteSync(recursive: true));
     final catalog = RemoteModelCatalog(
       resolveSecret: (_) async => 'token',
       client: MockClient(
@@ -26,7 +32,13 @@ void main() {
           200,
         ),
       ),
+      homeDirectory: home.path,
+      observedModels: () async => const [],
     );
+    // The panel opens on the member's Claude catalog, which reads the CLI's
+    // files; real I/O does not advance under the fake clock, so load it for
+    // real first or the refresh spinner never stops.
+    await tester.runAsync(() => catalog.load(AgentProvider.claude));
     final epoch = DateTime(2026);
     final project = Project(
       id: 'p',
@@ -81,5 +93,55 @@ void main() {
     );
     await tester.pump();
     expect(find.textContaining('anthropic/claude-test'), findsWidgets);
+  });
+
+  testWidgets('Codex ofrece los modelos nuevos de su catálogo local', (
+    tester,
+  ) async {
+    final codexHome = Directory.systemTemp.createTempSync('codex_home');
+    addTearDown(() => codexHome.deleteSync(recursive: true));
+    File('${codexHome.path}/models_cache.json').writeAsStringSync(
+      '{"models":[{"slug":"gpt-6-sol","display_name":"GPT-6-Sol",'
+      '"visibility":"list","priority":0}]}',
+    );
+    final catalog = RemoteModelCatalog(codexHome: codexHome.path);
+    // File reads and the parsing isolate do not advance under the fake
+    // clock of a widget test; warm the catalog for real first.
+    await tester.runAsync(() => catalog.load(AgentProvider.codex));
+
+    final epoch = DateTime(2026);
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('es'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: MemberEnginePanel(
+          project: Project(
+            id: 'p',
+            name: 'keel-ui',
+            purpose: '',
+            workingDirectory: '/tmp/keel',
+            createdAt: epoch,
+          ),
+          member: AgentProfile(
+            id: 'agent',
+            name: 'coder',
+            role: 'implementador',
+            systemPrompt: '',
+            provider: AgentProvider.codex,
+            model: kCodexDefaultModelAlias,
+            effort: 'medium',
+            createdAt: epoch,
+          ),
+          catalog: catalog,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('El del agente (El de tu config de codex)'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('GPT-6-Sol'), findsWidgets);
   });
 }

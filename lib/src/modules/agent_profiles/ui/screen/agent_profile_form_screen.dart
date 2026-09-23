@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/core/ui/form_panel.dart';
+import 'package:keel_ui/src/integrations/llm/openai_compatible/remote_model_catalog.dart';
 import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
 import 'package:keel_ui/src/modules/agent_profiles/viewmodel/agent_profiles_viewmodel.dart';
 import 'package:keel_ui/src/modules/agent_profiles/ui/widget/role_field.dart';
@@ -26,9 +27,10 @@ Future<void> openAgentProfileFormScreen(
 }
 
 class AgentProfileFormScreen extends StatefulWidget {
-  const AgentProfileFormScreen({super.key, this.initial});
+  const AgentProfileFormScreen({super.key, this.initial, this.catalog});
 
   final AgentProfile? initial;
+  final RemoteModelCatalog? catalog;
 
   @override
   State<AgentProfileFormScreen> createState() => _AgentProfileFormScreenState();
@@ -61,6 +63,9 @@ class _AgentProfileFormScreenState extends State<AgentProfileFormScreen> {
     widget.initial?.model ?? kDefaultClaudeModelAlias,
   );
   late String _effort = widget.initial?.effort ?? kDefaultEffortAlias;
+  late final RemoteModelCatalog _catalog =
+      widget.catalog ?? RemoteModelCatalog();
+  late Future<List<AgentModelOption>> _models = _catalog.load(_provider);
   String? _nameError;
   String? _formError;
 
@@ -249,29 +254,43 @@ class _AgentProfileFormScreenState extends State<AgentProfileFormScreen> {
                     setState(() {
                       _provider = value;
                       _model = defaultModelFor(value);
+                      _models = _catalog.load(value);
                     });
                   },
                 ),
                 const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
+                // Keyed by provider: a FutureBuilder keeps the previous
+                // future's data while the next one loads.
+                FutureBuilder<List<AgentModelOption>>(
                   key: ValueKey(_provider),
-                  initialValue: _model,
-                  decoration: InputDecoration(
-                    labelText: t.formLabelModel(_provider.label),
-                    border: const OutlineInputBorder(
-                      borderRadius: BorderRadius.all(Radius.circular(16)),
-                    ),
-                  ),
-                  items: [
-                    for (final option in modelOptionsFor(_provider))
-                      DropdownMenuItem(
-                        value: option.alias,
-                        child: Text(option.label),
+                  future: _models,
+                  builder: (context, snapshot) {
+                    final options =
+                        (snapshot.data ?? modelOptionsFor(_provider)).including(
+                          _provider,
+                          _model,
+                        );
+                    return DropdownButtonFormField<String>(
+                      key: ValueKey(_provider),
+                      initialValue: _model,
+                      decoration: InputDecoration(
+                        labelText: t.formLabelModel(_provider.label),
+                        border: const OutlineInputBorder(
+                          borderRadius: BorderRadius.all(Radius.circular(16)),
+                        ),
                       ),
-                  ],
-                  onChanged: (value) {
-                    if (value == null) return;
-                    setState(() => _model = value);
+                      items: [
+                        for (final option in options)
+                          DropdownMenuItem(
+                            value: option.alias,
+                            child: Text(option.label),
+                          ),
+                      ],
+                      onChanged: (value) {
+                        if (value == null) return;
+                        setState(() => _model = value);
+                      },
+                    );
                   },
                 ),
                 const SizedBox(height: 16),

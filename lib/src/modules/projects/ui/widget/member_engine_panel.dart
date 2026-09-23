@@ -293,16 +293,19 @@ class _RemoteModelField extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = AppLocalizations.of(context);
     return FutureBuilder<List<AgentModelOption>>(
+      // Keyed by provider: a FutureBuilder keeps the previous future's data
+      // while the next one loads.
+      key: ValueKey(provider),
       future: models,
       builder: (context, snapshot) {
-        final options = <String, AgentModelOption>{
-          for (final option in modelOptionsFor(provider)) option.alias: option,
-          for (final option in snapshot.data ?? const <AgentModelOption>[])
-            option.alias: option,
-          // ignore: use_null_aware_elements
-          if (selected != null)
-            selected!: AgentModelOption(alias: selected!, label: selected!),
-        }.values.toList();
+        // The loaded catalog replaces the built-in list instead of being
+        // merged into it: merged, a model the CLI no longer offers would
+        // stay on screen forever.
+        final loaded = snapshot.data ?? modelOptionsFor(provider);
+        final options = switch (selected) {
+          final alias? => loaded.including(provider, alias),
+          null => loaded,
+        };
         return DropdownButtonFormField<String?>(
           key: ValueKey((provider, selected, snapshot.connectionState)),
           initialValue: selected,

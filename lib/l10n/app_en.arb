@@ -415,7 +415,7 @@
   "formLabelAgentRole": "Role",
   "formLabelAgentRoleHint": "What this agent does",
   "formLabelSystemPrompt": "System prompt",
-  "formLabelProvider": "Provider (codex: no tools/MCPs/effort, and its own models)",
+  "formLabelProvider": "Provider (each with its own models)",
   "formLabelModel": "Default model ({provider})",
   "@formLabelModel": {
     "placeholders": {
@@ -788,24 +788,6 @@
       "count": {
         "type": "int",
         "example": "1"
-      }
-    }
-  },
-  "labelIdleTimeoutLimit": "Minutes without provider activity before a step is cut: {count} (0 = unlimited)",
-  "@labelIdleTimeoutLimit": {
-    "placeholders": {
-      "count": {
-        "type": "int",
-        "example": "10"
-      }
-    }
-  },
-  "labelNodeTimeoutLimit": "Maximum minutes per step: {count} (0 = unlimited)",
-  "@labelNodeTimeoutLimit": {
-    "placeholders": {
-      "count": {
-        "type": "int",
-        "example": "45"
       }
     }
   },
@@ -1510,5 +1492,17 @@
   },
   "subagentPhaseUnconfirmed": "result unconfirmed",
   "sessionAwaitingOutput": "Awaiting provider output…",
-  "sessionTurnOpen": "Turn open"
+  "sessionTurnOpen": "Turn open",
+  "permissionGateTitle": "Asking permission to continue",
+  "permissionDeny": "Deny",
+  "permissionAllowOnce": "Allow once",
+  "permissionAllowAlways": "Always allow",
+  "settingCodex": "Codex",
+  "descriptionCodexSettings": "Codex runs inside its sandbox and never asks on its own: what Claude Code decides with its permission prompts, Codex decides here, for all its turns.",
+  "codexAskPermission": "Ask before commands and edits",
+  "codexAskPermissionHelp": "Keel shows the card (once, always or deny) and the turn waits for your answer.",
+  "codexNetworkAccess": "Network inside the sandbox",
+  "codexNetworkAccessHelp": "Without network, pub get, npm install or git push fail inside Codex.",
+  "codexFullDiskAccess": "Full disk access",
+  "codexFullDiskAccessHelp": "Lets it write outside the project folder. A chat can turn it on just for itself."
 }

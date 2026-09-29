@@ -26,6 +26,7 @@ void main() {
     final catalog = RemoteModelCatalog(
       homeDirectory: home.path,
       codexHome: home.path,
+      codexCatalog: () async => null,
       observedModels: () async => ['claude-opus-5-5'],
     );
     // Real I/O does not advance under the fake clock of a widget test.

@@ -54,6 +54,10 @@ TurnHooks prepareTurnHooks({
   /// El tope de llamadas a herramientas del turno, si el proveedor no tiene
   /// tope de turnos propio (codex). Null: sin hook.
   int? toolCallCap,
+
+  /// Cuántos subagentes pueden correr a la vez en el turno. Solo claude:
+  /// necesita `SubagentStop`, que codex no tiene. Null: sin hook.
+  int? parallelSubagentCap,
 }) {
   final resolved = resolveHooks(
     catalog: catalog,
@@ -66,6 +70,8 @@ TurnHooks prepareTurnHooks({
     if (gate != null) decisionGateHook(gate),
     if (subagentCap != null) subagentGuardHook(subagentCap),
     if (toolCallCap != null) toolCapHook(toolCallCap),
+    if (parallelSubagentCap != null)
+      ...SubagentParallelGuard.hooks(parallelSubagentCap),
   ];
   if (withGate.isEmpty) {
     return TurnHooks(notes: resolved.notes);

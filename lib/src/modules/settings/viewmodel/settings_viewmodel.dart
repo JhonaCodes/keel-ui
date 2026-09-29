@@ -86,6 +86,12 @@ class SettingsViewModel extends ViewModel<AppSettings> {
     unawaited(_repository.save(data));
   }
 
+  void setCodexSettings(CodexSettings codex) {
+    if (codex == data.codex) return;
+    updateState(data.copyWith(codex: codex));
+    unawaited(_repository.save(data));
+  }
+
   void setExtraToolEnabled(String tool, bool enabled) {
     final tools = {...data.extraAllowedTools};
     if (enabled) {

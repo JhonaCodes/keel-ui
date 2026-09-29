@@ -147,6 +147,9 @@ class OpenAiCompatibleApiRunner implements LlmRunner {
 
       final functions = await toolBridge.functions(spec);
       if (cancelled) return;
+      for (final warning in toolBridge.warnings) {
+        yield {'type': 'notice', 'message': warning};
+      }
       // Los hitos del canal (preflight, cambios de nodo) viajan como
       // `system` adentro del hilo, y un `system` a mitad del array lo
       // rechazan varios endpoints compatibles: el único que aceptan todos es
@@ -174,9 +177,9 @@ class OpenAiCompatibleApiRunner implements LlmRunner {
       // Sin tope de rondas, por decisión explícita: el contador cortaba
       // trabajo legítimo (un nodo de workflow quedó bloqueado dos veces a 24
       // rondas trabajando bien). El turno termina cuando el modelo deja de
-      // pedir herramientas; los frenos reales son los del motor —vigilante de
-      // inactividad, minutos máximos por paso, techo de costo de sesión— y el
-      // corte de reintentos estériles de más abajo, que es lo que detiene un
+      // pedir herramientas; los frenos reales son el techo de costo de sesión
+      // del motor, si el workflow declara uno, y el corte de reintentos
+      // estériles de más abajo, que es lo que detiene un
       // bucle de verdad (mismo tool + mismos argumentos, sin contexto nuevo).
       while (true) {
         // Un 429 o un 5xx no significan que el trabajo esté mal: significan

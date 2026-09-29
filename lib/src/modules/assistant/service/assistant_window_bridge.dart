@@ -58,6 +58,7 @@ class AssistantWindowBridge {
   Future<void> _open() async {
     _activeAgentId = _liveActiveAgentId();
     _ensureListening();
+    _warmActiveSession();
 
     // El nudge es SOLO para una ventana que ya existía: su engine no se
     // vuelve a attachear solo. Una ventana nueva se conecta por su cuenta
@@ -83,6 +84,13 @@ class AssistantWindowBridge {
     final agentId = _activeAgentId;
     if (agentId == null) return;
     unawaited(_agents.sendMessage(agentId, request));
+  }
+
+  /// Keel AI's process starts while the window opens, not when the first
+  /// message is sent: that message then only waits for the model.
+  void _warmActiveSession() {
+    final agentId = _activeAgentId;
+    if (agentId != null) unawaited(_agents.warmUp(agentId));
   }
 
   /// Qué chat tiene que mostrar la ventana, respetando el que elegiste.
@@ -244,6 +252,7 @@ class AssistantWindowBridge {
         _agents.respondToPermissionRequest(
           agentId!,
           grant: payload['grant'] as bool,
+          always: payload['always'] as bool? ?? false,
         );
         return null;
 
@@ -275,10 +284,12 @@ class AssistantWindowBridge {
 
       case 'newSession':
         _activeAgentId = _agents.startNewKeelAiSession() ?? _activeAgentId;
+        _warmActiveSession();
         return _encodeWireState();
 
       case 'selectSession':
         _activeAgentId = agentId;
+        _warmActiveSession();
         return _encodeWireState();
 
       case 'askAboutLine':

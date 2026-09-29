@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:logger_rs/logger_rs.dart';
 
+import 'package:keel_ui/src/core/services/user_shell_path.dart';
 import 'package:keel_ui/src/integrations/llm/openai_compatible/openai_compatible_api_runner.dart';
 import 'package:keel_ui/src/integrations/usage_ledger/usage_ledger.dart';
 import 'package:keel_ui/src/modules/agents/model/agent_model_option.dart';
@@ -13,9 +14,9 @@ import 'package:keel_ui/src/shared/shared.dart';
 /// Small, cache-backed catalog used by the provider picker. A catalog failure
 /// never hides the current model: callers retain the static safe defaults.
 ///
-/// API providers are asked over HTTP. The two CLIs have no model-listing
-/// endpoint Keel can call, so their catalogs are read from what each CLI
-/// already keeps on this machine.
+/// API providers are asked over HTTP. Codex is asked through its own CLI
+/// (`codex debug models`); the Claude CLI has no listing command, so its
+/// catalog is read from what it already keeps on this machine.
 // keel-debt: lives under openai_compatible/ and each picker owns an instance
 // (re-reads the CLI files once per picker), move to integrations/llm/ as one
 // shared service if pickers multiply or the files grow.
@@ -26,6 +27,8 @@ class RemoteModelCatalog {
     String? homeDirectory,
     String? codexHome,
     Future<List<String>> Function()? observedModels,
+    Future<String?> Function()? codexCatalog,
+    Future<String?> Function()? openCodeCatalog,
     // Public parameter names are part of the testable adapter contract.
     // ignore: prefer_initializing_formals
   }) : _client = client,
@@ -36,7 +39,11 @@ class RemoteModelCatalog {
        // ignore: prefer_initializing_formals
        _codexHome = codexHome,
        // ignore: prefer_initializing_formals
-       _observedModels = observedModels;
+       _observedModels = observedModels,
+       // ignore: prefer_initializing_formals
+       _codexCatalog = codexCatalog,
+       // ignore: prefer_initializing_formals
+       _openCodeCatalog = openCodeCatalog;
 
   /// Sorts after every ranked model: codex ranks its picker by `priority`.
   static const _unranked = 1 << 30;
@@ -46,6 +53,12 @@ class RemoteModelCatalog {
   final String? _homeDirectory;
   final String? _codexHome;
   final Future<List<String>> Function()? _observedModels;
+
+  /// The raw JSON `codex debug models` would print. Null: ask the CLI.
+  final Future<String?> Function()? _codexCatalog;
+
+  /// The raw text `opencode models --verbose` would print. Null: ask it.
+  final Future<String?> Function()? _openCodeCatalog;
   final Map<AgentProvider, List<AgentModelOption>> _cache = {};
 
   Future<List<AgentModelOption>> load(AgentProvider provider) async {
@@ -54,6 +67,7 @@ class RemoteModelCatalog {
     final options = switch (provider) {
       AgentProvider.claude => await _claudeModels(),
       AgentProvider.codex => await _codexModels(),
+      AgentProvider.openCode => await _openCodeModels(),
       AgentProvider.openRouter => await _openRouterModels(),
       AgentProvider.deepSeek => await _deepSeekModels(),
     };
@@ -65,23 +79,126 @@ class RemoteModelCatalog {
 
   String get _home => _homeDirectory ?? Platform.environment['HOME'] ?? '';
 
-  String get _codexDirectory =>
-      _codexHome ?? Platform.environment['CODEX_HOME'] ?? '$_home/.codex';
-
-  /// Codex refreshes `models_cache.json` itself on every run, so reading it
-  /// is what makes a new codex model show up here without a Keel release.
-  Future<List<AgentModelOption>> _codexModels() async {
-    final path = '$_codexDirectory/models_cache.json';
-    final source = await _readIfPresent(path);
+  /// What `opencode models --verbose` lists that can call tools — a model
+  /// that cannot is useless to an agent. Each model's variants are its
+  /// effort levels.
+  Future<List<AgentModelOption>> _openCodeModels() async {
+    final source = await (_openCodeCatalog ?? _openCodeListing)();
     if (source == null) return const [];
-    final models = await runOffThread(_parseCodexModelsCache, source);
+    final models = await runOffThread(_parseOpenCodeCatalog, source);
     if (models.isEmpty) {
+      Log.w('`opencode models` listed nothing usable');
+      return const [];
+    }
+    return [...kOpenCodeModelOptions, ...models];
+  }
+
+  Future<String?> _openCodeListing() async {
+    final opencode = await UserShellPath.locate('opencode');
+    if (opencode == null) {
+      Log.w('opencode is not on the PATH: no OpenCode model catalog');
+      return null;
+    }
+    try {
+      final result = await Process.run(
+        opencode,
+        const ['models', '--verbose'],
+        environment: await UserShellPath.environment(),
+        stdoutEncoding: utf8,
+      ).timeout(const Duration(seconds: 30));
+      if (result.exitCode == 0) return '${result.stdout}';
       Log.w(
-        'Codex model catalog at $path is unreadable; using the built-in list',
+        '`opencode models` exited ${result.exitCode}: '
+        '${'${result.stderr}'.trim()}',
       );
+    } on Object catch (error) {
+      Log.w('`opencode models` failed: $error');
+    }
+    return null;
+  }
+
+  /// `opencode models --verbose` prints `provider/model` on its own line and
+  /// then that model's JSON, pretty-printed, closing with `}` at column 0.
+  static List<AgentModelOption> _parseOpenCodeCatalog(String source) {
+    final options = <AgentModelOption>[];
+    String? id;
+    final block = StringBuffer();
+    for (final line in const LineSplitter().convert(source)) {
+      if (id == null) {
+        final trimmed = line.trim();
+        if (trimmed.isNotEmpty && !trimmed.startsWith('{')) id = trimmed;
+        continue;
+      }
+      block.writeln(line);
+      if (line != '}') continue;
+      final decoded = _tryDecode(block.toString());
+      block.clear();
+      final alias = id;
+      id = null;
+      if (decoded is! Map) continue;
+      final capabilities = decoded['capabilities'];
+      if (capabilities is Map && capabilities['toolcall'] == false) continue;
+      options.add(
+        AgentModelOption(
+          alias: alias,
+          label: switch (decoded['name']) {
+            final String name when name.isNotEmpty => '$name · $alias',
+            _ => alias,
+          },
+          efforts: [
+            if (decoded['variants'] case final Map variants)
+              for (final variant in variants.keys) '$variant',
+          ],
+        ),
+      );
+    }
+    return options;
+  }
+
+  /// What `codex debug models` lists — asked of the SAME binary that runs
+  /// the turns. Reading `models_cache.json` instead offered models the
+  /// installed CLI does not know: another codex (the desktop app, a newer
+  /// version) writes that file too, and its catalog is not this one's.
+  Future<List<AgentModelOption>> _codexModels() async {
+    final source = await (_codexCatalog ?? _codexDebugModels)();
+    if (source == null) return const [];
+    final models = await runOffThread(_parseCodexCatalog, source);
+    if (models.isEmpty) {
+      Log.w('`codex debug models` listed nothing usable');
       return const [];
     }
     return [kCodexDefaultModelOption, ...models];
+  }
+
+  Future<String?> _codexDebugModels() async {
+    final codex = await UserShellPath.locate('codex');
+    if (codex == null) {
+      Log.w('codex is not on the PATH: no codex model catalog');
+      return null;
+    }
+    final ProcessResult result;
+    try {
+      result = await Process.run(
+        codex,
+        const ['debug', 'models'],
+        environment: {
+          ...await UserShellPath.environment(),
+          if (_codexHome != null) 'CODEX_HOME': _codexHome,
+        },
+        stdoutEncoding: utf8,
+      ).timeout(const Duration(seconds: 20));
+    } on Object catch (error) {
+      Log.w('`codex debug models` failed: $error');
+      return null;
+    }
+    if (result.exitCode != 0) {
+      Log.w(
+        '`codex debug models` exited ${result.exitCode}: '
+        '${'${result.stderr}'.trim()}',
+      );
+      return null;
+    }
+    return '${result.stdout}';
   }
 
   /// The Claude CLI has no command that lists models, and a subscription
@@ -123,9 +240,9 @@ class RemoteModelCatalog {
   }
 
   /// The entries codex's own picker offers (`visibility: list`), in its
-  /// order. Static so it can run off the UI thread — the file is hundreds of
-  /// KB.
-  static List<AgentModelOption> _parseCodexModelsCache(String source) {
+  /// order, each with the reasoning levels it accepts. Static so it can run
+  /// off the UI thread — the catalog is hundreds of KB.
+  static List<AgentModelOption> _parseCodexCatalog(String source) {
     final decoded = _tryDecode(source);
     final models = decoded is Map ? decoded['models'] : null;
     if (models is! List) return const [];
@@ -145,6 +262,14 @@ class RemoteModelCatalog {
                   final String name when name.isNotEmpty => name,
                   _ => slug,
                 },
+                efforts: [
+                  for (final level
+                      in (model['supported_reasoning_levels'] as List? ??
+                              const [])
+                          .whereType<Map>())
+                    if (level['effort'] case final String effort) effort,
+                ],
+                defaultEffort: model['default_reasoning_level'] as String?,
               ),
             ),
     ];

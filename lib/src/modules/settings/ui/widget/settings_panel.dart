@@ -74,6 +74,8 @@ class SettingsPanel extends StatelessWidget {
                       viewmodel.setExtraToolEnabled(tool, enabled ?? false),
                 ),
               const SizedBox(height: 24),
+              _CodexSection(codex: settings.codex),
+              const SizedBox(height: 24),
               Text(
                 t.settingScheduledJobsApi,
                 style: Theme.of(context).textTheme.labelLarge,
@@ -110,6 +112,52 @@ class SettingsPanel extends StatelessWidget {
           );
         },
       ),
+    );
+  }
+}
+
+/// How every codex turn runs: permission gate, network, disk.
+class _CodexSection extends StatelessWidget {
+  const _CodexSection({required this.codex});
+
+  final CodexSettings codex;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
+    final text = Theme.of(context).textTheme;
+    final settings = SettingsService.instance.notifier;
+    return Column(
+      crossAxisAlignment: .start,
+      children: [
+        Text(t.settingCodex, style: text.labelLarge),
+        const SizedBox(height: 4),
+        Text(t.descriptionCodexSettings, style: text.bodySmall),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          value: codex.askPermission,
+          title: Text(t.codexAskPermission),
+          subtitle: Text(t.codexAskPermissionHelp),
+          onChanged: (value) =>
+              settings.setCodexSettings(codex.copyWith(askPermission: value)),
+        ),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          value: codex.networkAccess,
+          title: Text(t.codexNetworkAccess),
+          subtitle: Text(t.codexNetworkAccessHelp),
+          onChanged: (value) =>
+              settings.setCodexSettings(codex.copyWith(networkAccess: value)),
+        ),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          value: codex.fullDiskAccess,
+          title: Text(t.codexFullDiskAccess),
+          subtitle: Text(t.codexFullDiskAccessHelp),
+          onChanged: (value) =>
+              settings.setCodexSettings(codex.copyWith(fullDiskAccess: value)),
+        ),
+      ],
     );
   }
 }

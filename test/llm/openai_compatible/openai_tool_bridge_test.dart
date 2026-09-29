@@ -40,7 +40,8 @@ void main() {
     );
   });
 
-  test('un MCP requerido que no carga falla en vez de desaparecer', () async {
+  test('un MCP que no carga no desaparece en silencio: el aviso lo nombra y '
+      'el turno sigue con el resto', () async {
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     server.listen((request) async {
       request.response.statusCode = HttpStatus.internalServerError;
@@ -66,16 +67,14 @@ void main() {
       }),
     );
 
+    final functions = await bridge.functions(spec);
+
+    expect(bridge.warnings.single, contains('keelai-actions'));
     expect(
-      () => bridge.functions(spec),
-      throwsA(
-        isA<StateError>().having(
-          (error) => error.message,
-          'message',
-          contains('keelai-actions'),
-        ),
-      ),
+      functions.map((function) => function.name),
+      isNot(contains(contains('list_workflows'))),
     );
+    expect(functions.map((function) => function.name), contains('Read'));
   });
 
   test(

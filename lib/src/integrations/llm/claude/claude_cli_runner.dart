@@ -8,11 +8,10 @@ import 'package:logger_rs/logger_rs.dart';
 // también lo importa; mover el archivo a llm/claude/ es un cambio aparte que
 // no aporta nada a este objetivo (reemplazar el isCodex del task runner).
 import 'package:keel_ui/src/core/services/claude_stream_events.dart';
-import 'package:keel_ui/src/core/services/cli_turn_contract.dart';
 import 'package:keel_ui/src/core/services/cli_turn_workspace.dart';
 import 'package:keel_ui/src/integrations/llm/llm.dart';
-import 'package:keel_ui/src/integrations/system_prompt/system_prompt.dart';
 import 'package:keel_ui/src/integrations/llm/claude/claude_arguments.dart';
+import 'package:keel_ui/src/integrations/llm/claude/claude_launch.dart';
 import 'package:keel_ui/src/integrations/llm/src/cli_cancel_guard.dart';
 import 'package:keel_ui/src/integrations/llm/src/cli_turn_stream.dart';
 
@@ -36,21 +35,8 @@ class ClaudeCliRunner implements LlmRunner {
 
     CliTurnWorkspace? workspace;
     try {
-      final allowedTools = [...kAlwaysAllowedTools, ...spec.extraAllowedTools];
-      final additionalPrompt = spec.additionalSystemPrompt;
-      final systemPrompt =
-          (additionalPrompt == null || additionalPrompt.isEmpty)
-          ? kCliSystemHints
-          : '$kCliSystemHints\n\n$additionalPrompt';
-
-      // Archivos, nunca inline: un argumento de línea de comandos es
-      // legible con `ps` — misma regla que ClaudeCliService. El temporal
-      // 0700 muere con el turno.
-      workspace = await CliTurnWorkspace.create(
-        mcpConfig: spec.mcpConfig,
-        claudeSettings: spec.hooksSettings,
-        hookFiles: spec.hookFiles,
-      );
+      final launch = await ClaudeLaunch.prepare(spec);
+      workspace = launch.workspace;
 
       if (cancelGuard.cancelled) return;
 
@@ -58,10 +44,10 @@ class ClaudeCliRunner implements LlmRunner {
         prompt: spec.prompt,
         model: spec.model,
         effort: spec.effort,
-        allowedTools: allowedTools,
-        systemPrompt: systemPrompt,
-        mcpConfigPath: workspace.mcpConfigPath,
-        claudeSettingsPath: workspace.claudeSettingsPath,
+        allowedTools: launch.allowedTools,
+        systemPrompt: launch.systemPrompt,
+        mcpConfigPath: launch.workspace.mcpConfigPath,
+        claudeSettingsPath: launch.workspace.claudeSettingsPath,
         fullFileSystemAccess: spec.fullFileSystemAccess,
         planMode: spec.planMode,
         maxTurns: spec.maxTurns,
@@ -71,20 +57,10 @@ class ClaudeCliRunner implements LlmRunner {
 
       Process process;
       try {
-        process = await Process.start(
-          'claude',
+        process = await ClaudeLaunch.start(
           arguments,
           workingDirectory: spec.workingDirectory,
-          // El PATH va explícito porque el heredado es el de `launchd`, no
-          // el de la terminal. Y el plazo de tools MCP también: uno de los
-          // nuestros espera a que la persona apruebe un cambio bloqueado, y
-          // con el default del CLI eso se cae solo — ver
-          // [kMcpToolTimeoutMillis].
-          environment: {
-            'PATH': userPath,
-            'MCP_TOOL_TIMEOUT': '$kMcpToolTimeoutMillis',
-          },
-          runInShell: true,
+          userPath: userPath,
         );
       } catch (error) {
         Log.e('Failed to start claude CLI', error: error);

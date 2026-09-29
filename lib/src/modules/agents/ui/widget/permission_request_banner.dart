@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/core/ui/form_panel.dart';
 import 'package:keel_ui/src/modules/agents/model/permission_request.dart';
 import 'package:keel_ui/src/shared/shared.dart';
@@ -20,11 +21,16 @@ class PermissionRequestBanner extends StatefulWidget {
     super.key,
     required this.request,
     required this.onRespond,
+    this.onGrantAlways,
     this.onDismiss,
   });
 
   final PermissionRequest request;
   final void Function(bool grant) onRespond;
+
+  /// "Always allow" for a request a live turn is waiting on (Keel's gate).
+  /// Null where the caller cannot grant for good: then only once/deny.
+  final VoidCallback? onGrantAlways;
 
   /// Sacar del hilo un aviso que NO espera respuesta —hoy, el bloqueo de un
   /// hook—. Nulo donde el hilo todavía no sabe descartar: entonces la tarjeta
@@ -43,6 +49,12 @@ class _PermissionRequestBannerState extends State<PermissionRequestBanner> {
     if (_answered) return;
     setState(() => _answered = true);
     widget.onRespond(grant);
+  }
+
+  void _grantAlways() {
+    if (_answered) return;
+    setState(() => _answered = true);
+    widget.onGrantAlways?.call();
   }
 
   @override
@@ -66,6 +78,15 @@ class _PermissionRequestBannerState extends State<PermissionRequestBanner> {
       return _HookDenialBanner(
         request: request,
         onDismiss: widget.onDismiss,
+      );
+    }
+
+    if (request.blocking) {
+      return _ToolGateBanner(
+        request: request,
+        busy: busy,
+        onRespond: onRespond,
+        onGrantAlways: widget.onGrantAlways == null ? null : _grantAlways,
       );
     }
 
@@ -122,6 +143,93 @@ class _PermissionRequestBannerState extends State<PermissionRequestBanner> {
                   FilledButton(
                     onPressed: busy ? null : () => onRespond(true),
                     child: Text(grantLabel),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A tool the agent wants to run right now, with its turn suspended on the
+/// answer: the command or the files it would touch, and once / always /
+/// deny. "Always" grants the tool for every chat, like claude's allowed
+/// tools.
+class _ToolGateBanner extends StatelessWidget {
+  const _ToolGateBanner({
+    required this.request,
+    required this.busy,
+    required this.onRespond,
+    required this.onGrantAlways,
+  });
+
+  final PermissionRequest request;
+  final bool busy;
+  final void Function(bool grant) onRespond;
+  final VoidCallback? onGrantAlways;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+    final t = AppLocalizations.of(context);
+    return Align(
+      alignment: .centerLeft,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 520),
+        child: Container(
+          margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          padding: const EdgeInsets.all(14),
+          decoration: ShapeDecoration(
+            color: scheme.surfaceContainerHigh,
+            shape: 16.smoothBorder(
+              side: BorderSide(color: scheme.primary.withValues(alpha: 0.3)),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: .start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.lock_outline, size: 18, color: scheme.primary),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      t.permissionGateTitle,
+                      style: text.titleSmall?.copyWith(color: scheme.onSurface),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              SelectableText(
+                request.message,
+                style: text.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                  fontFamily: 'monospace',
+                ),
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                alignment: .end,
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  TextButton(
+                    onPressed: busy ? null : () => onRespond(false),
+                    child: Text(t.permissionDeny),
+                  ),
+                  if (onGrantAlways case final grantAlways?)
+                    OutlinedButton(
+                      onPressed: busy ? null : grantAlways,
+                      child: Text(t.permissionAllowAlways),
+                    ),
+                  FilledButton(
+                    onPressed: busy ? null : () => onRespond(true),
+                    child: Text(t.permissionAllowOnce),
                   ),
                 ],
               ),

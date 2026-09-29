@@ -1,5 +1,13 @@
 # F51 — Codex with the same surface as claude
 
+> **Revised 2026-09-28.** The first version below claimed MCP parity, but no MCP
+> tool ever ran: `exec` runs with `approval_policy=never` and codex puts every
+> MCP tool without annotations behind approval, so each call failed with "MCP
+> tool call requires approval, but approval policy is never" (19 of 19 in the
+> user's session logs). The turn ceiling was not wired either, the 1:1 chat had
+> no permission gate, effort was never sent and the sandbox had no network.
+> See **What changed on 2026-09-28** at the end.
+
 ## Problem it solves
 
 A node owned by codex ran blind. It received no MCP server at all (not the plan,
@@ -53,7 +61,35 @@ wrappers, and it returns the overrides with the real path.
 - The user's global config (`~/.codex/config.toml`: their own MCPs, plugins,
   skills) is loaded on every Keel turn. It is the user's and is not touched.
 
+## What changed on 2026-09-28
+
+- **MCP tools run.** Every server Keel passes gets
+  `mcp_servers.<n>.default_tools_approval_mode="approve"` (they are the ones
+  granted to the agent or project, like claude's `mcp__<server>`). Asking the
+  person stays with Keel's gate.
+- **Failures are visible.** The reader names MCP calls `mcp__server__tool` with
+  their arguments and turns a failed call into a notice in the thread.
+- **Effort** travels as `-c model_reasoning_effort=...`. Codex forwards it
+  verbatim and does not clamp an unsupported level.
+- **Permissions in the 1:1 chat.** Codex chats carry the same
+  `keel-decision-gate` hook, answered by the chat itself
+  (`/agent-gate/{agentId}`): a card with once / always / deny, and the turn
+  waits. Edits reach the gate as `tool_name: "apply_patch"` through the
+  `Edit|Write` matcher; commands as `Bash`.
+- **Settings → Codex**: ask before commands and edits (on), network inside the
+  `workspace-write` sandbox (on — without it `curl` exits 6, so `pub get`,
+  `npm` and `git push` failed), full disk access (off).
+- **A turn that may not write** (consultation, unmaintained project) runs with
+  a read-only sandbox: codex has no tool allow-list to take write tools away.
+- **Turn ceiling wired**: `maxTurns × kCodexToolCallsPerTurn` tool calls.
+
 ## How to verify it
+
+- `test/run_codex_real_binary.sh`: the **real** codex binary against an
+  in-process fake model provider (a throwaway `CODEX_HOME`, no account): a Keel
+  MCP tool runs, and a file edit goes through Keel's gate.
+- `test/run_agent_codex_chat.sh`: a 1:1 codex turn carries the gate.
+- `test/agents/agent_tool_gate_test.dart`: the 1:1 card waits; once / always.
 
 - `test/llm/codex/codex_cli_runner_test.dart`: a fake `codex` dumps argv and
   environment; the gate travels via `-c` with the trust flag, the MCP bearer is

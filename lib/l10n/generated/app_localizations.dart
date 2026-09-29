@@ -1530,7 +1530,7 @@ abstract class AppLocalizations {
   /// No description provided for @formLabelProvider.
   ///
   /// In en, this message translates to:
-  /// **'Provider (codex: no tools/MCPs/effort, and its own models)'**
+  /// **'Provider (each with its own models)'**
   String get formLabelProvider;
 
   /// No description provided for @formLabelModel.
@@ -2372,18 +2372,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Read/verification subagents: {count}'**
   String labelMaxSubagentsLimit(int count);
-
-  /// No description provided for @labelIdleTimeoutLimit.
-  ///
-  /// In en, this message translates to:
-  /// **'Minutes without provider activity before a step is cut: {count} (0 = unlimited)'**
-  String labelIdleTimeoutLimit(int count);
-
-  /// No description provided for @labelNodeTimeoutLimit.
-  ///
-  /// In en, this message translates to:
-  /// **'Maximum minutes per step: {count} (0 = unlimited)'**
-  String labelNodeTimeoutLimit(int count);
 
   /// No description provided for @labelSessionCostLimit.
   ///
@@ -4262,6 +4250,78 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Turn open'**
   String get sessionTurnOpen;
+
+  /// No description provided for @permissionGateTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Asking permission to continue'**
+  String get permissionGateTitle;
+
+  /// No description provided for @permissionDeny.
+  ///
+  /// In en, this message translates to:
+  /// **'Deny'**
+  String get permissionDeny;
+
+  /// No description provided for @permissionAllowOnce.
+  ///
+  /// In en, this message translates to:
+  /// **'Allow once'**
+  String get permissionAllowOnce;
+
+  /// No description provided for @permissionAllowAlways.
+  ///
+  /// In en, this message translates to:
+  /// **'Always allow'**
+  String get permissionAllowAlways;
+
+  /// No description provided for @settingCodex.
+  ///
+  /// In en, this message translates to:
+  /// **'Codex'**
+  String get settingCodex;
+
+  /// No description provided for @descriptionCodexSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Codex runs inside its sandbox and never asks on its own: what Claude Code decides with its permission prompts, Codex decides here, for all its turns.'**
+  String get descriptionCodexSettings;
+
+  /// No description provided for @codexAskPermission.
+  ///
+  /// In en, this message translates to:
+  /// **'Ask before commands and edits'**
+  String get codexAskPermission;
+
+  /// No description provided for @codexAskPermissionHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Keel shows the card (once, always or deny) and the turn waits for your answer.'**
+  String get codexAskPermissionHelp;
+
+  /// No description provided for @codexNetworkAccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Network inside the sandbox'**
+  String get codexNetworkAccess;
+
+  /// No description provided for @codexNetworkAccessHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Without network, pub get, npm install or git push fail inside Codex.'**
+  String get codexNetworkAccessHelp;
+
+  /// No description provided for @codexFullDiskAccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Full disk access'**
+  String get codexFullDiskAccess;
+
+  /// No description provided for @codexFullDiskAccessHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Lets it write outside the project folder. A chat can turn it on just for itself.'**
+  String get codexFullDiskAccessHelp;
 }
 
 class _AppLocalizationsDelegate

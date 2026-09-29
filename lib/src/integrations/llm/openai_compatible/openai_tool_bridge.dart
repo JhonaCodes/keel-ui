@@ -39,6 +39,10 @@ class OpenAiToolResult {
 abstract interface class OpenAiToolBridge {
   Future<List<OpenAiFunctionDefinition>> functions(LlmTurnSpec spec);
 
+  /// What [functions] could not load and left out (an MCP server that did
+  /// not answer), for the thread to say. Empty when everything loaded.
+  List<String> get warnings;
+
   Future<OpenAiToolResult> execute(
     LlmTurnSpec spec,
     String name,
@@ -56,6 +60,10 @@ class DefaultOpenAiToolBridge implements OpenAiToolBridge {
   final List<_McpConnection> _connections = [];
   CliTurnWorkspace? _workspace;
   Map<String, dynamic> _hooks = const {};
+  final List<String> _warnings = [];
+
+  @override
+  List<String> get warnings => List.unmodifiable(_warnings);
 
   @override
   Future<List<OpenAiFunctionDefinition>> functions(LlmTurnSpec spec) async {
@@ -305,9 +313,12 @@ class DefaultOpenAiToolBridge implements OpenAiToolBridge {
           );
         }
       } catch (error) {
+        // One server down does not sink the turn: the agent works with the
+        // rest, and the thread says which tools are missing and why.
         await connection.close();
-        throw StateError(
-          'No se pudo cargar el MCP requerido "$serverName": $error',
+        _warnings.add(
+          'No se pudo cargar el MCP "$serverName"; el turno sigue sin sus '
+          'tools: $error',
         );
       }
     }

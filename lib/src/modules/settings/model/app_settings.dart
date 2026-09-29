@@ -1,3 +1,7 @@
+import 'package:keel_ui/src/modules/settings/model/codex_settings.dart';
+
+export 'package:keel_ui/src/modules/settings/model/codex_settings.dart';
+
 /// The tools that *change things* — the only ones that need your consent.
 /// Reading files, searching them and consulting the web is always allowed
 /// (see `kAlwaysAllowedTools`), because an agent that cannot open the code it
@@ -53,6 +57,9 @@ class AppSettings {
   /// Idioma elegido en Ajustes: `'en'` o `'es_CO'`.
   final String language;
 
+  /// How every codex turn runs: sandbox, network and permission gate.
+  final CodexSettings codex;
+
   const AppSettings({
     this.chatFontScale = kDefaultChatFontScale,
     this.extraAllowedTools = const [],
@@ -63,6 +70,7 @@ class AppSettings {
     this.windowWidth = kDefaultWindowWidth,
     this.windowHeight = kDefaultWindowHeight,
     this.language = 'en',
+    this.codex = const CodexSettings(),
   });
 
   AppSettings copyWith({
@@ -75,6 +83,7 @@ class AppSettings {
     double? windowWidth,
     double? windowHeight,
     String? language,
+    CodexSettings? codex,
   }) {
     return AppSettings(
       chatFontScale: chatFontScale ?? this.chatFontScale,
@@ -86,6 +95,7 @@ class AppSettings {
       windowWidth: windowWidth ?? this.windowWidth,
       windowHeight: windowHeight ?? this.windowHeight,
       language: language ?? this.language,
+      codex: codex ?? this.codex,
     );
   }
 
@@ -99,6 +109,7 @@ class AppSettings {
     'windowWidth': windowWidth,
     'windowHeight': windowHeight,
     'language': language,
+    'codex': codex.toJson(),
   };
 
   factory AppSettings.fromJson(Map<String, dynamic> json) {
@@ -121,6 +132,9 @@ class AppSettings {
         'en' => 'en',
         _ => 'en',
       },
+      codex: CodexSettings.fromJson(
+        (json['codex'] as Map?)?.cast<String, dynamic>(),
+      ),
     );
   }
 
@@ -135,6 +149,7 @@ class AppSettings {
           vaultOnboardingDone == other.vaultOnboardingDone &&
           knowledgeRepoUrl == other.knowledgeRepoUrl &&
           language == other.language &&
+          codex == other.codex &&
           extraAllowedTools.length == other.extraAllowedTools.length &&
           extraAllowedTools.every(other.extraAllowedTools.contains);
 
@@ -147,6 +162,7 @@ class AppSettings {
     vaultOnboardingDone,
     knowledgeRepoUrl,
     language,
+    codex,
   );
 
   @override

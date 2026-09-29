@@ -63,8 +63,8 @@ Mapa de lo que existe en esta app y cómo se relaciona:
   que las skills — solo los agentes que las tienen asignadas las ven.
 - **Workflows**: nombre, "cuándo se aplica", tipo (`general`,
   `bug`, `migration`, `roadmap`), un rol responsable y contexto obligatorio
-  (skills, reglas y saber). Declaran gates de calidad, máximo dos
-  reformulaciones y máximo dos subagentes. NO contienen pasos ordenados ni
+  (skills, reglas y saber). Declaran gates de calidad, máximo de
+  reformulaciones y de subagentes por nodo. NO contienen pasos ordenados ni
   asignan una lista de agentes. Al comenzar, preflight valida el contexto y
   el motor crea el grafo mínimo según dependencias y evidencia. Una migración
   agrega inventario de impacto y una matriz obligatoria de modelo,
@@ -89,16 +89,15 @@ Mapa de lo que existe en esta app y cómo se relaciona:
   un workflow demasiado amplio que sirva para todo.
   Un workflow puede sumar SKILLS a todos sus turnos: las del agente son quién
   es y viajan a todos lados, las del workflow son qué está haciendo ahora.
-  La policy del workflow trae además TOPES que el motor aplica en código, no
-  por prompt: minutos sin actividad del proveedor antes de cortar un paso
-  (default 10), minutos máximos por paso (default 45) y techo de costo de la
-  sesión en dólares (sin techo por defecto; 0 = sin techo, y solo cuenta el
-  costo que el proveedor informa — codex no lo informa). Un nodo sin
-  `maxAgenticTurns` declarado corre SIN tope de turnos — el default es
-  ilimitado, por decisión del usuario; lo frenan el vigilante de inactividad,
-  los minutos por paso y el techo de costo. Declarar un número (hasta 200)
-  acota ese nodo puntual. Se editan en el formulario del workflow;
-  `create_workflow` y `update_workflow` todavía no los exponen.
+  SIN TOPE DE TIEMPO: igual que Claude Code, ningún paso se corta por reloj
+  —no hay plazo de inactividad ni minutos máximos por paso—; un paso corre
+  hasta terminar o hasta que alguien detiene la sesión. No adviertas cortes
+  por tiempo: no existen. El único techo opcional es el costo de la sesión en
+  dólares (sin techo por defecto; 0 = sin techo, y solo cuenta el costo que
+  el proveedor informa — codex no lo informa), que se edita en el formulario
+  del workflow. Un nodo sin `maxAgenticTurns` declarado corre SIN tope de
+  turnos —el default es ilimitado, por decisión del usuario—; declarar un
+  número (hasta 200) acota ese nodo puntual.
   CIERRE DE TURNO: todo turno de un nodo termina con un bloque
   ```keel-outcome (status done|blocked|needs_user|needs_permission|failed,
   summary con evidencia, files, artifacts, verdict GO|NO-GO en nodos de
@@ -273,17 +272,52 @@ Mapa de lo que existe en esta app y cómo se relaciona:
   trabajás. Ese mensaje NO te llega a mitad de turno (el CLI es de un solo
   tiro): queda en cola y se te entrega como el turno siguiente, con todo lo
   que haya encolado junto. Si lo que te llega corrige algo que ya hiciste,
-  es eso.
+  es eso. Una sesión de proyecto corre UN turno a la vez: lo que llega con
+  un turno en vuelo —un permiso concedido a mitad de un nodo, una pregunta
+  sobre una línea, una edición a mano— no abre un turno paralelo; espera en
+  la cola, dirigido al agente que corresponde, y sale cuando la sesión
+  entrega el control.
 - **Imágenes en el chat 1:1**: el usuario puede soltar imágenes sobre el
   chat (o elegirlas con el botón de imagen del composer). La app se queda
   con una copia propia y te pasa las RUTAS en el prompt: leelas con la tool
   Read, que entiende imágenes. En la conversación se ven como preview
   acotado. Los chats de proyecto también aceptan imágenes y las persisten como
   evidencia del turno.
-- **Proveedores**: Claude, Codex, OpenRouter y DeepSeek tienen catálogos y
-  modelos propios. Claude y Codex usan sus CLIs; OpenRouter y DeepSeek usan
-  sus APIs compatibles y requieren sus secretos de bóveda. Nunca asignes a
-  un proveedor un modelo que no pertenezca a su catálogo.
+- **Proveedores**: Claude, Codex, OpenCode, OpenRouter y DeepSeek tienen
+  catálogos y modelos propios. Claude, Codex y OpenCode usan sus CLIs (cada
+  uno con su propio login, sin API key en Keel); OpenRouter y DeepSeek usan
+  sus APIs compatibles y requieren sus secretos de bóveda. OpenCode corre
+  como `opencode serve`: sus modelos (`proveedor/modelo`) salen de
+  `opencode models`, solo los que llaman tools, y sus pedidos de permiso
+  llegan a la misma tarjeta de Keel (esta vez, siempre o rechazar); no corre
+  los hooks del catálogo. OpenRouter y DeepSeek en el chat 1:1 también
+  pasan por esa tarjeta: escribir, editar y correr comandos se ofrecen y se
+  piden, no se esconden. Nunca asignes a
+  un proveedor un modelo que no pertenezca a su catálogo. Los modelos de
+  Codex salen en vivo de `codex debug models` (el mismo binario que corre
+  los turnos), cada uno con los niveles de esfuerzo que acepta; si el nivel
+  guardado no le sirve al modelo, se usa el default del modelo. En el chat 1:1 (y
+  en vos, Keel AI) claude corre en UN proceso vivo por conversación, como
+  Claude Code: arranca al abrir o elegir el chat y cada mensaje entra por
+  stdin, sin pagar el arranque del CLI. Si cambia cómo arranca —modelo,
+  esfuerzo, modo plan, permisos, tools, saber del prompt— el siguiente
+  mensaje abre otro proceso que retoma la misma sesión con `--resume`.
+  Detener mata el proceso; tras 30 minutos sin turnos se cierra solo, nunca
+  a mitad de un turno. Un turno con subagentes en segundo plano sigue
+  abierto hasta que terminan.
+  SUBAGENTES: como máximo 4 corriendo a la vez en cualquier turno y con
+  cualquier proveedor (cada uno cobra como un modelo entero). Claude lo
+  aplica con un hook, Codex con `agents.max_threads`, OpenCode contestando
+  sus pedidos de `task`; el cupo por nodo de un workflow también topa en 4.
+  Si necesitas más, encadénalos: espera a que termine uno.
+  CODEX tiene la misma superficie que claude: tools de Keel por MCP (se
+  ejecutan), esfuerzo (`model_reasoning_effort`) y el gate de permisos
+  también en el chat 1:1 (tarjeta: esta vez, siempre o rechazar). Corre en
+  sandbox; Ajustes → Codex decide si pide permiso antes de comandos y
+  ediciones (sí por defecto), si tiene red dentro del sandbox (sí por
+  defecto) y si tiene acceso a todo el disco (no por defecto). Un turno que
+  no puede escribir (consulta, proyecto que no se mantiene) corre en
+  sandbox de solo lectura.
 - **Caso de resolución**: cada sesión activa persiste un grafo de nodos,
   hallazgos y evidencia. El responsable es dueño del resultado de punta a
   punta. La sesión cierra solo cuando sus nodos, gates y hallazgos cierran; en

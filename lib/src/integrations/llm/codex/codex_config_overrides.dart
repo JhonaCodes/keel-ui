@@ -97,6 +97,13 @@ CodexTurnConfig codexMcpConfig(String? mcpConfigJson) {
       continue;
     }
     overrides.add('$key.tool_timeout_sec=$toolTimeoutSec');
+    // Codex asks before any MCP tool that declares no annotations, and
+    // `exec` runs with `approval_policy=never`: every call to one of Keel's
+    // tools failed with "MCP tool call requires approval, but approval
+    // policy is never". The servers here are the ones granted to this
+    // agent or project — the same grant `mcp__<server>` is for claude — so
+    // their tools run. Asking the person stays with Keel's own gate.
+    overrides.add('$key.default_tools_approval_mode="approve"');
   }
   return CodexTurnConfig(overrides: overrides, environment: environment);
 }

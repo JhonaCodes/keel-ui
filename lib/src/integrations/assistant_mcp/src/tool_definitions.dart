@@ -514,27 +514,19 @@ final List<Tool> keelAiTools = _withCatalogChangeParameters([
               'Gates: analysis, focusedTests, compatibility, regression.',
         ),
         'max_replans': Schema.int(
-          description: 'Máximo de reformulaciones, de 0 a 2.',
+          description: 'Máximo de reformulaciones, de 0 a $kMaxReplans.',
         ),
         'max_subagents': Schema.int(
           description:
               'Máximo de subagentes de lectura/verificación que cada NODO '
-              'puede abrir en paralelo, de 0 a 6. El cupo es por nodo, no por '
+              'puede abrir en paralelo, de 0 a $kMaxSubagentsPerNode. El cupo '
+              'es por nodo, no por '
               'corrida: un nodo no le consume el presupuesto al siguiente.',
         ),
         'max_review_cycles': Schema.int(
-          description: 'Máximo total de ciclos auditoría/corrección, de 1 a 4.',
-        ),
-        'idle_timeout_minutes': Schema.int(
           description:
-              'Minutos sin un solo evento del proveedor antes de cortar el '
-              'paso, de 1 a 60. Omitir conserva el valor actual.',
-        ),
-        'node_timeout_minutes': Schema.int(
-          description:
-              'Minutos máximos que puede durar el turno de un nodo, con o sin '
-              'actividad, de 5 a 240. Subilo cuando los pasos hacen trabajo '
-              'largo. Omitir conserva el valor actual.',
+              'Máximo total de ciclos auditoría/corrección, de 1 a '
+              '$kMaxReviewCycles.',
         ),
         'builds_roadmap': Schema.bool(
           description:
@@ -572,8 +564,8 @@ final List<Tool> keelAiTools = _withCatalogChangeParameters([
                 description:
                     'Tope de turnos del paso, de 0 a $kMaxDeclarableTurns. '
                     '0 es el default y significa SIN tope: el paso corre '
-                    'hasta terminar; lo frenan el vigilante de inactividad, '
-                    'los minutos por paso y el techo de costo.',
+                    'hasta terminar, sin tope de tiempo; solo lo frena el '
+                    'techo de costo, si el workflow declara uno.',
               ),
               'approval_required': Schema.bool(
                 description:
@@ -671,7 +663,7 @@ final List<Tool> keelAiTools = _withCatalogChangeParameters([
             properties: {
               'handle': Schema.string(),
               'provider': Schema.string(
-                description: 'claude, codex, openrouter o deepseek.',
+                description: 'claude, codex, opencode, openrouter o deepseek.',
               ),
               'model': Schema.string(
                 description: 'ID exacto; vacío hereda del perfil.',
@@ -957,7 +949,8 @@ final List<Tool> keelAiTools = _withCatalogChangeParameters([
         ),
         'provider': Schema.string(
           description:
-              'Proveedor: "claude", "codex", "openrouter" o "deepseek". '
+              'Proveedor: "claude", "codex", "opencode", "openrouter" o '
+              '"deepseek". '
               'Omitir conserva el actual en una actualización.',
         ),
         'model': Schema.string(
@@ -1021,16 +1014,19 @@ final List<Tool> keelAiTools = _withCatalogChangeParameters([
               'Gates: analysis, focusedTests, compatibility, regression.',
         ),
         'max_replans': Schema.int(
-          description: 'Máximo de reformulaciones, de 0 a 2.',
+          description: 'Máximo de reformulaciones, de 0 a $kMaxReplans.',
         ),
         'max_subagents': Schema.int(
           description:
               'Máximo de subagentes de lectura/verificación que cada NODO '
-              'puede abrir en paralelo, de 0 a 6. El cupo es por nodo, no por '
+              'puede abrir en paralelo, de 0 a $kMaxSubagentsPerNode. El cupo '
+              'es por nodo, no por '
               'corrida: un nodo no le consume el presupuesto al siguiente.',
         ),
         'max_review_cycles': Schema.int(
-          description: 'Máximo total de ciclos auditoría/corrección, de 1 a 4.',
+          description:
+              'Máximo total de ciclos auditoría/corrección, de 1 a '
+              '$kMaxReviewCycles.',
         ),
         'builds_roadmap': Schema.bool(
           description:
@@ -1068,8 +1064,8 @@ final List<Tool> keelAiTools = _withCatalogChangeParameters([
                 description:
                     'Tope de turnos del paso, de 0 a $kMaxDeclarableTurns. '
                     '0 es el default y significa SIN tope: el paso corre '
-                    'hasta terminar; lo frenan el vigilante de inactividad, '
-                    'los minutos por paso y el techo de costo.',
+                    'hasta terminar, sin tope de tiempo; solo lo frena el '
+                    'techo de costo, si el workflow declara uno.',
               ),
               'approval_required': Schema.bool(
                 description:

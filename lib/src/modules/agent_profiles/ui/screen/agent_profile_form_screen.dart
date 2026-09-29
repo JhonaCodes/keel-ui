@@ -15,6 +15,7 @@ import 'package:keel_ui/src/modules/hooks/ui/widget/hook_multi_select.dart';
 import 'package:keel_ui/src/modules/rules/ui/widget/rule_multi_select.dart';
 import 'package:keel_ui/src/modules/skills/ui/widget/skill_multi_select.dart';
 import 'package:keel_ui/src/modules/tools/ui/widget/tool_multi_select.dart';
+import 'package:keel_ui/src/modules/agents/viewmodel/model_catalog_viewmodel.dart';
 
 Future<void> openAgentProfileFormScreen(
   BuildContext context, {
@@ -63,11 +64,14 @@ class _AgentProfileFormScreenState extends State<AgentProfileFormScreen> {
     widget.initial?.model ?? kDefaultClaudeModelAlias,
   );
   late String _effort = widget.initial?.effort ?? kDefaultEffortAlias;
-  late final RemoteModelCatalog _catalog =
-      widget.catalog ?? RemoteModelCatalog();
-  late Future<List<AgentModelOption>> _models = _catalog.load(_provider);
+  late Future<List<AgentModelOption>> _models = _loadModels(_provider);
   String? _nameError;
   String? _formError;
+
+  /// The shared catalog, unless a test handed its own.
+  Future<List<AgentModelOption>> _loadModels(AgentProvider provider) =>
+      widget.catalog?.load(provider) ??
+      ModelCatalogService.instance.notifier.load(provider);
 
   @override
   void dispose() {
@@ -254,7 +258,7 @@ class _AgentProfileFormScreenState extends State<AgentProfileFormScreen> {
                     setState(() {
                       _provider = value;
                       _model = defaultModelFor(value);
-                      _models = _catalog.load(value);
+                      _models = _loadModels(value);
                     });
                   },
                 ),

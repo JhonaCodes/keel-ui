@@ -48,7 +48,7 @@ void main() {
     () {
       // El caso real: el trabajo estaba terminado y la sesión murió igual.
       // Un turno que se fue sin declarar su bloque —error del proveedor,
-      // vigilante, huella repetida— deja el nodo en `running`; nadie lo
+      // huella repetida— deja el nodo en `running`; nadie lo
       // libera salvo que el usuario apriete Stop.
       final started = graph();
       final orphanId = started.nodes.last.id;

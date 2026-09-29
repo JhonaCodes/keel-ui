@@ -8,8 +8,7 @@ enum ChatRole {
   user,
   assistant,
 
-  /// Algo se rompió: una excepción, un turno que murió, un vigilante que
-  /// cortó el paso. La app falló.
+  /// Algo se rompió: una excepción o un turno que murió. La app falló.
   error,
 
   /// El workflow llegó a un cierre negativo ESPERADO: un caso bloqueado, un

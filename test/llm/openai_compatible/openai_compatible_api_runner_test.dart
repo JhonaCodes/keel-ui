@@ -147,9 +147,9 @@ void main() {
       // 30 rondas supera el presupuesto de 24 que existía acá: con el contador
       // vivo este turno se cortaba en la ronda 25 con el aviso "[keel] Corté".
       // Eliminado por decisión explícita del usuario — el contador cortaba
-      // trabajo legítimo. Los frenos que quedan son los del motor (vigilante
-      // de inactividad, minutos por paso, techo de costo) y el corte de
-      // reintentos estériles del propio runner.
+      // trabajo legítimo. Los frenos que quedan son el techo de costo del
+      // motor, si se declara, y el corte de reintentos estériles del propio
+      // runner.
       const chain = 30;
       var requests = 0;
       final runner = OpenAiCompatibleApiRunner(
@@ -747,6 +747,9 @@ Future<http.Request> _capturedRequest({
 }
 
 class _FakeToolBridge implements OpenAiToolBridge {
+  @override
+  List<String> get warnings => const [];
+
   final List<(String, Map<String, dynamic>)> executions = [];
   bool closed = false;
 

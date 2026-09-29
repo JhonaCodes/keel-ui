@@ -1,5 +1,10 @@
 # F6 — Codex provider per agent
 
+> **Superseded by [F51](51-codex-first-class.md).** Everything below about codex
+> having no MCPs, tools or effort, `codex_cli_service.dart` and the ```plan
+> fenced-block fallback is history: codex now has the same tools, MCPs, effort
+> and permission gate as claude.
+
 ## What it is
 
 Each profile/agent declares its **provider** (`AgentProvider`): `claude`

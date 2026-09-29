@@ -1,0 +1,126 @@
+#!/usr/bin/env python3
+"""Fake `opencode` for Keel's tests: `models --verbose` and a `serve` that
+speaks the slice of OpenCode 1.18's HTTP API Keel uses, with the event shapes
+captured from the real binary. One scripted turn: it asks permission to run
+`echo hola`, then answers "listo" if allowed, "rechazado" if not. A prompt
+that mentions "cinco tareas" instead opens five subagent tasks at once.
+Replies are appended to $KEEL_OPENCODE_LOG as `<request id> <reply>`."""
+import base64, http.server, json, os, queue, sys, threading
+
+args = sys.argv[1:]
+if args[:1] == ['models']:
+    print('fake/model-a')
+    print(json.dumps({'id': 'model-a', 'providerID': 'fake', 'name': 'Model A',
+                      'capabilities': {'toolcall': True}, 'variants': {'high': {}}}, indent=2))
+    print('fake/no-tools')
+    print(json.dumps({'id': 'no-tools', 'providerID': 'fake', 'name': 'No tools',
+                      'capabilities': {'toolcall': False}, 'variants': {}}, indent=2))
+    sys.exit(0)
+if args[:1] != ['serve']:
+    sys.exit(2)
+
+TOKEN = 'Basic ' + base64.b64encode(
+    ('opencode:' + os.environ.get('OPENCODE_SERVER_PASSWORD', '')).encode()).decode()
+LOG = os.environ.get('KEEL_OPENCODE_LOG')
+SESSION = 'ses_fake'
+subscribers = []
+task_replies = []
+
+def emit(kind, properties):
+    for q in list(subscribers):
+        q.put({'type': kind, 'properties': properties})
+
+def part(pid, kind, **extra):
+    return {'part': dict({'id': pid, 'sessionID': SESSION, 'messageID': 'msg_a', 'type': kind}, **extra)}
+
+def finish(text):
+    emit('message.part.updated', part('prt_text', 'text', text=text, time={'start': 1, 'end': 2}))
+    emit('message.part.updated', part('prt_step', 'step-finish', reason='stop',
+                                      tokens={'input': 10, 'output': 2, 'reasoning': 0,
+                                              'cache': {'read': 1, 'write': 0}}, cost=0.001))
+    emit('session.status', {'sessionID': SESSION, 'status': {'type': 'idle'}})
+    emit('session.idle', {'sessionID': SESSION})
+
+class Handler(http.server.BaseHTTPRequestHandler):
+    protocol_version = 'HTTP/1.1'
+    def log_message(self, *a): pass
+
+    def _ok(self, status=200, body=None):
+        data = b'' if body is None else json.dumps(body).encode()
+        self.send_response(status)
+        self.send_header('Content-Type', 'application/json')
+        self.send_header('Content-Length', str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
+    def _authorized(self):
+        if self.headers.get('Authorization') == TOKEN:
+            return True
+        self._ok(401, {'error': 'unauthorized'})
+        return False
+
+    def do_GET(self):
+        if not self._authorized(): return
+        if not self.path.startswith('/event'):
+            return self._ok(404, {})
+        self.send_response(200)
+        self.send_header('Content-Type', 'text/event-stream')
+        self.end_headers()
+        q = queue.Queue()
+        subscribers.append(q)
+        try:
+            while True:
+                event = q.get()
+                self.wfile.write(('data: ' + json.dumps(event) + '\n\n').encode())
+                self.wfile.flush()
+        except Exception:
+            subscribers.remove(q)
+
+    def do_POST(self):
+        if not self._authorized(): return
+        length = int(self.headers.get('Content-Length') or 0)
+        body = json.loads(self.rfile.read(length) or b'{}')
+        path = self.path.split('?')[0]
+        if path == '/session':
+            return self._ok(200, {'id': SESSION})
+        if path.endswith('/prompt_async'):
+            self._ok(204)
+            text = ' '.join(p.get('text', '') for p in body.get('parts', []))
+            emit('message.updated', {'sessionID': SESSION,
+                 'info': {'id': 'msg_a', 'role': 'assistant', 'sessionID': SESSION, 'modelID': 'model-a'}})
+            emit('session.status', {'sessionID': SESSION, 'status': {'type': 'busy'}})
+            if 'cinco tareas' in text:
+                for n in range(1, 6):
+                    emit('permission.asked', {'id': 'per_t%d' % n, 'sessionID': SESSION,
+                         'permission': 'task', 'patterns': ['general'], 'metadata': {}})
+                return
+            emit('permission.asked', {'id': 'per_1', 'sessionID': SESSION, 'permission': 'bash',
+                 'patterns': ['echo hola'], 'metadata': {'command': 'echo hola'}})
+            return
+        if path.startswith('/permission/') and path.endswith('/reply'):
+            reply = body.get('reply')
+            request_id = path.split('/')[2]
+            if LOG:
+                with open(LOG, 'a') as log: log.write('%s %s\n' % (request_id, reply))
+            self._ok(200, True)
+            if request_id.startswith('per_t'):
+                task_replies.append(reply)
+                if len(task_replies) == 5:
+                    finish('tareas')
+                return
+            if reply == 'once':
+                emit('message.part.updated', part('prt_tool', 'tool', tool='bash', callID='call_1',
+                     state={'status': 'running', 'input': {'command': 'echo hola'}}))
+                emit('message.part.updated', part('prt_tool', 'tool', tool='bash', callID='call_1',
+                     state={'status': 'completed', 'input': {'command': 'echo hola'}, 'output': 'hola'}))
+                finish('listo')
+            else:
+                finish('rechazado')
+            return
+        if path.endswith('/abort'):
+            return self._ok(200, True)
+        self._ok(404, {})
+
+server = http.server.ThreadingHTTPServer(('127.0.0.1', 0), Handler)
+print('opencode server listening on http://127.0.0.1:%d' % server.server_address[1], flush=True)
+server.serve_forever()

@@ -93,8 +93,8 @@ class AgentProfile {
   /// explicit grant, never ambient.
   final bool canManageSystem;
 
-  /// Which local CLI drives this profile's agents (claude by default).
-  /// Codex agents don't receive tools/MCPs/effort — see the F6 doc.
+  /// Which CLI or API drives this profile's agents (claude by default).
+  /// Every provider gets the same tools, MCPs and effort — see the F51 doc.
   final AgentProvider provider;
   final String model;
   final String effort;

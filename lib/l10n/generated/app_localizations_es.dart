@@ -813,7 +813,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get formLabelProvider =>
-      'Proveedor (codex: sin tools/MCPs/esfuerzo, y sus propios modelos)';
+      'Proveedor (cada uno con sus propios modelos)';
 
   @override
   String formLabelModel(String provider) {
@@ -1347,16 +1347,6 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String labelMaxSubagentsLimit(int count) {
     return 'Subagentes de lectura/verificación: $count';
-  }
-
-  @override
-  String labelIdleTimeoutLimit(int count) {
-    return 'Minutos sin actividad del proveedor antes de cortar un paso: $count (0 = sin límite)';
-  }
-
-  @override
-  String labelNodeTimeoutLimit(int count) {
-    return 'Minutos máximos por paso: $count (0 = sin límite)';
   }
 
   @override
@@ -2456,6 +2446,47 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get sessionTurnOpen => 'Turno abierto';
+
+  @override
+  String get permissionGateTitle => 'Pide permiso para seguir';
+
+  @override
+  String get permissionDeny => 'Rechazar';
+
+  @override
+  String get permissionAllowOnce => 'Permitir esta vez';
+
+  @override
+  String get permissionAllowAlways => 'Permitir siempre';
+
+  @override
+  String get settingCodex => 'Codex';
+
+  @override
+  String get descriptionCodexSettings =>
+      'Codex corre dentro de su sandbox y no pregunta solo: lo que Claude Code decide con sus avisos de permiso, Codex lo decide acá, para todos sus turnos.';
+
+  @override
+  String get codexAskPermission =>
+      'Pedir permiso antes de comandos y ediciones';
+
+  @override
+  String get codexAskPermissionHelp =>
+      'Keel muestra la tarjeta (esta vez, siempre o rechazar) y el turno espera tu respuesta.';
+
+  @override
+  String get codexNetworkAccess => 'Red dentro del sandbox';
+
+  @override
+  String get codexNetworkAccessHelp =>
+      'Sin red fallan pub get, npm install o git push dentro de Codex.';
+
+  @override
+  String get codexFullDiskAccess => 'Acceso a todo el disco';
+
+  @override
+  String get codexFullDiskAccessHelp =>
+      'Deja escribir fuera de la carpeta del proyecto. Un chat puede activarlo solo para sí.';
 }
 
 /// The translations for Spanish Castilian, as used in Colombia (`es_CO`).
@@ -3267,7 +3298,7 @@ class AppLocalizationsEsCo extends AppLocalizationsEs {
 
   @override
   String get formLabelProvider =>
-      'Proveedor (codex: sin tools/MCPs/esfuerzo, y sus propios modelos)';
+      'Proveedor (cada uno con sus propios modelos)';
 
   @override
   String formLabelModel(String provider) {
@@ -3801,16 +3832,6 @@ class AppLocalizationsEsCo extends AppLocalizationsEs {
   @override
   String labelMaxSubagentsLimit(int count) {
     return 'Subagentes de lectura/verificación: $count';
-  }
-
-  @override
-  String labelIdleTimeoutLimit(int count) {
-    return 'Minutos sin actividad del proveedor antes de cortar un paso: $count (0 = sin límite)';
-  }
-
-  @override
-  String labelNodeTimeoutLimit(int count) {
-    return 'Minutos máximos por paso: $count (0 = sin límite)';
   }
 
   @override
@@ -4910,4 +4931,45 @@ class AppLocalizationsEsCo extends AppLocalizationsEs {
 
   @override
   String get sessionTurnOpen => 'Turno abierto';
+
+  @override
+  String get permissionGateTitle => 'Pide permiso para seguir';
+
+  @override
+  String get permissionDeny => 'Rechazar';
+
+  @override
+  String get permissionAllowOnce => 'Permitir esta vez';
+
+  @override
+  String get permissionAllowAlways => 'Permitir siempre';
+
+  @override
+  String get settingCodex => 'Codex';
+
+  @override
+  String get descriptionCodexSettings =>
+      'Codex corre dentro de su sandbox y no pregunta solo: lo que Claude Code decide con sus avisos de permiso, Codex lo decide acá, para todos sus turnos.';
+
+  @override
+  String get codexAskPermission =>
+      'Pedir permiso antes de comandos y ediciones';
+
+  @override
+  String get codexAskPermissionHelp =>
+      'Keel muestra la tarjeta (esta vez, siempre o rechazar) y el turno espera tu respuesta.';
+
+  @override
+  String get codexNetworkAccess => 'Red dentro del sandbox';
+
+  @override
+  String get codexNetworkAccessHelp =>
+      'Sin red fallan pub get, npm install o git push dentro de Codex.';
+
+  @override
+  String get codexFullDiskAccess => 'Acceso a todo el disco';
+
+  @override
+  String get codexFullDiskAccessHelp =>
+      'Deja escribir fuera de la carpeta del proyecto. Un chat puede activarlo solo para sí.';
 }

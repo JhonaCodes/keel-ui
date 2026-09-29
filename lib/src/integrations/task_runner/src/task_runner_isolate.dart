@@ -56,24 +56,7 @@ Future<void> _runInIsolate({
   // agregar un proveedor nuevo sin extender `LlmProvider.fromLegacyAlias` ni
   // `dispatchLlmProvider` no compila. Ver arquitectura-llm-providers.
   final provider = LlmProvider.fromLegacyAlias(spec.provider);
-  final turnSpec = LlmTurnSpec(
-    prompt: spec.prompt,
-    workingDirectory: spec.workingDirectory,
-    model: spec.model,
-    fullFileSystemAccess: spec.fullFileSystemAccess,
-    effort: spec.effort,
-    extraAllowedTools: spec.extraAllowedTools,
-    sessionId: spec.sessionId,
-    additionalSystemPrompt: spec.additionalSystemPrompt,
-    mcpConfig: spec.mcpConfig,
-    hooksSettings: spec.hooksSettings,
-    hooksConfig: spec.hooksConfig,
-    hookFiles: spec.hookFiles,
-    conversationHistory: spec.conversationHistory,
-    planMode: spec.planMode,
-    maxTurns: spec.maxTurns,
-    maxBudgetUsd: spec.maxBudgetUsd,
-  );
+  final turnSpec = _turnSpecOf(spec);
 
   final events =
       dispatchLlmProvider(provider, providerApiKey: spec.providerApiKey).run(
@@ -94,4 +77,103 @@ Future<void> _runInIsolate({
 
   mainSendPort.send({'type': 'done'});
   commandPort.close();
+}
+
+/// The provider-neutral turn a [TaskRunSpec] describes.
+LlmTurnSpec _turnSpecOf(TaskRunSpec spec) => LlmTurnSpec(
+  prompt: spec.prompt,
+  workingDirectory: spec.workingDirectory,
+  model: spec.model,
+  fullFileSystemAccess: spec.fullFileSystemAccess,
+  effort: spec.effort,
+  extraAllowedTools: spec.extraAllowedTools,
+  sessionId: spec.sessionId,
+  additionalSystemPrompt: spec.additionalSystemPrompt,
+  mcpConfig: spec.mcpConfig,
+  hooksSettings: spec.hooksSettings,
+  hooksConfig: spec.hooksConfig,
+  hookFiles: spec.hookFiles,
+  conversationHistory: spec.conversationHistory,
+  planMode: spec.planMode,
+  maxTurns: spec.maxTurns,
+  maxBudgetUsd: spec.maxBudgetUsd,
+  sandboxNetworkAccess: spec.sandboxNetworkAccess,
+  sandboxReadOnly: spec.sandboxReadOnly,
+  permissionGateUrl: spec.permissionGateUrl,
+  permissionGateToken: spec.permissionGateToken,
+);
+
+/// Entry point of a live session's isolate: it owns ONE provider process for
+/// the whole conversation. Turns and Stop arrive as command messages; every
+/// event goes back as-is, `turnEnded`/`spontaneousTurn` included, and `done`
+/// when the process is gone.
+void _liveTaskRunnerEntryPoint(_IsolateBootstrap bootstrap) {
+  final commandPort = ReceivePort();
+  bootstrap.mainSendPort.send(commandPort.sendPort);
+  unawaited(
+    _runLiveInIsolate(
+      spec: TaskRunSpec.fromMessage(bootstrap.specMessage),
+      userPath: bootstrap.userPath,
+      mainSendPort: bootstrap.mainSendPort,
+      commandPort: commandPort,
+    ),
+  );
+}
+
+Future<void> _runLiveInIsolate({
+  required TaskRunSpec spec,
+  required String userPath,
+  required SendPort mainSendPort,
+  required ReceivePort commandPort,
+}) async {
+  void finish() {
+    mainSendPort.send({'type': 'done'});
+    commandPort.close();
+  }
+
+  final start = dispatchLlmLiveSession(
+    LlmProvider.fromLegacyAlias(spec.provider),
+  );
+  if (start == null) {
+    mainSendPort.send({
+      'type': 'failure',
+      'message': 'El proveedor ${spec.provider} no mantiene una sesión viva.',
+    });
+    finish();
+    return;
+  }
+
+  final LlmLiveSession session;
+  try {
+    session = await start(
+      _turnSpecOf(spec),
+      userPath: userPath,
+      onPidKnown: (pid) =>
+          mainSendPort.send({'type': 'processStarted', 'pid': pid}),
+    );
+  } catch (error) {
+    mainSendPort.send({
+      'type': 'failure',
+      'message': 'No se pudo iniciar ${spec.provider}: $error',
+    });
+    finish();
+    return;
+  }
+
+  commandPort.listen((message) {
+    if (message is! Map) return;
+    switch (message['type']) {
+      case 'turn':
+        session.send(message['prompt'] as String);
+      case 'cancel':
+        session.kill();
+      case 'close':
+        unawaited(session.close());
+    }
+  });
+
+  await for (final event in session.events) {
+    mainSendPort.send(event);
+  }
+  finish();
 }

@@ -9,6 +9,7 @@ import 'package:stream_channel/stream_channel.dart';
 
 import 'package:keel_ui/src/integrations/hook_delivery/hook_delivery.dart';
 import 'package:keel_ui/src/integrations/system_prompt/system_prompt.dart';
+import 'package:keel_ui/src/modules/agents/viewmodel/agents_viewmodel.dart';
 import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
 
 /// Clave con la que se registra el servidor MCP de decisiones en la config
@@ -33,8 +34,7 @@ const kDecisionsMcpToolNames = ['${kDecisionsMcpToolPrefix}ask_user'];
 ///   de cerrarlo con `needs_user`.
 ///
 /// Ninguna de las dos tiene plazo del lado del servidor: esperar a una
-/// persona no tiene plazo. El plazo lo pone el vigilante del turno, que se
-/// pausa mientras hay una decisión pendiente.
+/// persona no tiene plazo, y el turno tampoco lo tiene.
 class DecisionGateServer {
   DecisionGateServer._();
 
@@ -60,6 +60,18 @@ class DecisionGateServer {
     if (server == null || token == null) return null;
     return DecisionGateSpec(
       url: _uri(server, ['gate', projectId, sessionId, profileId]).toString(),
+      token: token,
+    );
+  }
+
+  /// The gate of a 1:1 chat: same hook, same token, answered by the chat
+  /// itself instead of a project session.
+  static DecisionGateSpec? agentGateSpecFor(String agentId) {
+    final server = _server;
+    final token = _token;
+    if (server == null || token == null) return null;
+    return DecisionGateSpec(
+      url: _uri(server, ['agent-gate', agentId]).toString(),
       token: token,
     );
   }
@@ -95,16 +107,18 @@ class DecisionGateServer {
       return;
     }
     final segments = request.uri.pathSegments;
-    if (request.method != 'POST' || segments.length != 4) {
+    if (request.method != 'POST') {
       request.response.statusCode = HttpStatus.notFound;
       await request.response.close();
       return;
     }
-    switch (segments[0]) {
-      case 'gate':
+    switch ((segments.firstOrNull, segments.length)) {
+      case ('gate', 4):
         await _handleGate(request, segments);
-      case 'ask':
+      case ('ask', 4):
         await _handleAsk(request, segments);
+      case ('agent-gate', 2):
+        await _handleGate(request, segments);
       default:
         request.response.statusCode = HttpStatus.notFound;
         await request.response.close();
@@ -125,13 +139,20 @@ class DecisionGateServer {
       return;
     }
     final toolName = (payload['tool_name'] ?? '').toString();
-    final decision = await ProjectsService.instance.notifier.decideToolUse(
-      projectId: segments[1],
-      sessionId: segments[2],
-      profileId: segments[3],
-      toolName: toolName,
-      toolInput: describeToolInput(toolName, payload['tool_input']),
-    );
+    final toolInput = describeToolInput(toolName, payload['tool_input']);
+    final decision = segments.first == 'agent-gate'
+        ? await AgentsService.instance.notifier.decideToolUse(
+            agentId: segments[1],
+            toolName: toolName,
+            toolInput: toolInput,
+          )
+        : await ProjectsService.instance.notifier.decideToolUse(
+            projectId: segments[1],
+            sessionId: segments[2],
+            profileId: segments[3],
+            toolName: toolName,
+            toolInput: toolInput,
+          );
     request.response.headers.contentType = ContentType.json;
     request.response.write(
       jsonEncode({
@@ -217,6 +238,10 @@ class DecisionGateServer {
   /// Lo que se le muestra a la persona de la tool: el comando de un Bash, la
   /// ruta de una escritura, y para el resto el JSON recortado.
   static String describeToolInput(String toolName, Object? input) {
+    if (toolName == 'apply_patch' && input is Map) {
+      final files = _patchedFiles('${input['command'] ?? ''}');
+      if (files.isNotEmpty) return _clip(files.join('\n'));
+    }
     if (input is Map) {
       final command = input['command'];
       if (command is String && command.isNotEmpty) return _clip(command);
@@ -226,6 +251,20 @@ class DecisionGateServer {
     if (input == null) return '';
     return _clip(input is String ? input : jsonEncode(input));
   }
+
+  /// The files a codex patch touches, as `Agregar|Modificar|Borrar path`:
+  /// the patch body itself is too long to read on a card.
+  static List<String> _patchedFiles(String patch) => [
+    for (final match in RegExp(
+      r'^\*\*\* (Add|Update|Delete) File: (.+)$',
+      multiLine: true,
+    ).allMatches(patch))
+      '${switch (match.group(1)) {
+        'Add' => 'Crear',
+        'Delete' => 'Borrar',
+        _ => 'Modificar',
+      }} ${match.group(2)!.trim()}',
+  ];
 
   static String _clip(String text) =>
       text.length <= 300 ? text : '${text.substring(0, 300)}…';

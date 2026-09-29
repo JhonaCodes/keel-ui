@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:keel_ui/src/integrations/llm/openai_compatible/remote_model_catalog.dart';
 import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -296,7 +297,12 @@ class _ChatHarnessState extends State<_ChatHarness> {
 
   @override
   Widget build(BuildContext context) {
-    return ChatView(agent: _agent, actions: _actions);
+    return ChatView(
+      agent: _agent,
+      actions: _actions,
+      // A provider switch loads its models; never from the real CLI here.
+      catalog: RemoteModelCatalog(codexCatalog: () async => null),
+    );
   }
 }
 
@@ -310,7 +316,11 @@ class _RecordingChatActions extends LocalChatActions {
   /// Sin esto la respuesta cae en el ViewModel de verdad, que en un test no
   /// tiene a este agente registrado.
   @override
-  void respondToPermissionRequest(String agentId, {required bool grant}) {
+  void respondToPermissionRequest(
+    String agentId, {
+    required bool grant,
+    bool always = false,
+  }) {
     permissionAnswers.add(grant);
   }
 

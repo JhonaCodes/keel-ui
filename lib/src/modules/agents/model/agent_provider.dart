@@ -3,6 +3,7 @@
 enum AgentProvider {
   claude(alias: 'claude', label: 'Claude', shortTag: 'CL'),
   codex(alias: 'codex', label: 'Codex', shortTag: 'CX'),
+  openCode(alias: 'opencode', label: 'OpenCode', shortTag: 'OC'),
   openRouter(alias: 'openrouter', label: 'OpenRouter', shortTag: 'OR'),
   deepSeek(alias: 'deepseek', label: 'DeepSeek', shortTag: 'DS');
 
@@ -23,7 +24,10 @@ enum AgentProvider {
   String? get secretName => switch (this) {
     AgentProvider.openRouter => 'OPENROUTER_API_KEY',
     AgentProvider.deepSeek => 'DEEPSEEK_API_KEY',
-    AgentProvider.claude || AgentProvider.codex => null,
+    // OpenCode keeps its own logins (`opencode providers`), like the CLIs.
+    AgentProvider.claude ||
+    AgentProvider.codex ||
+    AgentProvider.openCode => null,
   };
 
   bool get requiresApiKey => secretName != null;

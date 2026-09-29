@@ -13,10 +13,73 @@ List<String> buildClaudeArguments({
   required bool planMode,
   required int maxTurns,
   double maxBudgetUsd = 0,
+}) => [
+  '-p',
+  prompt,
+  ..._sharedClaudeArguments(
+    model: model,
+    effort: effort,
+    allowedTools: allowedTools,
+    systemPrompt: systemPrompt,
+    mcpConfigPath: mcpConfigPath,
+    claudeSettingsPath: claudeSettingsPath,
+    fullFileSystemAccess: fullFileSystemAccess,
+    sessionId: sessionId,
+    planMode: planMode,
+    maxTurns: maxTurns,
+    maxBudgetUsd: maxBudgetUsd,
+  ),
+];
+
+/// The arguments of a `claude` process that stays alive across turns: no
+/// prompt on the command line, each turn arrives as one stream-json line on
+/// stdin. Same flags as [buildClaudeArguments] otherwise, so a conversation
+/// never changes tools or permissions by switching modes.
+List<String> buildClaudeLiveArguments({
+  required String model,
+  required String effort,
+  required List<String> allowedTools,
+  required String systemPrompt,
+  required String? mcpConfigPath,
+  required String? claudeSettingsPath,
+  required bool fullFileSystemAccess,
+  required String? sessionId,
+  required bool planMode,
+  required int maxTurns,
+  double maxBudgetUsd = 0,
+}) => [
+  '-p',
+  '--input-format',
+  'stream-json',
+  ..._sharedClaudeArguments(
+    model: model,
+    effort: effort,
+    allowedTools: allowedTools,
+    systemPrompt: systemPrompt,
+    mcpConfigPath: mcpConfigPath,
+    claudeSettingsPath: claudeSettingsPath,
+    fullFileSystemAccess: fullFileSystemAccess,
+    sessionId: sessionId,
+    planMode: planMode,
+    maxTurns: maxTurns,
+    maxBudgetUsd: maxBudgetUsd,
+  ),
+];
+
+List<String> _sharedClaudeArguments({
+  required String model,
+  required String effort,
+  required List<String> allowedTools,
+  required String systemPrompt,
+  required String? mcpConfigPath,
+  required String? claudeSettingsPath,
+  required bool fullFileSystemAccess,
+  required String? sessionId,
+  required bool planMode,
+  required int maxTurns,
+  required double maxBudgetUsd,
 }) {
   return [
-    '-p',
-    prompt,
     '--output-format',
     'stream-json',
     '--verbose',

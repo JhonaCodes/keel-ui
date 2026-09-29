@@ -809,8 +809,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get formLabelSystemPrompt => 'System prompt';
 
   @override
-  String get formLabelProvider =>
-      'Provider (codex: no tools/MCPs/effort, and its own models)';
+  String get formLabelProvider => 'Provider (each with its own models)';
 
   @override
   String formLabelModel(String provider) {
@@ -1343,16 +1342,6 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String labelMaxSubagentsLimit(int count) {
     return 'Read/verification subagents: $count';
-  }
-
-  @override
-  String labelIdleTimeoutLimit(int count) {
-    return 'Minutes without provider activity before a step is cut: $count (0 = unlimited)';
-  }
-
-  @override
-  String labelNodeTimeoutLimit(int count) {
-    return 'Maximum minutes per step: $count (0 = unlimited)';
   }
 
   @override
@@ -2446,4 +2435,44 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get sessionTurnOpen => 'Turn open';
+
+  @override
+  String get permissionGateTitle => 'Asking permission to continue';
+
+  @override
+  String get permissionDeny => 'Deny';
+
+  @override
+  String get permissionAllowOnce => 'Allow once';
+
+  @override
+  String get permissionAllowAlways => 'Always allow';
+
+  @override
+  String get settingCodex => 'Codex';
+
+  @override
+  String get descriptionCodexSettings =>
+      'Codex runs inside its sandbox and never asks on its own: what Claude Code decides with its permission prompts, Codex decides here, for all its turns.';
+
+  @override
+  String get codexAskPermission => 'Ask before commands and edits';
+
+  @override
+  String get codexAskPermissionHelp =>
+      'Keel shows the card (once, always or deny) and the turn waits for your answer.';
+
+  @override
+  String get codexNetworkAccess => 'Network inside the sandbox';
+
+  @override
+  String get codexNetworkAccessHelp =>
+      'Without network, pub get, npm install or git push fail inside Codex.';
+
+  @override
+  String get codexFullDiskAccess => 'Full disk access';
+
+  @override
+  String get codexFullDiskAccessHelp =>
+      'Lets it write outside the project folder. A chat can turn it on just for itself.';
 }

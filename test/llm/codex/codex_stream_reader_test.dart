@@ -101,6 +101,51 @@ void main() {
     ]);
   });
 
+  test('mcp_tool_call se nombra como en claude y lleva sus argumentos', () {
+    // Forma capturada de codex 0.153.4 contra un MCP de prueba.
+    final messages = reader.read({
+      'type': 'item.started',
+      'item': {
+        'id': 'item_1',
+        'type': 'mcp_tool_call',
+        'server': 'keel-plan',
+        'tool': 'set_session_plan',
+        'arguments': {'items': <Object>[]},
+        'result': null,
+        'error': null,
+        'status': 'in_progress',
+      },
+    });
+
+    expect(messages, [
+      {
+        'type': 'toolUse',
+        'name': 'mcp__keel-plan__set_session_plan',
+        'input': {'items': <Object>[]},
+      },
+    ]);
+  });
+
+  test('un mcp_tool_call que falla deja un aviso en el hilo', () {
+    final messages = reader.read({
+      'type': 'item.completed',
+      'item': {
+        'type': 'mcp_tool_call',
+        'server': 'keel-plan',
+        'tool': 'set_session_plan',
+        'status': 'failed',
+        'error': {'message': 'boom'},
+      },
+    });
+
+    expect(messages, [
+      {
+        'type': 'notice',
+        'message': 'La tool mcp__keel-plan__set_session_plan falló: boom',
+      },
+    ]);
+  });
+
   test('mcp_tool_call al empezar sin nombre cae a "mcp"', () {
     final messages = reader.read({
       'type': 'item.started',

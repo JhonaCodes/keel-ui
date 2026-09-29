@@ -41,7 +41,9 @@ class FileEditCollector {
   /// doesn't touch a file.
   static String? filePathFor(String toolName, Map<String, dynamic>? input) {
     return switch (toolName) {
-      'Write' || 'Edit' || 'MultiEdit' => input?['file_path'] as String?,
+      // `path` is what Keel's own tool bridge (API providers) calls it.
+      'Write' || 'Edit' || 'MultiEdit' =>
+        (input?['file_path'] ?? input?['path']) as String?,
       'NotebookEdit' => input?['notebook_path'] as String?,
       _ => null,
     };

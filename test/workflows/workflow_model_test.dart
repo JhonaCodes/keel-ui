@@ -309,35 +309,35 @@ void main() {
         maxAgenticTurns: 3,
       );
 
-      // 0 = SIN TOPE, por decisión explícita del usuario: un default de
-      // turnos cortaba trabajo legítimo (un nodo real se pausó a los 200
-      // turnos trabajando bien). Los frenos son el vigilante de inactividad,
-      // los minutos por paso y el techo de costo — no un contador.
-      expect(writes.effectiveMaxAgenticTurns, 0);
-      expect(reads.effectiveMaxAgenticTurns, 0);
-      expect(explicit.effectiveMaxAgenticTurns, 3);
-    });
+        // 0 = SIN TOPE, por decisión explícita del usuario: un default de
+        // turnos cortaba trabajo legítimo (un nodo real se pausó a los 200
+        // turnos trabajando bien). El único freno es el techo de costo, si se
+        // declara — no un contador.
+        expect(writes.effectiveMaxAgenticTurns, 0);
+        expect(reads.effectiveMaxAgenticTurns, 0);
+        expect(explicit.effectiveMaxAgenticTurns, 3);
+      },
+    );
 
-    test('la policy trae plazos y techo de costo, y sobreviven al disco', () {
-      const policy = WorkflowPolicy();
-      expect(policy.idleTimeoutMinutes, kDefaultIdleTimeoutMinutes);
-      expect(policy.nodeTimeoutMinutes, kDefaultNodeTimeoutMinutes);
-      // El techo de costo no tiene default: ver workflow_cost_ceiling_test.
-      expect(policy.maxSessionCostUsd, 0);
+    test(
+      'un workflow guardado con topes de reloj los pierde al volver a disco',
+      () {
+        // Registro real: los workflows creados con el default anterior quedaron
+        // con 10 min de inactividad y 45 por paso, y seguían cortando pasos
+        // largos aunque el default ya fuera «sin límite».
+        final legacy = WorkflowPolicy.fromJson({
+          'idleTimeoutMinutes': 10,
+          'nodeTimeoutMinutes': 45,
+          'maxSessionCostUsd': 5.5,
+        });
 
-      final custom = policy.copyWith(
-        idleTimeoutMinutes: 3,
-        nodeTimeoutMinutes: 90,
-        maxSessionCostUsd: 5.5,
-      );
-      expect(WorkflowPolicy.fromJson(custom.toJson()), custom);
+        final saved = legacy.toJson();
 
-      // Un registro anterior a estos campos lee los defaults, no cero.
-      expect(
-        WorkflowPolicy.fromJson({'maxReplans': 1}).idleTimeoutMinutes,
-        kDefaultIdleTimeoutMinutes,
-      );
-    });
+        expect(saved, isNot(contains('idleTimeoutMinutes')));
+        expect(saved, isNot(contains('nodeTimeoutMinutes')));
+        expect(saved['maxSessionCostUsd'], 5.5);
+      },
+    );
 
     test('los topes altos sobreviven al disco: leer no los recorta', () {
       // Regresión: `fromJson` recortaba `maxReplans` a 0..2 y

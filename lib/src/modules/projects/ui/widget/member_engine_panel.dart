@@ -11,6 +11,7 @@ import 'package:keel_ui/src/modules/projects/model/member_tuning.dart';
 import 'package:keel_ui/src/modules/projects/model/project.dart';
 import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
 import 'package:keel_ui/src/modules/secrets/ui/widget/provider_credential_card.dart';
+import 'package:keel_ui/src/modules/agents/viewmodel/model_catalog_viewmodel.dart';
 
 /// Abre el panel para elegir con qué motor corre [member] en [project].
 Future<void> openMemberEnginePanel(
@@ -49,14 +50,12 @@ class MemberEnginePanel extends StatefulWidget {
 }
 
 class _MemberEnginePanelState extends State<MemberEnginePanel> {
-  late final RemoteModelCatalog _catalog =
-      widget.catalog ?? RemoteModelCatalog();
   late MemberTuning _tuning =
       widget.project.memberTuning[widget.member.id] ?? const MemberTuning();
   late final TextEditingController _manualModel = TextEditingController(
     text: _tuning.model ?? '',
   );
-  late Future<List<AgentModelOption>> _models = _catalog.load(_provider);
+  late Future<List<AgentModelOption>> _models = _loadModels();
 
   /// El proveedor que va a correr con lo elegido hasta ahora — de él dependen
   /// los modelos que se ofrecen y si el esfuerzo aplica.
@@ -75,13 +74,25 @@ class _MemberEnginePanelState extends State<MemberEnginePanel> {
     setState(() {
       _tuning = MemberTuning(provider: value, effort: _tuning.effort);
       _manualModel.clear();
-      _models = _catalog.load(_provider);
+      _models = _loadModels();
     });
   }
 
+  /// The shared catalog, unless a test handed its own.
+  Future<List<AgentModelOption>> _loadModels({bool force = false}) {
+    final injected = widget.catalog;
+    if (injected == null) {
+      return ModelCatalogService.instance.notifier.load(
+        _provider,
+        force: force,
+      );
+    }
+    if (force) injected.clear(_provider);
+    return injected.load(_provider);
+  }
+
   void _refreshModels() {
-    _catalog.clear(_provider);
-    setState(() => _models = _catalog.load(_provider));
+    setState(() => _models = _loadModels(force: true));
   }
 
   void _setModel(String? value) {
@@ -123,8 +134,6 @@ class _MemberEnginePanelState extends State<MemberEnginePanel> {
     final scheme = Theme.of(context).colorScheme;
     final member = widget.member;
     final preview = _preview;
-    final isCodex = _provider == AgentProvider.codex;
-
     return Scaffold(
       appBar: AppBar(title: Text('Motor de @${member.name}')),
       body: ListView(
@@ -188,14 +197,12 @@ class _MemberEnginePanelState extends State<MemberEnginePanel> {
           ],
           const SizedBox(height: 16),
           DropdownButtonFormField<String?>(
-            initialValue: isCodex ? null : _tuning.effort,
+            initialValue: _tuning.effort,
             decoration: InputDecoration(
               labelText: 'Esfuerzo',
-              helperText: isCodex
-                  ? 'Codex no recibe niveles de esfuerzo: los resuelve su '
-                        'propia config.'
-                  : 'Cuánto piensa antes de responder. Sube el costo del '
-                        'turno, no solo su calidad.',
+              helperText:
+                  'Cuánto piensa antes de responder. Sube el costo del '
+                  'turno, no solo su calidad.',
               helperMaxLines: 3,
               border: const OutlineInputBorder(
                 borderRadius: BorderRadius.all(Radius.circular(16)),
@@ -209,15 +216,13 @@ class _MemberEnginePanelState extends State<MemberEnginePanel> {
               for (final level in kEffortLevels)
                 DropdownMenuItem(value: level.alias, child: Text(level.label)),
             ],
-            onChanged: isCodex
-                ? null
-                : (value) => setState(() {
-                    _tuning = MemberTuning(
-                      provider: _tuning.provider,
-                      model: _tuning.model,
-                      effort: value,
-                    );
-                  }),
+            onChanged: (value) => setState(() {
+              _tuning = MemberTuning(
+                provider: _tuning.provider,
+                model: _tuning.model,
+                effort: value,
+              );
+            }),
           ),
           const SizedBox(height: 20),
           Container(

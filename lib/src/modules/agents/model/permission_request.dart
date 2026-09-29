@@ -33,6 +33,10 @@ class PermissionRequest {
   final String? changeReason;
   final String? requestedBy;
 
+  /// A live turn is suspended on this answer (Keel's permission gate). The
+  /// tool runs or not depending on it; nothing else has happened yet.
+  final bool blocking;
+
   const PermissionRequest({
     required this.toolName,
     required this.message,
@@ -41,6 +45,7 @@ class PermissionRequest {
     this.changeIntent,
     this.changeReason,
     this.requestedBy,
+    this.blocking = false,
   });
 
   bool get isCatalogChange => kind != null;
@@ -70,6 +75,7 @@ class PermissionRequest {
     'changeIntent': changeIntent,
     'changeReason': changeReason,
     'requestedBy': requestedBy,
+    'blocking': blocking,
   };
 
   factory PermissionRequest.fromJson(Map<String, dynamic> json) {
@@ -81,6 +87,7 @@ class PermissionRequest {
       changeIntent: json['changeIntent'] as String?,
       changeReason: json['changeReason'] as String?,
       requestedBy: json['requestedBy'] as String?,
+      blocking: json['blocking'] as bool? ?? false,
     );
   }
 
@@ -95,7 +102,8 @@ class PermissionRequest {
           itemName == other.itemName &&
           changeIntent == other.changeIntent &&
           changeReason == other.changeReason &&
-          requestedBy == other.requestedBy;
+          requestedBy == other.requestedBy &&
+          blocking == other.blocking;
 
   @override
   int get hashCode => Object.hash(
@@ -106,6 +114,7 @@ class PermissionRequest {
     changeIntent,
     changeReason,
     requestedBy,
+    blocking,
   );
 
   @override

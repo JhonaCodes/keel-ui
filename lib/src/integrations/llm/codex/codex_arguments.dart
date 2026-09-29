@@ -1,3 +1,4 @@
+import 'package:keel_ui/src/core/services/cli_turn_contract.dart';
 import 'package:keel_ui/src/integrations/system_prompt/system_prompt.dart';
 import 'package:keel_ui/src/modules/agents/model/agent_model_option.dart'
     show codexModelArgument;
@@ -29,6 +30,20 @@ List<String> buildCodexArguments({
   required bool fullFileSystemAccess,
   required bool planMode,
 
+  /// The turn may not write: a read-only sandbox, like plan mode but
+  /// without plan mode's prompt.
+  bool readOnly = false,
+
+  /// Reasoning effort for the turn (`low` … `ultra`). Codex forwards it to
+  /// the model verbatim — it does not clamp an unsupported level — so the
+  /// caller sends one the selected model supports. Empty: codex's default.
+  String effort = '',
+
+  /// Network inside the `workspace-write` sandbox. Without it every command
+  /// that downloads or pushes fails (verified with codex 0.153.4: `curl`
+  /// exits 6 inside the sandbox, 200 with this on).
+  bool networkAccess = false,
+
   /// El system prompt del member. Solo se manda en el PRIMER turno: codex
   /// lo persiste en el hilo como mensaje de desarrollador y lo reenvía en
   /// cada resume (verificado capturando los requests, 2026-09-05).
@@ -52,7 +67,7 @@ List<String> buildCodexArguments({
   final isResume = sessionId != null;
   // El modo plan le gana al acceso total: si el turno solo planifica, no
   // hay lectura que justifique dejarlo escribir.
-  final sandbox = planMode
+  final sandbox = (planMode || readOnly)
       ? 'read-only'
       : fullFileSystemAccess
       ? 'danger-full-access'
@@ -62,6 +77,10 @@ List<String> buildCodexArguments({
     'exec',
     if (isResume) ...['resume', sessionId],
     if (codexModel != null) ...['-m', codexModel],
+    if (effort.isNotEmpty) ...[
+      '-c',
+      'model_reasoning_effort=${tomlString(effort)}',
+    ],
     '--json',
     '--skip-git-repo-check',
     // `resume` tiene su propio parser: no acepta `-s` ni `--color`, pero sí
@@ -77,6 +96,16 @@ List<String> buildCodexArguments({
       '-c',
       'developer_instructions=${tomlString(developerInstructions)}',
     ],
+    if (networkAccess && sandbox == 'workspace-write') ...[
+      '-c',
+      'sandbox_workspace_write.network_access=true',
+    ],
+    // Codex opens its own subagents (multi-agent); it defaults to six open
+    // at once. Keel's ceiling applies to every provider.
+    '-c',
+    'agents.max_threads=${SubagentLimits.maxParallel}',
+    '-c',
+    'agents.max_concurrent_threads_per_session=${SubagentLimits.maxParallel}',
     for (final override in configOverrides) ...['-c', override],
     if (bypassHookTrust) '--dangerously-bypass-hook-trust',
     prompt,

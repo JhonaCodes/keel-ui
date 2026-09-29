@@ -6,7 +6,19 @@ class AgentModelOption {
   final String alias;
   final String label;
 
-  const AgentModelOption({required this.alias, required this.label});
+  /// Reasoning levels the model accepts, as its provider lists them. Empty:
+  /// unknown, every level is offered.
+  final List<String> efforts;
+
+  /// The level the provider uses when none is sent. Null: unknown.
+  final String? defaultEffort;
+
+  const AgentModelOption({
+    required this.alias,
+    required this.label,
+    this.efforts = const [],
+    this.defaultEffort,
+  });
 
   @override
   bool operator ==(Object other) =>
@@ -14,13 +26,24 @@ class AgentModelOption {
       other is AgentModelOption &&
           runtimeType == other.runtimeType &&
           alias == other.alias &&
-          label == other.label;
+          label == other.label &&
+          defaultEffort == other.defaultEffort &&
+          efforts.length == other.efforts.length &&
+          efforts.indexed.every((entry) => other.efforts[entry.$1] == entry.$2);
 
   @override
-  int get hashCode => Object.hash(alias, label);
+  int get hashCode =>
+      Object.hash(alias, label, defaultEffort, Object.hashAll(efforts));
 
   @override
   String toString() => 'AgentModelOption(alias: $alias, label: $label)';
+}
+
+extension AgentModelEfforts on List<AgentModelOption> {
+  /// The reasoning levels [model] accepts, or empty when unknown.
+  List<String> effortsOf(String model) =>
+      where((option) => option.alias == model).firstOrNull?.efforts ??
+      const [];
 }
 
 const kDefaultClaudeModelAlias = 'sonnet';
@@ -52,15 +75,22 @@ const kCodexDefaultModelOption = AgentModelOption(
 const kDefaultOpenRouterModelAlias = 'openrouter/auto';
 const kDefaultDeepSeekModelAlias = 'deepseek-v4-pro';
 
-/// Fallback only. `RemoteModelCatalog` reads codex's own catalog
-/// (`$CODEX_HOME/models_cache.json`, which codex refreshes on every run) and
-/// offers its `visibility: list` entries — the same ones codex's picker
-/// shows. This list is what remains when that file doesn't exist yet.
-const kCodexModelOptions = <AgentModelOption>[
-  kCodexDefaultModelOption,
-  AgentModelOption(alias: 'gpt-5.5', label: 'GPT-5.5'),
-  AgentModelOption(alias: 'gpt-5.4', label: 'GPT-5.4'),
-  AgentModelOption(alias: 'gpt-5.4-mini', label: 'GPT-5.4-Mini'),
+/// What remains when `codex debug models` cannot answer (codex not
+/// installed, or failing): only "whatever your codex config uses". Model
+/// slugs written here went stale and offered models the CLI rejected; the
+/// real list always comes from the CLI (`RemoteModelCatalog`).
+const kCodexModelOptions = <AgentModelOption>[kCodexDefaultModelOption];
+
+/// Empty alias = send no model, so OpenCode uses the default of its own
+/// config. Like codex's, it never goes stale; the real list comes from
+/// `opencode models` (`RemoteModelCatalog`).
+const kOpenCodeDefaultModelAlias = '';
+
+const kOpenCodeModelOptions = <AgentModelOption>[
+  AgentModelOption(
+    alias: kOpenCodeDefaultModelAlias,
+    label: 'El de tu config de OpenCode',
+  ),
 ];
 
 const kOpenRouterModelOptions = <AgentModelOption>[
@@ -79,6 +109,7 @@ List<AgentModelOption> modelOptionsFor(AgentProvider provider) {
   return switch (provider) {
     AgentProvider.claude => kClaudeModelOptions,
     AgentProvider.codex => kCodexModelOptions,
+    AgentProvider.openCode => kOpenCodeModelOptions,
     AgentProvider.openRouter => kOpenRouterModelOptions,
     AgentProvider.deepSeek => kDeepSeekModelOptions,
   };
@@ -88,6 +119,7 @@ String defaultModelFor(AgentProvider provider) {
   return switch (provider) {
     AgentProvider.claude => kDefaultClaudeModelAlias,
     AgentProvider.codex => kCodexDefaultModelAlias,
+    AgentProvider.openCode => kOpenCodeDefaultModelAlias,
     AgentProvider.openRouter => kDefaultOpenRouterModelAlias,
     AgentProvider.deepSeek => kDefaultDeepSeekModelAlias,
   };

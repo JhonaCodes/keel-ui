@@ -97,8 +97,15 @@ class BridgeChatActions extends ChatActions {
       _invoke('requestCompact', {'agentId': agentId});
 
   @override
-  void respondToPermissionRequest(String agentId, {required bool grant}) =>
-      _invoke('respondPermission', {'agentId': agentId, 'grant': grant});
+  void respondToPermissionRequest(
+    String agentId, {
+    required bool grant,
+    bool always = false,
+  }) => _invoke('respondPermission', {
+    'agentId': agentId,
+    'grant': grant,
+    'always': always,
+  });
 
   @override
   void setAgentFullFileSystemAccess(String agentId, bool enabled) => _invoke(

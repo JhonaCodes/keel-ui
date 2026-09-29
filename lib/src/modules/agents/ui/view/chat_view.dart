@@ -9,12 +9,12 @@ import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/modules/agents/model/agent.dart';
 import 'package:keel_ui/src/modules/agents/model/agent_model_option.dart';
 import 'package:keel_ui/src/modules/agents/model/agent_provider.dart';
-import 'package:keel_ui/src/integrations/llm/openai_compatible/remote_model_catalog.dart';
 import 'package:keel_ui/src/modules/agents/service/chat_actions.dart';
 import 'package:keel_ui/src/modules/agents/service/chat_attachment_store.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/chat_attachment_strip.dart';
 import 'package:keel_ui/src/core/ui/confirm_card.dart';
 import 'package:keel_ui/src/integrations/chat_references/chat_references.dart';
+import 'package:keel_ui/src/integrations/llm/openai_compatible/remote_model_catalog.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/chat_reference_composer_field.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/chat_message_bubble.dart';
 import 'package:keel_ui/src/modules/agents/model/queued_message.dart';
@@ -30,6 +30,7 @@ import 'package:keel_ui/src/modules/agents/ui/widget/plan_mode_toggle.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/plan_ready_banner.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/reasoning_panel.dart';
 import 'package:keel_ui/src/shared/shared.dart';
+import 'package:keel_ui/src/modules/agents/viewmodel/model_catalog_viewmodel.dart';
 
 class ChatView extends StatefulWidget {
   const ChatView({
@@ -39,6 +40,7 @@ class ChatView extends StatefulWidget {
     this.emptyState,
     this.actions = const LocalChatActions(),
     this.fontScaleOverride,
+    this.catalog,
   });
 
   final Agent agent;
@@ -58,6 +60,10 @@ class ChatView extends StatefulWidget {
   /// assistant window has no database, so its settings hold defaults only —
   /// main sends the real value with the snapshot.
   final double? fontScaleOverride;
+
+  /// The model catalog to read instead of the shared one — for tests, so a
+  /// provider switch does not ask the real CLI.
+  final RemoteModelCatalog? catalog;
 
   /// Shown instead of the default "Escríbele algo a tu agente" text when
   /// [Agent.messages] is empty. Lets a caller (e.g. the Assistant panel)
@@ -79,10 +85,12 @@ class _ChatViewState extends State<ChatView> {
   /// [ChatAttachmentStore].
   final List<String> _attachments = [];
   final ScrollController _messageScroll = ScrollController();
-  final RemoteModelCatalog _modelCatalog = RemoteModelCatalog();
-  late Future<List<AgentModelOption>> _modelOptions = _modelCatalog.load(
-    widget.agent.provider,
-  );
+  late Future<List<AgentModelOption>> _modelOptions = _loadModels();
+
+  /// The shared catalog, unless a test handed its own.
+  Future<List<AgentModelOption>> _loadModels() =>
+      widget.catalog?.load(widget.agent.provider) ??
+      ModelCatalogService.instance.notifier.load(widget.agent.provider);
 
   /// A drag is hovering the chat, so the drop hint is showing.
   bool _isDragging = false;
@@ -98,7 +106,7 @@ class _ChatViewState extends State<ChatView> {
   void didUpdateWidget(covariant ChatView oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.agent.provider != widget.agent.provider) {
-      _modelOptions = _modelCatalog.load(widget.agent.provider);
+      _modelOptions = _loadModels();
     }
     // Contestado el permiso, el hueco que le tenía reservado el hilo se va
     // con él: si no, queda un espacio en blanco abajo hasta el próximo.
@@ -266,6 +274,11 @@ class _ChatViewState extends State<ChatView> {
         request: request,
         onRespond: (grant) =>
             widget.actions.respondToPermissionRequest(agent.id, grant: grant),
+        onGrantAlways: () => widget.actions.respondToPermissionRequest(
+          agent.id,
+          grant: true,
+          always: true,
+        ),
       );
     }
     if (agent.planAwaitingDecision) {
@@ -420,10 +433,18 @@ class _ChatViewState extends State<ChatView> {
                       },
                     ),
                     const SizedBox(width: 4),
-                    EffortLevelSelector(
-                      effort: agent.effort,
-                      onChanged: (effort) =>
-                          widget.actions.setAgentEffort(agent.id, effort),
+                    // Codex models each accept their own levels: offer those.
+                    FutureBuilder<List<AgentModelOption>>(
+                      key: ValueKey('effort-${agent.provider.alias}'),
+                      future: _modelOptions,
+                      builder: (context, snapshot) => EffortLevelSelector(
+                        effort: agent.effort,
+                        levels:
+                            snapshot.data?.effortsOf(agent.model) ??
+                            const [],
+                        onChanged: (effort) =>
+                            widget.actions.setAgentEffort(agent.id, effort),
+                      ),
                     ),
                     const SizedBox(width: 4),
                     ContextUsageRing(

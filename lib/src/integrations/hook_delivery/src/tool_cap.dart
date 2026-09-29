@@ -3,11 +3,16 @@ part of '../hook_delivery.dart';
 /// El nombre del hook interno que aplica el tope de herramientas de un turno.
 const kToolCapHookName = 'keel-tool-cap';
 
+/// Tool calls a codex node may make per declared agentic turn. Claude counts
+/// turns (`--max-turns`); codex only lets Keel count calls, and one turn
+/// usually carries a few of them.
+const kCodexToolCallsPerTurn = 3;
+
 /// El hook que deniega la llamada a herramienta N+1.
 ///
 /// Claude tiene `--max-turns` y ahí el tope del nodo se aplica solo. Codex
 /// no tiene nada equivalente: un nodo codex corría sin freno hasta que el
-/// modelo decidía parar, o hasta el vigilante. Este `PreToolUse` sin
+/// modelo decidía parar. Este `PreToolUse` sin
 /// matcher cuenta cada llamada en un archivo del workspace del turno y, al
 /// llegar al tope, deniega con un motivo que le pide al modelo cerrar con
 /// el bloque `keel-outcome`: el turno termina con estado, no cortado.

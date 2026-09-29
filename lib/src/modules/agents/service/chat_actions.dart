@@ -49,7 +49,11 @@ abstract class ChatActions {
   void setAgentProvider(String agentId, AgentProvider provider);
   void setAgentEffort(String agentId, String effort);
   void requestCompact(String agentId);
-  void respondToPermissionRequest(String agentId, {required bool grant});
+  void respondToPermissionRequest(
+    String agentId, {
+    required bool grant,
+    bool always = false,
+  });
   void setAgentFullFileSystemAccess(String agentId, bool enabled);
   void setAgentPlanMode(String agentId, bool enabled);
 
@@ -144,8 +148,15 @@ class LocalChatActions extends ChatActions {
   void requestCompact(String agentId) => _agents.requestCompact(agentId);
 
   @override
-  void respondToPermissionRequest(String agentId, {required bool grant}) =>
-      _agents.respondToPermissionRequest(agentId, grant: grant);
+  void respondToPermissionRequest(
+    String agentId, {
+    required bool grant,
+    bool always = false,
+  }) => _agents.respondToPermissionRequest(
+    agentId,
+    grant: grant,
+    always: always,
+  );
 
   @override
   void setAgentFullFileSystemAccess(String agentId, bool enabled) =>

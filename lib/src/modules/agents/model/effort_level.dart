@@ -15,9 +15,13 @@ const kEffortLevels = <EffortLevel>[
   EffortLevel(alias: 'max', label: 'Máximo'),
 ];
 
+/// Levels only some providers accept (codex's `ultra`): labelled, but never
+/// offered unless the selected model lists them.
+const kProviderOnlyEffortLabels = <String, String>{'ultra': 'Ultra'};
+
 String effortLabel(String alias) {
   for (final level in kEffortLevels) {
     if (level.alias == alias) return level.label;
   }
-  return alias;
+  return kProviderOnlyEffortLabels[alias] ?? alias;
 }

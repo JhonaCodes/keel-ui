@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:keel_ui/src/core/services/cli_turn_contract.dart';
 import 'package:keel_ui/src/integrations/llm/codex/codex_arguments.dart';
 
 void main() {
@@ -19,6 +20,73 @@ void main() {
 
       expect(prompt, contains('PLAN MODE'));
       expect(prompt, endsWith('Agregá manejo de errores'));
+    });
+  });
+
+  test('codex nunca abre más subagentes a la vez que el tope de Keel', () {
+    final args = buildCodexArguments(
+      prompt: 'x',
+      sessionId: null,
+      model: '',
+      fullFileSystemAccess: false,
+      planMode: false,
+    );
+
+    expect(
+      args,
+      containsAllInOrder([
+        '-c',
+        'agents.max_threads=${SubagentLimits.maxParallel}',
+        '-c',
+        'agents.max_concurrent_threads_per_session=${SubagentLimits.maxParallel}',
+      ]),
+    );
+    expect(SubagentLimits.maxParallel, 4);
+  });
+
+  group('sandbox, red y esfuerzo desde Ajustes', () {
+    test('la red se abre dentro de workspace-write', () {
+      final args = buildCodexArguments(
+        prompt: 'x',
+        sessionId: null,
+        model: '',
+        fullFileSystemAccess: false,
+        planMode: false,
+        networkAccess: true,
+      );
+
+      expect(
+        args,
+        containsAllInOrder(['-c', 'sandbox_workspace_write.network_access=true']),
+      );
+    });
+
+    test('un turno que no puede escribir corre en read-only y sin red', () {
+      final args = buildCodexArguments(
+        prompt: 'x',
+        sessionId: null,
+        model: '',
+        fullFileSystemAccess: true,
+        planMode: false,
+        readOnly: true,
+        networkAccess: true,
+      );
+
+      expect(args, containsAllInOrder(['-s', 'read-only']));
+      expect(args.join(' '), isNot(contains('network_access')));
+    });
+
+    test('el esfuerzo viaja como model_reasoning_effort', () {
+      final args = buildCodexArguments(
+        prompt: 'x',
+        sessionId: 'thread-1',
+        model: '',
+        fullFileSystemAccess: false,
+        planMode: false,
+        effort: 'xhigh',
+      );
+
+      expect(args, containsAllInOrder(['-c', 'model_reasoning_effort="xhigh"']));
     });
   });
 
@@ -68,6 +136,10 @@ void main() {
         'workspace-write',
         '--color',
         'never',
+        '-c',
+        'agents.max_threads=4',
+        '-c',
+        'agents.max_concurrent_threads_per_session=4',
         'Hola',
       ]);
     });
@@ -89,6 +161,10 @@ void main() {
         '--skip-git-repo-check',
         '-c',
         'sandbox_mode="workspace-write"',
+        '-c',
+        'agents.max_threads=4',
+        '-c',
+        'agents.max_concurrent_threads_per_session=4',
         'Seguí',
       ]);
     });

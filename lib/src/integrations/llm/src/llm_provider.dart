@@ -12,6 +12,7 @@ sealed class LlmProvider {
   factory LlmProvider.fromLegacyAlias(String alias) => switch (alias) {
     'codex' => const Codex(CodexCli()),
     'claude' => const Claude(ClaudeCli()),
+    'opencode' => const OpenCode(OpenCodeServe()),
     'openrouter' => const OpenAiCompatible(
       OpenAiCompatibleApi(
         baseUrl: 'https://openrouter.ai/api/v1',
@@ -42,6 +43,11 @@ final class Codex extends LlmProvider {
 final class Claude extends LlmProvider {
   final ClaudeTarget target;
   const Claude(this.target);
+}
+
+final class OpenCode extends LlmProvider {
+  final OpenCodeTarget target;
+  const OpenCode(this.target);
 }
 
 final class OpenAiCompatible extends LlmProvider {

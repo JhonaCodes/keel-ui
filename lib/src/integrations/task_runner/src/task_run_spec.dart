@@ -50,6 +50,16 @@ class TaskRunSpec {
   /// aplica (`--max-budget-usd`); los demás lo ignoran y el preflight lo dice.
   final double maxBudgetUsd;
 
+  /// Espejo de `LlmTurnSpec.sandboxNetworkAccess`.
+  final bool sandboxNetworkAccess;
+
+  /// Espejo de `LlmTurnSpec.sandboxReadOnly`.
+  final bool sandboxReadOnly;
+
+  /// Espejo de `LlmTurnSpec.permissionGateUrl` / `permissionGateToken`.
+  final String? permissionGateUrl;
+  final String? permissionGateToken;
+
   const TaskRunSpec({
     required this.prompt,
     required this.workingDirectory,
@@ -67,6 +77,10 @@ class TaskRunSpec {
     this.planMode = false,
     this.maxTurns = 0,
     this.maxBudgetUsd = 0,
+    this.sandboxNetworkAccess = false,
+    this.sandboxReadOnly = false,
+    this.permissionGateUrl,
+    this.permissionGateToken,
     this.provider = 'claude',
     this.providerApiKey,
   });
@@ -90,9 +104,28 @@ class TaskRunSpec {
     'planMode': planMode,
     'maxTurns': maxTurns,
     'maxBudgetUsd': maxBudgetUsd,
+    'sandboxNetworkAccess': sandboxNetworkAccess,
+    'sandboxReadOnly': sandboxReadOnly,
+    'permissionGateUrl': permissionGateUrl,
+    'permissionGateToken': permissionGateToken,
     'provider': provider,
     'providerApiKey': providerApiKey,
   };
+
+  /// Everything a live process is started with — what has to match for a
+  /// turn to reuse it. The prompt and the history are per turn, the session
+  /// id is followed by the live session itself, and the API key never belongs
+  /// in a key.
+  String get liveSpawnKey => jsonEncode({
+    for (final entry in toMessage().entries)
+      if (!const {
+        'prompt',
+        'conversationHistory',
+        'sessionId',
+        'providerApiKey',
+      }.contains(entry.key))
+        entry.key: entry.value,
+  });
 
   factory TaskRunSpec.fromMessage(Map<String, dynamic> message) {
     return TaskRunSpec(
@@ -122,6 +155,10 @@ class TaskRunSpec {
       planMode: message['planMode'] as bool? ?? false,
       maxTurns: message['maxTurns'] as int? ?? 0,
       maxBudgetUsd: (message['maxBudgetUsd'] as num?)?.toDouble() ?? 0,
+      sandboxNetworkAccess: message['sandboxNetworkAccess'] as bool? ?? false,
+      sandboxReadOnly: message['sandboxReadOnly'] as bool? ?? false,
+      permissionGateUrl: message['permissionGateUrl'] as String?,
+      permissionGateToken: message['permissionGateToken'] as String?,
       provider: message['provider'] as String? ?? 'claude',
       providerApiKey: message['providerApiKey'] as String?,
     );

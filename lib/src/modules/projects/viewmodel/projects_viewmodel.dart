@@ -28,6 +28,7 @@ import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
 import 'package:keel_ui/src/modules/agent_profiles/viewmodel/agent_profiles_viewmodel.dart';
 import 'package:keel_ui/src/modules/agents/model/agent_tool_activity.dart';
 import 'package:keel_ui/src/modules/agents/model/chat_message.dart';
+import 'package:keel_ui/src/modules/agents/viewmodel/model_catalog_viewmodel.dart';
 import 'package:keel_ui/src/modules/agents/model/plan_decision.dart';
 import 'package:keel_ui/src/modules/agents/service/remote_conversation_history.dart';
 import 'package:keel_ui/src/modules/agents/model/agent_provider.dart';
@@ -65,7 +66,6 @@ import 'package:keel_ui/src/modules/projects/service/resolution_engine.dart';
 import 'package:keel_ui/src/modules/projects/service/node_context.dart';
 import 'package:keel_ui/src/modules/projects/service/session_context_recovery.dart';
 import 'package:keel_ui/src/modules/projects/service/subagent_budget.dart';
-import 'package:keel_ui/src/modules/projects/service/turn_watchdog.dart';
 import 'package:keel_ui/src/modules/projects/service/turn_prompt.dart';
 import 'package:keel_ui/src/modules/tools/viewmodel/tools_viewmodel.dart';
 import 'package:keel_ui/src/modules/workflows/model/workflow.dart';
@@ -154,10 +154,6 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
   /// so "send now" uses this set before deciding whether it is safe to start
   /// the queued follow-up.
   final Set<String> _activeSessionRuns = {};
-
-  /// Los vigilantes de los turnos vivos, por sesión. Una decisión pendiente
-  /// los pausa (la espera humana no es inactividad del agente).
-  final Map<String, Set<TurnWatchdog>> _turnWatchdogs = {};
 
   /// Los turnos VIVOS suspendidos esperando una decisión, por id de
   /// decisión. Completar uno destraba el hook o la tool que esperaba.
@@ -1586,8 +1582,8 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
   }
 
   /// Reintenta un nodo a mano desde el hilo: vuelve a pendiente y el
-  /// workflow lo retoma. Para el nodo que se cortó por el vigilante, por un
-  /// caso bloqueado o por cerrar la app.
+  /// workflow lo retoma. Para el nodo que se detuvo a mano, por un caso
+  /// bloqueado o por cerrar la app.
   Future<String?> retryWorkNode(
     String projectId,
     String sessionId,
@@ -2314,7 +2310,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
   /// está concedido —para la app, para este agente acá, o para esta
   /// sesión— contesta al instante; si no, encola una decisión y ESPERA a
   /// que la persona la conteste. El proceso del CLI queda suspendido en el
-  /// hook mientras tanto; el vigilante del turno se pausa.
+  /// hook mientras tanto.
   Future<({bool allow, String reason})> decideToolUse({
     required String projectId,
     required String sessionId,
@@ -2460,19 +2456,11 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     final completer = Completer<SessionDecision>();
     _gateCompleters[decision.id] = completer;
     _enqueueDecision(projectId, sessionId, decision, memberName: memberName);
-    // Esperar a una persona no es inactividad del agente.
-    for (final watchdog in _turnWatchdogs[sessionId] ?? const <TurnWatchdog>{}) {
-      watchdog.pause();
-    }
     unawaited(_persist());
     try {
       return await completer.future;
     } finally {
       _gateCompleters.remove(decision.id);
-      for (final watchdog
-          in _turnWatchdogs[sessionId] ?? const <TurnWatchdog>{}) {
-        watchdog.resume();
-      }
     }
   }
 
@@ -3245,21 +3233,16 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
         '· topes ${_policyLimitsSummary(workflow.policy)}.';
   }
 
-  /// Los topes con los que corre la sesión, dichos de entrada: que un nodo se
-  /// corte a los N minutos no puede ser una sorpresa al final.
+  /// Los topes con los que corre la sesión, dichos de entrada. Ningún paso se
+  /// corta por reloj; decirlo evita que un agente advierta topes que no
+  /// existen.
   String _policyLimitsSummary(WorkflowPolicy policy) {
     final ceiling = policy.maxSessionCostUsd > 0
         ? 'US\$ ${policy.maxSessionCostUsd.toStringAsFixed(0)} por sesión '
               '(solo cuenta el costo que el proveedor informa; codex no lo '
               'informa)'
         : 'sin techo de costo';
-    final idle = policy.idleTimeoutMinutes > 0
-        ? '${policy.idleTimeoutMinutes} min sin actividad'
-        : 'sin límite de inactividad';
-    final duration = policy.nodeTimeoutMinutes > 0
-        ? '${policy.nodeTimeoutMinutes} min por paso'
-        : 'sin límite de duración';
-    return '$idle · $duration · $ceiling';
+    return 'sin límite de tiempo por paso · $ceiling';
   }
 
   WorkNode? _nextReadyNode(ResolutionCase resolution) {
@@ -3530,6 +3513,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     String text, {
     List<String> imagePaths = const [],
     bool viaKeelAi = false,
+    SessionQueuedDelivery delivery = SessionQueuedDelivery.standby,
   }) async {
     final trimmed = text.trim();
     if (trimmed.isEmpty && imagePaths.isEmpty) return null;
@@ -3546,6 +3530,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
             imagePaths: [...imagePaths],
             createdAt: DateTime.now(),
             viaKeelAi: viaKeelAi,
+            delivery: delivery,
           ),
         ],
       ),
@@ -3911,9 +3896,28 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     // El modo de la sesión se lee ANTES de arrancar: es el modo con el que
     // este turno corre, y decide si al final hay algo que preguntar.
     final startProject = _projectById(projectId);
-    final planMode = startProject == null
-        ? false
-        : _sessionById(startProject, sessionId)?.planMode ?? false;
+    final startSession = startProject == null
+        ? null
+        : _sessionById(startProject, sessionId);
+    final planMode = startSession?.planMode ?? false;
+
+    // Una sesión corre UN turno a la vez. Un turno suelto que llega con otro
+    // en vuelo —un permiso concedido a mitad de un nodo, una pregunta sobre
+    // una línea, una edición a mano— no se abre en paralelo: el primero que
+    // terminara apagaría `isRunning` y soltaría el proceso del otro, que
+    // seguiría escribiendo sin barra de progreso y sin que Detener pudiera
+    // alcanzarlo. Espera en la cola, a la vista, dirigido al mismo agente, y
+    // sale solo cuando la sesión entrega el control.
+    if ((startSession?.isRunning ?? false) ||
+        _activeSessionRuns.contains(sessionId)) {
+      await queueSessionMessage(
+        projectId,
+        sessionId,
+        '@${member.name} $instruction',
+        delivery: SessionQueuedDelivery.afterCurrentTurn,
+      );
+      return;
+    }
 
     _activeSessionRuns.add(sessionId);
     _stoppedSessionIds.remove(sessionId);
@@ -4234,6 +4238,10 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     // `codex_config_overrides.dart`). Antes no recibía ninguno, y el plan,
     // las decisiones y los requerimientos no existían para un nodo codex.
     final isCodex = engine.provider == AgentProvider.codex;
+    // OpenCode, like codex, has no tool allow-list: a turn that may not
+    // write is enforced by its runtime (permission config), not by Keel
+    // removing tools. And it asks through `permission.asked`, not a hook.
+    final isOpenCode = engine.provider == AgentProvider.openCode;
     final memberTools = ToolsService.instance.notifier.toolsByNames(
       member.tools,
     );
@@ -4267,7 +4275,13 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     // preguntar— y es el gate el que decide. Un proyecto que no mantenés
     // sigue sin tools de escritura, y una consulta también.
     await DecisionGateServer.ensureStarted();
-    final gate = (consultOfProfileId != null || !project.maintained)
+    final codexSettings = SettingsService.instance.notifier.data.codex;
+    // Codex without the gate (turned off in Settings) runs inside its
+    // sandbox without asking; that is the person's call, not a default.
+    final gate =
+        (consultOfProfileId != null ||
+            !project.maintained ||
+            (isCodex && !codexSettings.askPermission))
         ? null
         : DecisionGateServer.gateSpecFor(
             projectId: projectId,
@@ -4376,8 +4390,13 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     final turnHooks = await _resolveTurnHooks(
       project,
       engine,
-      gate: gate,
+      gate: isOpenCode ? null : gate,
       subagentCap: subagentCap,
+      // Claude caps turns itself (`--max-turns`); codex only lets Keel
+      // count tool calls.
+      toolCallCap: isCodex && maxTurns > 0
+          ? maxTurns * kCodexToolCallsPerTurn
+          : null,
     );
     for (final note in turnHooks.notes) {
       _appendMessage(
@@ -4399,8 +4418,19 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
         prompt: effectiveInstruction,
         workingDirectory: project.workingDirectory,
         model: engine.model,
-        fullFileSystemAccess: false,
-        effort: engine.effort,
+        fullFileSystemAccess: isCodex && codexSettings.fullDiskAccess,
+        sandboxNetworkAccess: isCodex && codexSettings.networkAccess,
+        // A turn that may not write loses its write tools on claude; codex
+        // has no allow-list, so its sandbox goes read-only instead.
+        sandboxReadOnly:
+            (isCodex || isOpenCode) && (isConsult || !project.maintained),
+        permissionGateUrl: isOpenCode ? gate?.url : null,
+        permissionGateToken: isOpenCode ? gate?.token : null,
+        effort: await ModelCatalogService.instance.notifier.effortFor(
+          engine.provider,
+          engine.model,
+          engine.effort,
+        ),
         extraAllowedTools: [
           // Un proyecto que no mantenés es de SOLO LECTURA, y eso se hace
           // sacándole las tools que escriben — no pidiéndoselo por prompt.
@@ -4463,19 +4493,6 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     final streamTimestamp = DateTime.now();
     final runPolicy = _workflowRunning(project, sessionId)?.policy;
     final maxSubagents = runPolicy?.maxSubagents ?? 0;
-    // Un CLI mudo no termina solo. El vigilante corta el proceso y cierra el
-    // stream: el `await for` de abajo sale como si el proveedor hubiera
-    // terminado, y el turno se marca fallido con el motivo puesto.
-    final watchdog = TurnWatchdog(
-      idle: Duration(
-        minutes: runPolicy?.idleTimeoutMinutes ?? kDefaultIdleTimeoutMinutes,
-      ),
-      hard: Duration(
-        minutes: runPolicy?.nodeTimeoutMinutes ?? kDefaultNodeTimeoutMinutes,
-      ),
-      onTrip: (_) => run.cancel(),
-    );
-    _turnWatchdogs.putIfAbsent(sessionId, () => {}).add(watchdog);
     var subagentLimitExceeded = false;
     final turnSubagentIds = <String>{};
     // Ver la fila sin medición más abajo: [turnMeasured] evita anotar dos
@@ -4485,7 +4502,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     var providerEngaged = false;
     final turnStartedAt = DateTime.now();
 
-    await for (final event in watchdog.guard(run.events)) {
+    await for (final event in run.events) {
       if (_stoppedSessionIds.contains(sessionId)) break;
 
       switch (event) {
@@ -4881,34 +4898,6 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
       ),
     );
     if (livePid != 0) RunningProcesses.unregister(livePid);
-    _turnWatchdogs[sessionId]?.remove(watchdog);
-    if (_turnWatchdogs[sessionId]?.isEmpty ?? false) {
-      _turnWatchdogs.remove(sessionId);
-    }
-    if (watchdog.tripped && !_stoppedSessionIds.contains(sessionId)) {
-      turnFailed = true;
-      final minutes = watchdog.trip == TurnWatchdogTrip.idle
-          ? watchdog.idle.inMinutes
-          : watchdog.hard.inMinutes;
-      final reason = watchdog.trip == TurnWatchdogTrip.idle
-          ? 'Sin actividad del proveedor durante $minutes min: el paso se '
-                'cortó. Si el trabajo legítimamente calla tanto (builds, '
-                'suites largas), subí el plazo de inactividad en la policy '
-                'del workflow.'
-          : 'El paso superó el plazo de $minutes min y se cortó. Partí el '
-                'paso en dos o subí el plazo en la policy del workflow.';
-      Log.w('Turno cortado por el vigilante: ${watchdog.trip?.name}');
-      _appendMessage(
-        projectId,
-        sessionId,
-        ChatMessage(
-          role: ChatRole.error,
-          text: reason,
-          timestamp: DateTime.now(),
-          workNodeId: workNodeId,
-        ),
-      );
-    }
 
     // Un turno parado, caído o con la sesión muerta no llega al evento
     // `result`: sin esta fila, el intento que igual gastó no existe para la
@@ -6103,10 +6092,16 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     AgentProfile member, {
     DecisionGateSpec? gate,
     int? subagentCap,
+    int? toolCallCap,
   }) async {
+    // OpenCode runs no shell hooks; its permissions go through the runner.
+    if (member.provider == AgentProvider.openCode) return TurnHooks.none;
     await HooksService.instance.notifier.ready;
     final catalog = HooksService.instance.notifier.data.hooks;
-    if (catalog.isEmpty && gate == null && subagentCap == null) {
+    if (catalog.isEmpty &&
+        gate == null &&
+        subagentCap == null &&
+        toolCallCap == null) {
       return TurnHooks.none;
     }
 
@@ -6124,6 +6119,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
       project: project,
       gate: gate,
       subagentCap: subagentCap,
+      toolCallCap: toolCallCap,
     );
   }
 

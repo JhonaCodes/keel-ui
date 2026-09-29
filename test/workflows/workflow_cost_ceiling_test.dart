@@ -43,8 +43,6 @@ void main() {
         _workflow('heredado', kLegacyDefaultMaxSessionCostUsd),
       ]).single;
 
-      expect(normalized.policy.idleTimeoutMinutes, kDefaultIdleTimeoutMinutes);
-      expect(normalized.policy.nodeTimeoutMinutes, kDefaultNodeTimeoutMinutes);
       expect(normalized.name, 'heredado');
     });
   });

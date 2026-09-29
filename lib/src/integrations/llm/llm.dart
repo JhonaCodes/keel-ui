@@ -7,12 +7,15 @@ library;
 import 'claude/claude_target.dart';
 import 'codex/codex_target.dart';
 import 'openai_compatible/openai_compatible_target.dart';
+import 'opencode/opencode_target.dart';
 
 export 'claude/claude_target.dart';
 export 'codex/codex_target.dart';
 export 'openai_compatible/openai_compatible_target.dart';
+export 'opencode/opencode_target.dart';
 
 part 'src/llm_provider.dart';
 part 'src/llm_conversation_message.dart';
 part 'src/llm_runner.dart';
+part 'src/llm_live_session.dart';
 part 'src/llm_turn_spec.dart';

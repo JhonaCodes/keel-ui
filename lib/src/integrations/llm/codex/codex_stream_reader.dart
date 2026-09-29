@@ -57,17 +57,11 @@ class CodexStreamReader {
                     {'type': 'toolUse', 'name': 'Edit', 'input': null},
                   ];
           case 'mcp_tool_call':
-            return isCompleted
-                ? const []
-                : [
-                    {
-                      'type': 'toolUse',
-                      'name': event['item'] is Map
-                          ? ((event['item'] as Map)['tool'] as String? ?? 'mcp')
-                          : 'mcp',
-                      'input': null,
-                    },
-                  ];
+            return _readMcpToolCall(
+              item,
+              isStarted: event['type'] == 'item.started',
+              isCompleted: isCompleted,
+            );
           case 'web_search':
             return isCompleted
                 ? const []
@@ -134,6 +128,39 @@ class CodexStreamReader {
       default:
         return const [];
     }
+  }
+
+  /// An MCP tool call, named the way claude names it (`mcp__server__tool`)
+  /// so the activity strip and the map read both providers alike. A failed
+  /// call used to vanish: codex reports it only on completion, and that
+  /// event was dropped — the model then explained a failure nobody saw.
+  List<Map<String, dynamic>> _readMcpToolCall(
+    Map<String, dynamic> item, {
+    required bool isStarted,
+    required bool isCompleted,
+  }) {
+    final server = item['server'] as String? ?? '';
+    final tool = item['tool'] as String? ?? 'mcp';
+    final name = server.isEmpty ? tool : 'mcp__${server}__$tool';
+    if (isStarted) {
+      return [
+        {
+          'type': 'toolUse',
+          'name': name,
+          'input': (item['arguments'] as Map?)?.cast<String, dynamic>(),
+        },
+      ];
+    }
+    if (!isCompleted) return const [];
+    final error = (item['error'] as Map?)?['message'] as String?;
+    if (item['status'] != 'failed' && error == null) return const [];
+    return [
+      {
+        'type': 'notice',
+        'message':
+            'La tool $name falló: ${error ?? 'sin detalle del proveedor'}',
+      },
+    ];
   }
 
   List<Map<String, dynamic>> _readCollaboration(Map<String, dynamic> item) {

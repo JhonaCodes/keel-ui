@@ -40,6 +40,21 @@ class LlmTurnSpec {
   /// Techo en dólares del turno. Cero: sin techo. Hoy solo claude lo aplica.
   final double maxBudgetUsd;
 
+  /// Network inside a writable sandbox. Only codex sandboxes commands;
+  /// the other runners ignore it.
+  final bool sandboxNetworkAccess;
+
+  /// The turn may not write (a consultation, a project the user does not
+  /// maintain). Claude gets that by losing its write tools; codex has no
+  /// tool allow-list, so it gets a read-only sandbox instead.
+  final bool sandboxReadOnly;
+
+  /// Keel's permission gate, for runners that receive permission requests
+  /// themselves instead of through a hook (OpenCode's `permission.asked`).
+  /// Null: no one to ask — the runner denies what would need asking.
+  final String? permissionGateUrl;
+  final String? permissionGateToken;
+
   const LlmTurnSpec({
     required this.prompt,
     required this.workingDirectory,
@@ -57,5 +72,9 @@ class LlmTurnSpec {
     this.planMode = false,
     this.maxTurns = 0,
     this.maxBudgetUsd = 0,
+    this.sandboxNetworkAccess = false,
+    this.sandboxReadOnly = false,
+    this.permissionGateUrl,
+    this.permissionGateToken,
   });
 }

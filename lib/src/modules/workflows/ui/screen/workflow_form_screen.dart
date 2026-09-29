@@ -51,10 +51,6 @@ class _WorkflowFormScreenState extends State<WorkflowFormScreen> {
         1,
         kMaxReviewCycles,
       );
-  late int _idleTimeoutMinutes =
-      widget.initial?.policy.idleTimeoutMinutes ?? kDefaultIdleTimeoutMinutes;
-  late int _nodeTimeoutMinutes =
-      widget.initial?.policy.nodeTimeoutMinutes ?? kDefaultNodeTimeoutMinutes;
   late int _maxSessionCostUsd =
       widget.initial?.policy.maxSessionCostUsd.round() ??
       kDefaultMaxSessionCostUsd.round();
@@ -109,8 +105,6 @@ class _WorkflowFormScreenState extends State<WorkflowFormScreen> {
       maxReplans: _maxReplans,
       maxSubagents: _maxSubagents,
       maxReviewCycles: _maxReviewCycles,
-      idleTimeoutMinutes: _idleTimeoutMinutes,
-      nodeTimeoutMinutes: _nodeTimeoutMinutes,
       maxSessionCostUsd: _maxSessionCostUsd.toDouble(),
     );
     final workflows = WorkflowsService.instance.notifier;
@@ -277,34 +271,6 @@ class _WorkflowFormScreenState extends State<WorkflowFormScreen> {
             label: '$_maxReviewCycles',
             onChanged: (value) =>
                 setState(() => _maxReviewCycles = value.round()),
-          ),
-          Text(
-            AppLocalizations.of(
-              context,
-            ).labelIdleTimeoutLimit(_idleTimeoutMinutes),
-          ),
-          Slider(
-            value: _idleTimeoutMinutes.toDouble(),
-            min: 0,
-            max: 60,
-            divisions: 60,
-            label: '$_idleTimeoutMinutes',
-            onChanged: (value) =>
-                setState(() => _idleTimeoutMinutes = value.round()),
-          ),
-          Text(
-            AppLocalizations.of(
-              context,
-            ).labelNodeTimeoutLimit(_nodeTimeoutMinutes),
-          ),
-          Slider(
-            value: _nodeTimeoutMinutes.toDouble(),
-            min: 0,
-            max: 240,
-            divisions: 48,
-            label: '$_nodeTimeoutMinutes',
-            onChanged: (value) =>
-                setState(() => _nodeTimeoutMinutes = value.round()),
           ),
           Text(
             AppLocalizations.of(

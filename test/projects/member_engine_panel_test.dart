@@ -95,16 +95,12 @@ void main() {
     expect(find.textContaining('anthropic/claude-test'), findsWidgets);
   });
 
-  testWidgets('Codex ofrece los modelos nuevos de su catálogo local', (
-    tester,
-  ) async {
-    final codexHome = Directory.systemTemp.createTempSync('codex_home');
-    addTearDown(() => codexHome.deleteSync(recursive: true));
-    File('${codexHome.path}/models_cache.json').writeAsStringSync(
-      '{"models":[{"slug":"gpt-6-sol","display_name":"GPT-6-Sol",'
-      '"visibility":"list","priority":0}]}',
+  testWidgets('Codex ofrece los modelos que lista su CLI', (tester) async {
+    final catalog = RemoteModelCatalog(
+      codexCatalog: () async =>
+          '{"models":[{"slug":"gpt-6-sol","display_name":"GPT-6-Sol",'
+          '"visibility":"list","priority":0}]}',
     );
-    final catalog = RemoteModelCatalog(codexHome: codexHome.path);
     // File reads and the parsing isolate do not advance under the fake
     // clock of a widget test; warm the catalog for real first.
     await tester.runAsync(() => catalog.load(AgentProvider.codex));

@@ -1,5 +1,15 @@
 # F43 — Default caps, turn watchdog, and resuming after an interruption
 
+> **Superseded in part.** The turn cap default and the turn watchdog were later
+> removed on the user's explicit decision, to match Claude Code: a node with no
+> declared `maxAgenticTurns` runs with no turn cap, and no step is ever cut by
+> the clock (no idle deadline, no per-step deadline). A step runs until it
+> finishes or someone stops the session; a hung CLI needs a manual Stop, same
+> as in Claude Code. Records stored with `idleTimeoutMinutes` /
+> `nodeTimeoutMinutes` still load: reading ignores those keys and the next save
+> drops them. The cost ceiling, the interruption resume, the fallback mode, and
+> the stdin fix below still apply.
+
 ## Problem it solves
 
 A workflow could get stuck with no signal at all. Four causes, all in code:
@@ -28,22 +38,14 @@ declared value, or 20 if the node writes and 8 if it is read-only.
 `maxAgenticTurns` still stores what the user typed; zero is no longer
 "unlimited".
 
-**Deadlines and a ceiling in the policy.** `WorkflowPolicy` adds
-`idleTimeoutMinutes` (10), `nodeTimeoutMinutes` (45), and `maxSessionCostUsd`
+**A ceiling in the policy.** `WorkflowPolicy` adds `maxSessionCostUsd`
 (0 = no ceiling, and that is the default: a case is not cut off on price unless
-somebody declares a ceiling). They are edited on the workflow form and stated in
-the preflight message, so a cut is never a surprise. Earlier records read the
-defaults, and those stored with the old default ceiling lose it exactly once
+somebody declares a ceiling). It is edited on the workflow form and stated in
+the preflight message, so a cut is never a surprise. Records stored with the
+old default ceiling lose it exactly once
 (`WorkflowsRepository`, marked with
 `_workflow_cost_ceiling_default_retired_v1` so as not to overwrite a ceiling
 chosen later).
-
-**Turn watchdog.** `TurnWatchdog` (`modules/projects/service/`) wraps the event
-stream with two deadlines: an idle one, which every event resets, and a hard one
-for the whole turn. Either fires exactly once, cancels the process, and closes
-the stream: `_runTurn` exits the `await for` and marks the turn failed with the
-reason and the configured number. It has `pause`/`resume` for a turn awaiting a
-human decision: that wait is not agent inactivity.
 
 **Cost ceiling.** When picking each node, the engine compares what has been
 spent (`SessionUsage.reportedCostUsd`) against the ceiling. If it has been
@@ -91,10 +93,8 @@ still accepts more for the case that needs it.
 
 ## How to verify it
 
-- `test/projects/turn_watchdog_test.dart`: idleness, the hard deadline, pause,
-  and a stream that ends on its own.
-- `test/workflows/workflow_model_test.dart`: the effective cap and a policy with
-  deadlines surviving disk.
+- `test/workflows/workflow_model_test.dart`: the effective cap, and a stored
+  workflow with the old deadlines losing them on its way back to disk.
 - `test/projects/resolution_engine_test.dart`: releasing the in-flight node
   leaves the case active with the node `pending`.
 - `test/llm/claude/claude_arguments_test.dart`: `--max-budget-usd` only with a

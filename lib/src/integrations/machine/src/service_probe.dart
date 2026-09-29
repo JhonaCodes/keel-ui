@@ -40,14 +40,14 @@ class CliService {
 
 /// Los CLIs que se buscan.
 ///
-/// Los dos primeros tienen adaptador en `core/services` y son los que un
+/// Los tres primeros tienen adaptador (`integrations/llm/`) y son los que un
 /// agente puede usar. El resto está acá porque el usuario los tiene, y
 /// listarlos es más honesto que hacer de cuenta que no existen: la lista de
 /// "detectado, sin adaptador" es, además, la lista de lo que falta.
 const _known = <CliService>[
   CliService(binary: 'claude', label: 'Claude Code', supported: true),
   CliService(binary: 'codex', label: 'Codex', supported: true),
-  CliService(binary: 'opencode', label: 'opencode', supported: false),
+  CliService(binary: 'opencode', label: 'OpenCode', supported: true),
   CliService(binary: 'gemini', label: 'Gemini CLI', supported: false),
   CliService(binary: 'cursor-agent', label: 'Cursor Agent', supported: false),
   CliService(binary: 'amp', label: 'Amp', supported: false),

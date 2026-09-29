@@ -415,7 +415,7 @@
   "formLabelAgentRole": "Rol",
   "formLabelAgentRoleHint": "Qué hace este agente",
   "formLabelSystemPrompt": "System prompt",
-  "formLabelProvider": "Proveedor (codex: sin tools/MCPs/esfuerzo, y sus propios modelos)",
+  "formLabelProvider": "Proveedor (cada uno con sus propios modelos)",
   "formLabelModel": "Modelo por defecto ({provider})",
   "@formLabelModel": {
     "placeholders": {
@@ -788,24 +788,6 @@
       "count": {
         "type": "int",
         "example": "1"
-      }
-    }
-  },
-  "labelIdleTimeoutLimit": "Minutos sin actividad del proveedor antes de cortar un paso: {count} (0 = sin límite)",
-  "@labelIdleTimeoutLimit": {
-    "placeholders": {
-      "count": {
-        "type": "int",
-        "example": "10"
-      }
-    }
-  },
-  "labelNodeTimeoutLimit": "Minutos máximos por paso: {count} (0 = sin límite)",
-  "@labelNodeTimeoutLimit": {
-    "placeholders": {
-      "count": {
-        "type": "int",
-        "example": "45"
       }
     }
   },
@@ -1187,5 +1169,17 @@
   "panelSharedChangeScope": "Este cambio modifica el workflow \"{workflow}\" en todos los proyectos. Los overrides concretos se conservan.",
   "subagentPhaseUnconfirmed": "resultado sin confirmar",
   "sessionAwaitingOutput": "Esperando salida del proveedor…",
-  "sessionTurnOpen": "Turno abierto"
+  "sessionTurnOpen": "Turno abierto",
+  "permissionGateTitle": "Pide permiso para seguir",
+  "permissionDeny": "Rechazar",
+  "permissionAllowOnce": "Permitir esta vez",
+  "permissionAllowAlways": "Permitir siempre",
+  "settingCodex": "Codex",
+  "descriptionCodexSettings": "Codex corre dentro de su sandbox y no pregunta solo: lo que Claude Code decide con sus avisos de permiso, Codex lo decide acá, para todos sus turnos.",
+  "codexAskPermission": "Pedir permiso antes de comandos y ediciones",
+  "codexAskPermissionHelp": "Keel muestra la tarjeta (esta vez, siempre o rechazar) y el turno espera tu respuesta.",
+  "codexNetworkAccess": "Red dentro del sandbox",
+  "codexNetworkAccessHelp": "Sin red fallan pub get, npm install o git push dentro de Codex.",
+  "codexFullDiskAccess": "Acceso a todo el disco",
+  "codexFullDiskAccessHelp": "Deja escribir fuera de la carpeta del proyecto. Un chat puede activarlo solo para sí."
 }

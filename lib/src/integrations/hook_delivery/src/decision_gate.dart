@@ -11,6 +11,11 @@ const kDecisionGateHookName = 'keel-decision-gate';
 const kDecisionGateTimeoutSeconds = 21600;
 
 /// Las tools que pasan por el gate: todo lo que escribe o ejecuta.
+///
+/// Codex no necesita nombres propios acá: su `apply_patch` entra por el
+/// matcher `Edit|Write` (su hook recibe `tool_name: "apply_patch"` con el
+/// patch en `tool_input.command`) y sus comandos por `Bash` — verificado con
+/// codex 0.153.4 en test/llm/codex/codex_real_binary_test.dart.
 const kDecisionGateTools = <String>[
   'Bash',
   'Edit',

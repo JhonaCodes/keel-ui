@@ -81,13 +81,14 @@ start at [`product/`](product/README.md).
 
 | | |
 |---|---|
-| [F43](features/43-turn-caps-and-watchdog.md) | Default caps, turn watchdog, and resuming after an interruption |
+| [F43](features/43-turn-caps-and-watchdog.md) | Default caps, turn watchdog (since removed), and resuming after an interruption |
 | [F44](features/44-turn-closure-and-decisions.md) | Turn closure (`keel-outcome`), real gates, and pending decisions |
 | [F45](features/45-blocking-permissions.md) | Permissions and questions that suspend the turn |
 | [F46](features/46-context-between-nodes.md) | Context between nodes, session reuse, and the prompt budget |
 | [F47](features/47-subagent-quota-in-code.md) | The subagent quota is enforced in code |
 | [F48](features/48-keelai-supervisor-and-lint.md) | Keel AI supervises on request, workflow lint, four-node template |
 | [F51](features/51-codex-first-class.md) | Codex with the same surface as claude |
+| [F52](features/52-opencode-and-live-catalogs.md) | OpenCode as a provider, live model catalogs, API permissions |
 
 ## The rest
 

@@ -26,6 +26,13 @@ library;
 /// bastante finito para que un cuelgue de verdad no quede vivo para siempre.
 const kMcpToolTimeoutMillis = 21600000;
 
+/// How many subagents one turn may have running at the same time, whatever
+/// the provider. Each one is a full model working in parallel and billing
+/// on its own: a turn that opens ten burns the credits of ten.
+abstract final class SubagentLimits {
+  static const maxParallel = 4;
+}
+
 /// Tools every agent gets, no setting required. They are all read-only or
 /// network reads: an agent that cannot open a file is blind, and the whole
 /// point of a project is that its agents look at the real code before they

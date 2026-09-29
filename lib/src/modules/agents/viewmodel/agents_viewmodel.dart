@@ -9,6 +9,7 @@ import 'package:keel_ui/l10n/generated/app_localizations_en.dart';
 import 'package:keel_ui/l10n/generated/app_localizations_es.dart';
 
 import 'package:keel_ui/src/integrations/task_runner/task_runner.dart';
+import 'package:keel_ui/src/core/services/cli_turn_contract.dart';
 import 'package:keel_ui/src/core/services/file_edit_collector.dart';
 import 'package:keel_ui/src/integrations/assistant_mcp/assistant_mcp_server.dart';
 import 'package:keel_ui/src/integrations/prompt_insights/prompt_insights.dart';
@@ -27,7 +28,9 @@ import 'package:keel_ui/src/modules/agents/model/line_diff.dart';
 import 'package:keel_ui/src/modules/agents/model/permission_request.dart';
 import 'package:keel_ui/src/modules/agents/model/plan_decision.dart';
 import 'package:keel_ui/src/modules/agents/model/queued_message.dart';
+import 'package:keel_ui/src/modules/agents/viewmodel/model_catalog_viewmodel.dart';
 import 'package:keel_ui/src/modules/agents/repository/agents_repository.dart';
+import 'package:keel_ui/src/integrations/decisions_mcp/decisions_mcp_server.dart';
 import 'package:keel_ui/src/integrations/hook_delivery/hook_delivery.dart';
 import 'package:keel_ui/src/integrations/chat_references/chat_references.dart';
 import 'package:keel_ui/src/integrations/system_prompt/system_prompt.dart';
@@ -69,6 +72,14 @@ class AgentsViewModel extends ViewModel<AgentsState> {
   final Map<String, TaskRun> _runningTurns = {};
   final Map<String, Completer<CatalogPermissionOutcome>>
   _catalogChangePermissions = {};
+
+  /// Turns suspended in Keel's permission gate, by agent: the hook of a
+  /// codex (or API) turn is waiting on this answer.
+  final Map<String, Completer<({bool allow, bool always})>> _toolGates = {};
+
+  /// One card at a time per chat: a second gate request waits for the first
+  /// to be answered instead of replacing it.
+  final Map<String, Future<void>> _toolGateQueue = {};
 
   /// Guardar de a un agente y de a ráfagas.
   ///
@@ -238,6 +249,7 @@ class AgentsViewModel extends ViewModel<AgentsState> {
 
   void selectAgent(String id) {
     updateState(data.copyWith(selectedAgentId: id));
+    unawaited(warmUp(id));
   }
 
   void setAgentModel(String agentId, String model) {
@@ -246,6 +258,7 @@ class AgentsViewModel extends ViewModel<AgentsState> {
 
     _updateAgent(agentId, (agent) => agent.copyWith(model: model));
     _writes.schedule(agentId);
+    unawaited(warmUp(agentId));
   }
 
   void setAgentProvider(String agentId, AgentProvider provider) {
@@ -258,6 +271,9 @@ class AgentsViewModel extends ViewModel<AgentsState> {
           agent.copyWith(provider: provider, model: defaultModelFor(provider)),
     );
     _writes.schedule(agentId);
+    // A process started for the previous provider has nothing left to do.
+    TaskRunner.closeLive(agentId);
+    unawaited(warmUp(agentId));
   }
 
   void setAgentEffort(String agentId, String effort) {
@@ -266,6 +282,7 @@ class AgentsViewModel extends ViewModel<AgentsState> {
 
     _updateAgent(agentId, (agent) => agent.copyWith(effort: effort));
     _writes.schedule(agentId);
+    unawaited(warmUp(agentId));
   }
 
   void setAgentFullFileSystemAccess(String agentId, bool enabled) {
@@ -274,6 +291,7 @@ class AgentsViewModel extends ViewModel<AgentsState> {
       (agent) => agent.copyWith(fullFileSystemAccess: enabled),
     );
     _writes.schedule(agentId);
+    unawaited(warmUp(agentId));
   }
 
   /// Prende o apaga el modo plan de esta conversación.
@@ -289,6 +307,7 @@ class AgentsViewModel extends ViewModel<AgentsState> {
       (agent) => agent.copyWith(planMode: enabled, planAwaitingDecision: false),
     );
     _writes.schedule(agentId);
+    unawaited(warmUp(agentId));
   }
 
   /// El plan quedó aprobado: sale del modo plan y arranca a implementarlo.
@@ -332,7 +351,11 @@ class AgentsViewModel extends ViewModel<AgentsState> {
     );
   }
 
-  void respondToPermissionRequest(String agentId, {required bool grant}) {
+  void respondToPermissionRequest(
+    String agentId, {
+    required bool grant,
+    bool always = false,
+  }) {
     // Sin `orElse`: contestar el pedido de un agente que se borró mientras
     // la tarjeta estaba en pantalla tiraba una excepción en el tap.
     final target = data.agents
@@ -345,6 +368,15 @@ class AgentsViewModel extends ViewModel<AgentsState> {
       agentId,
       (agent) => agent.copyWith(clearPendingPermission: true),
     );
+    if (request.blocking) {
+      // The turn is still alive, waiting in the gate: the answer goes back
+      // to it. No follow-up message — the tool simply runs, or doesn't.
+      final gate = _toolGates.remove(agentId);
+      if (gate != null && !gate.isCompleted) {
+        gate.complete((allow: grant, always: grant && always));
+      }
+      return;
+    }
     if (request.isCatalogChange) {
       final pending = _catalogChangePermissions.remove(agentId);
       if (pending != null && !pending.isCompleted) {
@@ -443,9 +475,101 @@ class AgentsViewModel extends ViewModel<AgentsState> {
     if (pending != null && !pending.isCompleted) {
       pending.complete(CatalogPermissionOutcome.cancelled);
     }
+    final gate = _toolGates.remove(agentId);
+    if (gate != null && !gate.isCompleted) {
+      gate.complete((allow: false, always: false));
+    }
+  }
+
+  /// What Keel's permission gate answers before a tool that writes or runs
+  /// something in a 1:1 chat. A tool granted "always" passes at once;
+  /// anything else puts a card in the chat and WAITS — the provider's
+  /// process stays suspended in the hook until the person answers or stops
+  /// the turn. Same contract as `ProjectsViewModel.decideToolUse`.
+  Future<({bool allow, String reason})> decideToolUse({
+    required String agentId,
+    required String toolName,
+    required String toolInput,
+  }) async {
+    final previous = _toolGateQueue[agentId];
+    final turnInQueue = Completer<void>();
+    _toolGateQueue[agentId] = turnInQueue.future;
+    try {
+      await previous;
+      return await _askToolGate(
+        agentId: agentId,
+        toolName: toolName,
+        toolInput: toolInput,
+      );
+    } finally {
+      turnInQueue.complete();
+      if (identical(_toolGateQueue[agentId], turnInQueue.future)) {
+        _toolGateQueue.remove(agentId);
+      }
+    }
+  }
+
+  Future<({bool allow, String reason})> _askToolGate({
+    required String agentId,
+    required String toolName,
+    required String toolInput,
+  }) async {
+    final target = data.agents
+        .where((agent) => agent.id == agentId)
+        .firstOrNull;
+    if (target == null) {
+      return (allow: false, reason: 'Keel no reconoce este chat.');
+    }
+    if (SettingsService.instance.notifier.data.extraAllowedTools.contains(
+      toolName,
+    )) {
+      return (allow: true, reason: '');
+    }
+    if (!target.isStreaming) {
+      return (allow: false, reason: 'El turno ya no está corriendo.');
+    }
+    if (target.pendingPermission != null) {
+      return (
+        allow: false,
+        reason: 'Hay otro pedido esperando respuesta en este chat.',
+      );
+    }
+
+    final gate = Completer<({bool allow, bool always})>();
+    _toolGates[agentId] = gate;
+    _updateAgent(
+      agentId,
+      (agent) => agent.copyWith(
+        pendingPermission: PermissionRequest(
+          toolName: toolName,
+          message: toolInput.isEmpty
+              ? '@${agent.name} quiere usar $toolName.'
+              : '@${agent.name} quiere usar $toolName:\n$toolInput',
+          blocking: true,
+        ),
+      ),
+    );
+    try {
+      final answer = await gate.future;
+      if (answer.always) {
+        SettingsService.instance.notifier.setExtraToolEnabled(toolName, true);
+      }
+      return answer.allow
+          ? (allow: true, reason: '')
+          : (allow: false, reason: 'La persona lo rechazó desde Keel.');
+    } finally {
+      if (identical(_toolGates[agentId], gate)) _toolGates.remove(agentId);
+      _updateAgent(
+        agentId,
+        (agent) => agent.pendingPermission?.blocking ?? false
+            ? agent.copyWith(clearPendingPermission: true)
+            : agent,
+      );
+    }
   }
 
   void deleteAgent(String id) {
+    TaskRunner.closeLive(id);
     final agents = data.agents.where((agent) => agent.id != id).toList();
     final selectedAgentId = data.selectedAgentId == id
         ? null
@@ -553,26 +677,10 @@ class AgentsViewModel extends ViewModel<AgentsState> {
         (agent) => agent.copyWith(clearPendingUserEdit: true),
       );
     }
-    // Las referencias `keel://` que el compositor dejó en el texto se
-    // materializan ACÁ, en el mismo turno y solo para él: una skill enlazada
-    // aporta su contenido, una carpeta su ruta absoluta. Lo que el usuario
-    // ve en el hilo sigue siendo el nombre que eligió.
-    await Future.wait([
-      ProjectsService.instance.notifier.ready,
-      WorkspaceRootsService.instance.notifier.ready,
-    ]);
-    final explicitContext = await ChatReferenceService.promptContext(
-      const GlobalReferenceScope(),
-      trimmed,
-    );
 
-    final promptForModel = [
-      if (pendingUserEdit != null) _describeManualEdit(pendingUserEdit),
-      if (trimmed.isNotEmpty) trimmed,
-      if (explicitContext.isNotEmpty) explicitContext,
-      if (imagePaths.isNotEmpty) _describeAttachments(imagePaths),
-    ].join('\n\n');
-
+    // The message and the progress bar show up NOW. Everything below —
+    // references, catalogs, hooks, the CLI process — used to run first, and
+    // the chat looked frozen for seconds with nothing to say it was working.
     _appendMessage(
       agentId,
       ChatMessage(
@@ -593,27 +701,148 @@ class AgentsViewModel extends ViewModel<AgentsState> {
     _setStreaming(agentId, true);
     _writes.schedule(agentId);
 
+    final TaskRun run;
+    try {
+      // Las referencias `keel://` que el compositor dejó en el texto se
+      // materializan ACÁ, en el mismo turno y solo para él: una skill
+      // enlazada aporta su contenido, una carpeta su ruta absoluta. Lo que
+      // el usuario ve en el hilo sigue siendo el nombre que eligió.
+      await Future.wait([
+        ProjectsService.instance.notifier.ready,
+        WorkspaceRootsService.instance.notifier.ready,
+      ]);
+      final explicitContext = await ChatReferenceService.promptContext(
+        const GlobalReferenceScope(),
+        trimmed,
+      );
+      final promptForModel = [
+        if (pendingUserEdit != null) _describeManualEdit(pendingUserEdit),
+        if (trimmed.isNotEmpty) trimmed,
+        if (explicitContext.isNotEmpty) explicitContext,
+        if (imagePaths.isNotEmpty) _describeAttachments(imagePaths),
+      ].join('\n\n');
+
+      final setup = await _prepareTurn(target, prompt: promptForModel);
+      for (final note in setup.hookNotes) {
+        appendSystemNote(agentId, note);
+      }
+      // UN solo camino para correr un turno, y corre en otro isolate.
+      //
+      // Antes esto tenía dos: `ClaudeCliService` y `CodexCliService`, ambos
+      // en el hilo de la interfaz, decodificando cada línea del stream
+      // —incluidos resultados de herramienta de cientos de KB— entre frame y
+      // frame. Los proyectos ya usaban el task runner; el chat 1:1 y Keel AI
+      // se habían quedado atrás, que es por qué la app se ponía pastosa
+      // justo mientras se conversaba con el asistente.
+      //
+      // Claude keeps ONE process per conversation, like Claude Code: the
+      // turn only waits for the model, not for a CLI to boot.
+      run = TaskRunner.supportsLive(setup.spec)
+          ? await TaskRunner.runLive(
+              agentId,
+              setup.spec,
+              label: _processLabel(target),
+              onSpontaneousTurn: (run) => _onSpontaneousTurn(agentId, run),
+            )
+          : await TaskRunner.run(setup.spec);
+    } catch (error, stackTrace) {
+      Log.e(
+        'No se pudo preparar el turno de @${target.name}',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      _appendMessage(
+        agentId,
+        ChatMessage(
+          role: ChatRole.error,
+          text: 'No se pudo arrancar el turno: $error',
+          timestamp: DateTime.now(),
+        ),
+      );
+      _setStreaming(agentId, false);
+      _writes.schedule(agentId);
+      return;
+    }
+
+    await _consumeTurn(
+      agentId,
+      target,
+      run,
+      isKeelAi: _isKeelAi(target.profileId),
+    );
+  }
+
+  /// Starts [agentId]'s CLI process before its next message, so that message
+  /// only waits for the model. Called when a chat is opened or selected, and
+  /// after a setting that changes how the process starts.
+  Future<void> warmUp(String agentId) async {
+    final target = data.agents
+        .where((agent) => agent.id == agentId)
+        .firstOrNull;
+    if (target == null || target.isStreaming) return;
+    try {
+      final setup = await _prepareTurn(target, prompt: '');
+      if (!TaskRunner.supportsLive(setup.spec)) return;
+      await TaskRunner.warmLive(
+        agentId,
+        setup.spec,
+        label: _processLabel(target),
+        onSpontaneousTurn: (run) => _onSpontaneousTurn(agentId, run),
+      );
+    } catch (error) {
+      // Warming is an optimization: the next message starts the process
+      // itself and reports whatever goes wrong there.
+      Log.w('No se pudo precalentar el chat con @${target.name}: $error');
+    }
+  }
+
+  String _processLabel(Agent agent) => 'chat con @${agent.name}';
+
+  /// The provider went back to work with nobody sending anything — a
+  /// background task finished and re-invoked the model. That is work in
+  /// progress like any other turn, so it shows as one.
+  void _onSpontaneousTurn(String agentId, TaskRun run) {
+    final target = data.agents
+        .where((agent) => agent.id == agentId)
+        .firstOrNull;
+    if (target == null) {
+      run.cancel();
+      return;
+    }
+    _setStreaming(agentId, true);
+    unawaited(
+      _consumeTurn(agentId, target, run, isKeelAi: _isKeelAi(target.profileId)),
+    );
+  }
+
+  /// Everything a turn needs besides the user's words: the MCP servers, the
+  /// hooks, the provider secret and the system prompt. Shared by [sendMessage]
+  /// and [warmUp], so a warmed process starts exactly like the turn that will
+  /// use it — otherwise it would not be reused.
+  Future<({TaskRunSpec spec, List<String> hookNotes})> _prepareTurn(
+    Agent target, {
+    required String prompt,
+  }) async {
     final workingDirectory = looseAgentWorkingDirectory;
-    // El mismo colector que usa un proyecto: resuelve contra el directorio
-    // del turno las rutas relativas que reporta la CLI.
-    final fileEdits = FileEditCollector(workingDirectory: workingDirectory);
-    final assistantTextBuffer = StringBuffer();
     final isKeelAi = _isKeelAi(target.profileId);
+
+    // Mismo motivo que en el turno de un proyecto: el mapa de las bases
+    // sale del disco, y sin esperar la carga el agente arrancaría sin saber
+    // que su base existe. La sección PROYECTOS CONOCIDOS del prompt lee dos
+    // catálogos que este turno puede ser el primero en tocar. Las tres
+    // esperas son independientes: van juntas.
+    await Future.wait([
+      KnowledgeService.instance.notifier.indexReady,
+      ProjectsService.instance.notifier.ready,
+      WorkspaceRootsService.instance.notifier.ready,
+    ]);
 
     // One merged --mcp-config for the turn: the system-management tools
     // (Keel AI's reserved profile, plus any profile the user marked as a
     // builder) and whatever executable tools this agent's profile has
     // assigned.
-    // Mismo motivo que en el turno de un proyecto: el mapa de las bases
-    // sale del disco, y sin esperar la carga el agente arrancaría sin saber
-    // que su base existe.
-    // El MAPA de las bases, no solo el catálogo: sin índice el agente no
-    // ve qué hay adentro de sus bases de saber. Es el único lugar donde
-    // vale la pena esperar el recorrido del disco.
-    await KnowledgeService.instance.notifier.indexReady;
-
     final keelAiEntry = isKeelAi || _canManageSystem(target.profileId)
-        ? AssistantMcpServer.mcpServerEntryFor(agentId)
+        ? AssistantMcpServer.mcpServerEntryFor(target.id)
         : null;
     final profileTools = _resolveProfileTools(target.profileId);
     final toolsEntry = profileTools.isEmpty
@@ -636,51 +865,47 @@ class AgentsViewModel extends ViewModel<AgentsState> {
       for (final server in externalServers)
         server.name: server.toMcpServerEntry(externalSecretValues),
     };
-    final mcpConfig = mcpServers.isEmpty
-        ? null
-        : jsonEncode({'mcpServers': mcpServers});
-
-    // The codex adapter has no tools/MCP/effort surface — see F6 doc.
-    // La sección PROYECTOS CONOCIDOS del prompt lee dos catálogos que este
-    // turno puede ser el primero en tocar. Sin esperarlos, el agente sale
-    // creyendo que el usuario no tiene ningún proyecto — que es exactamente
-    // el problema que esa sección viene a resolver.
-    await Future.wait([
-      ProjectsService.instance.notifier.ready,
-      WorkspaceRootsService.instance.notifier.ready,
-    ]);
 
     // Los guardarraíles del turno. Se resuelven ACÁ, con el catálogo y los
     // secrets a mano, y lo que llega al CLI son archivos ya escritos.
-    final turnHooks = await _resolveTurnHooks(target);
-    for (final note in turnHooks.notes) {
-      appendSystemNote(agentId, note);
-    }
-    final providerApiKey = await SecretsService.instance.notifier.resolveValue(
-      target.provider.secretName,
-    );
+    final (turnHooks, providerApiKey) = await (
+      _resolveTurnHooks(target),
+      SecretsService.instance.notifier.resolveValue(target.provider.secretName),
+    ).wait;
 
-    // UN solo camino para correr un turno, y corre en otro isolate.
-    //
-    // Antes esto tenía dos: `ClaudeCliService` y `CodexCliService`, ambos en
-    // el hilo de la interfaz, decodificando cada línea del stream —incluidos
-    // resultados de herramienta de cientos de KB— entre frame y frame. Los
-    // proyectos ya usaban el task runner; el chat 1:1 y Keel AI se habían
-    // quedado atrás, que es por qué la app se ponía pastosa justo mientras
-    // se conversaba con el asistente.
-    final run = await TaskRunner.run(
-      TaskRunSpec(
-        prompt: promptForModel,
+    final codex = SettingsService.instance.notifier.data.codex;
+    final isCodex = target.provider == AgentProvider.codex;
+    final gate = await _permissionGateFor(target);
+    final runnerGate = target.provider == AgentProvider.openCode ? gate : null;
+    // A hook-gated API turn offers the tools that write: each call stops at
+    // the gate and asks. Without the gate they stay unoffered.
+    final offersGatedWrites =
+        gate != null &&
+        (target.provider == AgentProvider.openRouter ||
+            target.provider == AgentProvider.deepSeek);
+    final effort = await ModelCatalogService.instance.notifier.effortFor(
+      target.provider,
+      target.model,
+      target.effort,
+    );
+    return (
+      spec: TaskRunSpec(
+        prompt: prompt,
         workingDirectory: workingDirectory,
         model: target.model,
-        fullFileSystemAccess: target.fullFileSystemAccess,
-        effort: target.effort,
+        fullFileSystemAccess:
+            target.fullFileSystemAccess || (isCodex && codex.fullDiskAccess),
+        sandboxNetworkAccess: isCodex && codex.networkAccess,
+        permissionGateUrl: runnerGate?.url,
+        permissionGateToken: runnerGate?.token,
+        effort: effort,
         provider: target.provider.alias,
         providerApiKey: providerApiKey,
         sessionId: target.sessionId,
         additionalSystemPrompt: _resolveProfileSystemPrompt(target.profileId),
         extraAllowedTools: [
           ...SettingsService.instance.notifier.data.extraAllowedTools,
+          if (offersGatedWrites) ...kDecisionGateTools,
           if (keelAiEntry != null) ...kKeelAiMcpToolNames,
           if (toolsEntry != null)
             ...profileTools.map(
@@ -689,14 +914,34 @@ class AgentsViewModel extends ViewModel<AgentsState> {
           // Server-level grant: every tool an external MCP exposes.
           ...externalServers.map((server) => 'mcp__${server.name}'),
         ],
-        mcpConfig: mcpConfig,
+        mcpConfig: mcpServers.isEmpty
+            ? null
+            : jsonEncode({'mcpServers': mcpServers}),
         hooksSettings: turnHooks.claudeSettings,
         hooksConfig: turnHooks.codexConfig,
         hookFiles: turnHooks.files,
         conversationHistory: remoteConversationHistory(target.messages),
         planMode: target.planMode,
       ),
+      hookNotes: turnHooks.notes,
     );
+  }
+
+  /// Reads one turn's events into the chat until the turn ends, then hands
+  /// the chat back: usage, Keel AI's actions, the plan decision and whatever
+  /// was queued meanwhile.
+  Future<void> _consumeTurn(
+    String agentId,
+    Agent target,
+    TaskRun run, {
+    required bool isKeelAi,
+  }) async {
+    // El mismo colector que usa un proyecto: resuelve contra el directorio
+    // del turno las rutas relativas que reporta la CLI.
+    final fileEdits = FileEditCollector(
+      workingDirectory: looseAgentWorkingDirectory,
+    );
+    final assistantTextBuffer = StringBuffer();
     _runningTurns[agentId] = run;
 
     var wasStopped = false;
@@ -724,7 +969,7 @@ class AgentsViewModel extends ViewModel<AgentsState> {
           // parte de quién corre.
           case TaskProcessStarted(pid: final pid):
             _runningPids[agentId] = pid;
-            RunningProcesses.register(pid, 'chat con @${target.name}');
+            RunningProcesses.register(pid, _processLabel(target));
 
           case TaskSessionStarted(sessionId: final sessionId):
             providerEngaged = true;
@@ -1220,9 +1465,16 @@ class AgentsViewModel extends ViewModel<AgentsState> {
   /// perfil. Keel AI queda afuera de todo esto —lo decide `resolveHooks`—
   /// porque es a quien se le pide apagar un hook que trabó al resto.
   Future<TurnHooks> _resolveTurnHooks(Agent agent) async {
+    // OpenCode runs no shell hooks (only JS plugins, which Keel starts it
+    // without): its permission requests reach the gate through the runner.
+    if (agent.provider == AgentProvider.openCode) return TurnHooks.none;
     await HooksService.instance.notifier.ready;
     final catalog = HooksService.instance.notifier.data.hooks;
-    if (catalog.isEmpty) return TurnHooks.none;
+    final gate = await _permissionGateFor(agent);
+    // Claude opens subagents with its own tool, with no cap of its own: the
+    // guard keeps at most `SubagentLimits.maxParallel` running at once.
+    final isClaude = agent.provider == AgentProvider.claude;
+    if (catalog.isEmpty && gate == null && !isClaude) return TurnHooks.none;
 
     final profile = agent.profileId == null
         ? null
@@ -1241,7 +1493,29 @@ class AgentsViewModel extends ViewModel<AgentsState> {
           ? HookProvider.codex
           : HookProvider.claude,
       profile: profile,
+      gate: gate,
+      parallelSubagentCap: isClaude ? SubagentLimits.maxParallel : null,
     );
+  }
+
+  /// Keel's permission gate for this chat's turns, or null when the provider
+  /// asks on its own. Claude keeps its allowed-tools flow; codex runs with
+  /// `approval_policy=never`, so without the gate nothing would ever ask
+  /// before it writes or runs a command.
+  Future<DecisionGateSpec?> _permissionGateFor(Agent agent) async {
+    final usesGate = switch (agent.provider) {
+      AgentProvider.claude => false,
+      AgentProvider.codex =>
+        SettingsService.instance.notifier.data.codex.askPermission,
+      // OpenCode asks on its own (`permission.asked`); the gate answers it.
+      AgentProvider.openCode => true,
+      // API providers run Keel's own tools: with the gate, writing and
+      // running commands are offered and asked for, not hidden.
+      AgentProvider.openRouter || AgentProvider.deepSeek => true,
+    };
+    if (!usesGate) return null;
+    await DecisionGateServer.ensureStarted();
+    return DecisionGateServer.agentGateSpecFor(agent.id);
   }
 
   String? _resolveProfileSystemPrompt(String? profileId) {

@@ -7,10 +7,15 @@ class EffortLevelSelector extends StatelessWidget {
     super.key,
     required this.effort,
     required this.onChanged,
+    this.levels = const [],
   });
 
   final String effort;
   final ValueChanged<String> onChanged;
+
+  /// The levels the selected model accepts, when its provider lists them
+  /// (codex). Empty: the standard levels.
+  final List<String> levels;
 
   static IconData _iconFor(String alias) => switch (alias) {
     'low' => Icons.speed,
@@ -18,6 +23,7 @@ class EffortLevelSelector extends StatelessWidget {
     'high' => Icons.psychology_outlined,
     'xhigh' => Icons.local_fire_department_outlined,
     'max' => Icons.local_fire_department,
+    'ultra' => Icons.auto_awesome,
     _ => Icons.tune,
   };
 
@@ -28,14 +34,17 @@ class EffortLevelSelector extends StatelessWidget {
       initialValue: effort,
       onSelected: onChanged,
       itemBuilder: (context) => [
-        for (final level in kEffortLevels)
+        for (final level
+            in levels.isEmpty
+                ? kEffortLevels.map((level) => level.alias)
+                : levels)
           PopupMenuItem(
-            value: level.alias,
+            value: level,
             child: Row(
               children: [
-                Icon(_iconFor(level.alias), size: 18),
+                Icon(_iconFor(level), size: 18),
                 const SizedBox(width: 10),
-                Text(level.label),
+                Text(effortLabel(level)),
               ],
             ),
           ),

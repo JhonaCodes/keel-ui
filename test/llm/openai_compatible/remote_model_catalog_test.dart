@@ -52,16 +52,12 @@ void main() {
   });
 
   group('Codex', () {
-    late Directory codexHome;
-
-    setUp(() => codexHome = Directory.systemTemp.createTempSync('codex_home'));
-    tearDown(() => codexHome.deleteSync(recursive: true));
-
     test(
       'ofrece los modelos que su propio selector lista, en su orden',
       () async {
-        File('${codexHome.path}/models_cache.json').writeAsStringSync(
-          jsonEncode({
+        // The JSON `codex debug models` prints (see
+        // test/agents/codex_model_catalog_test.dart for the real CLI path).
+        final listing = jsonEncode({
             'fetched_at': '2026-09-22T22:47:12Z',
             'models': [
               {
@@ -83,9 +79,8 @@ void main() {
                 'priority': 0,
               },
             ],
-          }),
-        );
-        final catalog = RemoteModelCatalog(codexHome: codexHome.path);
+          });
+        final catalog = RemoteModelCatalog(codexCatalog: () async => listing);
 
         final options = await catalog.load(AgentProvider.codex);
 
@@ -98,14 +93,13 @@ void main() {
       },
     );
 
-    test('sin catálogo local, o con uno roto, usa la lista fija', () async {
-      final missing = RemoteModelCatalog(codexHome: codexHome.path);
+    test('si el CLI no contesta, o contesta roto, queda solo el de la config', () async {
+      final missing = RemoteModelCatalog(codexCatalog: () async => null);
       expect(await missing.load(AgentProvider.codex), kCodexModelOptions);
 
-      File(
-        '${codexHome.path}/models_cache.json',
-      ).writeAsStringSync('{"models": [');
-      final broken = RemoteModelCatalog(codexHome: codexHome.path);
+      final broken = RemoteModelCatalog(
+        codexCatalog: () async => '{"models": [',
+      );
       expect(await broken.load(AgentProvider.codex), kCodexModelOptions);
     });
   });

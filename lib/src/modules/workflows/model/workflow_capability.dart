@@ -129,9 +129,9 @@ class WorkflowCapability {
   /// Es lo que llega a `--max-turns` (claude lo omite con 0), al hook de
   /// codex (no se instala con 0) y a los runners de API (sin contador de
   /// rondas). Sin tope por decisión explícita del usuario: un default de
-  /// turnos cortaba trabajo legítimo. Los frenos de un nodo sin tope son el
-  /// vigilante de inactividad, los minutos máximos por paso y el techo de
-  /// costo de la sesión.
+  /// turnos cortaba trabajo legítimo. Un nodo sin tope solo lo frena el
+  /// techo de costo de la sesión, si el workflow declara uno, o detener la
+  /// sesión.
   int get effectiveMaxAgenticTurns => maxAgenticTurns;
 
   WorkflowCapability copyWith({

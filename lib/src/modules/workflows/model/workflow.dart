@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import 'package:keel_ui/l10n/generated/app_localizations.dart';
+import 'package:keel_ui/src/core/services/cli_turn_contract.dart';
 import 'package:keel_ui/src/modules/projects/service/turn_prompt.dart'
     show kDefaultSystemPromptMaxChars;
 import 'package:keel_ui/src/modules/workflows/model/workflow_capability.dart';
@@ -11,14 +12,11 @@ export 'package:keel_ui/src/modules/workflows/model/workflow_capability.dart';
 
 /// Techo de subagentes que un NODO puede abrir, no la corrida entera: cada
 /// nodo delega por sus propios motivos y el presupuesto se lleva por
-/// (turno raíz, nodo). Seis entran en el mapa sin recortar y alcanzan para
-/// una verificación por perspectivas —correctitud, seguridad, reproducción—
-/// en paralelo, que es el caso que justifica pasar de uno.
-const int kMaxSubagentsPerNode = 6;
+/// (turno raíz, nodo). Es el mismo máximo que corre a la vez en cualquier
+/// turno (`SubagentLimits.maxParallel`): cada subagente cobra como un
+/// modelo entero, y seis por nodo se comían los créditos.
+const int kMaxSubagentsPerNode = SubagentLimits.maxParallel;
 
-/// Minutos sin un solo evento del proveedor antes de cortar el turno. Diez
-/// es el piso: un `flutter build` o una suite larga pueden callar varios
-/// minutos sin estar colgados.
 /// How many times a workflow may re-plan before it gives up.
 ///
 /// This is the default AND the number the form seeds a new workflow with:
@@ -30,20 +28,15 @@ const int kDefaultMaxReplans = 10;
 /// The highest [kDefaultMaxReplans] anyone can dial in from the form.
 const int kMaxReplans = 20;
 
-/// Subagents a node may fan out to by default. The hard ceiling is
+/// Subagents a node may fan out to by default: the ceiling itself,
 /// [kMaxSubagentsPerNode].
-const int kDefaultMaxSubagents = 5;
+const int kDefaultMaxSubagents = kMaxSubagentsPerNode;
 
 /// Review rounds a capability may go through before the workflow moves on.
 const int kDefaultMaxReviewCycles = 5;
 
 /// The highest [kDefaultMaxReviewCycles] anyone can dial in from the form.
 const int kMaxReviewCycles = 10;
-
-const int kDefaultIdleTimeoutMinutes = 0;
-
-/// Minutos que puede durar un turno de nodo, con o sin actividad.
-const int kDefaultNodeTimeoutMinutes = 0;
 
 /// Techo de gasto reportado por sesión, en dólares. Cero es «sin techo», y es
 /// el default: un caso no se corta por precio salvo que alguien declare un
@@ -63,6 +56,11 @@ enum WorkflowQualityGate { analysis, focusedTests, compatibility, regression }
 
 /// Declarative policy for an adaptive workflow. It describes the evidence and
 /// capabilities a case needs, never an ordered chain of agents.
+///
+/// It carries no wall-clock limit on purpose, same as Claude Code: a step
+/// runs until it finishes or someone stops the session. Idle and per-step
+/// minute caps used to live here and kept cutting legitimate long work; old
+/// records still carry those keys, and reading simply ignores them.
 class WorkflowPolicy {
   final String resolutionRole;
   final List<String> requiredSkillNames;
@@ -72,12 +70,6 @@ class WorkflowPolicy {
   final int maxReplans;
   final int maxSubagents;
   final int maxReviewCycles;
-
-  /// Plazo de inactividad de un turno, en minutos. Ver [TurnWatchdog].
-  final int idleTimeoutMinutes;
-
-  /// Plazo duro de un turno de nodo, en minutos.
-  final int nodeTimeoutMinutes;
 
   /// Techo de gasto reportado de la sesión, en dólares. Cero: sin techo. Solo
   /// cuenta lo que el proveedor informa; codex no informa costo y por eso el
@@ -107,8 +99,6 @@ class WorkflowPolicy {
     this.maxReplans = kDefaultMaxReplans,
     this.maxSubagents = kDefaultMaxSubagents,
     this.maxReviewCycles = kDefaultMaxReviewCycles,
-    this.idleTimeoutMinutes = kDefaultIdleTimeoutMinutes,
-    this.nodeTimeoutMinutes = kDefaultNodeTimeoutMinutes,
     this.maxSessionCostUsd = kDefaultMaxSessionCostUsd,
     this.reuseOwnerSession = true,
     this.compactAtContextRatio = 0.7,
@@ -124,8 +114,6 @@ class WorkflowPolicy {
     int? maxReplans,
     int? maxSubagents,
     int? maxReviewCycles,
-    int? idleTimeoutMinutes,
-    int? nodeTimeoutMinutes,
     double? maxSessionCostUsd,
     bool? reuseOwnerSession,
     double? compactAtContextRatio,
@@ -140,8 +128,6 @@ class WorkflowPolicy {
     maxReplans: maxReplans ?? this.maxReplans,
     maxSubagents: maxSubagents ?? this.maxSubagents,
     maxReviewCycles: maxReviewCycles ?? this.maxReviewCycles,
-    idleTimeoutMinutes: idleTimeoutMinutes ?? this.idleTimeoutMinutes,
-    nodeTimeoutMinutes: nodeTimeoutMinutes ?? this.nodeTimeoutMinutes,
     maxSessionCostUsd: maxSessionCostUsd ?? this.maxSessionCostUsd,
     reuseOwnerSession: reuseOwnerSession ?? this.reuseOwnerSession,
     compactAtContextRatio: compactAtContextRatio ?? this.compactAtContextRatio,
@@ -157,8 +143,6 @@ class WorkflowPolicy {
     'maxReplans': maxReplans,
     'maxSubagents': maxSubagents,
     'maxReviewCycles': maxReviewCycles,
-    'idleTimeoutMinutes': idleTimeoutMinutes,
-    'nodeTimeoutMinutes': nodeTimeoutMinutes,
     'maxSessionCostUsd': maxSessionCostUsd,
     'reuseOwnerSession': reuseOwnerSession,
     'compactAtContextRatio': compactAtContextRatio,
@@ -196,12 +180,6 @@ class WorkflowPolicy {
             1,
             kMaxReviewCycles,
           ),
-      idleTimeoutMinutes:
-          (data['idleTimeoutMinutes'] as int? ?? kDefaultIdleTimeoutMinutes)
-              .clamp(0, 240),
-      nodeTimeoutMinutes:
-          (data['nodeTimeoutMinutes'] as int? ?? kDefaultNodeTimeoutMinutes)
-              .clamp(0, 1440),
       maxSessionCostUsd:
           ((data['maxSessionCostUsd'] as num?)?.toDouble() ??
                   kDefaultMaxSessionCostUsd)
@@ -234,8 +212,6 @@ class WorkflowPolicy {
           maxReplans == other.maxReplans &&
           maxSubagents == other.maxSubagents &&
           maxReviewCycles == other.maxReviewCycles &&
-          idleTimeoutMinutes == other.idleTimeoutMinutes &&
-          nodeTimeoutMinutes == other.nodeTimeoutMinutes &&
           maxSessionCostUsd == other.maxSessionCostUsd &&
           reuseOwnerSession == other.reuseOwnerSession &&
           compactAtContextRatio == other.compactAtContextRatio &&
@@ -251,8 +227,6 @@ class WorkflowPolicy {
     maxReplans,
     maxSubagents,
     maxReviewCycles,
-    idleTimeoutMinutes,
-    nodeTimeoutMinutes,
     maxSessionCostUsd,
     reuseOwnerSession,
     compactAtContextRatio,

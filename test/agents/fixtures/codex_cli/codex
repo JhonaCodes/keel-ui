@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# Fake `codex` for 1:1 chat tests: records the argv of every turn in
+# $KEEL_CODEX_ARGV_LOG (one argument per line, turns separated by ---) and
+# answers with a minimal finished turn.
+# `codex debug models`: a catalog only this fake knows, so a test can tell
+# whether Keel asked the CLI or fell back to something else.
+if [ "$1" = "debug" ] && [ "$2" = "models" ]; then
+  cat <<'JSON'
+{"models":[{"slug":"gpt-live-a","display_name":"GPT Live A","visibility":"list","priority":2,"default_reasoning_level":"medium","supported_reasoning_levels":[{"effort":"low"},{"effort":"medium"},{"effort":"high"}]},{"slug":"gpt-hidden","display_name":"Hidden","visibility":"hide","priority":0},{"slug":"gpt-live-b","display_name":"GPT Live B","visibility":"list","priority":1,"default_reasoning_level":"high","supported_reasoning_levels":[{"effort":"high"},{"effort":"ultra"}]}]}
+JSON
+  exit 0
+fi
+if [ -n "$KEEL_CODEX_ARGV_LOG" ]; then
+  printf '%s\n' "$@" >> "$KEEL_CODEX_ARGV_LOG"
+  printf -- '---\n' >> "$KEEL_CODEX_ARGV_LOG"
+fi
+cat >/dev/null
+printf '%s\n' '{"type":"thread.started","thread_id":"fake-codex-thread"}'
+printf '%s\n' '{"type":"item.completed","item":{"id":"i1","type":"agent_message","text":"listo"}}'
+printf '%s\n' '{"type":"turn.completed","usage":{"input_tokens":1,"cached_input_tokens":0,"output_tokens":1}}'

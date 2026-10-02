@@ -32,7 +32,10 @@ import 'package:keel_ui/src/modules/agents/viewmodel/model_catalog_viewmodel.dar
 import 'package:keel_ui/src/modules/agents/model/plan_decision.dart';
 import 'package:keel_ui/src/modules/agents/service/remote_conversation_history.dart';
 import 'package:keel_ui/src/modules/agents/model/agent_provider.dart';
+import 'package:keel_e2e_panel/keel_e2e_panel.dart' show KeelE2eHostService;
 import 'package:keel_ui/src/integrations/boards_mcp/boards_mcp.dart';
+import 'package:keel_ui/src/integrations/keel_e2e/keel_e2e.dart';
+import 'package:keel_ui/src/modules/projects/service/step_mcp_surface.dart';
 import 'package:keel_ui/src/modules/boards/viewmodel/boards_viewmodel.dart';
 import 'package:keel_ui/src/modules/agents/model/effort_level.dart';
 import 'package:keel_ui/src/modules/agents/model/agent_model_option.dart';
@@ -52,6 +55,7 @@ import 'package:keel_ui/src/modules/projects/model/session_live_turn.dart';
 import 'package:keel_ui/src/modules/projects/model/session_subagent.dart';
 import 'package:keel_ui/src/modules/projects/model/session_plan_item.dart';
 import 'package:keel_ui/src/modules/projects/model/session_queued_message.dart';
+import 'package:keel_ui/src/modules/projects/model/session_tab.dart';
 import 'package:keel_ui/src/modules/projects/model/session_usage.dart';
 import 'package:keel_ui/src/modules/projects/model/token_usage.dart';
 import 'package:keel_ui/src/modules/projects/model/turn_outcome_report.dart';
@@ -171,6 +175,18 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
   /// Who was blocked when a session asked you for a permission, so granting it
   /// resumes that member and not whoever happened to speak last.
   final Map<String, String> _permissionBlockedProfileBySession = {};
+
+  /// Qué pestaña muestra el canal de CADA proyecto. Transitorio: no persiste
+  /// a disco, se resetea en cada arranque. Antes vivía en el `setState`
+  /// local del widget, que no podía saltar sola a E2E ni distinguía
+  /// proyectos.
+  final Map<String, SessionTab> _tabByProjectId = {};
+
+  /// El nodo de keel-e2e por el que YA saltamos de pestaña, por sesión.
+  /// Evita arrastrar de nuevo al usuario a E2E si volvió a Chat a mano: el
+  /// salto es por TRANSICIÓN de paso, una sola vez por nodo (architecture
+  /// §14: "Tab state").
+  final Map<String, String> _autoJumpedNodeIdBySession = {};
 
   /// `conversation:asker>target` pairs already consulted. The conversation
   /// includes nested consultations and their continuations. A new workflow
@@ -1499,6 +1515,18 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     _activeSessionRuns.remove(sessionId);
     _stoppedSessionIds.add(sessionId);
 
+    final closingProject = _projectById(projectId);
+    final closingSession = closingProject == null
+        ? null
+        : _sessionById(closingProject, sessionId);
+    // Cancela solo las pruebas de ESTA sesión que siguen en curso. El motor
+    // de keel-e2e es uno por máquina (arquitectura §6.1) y sirve a todas las
+    // sesiones: apagarlo acá cortaba la prueba de otra sesión a mitad de
+    // camino. Se apaga al cerrar la app (`KeelE2eQuitHook`).
+    if (closingSession != null && sessionUsesE2e(closingSession)) {
+      unawaited(KeelE2eHostService.instance.notifier.releaseSession(sessionId));
+    }
+
     _updateProject(projectId, (project) {
       final sessions = project.sessions
           .where((session) => session.id != sessionId)
@@ -1828,6 +1856,12 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
 
         resolution = _replaceNode(resolution, node.id, WorkNodeStatus.running);
         _storeResolution(projectId, sessionId, resolution);
+        _maybeJumpToE2eTab(
+          projectId,
+          sessionId: sessionId,
+          nodeId: node.id,
+          usesKeelE2e: _capabilityFor(workflow, node.id).usesKeelE2e,
+        );
         final nodeOwner =
             preflight.nodeOwners[node.id] ??
             membersOf(
@@ -1858,8 +1892,10 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
         // nodo queda pausado y esperándote hasta que la contestás.
         if (capability.approvalRequired) {
           final decisions =
-              _sessionById(_projectById(projectId) ?? project, sessionId)
-                  ?.decisions ??
+              _sessionById(
+                _projectById(projectId) ?? project,
+                sessionId,
+              )?.decisions ??
               const <SessionDecision>[];
           final approvals = decisions.where(
             (decision) =>
@@ -1870,7 +1906,11 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
             (decision) => decision.status == SessionDecisionStatus.granted,
           );
           if (!granted) {
-            resolution = _replaceNode(resolution, node.id, WorkNodeStatus.paused);
+            resolution = _replaceNode(
+              resolution,
+              node.id,
+              WorkNodeStatus.paused,
+            );
             _storeResolution(projectId, sessionId, resolution);
             if (!approvals.any((decision) => decision.isPending)) {
               _enqueueDecision(
@@ -1881,7 +1921,8 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
                   kind: SessionDecisionKind.approval,
                   profileId: nodeOwner.id,
                   workNodeId: node.id,
-                  title: 'Aprobar el paso "${node.title.isEmpty ? node.id : node.title}"',
+                  title:
+                      'Aprobar el paso "${node.title.isEmpty ? node.id : node.title}"',
                   detail: node.instruction.length > 400
                       ? '${node.instruction.substring(0, 400)}…'
                       : node.instruction,
@@ -2329,9 +2370,10 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     if (_stoppedSessionIds.contains(sessionId)) {
       return (allow: false, reason: 'El turno fue detenido.');
     }
-    final member = membersOf(project, session: session)
-        .where((entry) => entry.id == profileId)
-        .firstOrNull;
+    final member = membersOf(
+      project,
+      session: session,
+    ).where((entry) => entry.id == profileId).firstOrNull;
     final resolved = await _awaitDecision(
       projectId,
       sessionId,
@@ -2610,7 +2652,9 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
 
     final resolved = decision.copyWith(
       status: isApproval
-          ? (approve! ? SessionDecisionStatus.granted : SessionDecisionStatus.denied)
+          ? (approve!
+                ? SessionDecisionStatus.granted
+                : SessionDecisionStatus.denied)
           : SessionDecisionStatus.answered,
       answer: answer.trim(),
       resolvedAt: DateTime.now(),
@@ -2640,7 +2684,8 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
           sessionId,
           ChatMessage(
             role: ChatRole.blocked,
-            text: 'Rechazaste el paso "${decision.title}". El caso queda '
+            text:
+                'Rechazaste el paso "${decision.title}". El caso queda '
                 'bloqueado ahí.',
             timestamp: DateTime.now(),
             workNodeId: decision.workNodeId,
@@ -2660,9 +2705,10 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
         ),
       );
     }
-    final member = membersOf(project, session: session)
-        .where((entry) => entry.id == decision.profileId)
-        .firstOrNull;
+    final member = membersOf(
+      project,
+      session: session,
+    ).where((entry) => entry.id == decision.profileId).firstOrNull;
     _appendMessage(
       projectId,
       sessionId,
@@ -2750,8 +2796,10 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
         // no vuelve a leer el repo que ya leyó. Determinista a propósito,
         // así el seguimiento de un turno cae en la misma sesión que él.
         final liveIds =
-            _sessionById(project, sessionId)?.cliSessionsByExecutionId.keys
-                .toSet() ??
+            _sessionById(
+              project,
+              sessionId,
+            )?.cliSessionsByExecutionId.keys.toSet() ??
             const <String>{};
         final reuseFrom = !workflow.policy.reuseOwnerSession
             ? null
@@ -2858,8 +2906,10 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
           // externa del fallback si existe, si no la del padre.
           final externalId = _workflowExecutionId(sessionId, capability.id);
           final usedExternal =
-              _sessionById(project, sessionId)?.cliSessionsByExecutionId
-                  .containsKey(externalId) ??
+              _sessionById(
+                project,
+                sessionId,
+              )?.cliSessionsByExecutionId.containsKey(externalId) ??
               false;
           return _runTurn(
             projectId: projectId,
@@ -4317,15 +4367,15 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     final isConsult = consultOfProfileId != null;
     final turnWorkflow = _workflowRunning(project, sessionId);
     final roadmapEntry = RoadmapMcpServer.mcpServerEntryFor(
-            sessionId: sessionId,
-            projectId: projectId,
-            profileId: member.id,
-            workingDirectory: project.workingDirectory,
-            readOnly: isConsult,
-            // El workflow que CONSTRUYE la carpeta todavía no la tiene: es
-            // justo el que necesita poder chequearla mientras la arma.
-            evenWithoutFolder: turnWorkflow?.buildsRoadmap ?? false,
-          );
+      sessionId: sessionId,
+      projectId: projectId,
+      profileId: member.id,
+      workingDirectory: project.workingDirectory,
+      readOnly: isConsult,
+      // El workflow que CONSTRUYE la carpeta todavía no la tiene: es
+      // justo el que necesita poder chequearla mientras la arma.
+      evenWithoutFolder: turnWorkflow?.buildsRoadmap ?? false,
+    );
     // Los tableros de prueba. Un turno de consulta tampoco los recibe: viene
     // a contestar una pregunta y se va, y dejarle armar una UI en el
     // proyecto de otro es exactamente la clase de efecto lateral que una
@@ -4338,6 +4388,37 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
             profileId: member.id,
           );
 
+    // keel-e2e (architecture §14, "Injection"): solo para el turno del paso
+    // que lo declaró, nunca para una consulta. El engine tiene que estar
+    // arrancado ANTES de armar la superficie MCP del turno —sin conexión no
+    // hay `mcpUrl` ni token que darle— así que un attach fallido abandona el
+    // turno con el motivo en el canal: el paso nunca corre sin sus tools.
+    final workNodeCapability =
+        turnWorkflow != null && workNodeId != null && workNodeId.isNotEmpty
+        ? _capabilityFor(turnWorkflow, workNodeId)
+        : null;
+    var stepMcpSurface = const StepMcpSurface();
+    if (!isConsult && (workNodeCapability?.usesKeelE2e ?? false)) {
+      final attach = await ensureKeelE2eAttached(
+        project: project,
+        sessionId: sessionId,
+      );
+      final abandonReason = attach.when(
+        ok: (_) => null,
+        err: (failure) => failure.message,
+      );
+      if (abandonReason != null) return _abandonedTurn(abandonReason);
+      stepMcpSurface = resolveStepMcpSurface(
+        capability: workNodeCapability,
+        isConsult: isConsult,
+        connection: attach.data,
+        projectId: projectId,
+        sessionId: sessionId,
+        workNodeId: workNodeId!,
+        cwd: project.workingDirectory,
+      );
+    }
+
     final mcpServers = <String, dynamic>{
       kUserToolsMcpServerKey: ?toolsEntry,
       kSessionPlanMcpServerKey: ?planEntry,
@@ -4345,6 +4426,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
       kRoadmapMcpServerKey: ?roadmapEntry,
       kRequirementsMcpServerKey: ?requirementsEntry,
       kBoardsMcpServerKey: ?boardsEntry,
+      kKeelE2eMcpServerName: ?stepMcpSurface.entry,
       for (final server in externalServers)
         server.name: server.toMcpServerEntry(externalSecretValues),
     };
@@ -4453,6 +4535,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
             ...memberTools.map(
               (tool) => '$kUserToolsMcpToolPrefix${tool.name}',
             ),
+          ...stepMcpSurface.allowedTools,
           ...externalServers.map((server) => 'mcp__${server.name}'),
         ],
         sessionId: cliSessionId,
@@ -4537,7 +4620,6 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
               phase: TurnPhase.writing,
             ),
           );
-
 
           _appendStreamingAssistantMessage(
             projectId,
@@ -5545,7 +5627,10 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
 
     if (member.systemPrompt.isNotEmpty) {
       sections.add(
-        PromptSection(name: 'perfil de @${member.name}', text: member.systemPrompt),
+        PromptSection(
+          name: 'perfil de @${member.name}',
+          text: member.systemPrompt,
+        ),
       );
     }
 
@@ -5647,7 +5732,9 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
       // Con el MCP de GitHub asignado, la variante que abre el PR por tool:
       // dejar la de `gh` sería contradecir a kGithubMcpPrompt, que ya entró
       // más arriba en este mismo prompt.
-      contracts.writeln(usesGithubMcp ? kGithubDeliveryPrompt : kDeliveryPrompt);
+      contracts.writeln(
+        usesGithubMcp ? kGithubDeliveryPrompt : kDeliveryPrompt,
+      );
       final worktree = worktreePrompt(place);
       if (worktree.isNotEmpty) {
         contracts.writeln();
@@ -5672,13 +5759,16 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     );
     const saberName = 'saber';
     if (saber.trim().isNotEmpty) {
-      sections.add(PromptSection(name: saberName, text: saber, dropPriority: 3));
+      sections.add(
+        PromptSection(name: saberName, text: saber, dropPriority: 3),
+      );
     }
 
     final candidates = sections;
     final budgeted = budgetTurnSystemPrompt(
       candidates,
-      maxChars: requiredPolicy?.systemPromptMaxChars ?? kDefaultSystemPromptMaxChars,
+      maxChars:
+          requiredPolicy?.systemPromptMaxChars ?? kDefaultSystemPromptMaxChars,
     );
     if (budgeted.dropped.isNotEmpty) {
       Log.w(
@@ -5686,7 +5776,8 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
         'chars, fuera ${budgeted.dropped.join(', ')}',
       );
     }
-    final keptSaber = !budgeted.dropped.contains(saberName) &&
+    final keptSaber =
+        !budgeted.dropped.contains(saberName) &&
         candidates.any((section) => section.name == saberName);
     // Lo que sobrevivió al presupuesto, en el mismo orden; el saber y el
     // plan al final para no romper el prefijo cacheable.
@@ -5777,6 +5868,40 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     );
     unawaited(_persist());
     return true;
+  }
+
+  /// True cuando el workflow con el que corre [session] declara keel-e2e:
+  /// esa sesión gana la tercera pestaña, `[Chat | Mapa | E2E]`.
+  bool sessionUsesE2e(Session session) =>
+      workflowOf(session)?.usesKeelE2e ?? false;
+
+  /// La pestaña que muestra el canal de [projectId] ahora mismo.
+  SessionTab tabOf(String projectId) =>
+      _tabByProjectId[projectId] ?? SessionTab.chat;
+
+  /// Elección MANUAL de pestaña. Se respeta: si el usuario vuelve a Chat,
+  /// el próximo paso de keel-e2e no lo vuelve a arrastrar a menos que sea
+  /// un nodo distinto del que ya lo arrastró.
+  void setTab(String projectId, SessionTab tab) {
+    if (_tabByProjectId[projectId] == tab) return;
+    _tabByProjectId[projectId] = tab;
+    updateState(data);
+  }
+
+  /// Salta a E2E una sola vez por nodo que use keel-e2e, en la transición a
+  /// `running`. Si el usuario ya se llevó la pestaña a otro lado a mano
+  /// para ESTE mismo nodo, no la vuelve a mover (architecture §14).
+  void _maybeJumpToE2eTab(
+    String projectId, {
+    required String sessionId,
+    required String nodeId,
+    required bool usesKeelE2e,
+  }) {
+    if (!usesKeelE2e) return;
+    if (_autoJumpedNodeIdBySession[sessionId] == nodeId) return;
+    _autoJumpedNodeIdBySession[sessionId] = nodeId;
+    _tabByProjectId[projectId] = SessionTab.e2e;
+    updateState(data);
   }
 
   /// The roster a turn sees: the project's members plus [session]'s own

@@ -69,6 +69,21 @@ void main() {
     expect(deliver.parentCapabilityId, 'implement');
   });
 
+  test(
+    'un rol de resolución llamado "auditor" no marca como auditoría a los '
+    'nodos que escriben: la plantilla nueva sigue limpia',
+    () {
+      final lints = lintWorkflowCapabilities(
+        defaultWorkflowCapabilities(WorkflowKind.general, 'auditor'),
+      );
+
+      expect(
+        lints.where((lint) => lint.severity != WorkflowLintSeverity.info),
+        isEmpty,
+      );
+    },
+  );
+
   test('un nodo de auditoría sin contrato de salida es error', () {
     final lints = lintWorkflowCapabilities(const [
       WorkflowCapability(id: 'implement', title: 'I', instruction: 'Implementar.', role: 'dev'),

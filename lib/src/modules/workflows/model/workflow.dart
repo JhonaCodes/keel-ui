@@ -388,6 +388,15 @@ class Workflow {
     createdAt,
   );
 
+  /// True when any REQUIRED capability declares keel-e2e. Drives the E2E
+  /// tab (architecture §14): a session running this workflow gets a third
+  /// tab, `[Chat | Map | E2E]`.
+  bool get usesKeelE2e => capabilities.any(
+    (capability) =>
+        capability.activation == WorkflowCapabilityActivation.required &&
+        capability.usesKeelE2e,
+  );
+
   @override
   String toString() =>
       'Workflow(id: $id, name: $name, whenToApply: $whenToApply, '
@@ -542,6 +551,7 @@ List<WorkflowCapability> defaultWorkflowCapabilities(
       role: 'verifier',
       dependencyIds: const ['test-audit'],
       activation: WorkflowCapabilityActivation.optional,
+      mcpServers: const [kKeelE2eMcpServerName],
 
       requiresIndependentOwner: true,
     ),

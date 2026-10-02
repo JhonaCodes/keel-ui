@@ -129,6 +129,10 @@ The Linux workflow runs this before building Keel itself.
 
 ## The cause: `flutter_local_db` does not cover all three
 
+This section describes `flutter_local_db` **1.5.1**, the version keel-ui still
+pins. The current line (3.x) fixes both gaps — see
+[the plan](#the-plan-for-unblocking-arm64-and-windows).
+
 The package ships prebuilt native binaries, one per platform. What version 1.5.1
 brings:
 
@@ -268,6 +272,9 @@ separate clean Ubuntu 24.04 container. The actual maximum glibc requirement acro
 all binaries is included in the Debian package's dependencies. These packages do
 not support Ubuntu 22.04 or Debian 12. Restoring that compatibility requires a
 reproducible rebuild of the database dependency against an older glibc first.
+flutter_local_db 3.0.6 already is that rebuild: its Linux libraries (x64 and
+arm64) require at most **GLIBC_2.34**, so migrating keel-ui to 3.x brings Ubuntu
+22.04 and Debian 12 back.
 
 The tracked Linux CMake configuration disables optional JNI discovery.
 `path_provider_android` brings JNI transitively, but Keel uses
@@ -348,6 +355,28 @@ Either one works. **Neither works yet**, because the blocker is the database, no
 the machine. A CI that fails in CMake is noise, not information.
 
 ## The plan for unblocking arm64 and Windows
+
+**Update, 2026-10-02: path B is done upstream, and flutter_local_db 3.x is the
+default for all new work.** Version 3.0.6 is no longer a plugin with a `windows/`
+CMake folder: a build hook (`hook/build.dart`) bundles the prebuilt
+offline_first_core library for Windows x64 and arm64 (`.dll`), Linux x64 and arm64
+(`.so`, GLIBC_2.34 at most), macOS, iOS and Android. It also has tables with
+field queries, which removes the reason `key_index.dart` exists. Path A is no
+longer needed.
+
+What is left is keel-ui's own migration, a code task of its own:
+
+1. Move `pubspec.yaml` to `flutter_local_db: ^3.0.6`. The key-value API
+   (`LocalDB.Post`, `GetById`, `GetAll`, …) still exists in 3.x.
+2. Migrate the users' data: LMDB 1.0 cannot read 1.x files. One release on
+   `^1.6.0` saves `LocalDB.exportAll()`; the 3.x release sees
+   `DbErrorCode.legacyFormat` from `LocalDB.init()`, calls
+   `LocalDB.moveLegacyDatabaseAside()`, opens again and runs `importAll`. See the
+   package's `MIGRATION.md`.
+3. Then the Windows and Linux arm64 targets, and the Ubuntu 22.04 baseline, can
+   be built and verified.
+
+The analysis below is kept as the record of why.
 
 There are two paths and they are mutually exclusive.
 

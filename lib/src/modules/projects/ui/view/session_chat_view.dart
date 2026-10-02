@@ -22,6 +22,8 @@ import 'package:keel_ui/src/modules/projects/model/member_color.dart';
 import 'package:keel_ui/src/modules/projects/model/project.dart';
 import 'package:keel_ui/src/modules/projects/model/session.dart';
 import 'package:keel_ui/src/modules/projects/model/session_queued_message.dart';
+import 'package:keel_ui/src/modules/projects/model/session_tab.dart';
+import 'package:keel_ui/src/modules/projects/ui/view/session_e2e_view.dart';
 import 'package:keel_ui/src/integrations/chat_references/chat_references.dart';
 import 'package:keel_ui/src/modules/projects/model/thread_entry.dart';
 import 'package:keel_ui/src/modules/projects/ui/view/session_map_view.dart';
@@ -41,26 +43,26 @@ import 'package:keel_ui/src/modules/workflows/ui/screen/workflow_picker_panel.da
 import 'package:keel_ui/src/modules/workflows/viewmodel/workflows_viewmodel.dart';
 import 'package:keel_ui/src/modules/workspace/viewmodel/workspace_viewmodel.dart';
 import 'package:keel_ui/src/shared/shared.dart';
-
-/// What the channel is showing: the conversation, or the same conversation
-/// drawn as a network.
-enum SessionTab { chat, map }
+import 'package:keel_e2e_panel/keel_e2e_panel.dart'
+    show
+        HostFailed,
+        KeelE2eHostService,
+        KeelE2eHostState,
+        KeelE2eHostViewModel,
+        LiveRunService;
 
 /// The channel: one shared thread where every member of the project writes,
 /// with the running workflow beside it.
-class SessionChatView extends StatefulWidget {
+///
+/// Stateless: which tab is open lives in [ProjectsViewModel], keyed by
+/// project — not in a local `setState` — so the view model can jump to E2E
+/// by itself on a step transition (architecture §14).
+class SessionChatView extends StatelessWidget {
   const SessionChatView({super.key, required this.project});
 
   final Project project;
 
-  @override
-  State<SessionChatView> createState() => _SessionChatViewState();
-}
-
-class _SessionChatViewState extends State<SessionChatView> {
-  SessionTab _tab = SessionTab.chat;
-
-  /// Subscribes to the two catalogues the channel depends on. Reading them
+  /// Subscribes to the three catalogues the channel depends on. Reading them
   /// straight off their singletons instead — which is what this used to do —
   /// means the channel renders before they finish loading and never rebuilds:
   /// no author names, no colours, no step chips, and a panel claiming the
@@ -73,24 +75,33 @@ class _SessionChatViewState extends State<SessionChatView> {
         return ReactiveViewModelBuilder<WorkflowsViewModel, WorkflowsState>(
           viewmodel: WorkflowsService.instance.notifier,
           build: (workflowsState, workflowsViewModel, keepWorkflows) {
-            final projects = ProjectsService.instance.notifier;
-            return _ProjectChannel(
-              project: widget.project,
-              members: projects.membersOf(
-                widget.project,
-                session: widget.project.activeSession,
-              ),
-              allProfiles: profilesState.profiles,
-              // El de la SESIÓN abierta, no el del proyecto: dos sesiones
-              // del mismo proyecto pueden correr flujos distintos, y el
-              // panel de la derecha tiene que mostrar el que está corriendo
-              // acá.
-              workflow: switch (widget.project.activeSession) {
-                final Session open => projects.workflowOf(open),
-                _ => projects.defaultWorkflowOf(widget.project),
+            return ReactiveViewModelBuilder<ProjectsViewModel, ProjectsState>(
+              viewmodel: ProjectsService.instance.notifier,
+              build: (projectsState, projects, keepProjects) {
+                // El de la SESIÓN abierta, no el del proyecto: dos sesiones
+                // del mismo proyecto pueden correr flujos distintos, y el
+                // panel de la derecha tiene que mostrar el que está
+                // corriendo acá.
+                final workflow = switch (project.activeSession) {
+                  final Session open => projects.workflowOf(open),
+                  _ => projects.defaultWorkflowOf(project),
+                };
+                final tab = projects
+                    .tabOf(project.id)
+                    .effective(SessionTab.available);
+                return _ProjectChannel(
+                  project: project,
+                  members: projects.membersOf(
+                    project,
+                    session: project.activeSession,
+                  ),
+                  allProfiles: profilesState.profiles,
+                  workflow: workflow,
+                  tab: tab,
+                  availableTabs: SessionTab.available,
+                  onTabChanged: (next) => projects.setTab(project.id, next),
+                );
               },
-              tab: _tab,
-              onTabChanged: (tab) => setState(() => _tab = tab),
             );
           },
         );
@@ -106,6 +117,7 @@ class _ProjectChannel extends StatelessWidget {
     required this.allProfiles,
     required this.workflow,
     required this.tab,
+    required this.availableTabs,
     required this.onTabChanged,
   });
 
@@ -114,6 +126,7 @@ class _ProjectChannel extends StatelessWidget {
   final List<AgentProfile> allProfiles;
   final Workflow? workflow;
   final SessionTab tab;
+  final List<SessionTab> availableTabs;
   final ValueChanged<SessionTab> onTabChanged;
 
   @override
@@ -121,8 +134,10 @@ class _ProjectChannel extends StatelessWidget {
     final session = project.activeSession;
     final running = session?.isRunning ?? false;
     final pendingPermission = session?.pendingPermission;
-    final liveTurn = session?.isRunning == true &&
-            session?.waitingForUser == false && session?.pendingPermission == null
+    final liveTurn =
+        session?.isRunning == true &&
+            session?.waitingForUser == false &&
+            session?.pendingPermission == null
         ? session?.liveTurn
         : null;
 
@@ -137,6 +152,7 @@ class _ProjectChannel extends StatelessWidget {
                 members: members,
                 workflow: workflow,
                 tab: tab,
+                availableTabs: availableTabs,
                 onTabChanged: onTabChanged,
               ),
               const Divider(height: 1),
@@ -156,6 +172,10 @@ class _ProjectChannel extends StatelessWidget {
                     session: session,
                     members: members,
                     workflow: workflow,
+                  ),
+                  SessionTab.e2e => SessionE2eView(
+                    project: project,
+                    session: session,
                   ),
                 },
               ),
@@ -871,6 +891,7 @@ class _ChannelHeader extends StatelessWidget {
     required this.members,
     required this.workflow,
     required this.tab,
+    required this.availableTabs,
     required this.onTabChanged,
   });
 
@@ -879,6 +900,7 @@ class _ChannelHeader extends StatelessWidget {
   final List<AgentProfile> members;
   final Workflow? workflow;
   final SessionTab tab;
+  final List<SessionTab> availableTabs;
   final ValueChanged<SessionTab> onTabChanged;
 
   /// El pull request que abrió esta sesión, si alguno lo nombró en el hilo.
@@ -907,6 +929,19 @@ class _ChannelHeader extends StatelessWidget {
     if (used <= 0 || total <= 0) return '';
     return 'Contexto: ${_thousands(used)} de ${_thousands(total)} tokens';
   }
+
+  static IconData _tabIcon(SessionTab tab) => switch (tab) {
+    SessionTab.chat => Icons.forum_outlined,
+    SessionTab.map => Icons.hub_outlined,
+    SessionTab.e2e => Icons.phonelink_outlined,
+  };
+
+  static String _tabLabel(BuildContext context, SessionTab tab) =>
+      switch (tab) {
+        SessionTab.chat => AppLocalizations.of(context).labelChat,
+        SessionTab.map => AppLocalizations.of(context).labelMap,
+        SessionTab.e2e => AppLocalizations.of(context).labelE2e,
+      };
 
   static String _thousands(int value) {
     final digits = value.toString();
@@ -1011,16 +1046,14 @@ class _ChannelHeader extends StatelessWidget {
                     ),
                   SegmentedButton<SessionTab>(
                     segments: [
-                      ButtonSegment(
-                        value: SessionTab.chat,
-                        icon: const Icon(Icons.forum_outlined, size: 16),
-                        label: Text(AppLocalizations.of(context).labelChat),
-                      ),
-                      ButtonSegment(
-                        value: SessionTab.map,
-                        icon: const Icon(Icons.hub_outlined, size: 16),
-                        label: Text(AppLocalizations.of(context).labelMap),
-                      ),
+                      for (final value in availableTabs)
+                        ButtonSegment(
+                          value: value,
+                          icon: value == SessionTab.e2e
+                              ? const _E2eSegmentIcon()
+                              : Icon(_tabIcon(value), size: 16),
+                          label: Text(_tabLabel(context, value)),
+                        ),
                     ],
                     selected: {tab},
                     showSelectedIcon: false,
@@ -1300,6 +1333,60 @@ class _FindingBar extends StatelessWidget {
 /// Era una palabra en el subtítulo, al lado del nombre de la sesión y del
 /// porcentaje de contexto: información, no decisión. Desde que cada sesión
 /// elige su flujo es una decisión, y las decisiones se tocan.
+/// The E2E segment's icon, with a status dot (mockup `06-cabecera-
+/// condicional`): red while the engine failed to attach, amber while a run
+/// is live, none otherwise. Self-contained so the rest of the header does
+/// not need to watch keel-e2e's ViewModels — a session without an E2E tab
+/// never builds this widget at all.
+class _E2eSegmentIcon extends StatelessWidget {
+  const _E2eSegmentIcon();
+
+  @override
+  Widget build(BuildContext context) {
+    return ReactiveViewModelBuilder<KeelE2eHostViewModel, KeelE2eHostState>(
+      viewmodel: KeelE2eHostService.instance.notifier,
+      build: (hostState, hostViewModel, keepHost) {
+        // `LiveRunState` no se exporta desde `keel_e2e_panel.dart` todavía
+        // (solo `LiveRunViewModel`): el segundo type argument se infiere sin
+        // nombrarlo, apoyado en el tipo estático de `LiveRunService.instance.notifier`.
+        return ReactiveViewModelBuilder(
+          viewmodel: LiveRunService.instance.notifier,
+          build: (liveRunState, liveRunViewModel, keepLiveRun) {
+            final scheme = Theme.of(context).colorScheme;
+            final dotColor = switch (hostState) {
+              HostFailed() => scheme.error,
+              _
+                  when liveRunState.runId != null &&
+                      liveRunState.report == null =>
+                Colors.amber,
+              _ => null,
+            };
+            return Stack(
+              clipBehavior: Clip.none,
+              children: [
+                const Icon(Icons.phonelink_outlined, size: 16),
+                if (dotColor != null)
+                  Positioned(
+                    right: -2,
+                    top: -2,
+                    child: Container(
+                      width: 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: dotColor,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
 class _WorkflowChip extends StatelessWidget {
   const _WorkflowChip({
     required this.project,
@@ -1353,12 +1440,21 @@ class _WorkflowChip extends StatelessWidget {
             color: workflow == null ? scheme.error : scheme.outline,
           ),
           const SizedBox(width: 6),
-          Text(
-            name,
-            style: TextStyle(
-              fontFamily: 'monospace',
-              fontSize: 11,
-              color: workflow == null ? scheme.error : scheme.onSurfaceVariant,
+          // Con una tercera pestaña (E2E) y un nombre largo, el grupo entero
+          // de la derecha se achicaba hasta ~0.78 (`FittedBox.scaleDown` en
+          // `_ChannelHeader`). El tooltip ya muestra el nombre completo.
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 200),
+            child: Text(
+              name,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontFamily: 'monospace',
+                fontSize: 11,
+                color: workflow == null
+                    ? scheme.error
+                    : scheme.onSurfaceVariant,
+              ),
             ),
           ),
           if (_canChange) ...[

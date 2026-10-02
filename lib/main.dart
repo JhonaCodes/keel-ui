@@ -1,7 +1,11 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:keel_e2e_panel/keel_e2e_panel.dart' show E2eLocalizations;
+import 'package:logger_rs/logger_rs.dart';
+import 'package:mcpe2e/mcpe2e.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
@@ -18,6 +22,7 @@ import 'package:keel_ui/src/core/ui/app_theme.dart';
 import 'package:keel_ui/src/integrations/app_update/app_update.dart';
 import 'package:keel_ui/src/integrations/assistant_mcp/assistant_mcp_server.dart';
 import 'package:keel_ui/src/integrations/jobs_api/jobs_api.dart';
+import 'package:keel_ui/src/integrations/keel_e2e/keel_e2e.dart';
 import 'package:keel_ui/src/integrations/boards_mcp/boards_mcp.dart';
 import 'package:keel_ui/src/integrations/requirements_mcp/requirements_mcp.dart';
 import 'package:keel_ui/src/integrations/roadmap_mcp/roadmap_mcp.dart';
@@ -36,6 +41,7 @@ import 'package:keel_ui/src/modules/app_status/viewmodel/app_status_viewmodel.da
 import 'package:keel_ui/src/modules/assistant/model/assistant_window_arguments.dart';
 import 'package:keel_ui/src/modules/assistant/model/keelai_seed.dart';
 import 'package:keel_ui/src/modules/projects/model/roadmap_format_skill.dart';
+import 'package:keel_ui/src/modules/workflows/model/e2e_device_workflow.dart';
 import 'package:keel_ui/src/modules/assistant/service/assistant_window_bridge.dart';
 import 'package:keel_ui/src/modules/assistant/ui/screen/assistant_window.dart';
 import 'package:keel_ui/src/modules/settings/model/app_settings.dart';
@@ -88,9 +94,20 @@ Future<void> main(List<String> rawArgs) async {
       // ventana nativa abre con el tamaño del xib, que es demasiado chico
       // para las tres columnas.
       await MainWindowSize.restore();
+      KeelE2eQuitHook.install();
+      // Debug builds only: lets development tooling read and drive this
+      // window over localhost (mcpe2e). Never in a release build.
+      if (kDebugMode) {
+        try {
+          await McpEventServer.start();
+        } on Exception catch (error) {
+          Log.w('mcpe2e server not started: $error');
+        }
+      }
       await seedKeelAi();
       await seedRoadmapFormatSkill();
       await seedRoadmapFormatWorkflow();
+      await seedE2eDeviceWorkflow();
       await AssistantMcpServer.start();
       await UserToolsMcpServer.start();
       await SessionPlanMcpServer.ensureStarted();
@@ -186,6 +203,10 @@ class KeelUiApp extends StatelessWidget {
           locale: localeForLanguageCode(settings.language),
           localizationsDelegates: const [
             AppLocalizations.delegate,
+            // El panel de keel-e2e trae sus propias strings (E2E tab):
+            // `E2eScreen` llama `E2eLocalizations.of(context)` y revienta
+            // sin este delegate en el árbol.
+            E2eLocalizations.delegate,
             GlobalMaterialLocalizations.delegate,
             GlobalCupertinoLocalizations.delegate,
           ],

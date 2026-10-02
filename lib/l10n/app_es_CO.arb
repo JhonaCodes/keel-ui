@@ -185,6 +185,8 @@
   "labelWhatExecutes": "Qué ejecuta",
   "labelChat": "Chat",
   "labelMap": "Mapa",
+  "labelE2e": "E2E",
+  "e2eEngineBinaryMissing": "No se encontró keel_e2e. Configura {envVar} o instala keel-e2e junto a Keel.",
   "labelEngine": "MOTOR",
   "labelTurns": "TURNOS",
   "labelInput": "ENTRADA",

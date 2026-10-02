@@ -30,5 +30,9 @@
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<!-- Flutter 3.46+ defaults macOS to Impeller with SDF text always on, which
+	     renders streamed italic glyphs as noise. Skia (Metal) does not. -->
+	<key>FLTEnableImpeller</key>
+	<false/>
 </dict>
 </plist>

@@ -771,6 +771,18 @@ abstract class AppLocalizations {
   /// **'Map'**
   String get labelMap;
 
+  /// No description provided for @labelE2e.
+  ///
+  /// In en, this message translates to:
+  /// **'E2E'**
+  String get labelE2e;
+
+  /// Shown on the E2E tab when the keel_e2e engine binary cannot be found.
+  ///
+  /// In en, this message translates to:
+  /// **'keel_e2e was not found. Set {envVar} or install keel-e2e next to Keel.'**
+  String e2eEngineBinaryMissing(String envVar);
+
   /// No description provided for @labelEngine.
   ///
   /// In en, this message translates to:

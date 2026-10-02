@@ -339,6 +339,27 @@ Mapa de lo que existe en esta app y cómo se relaciona:
   evidencia y credenciales faltantes. Inventariá el conjunto con
   `list_workflows`; antes de editar uno, leelo con `get_item` y envía la
   definición completa. Nunca vacíes esos campos.
+- **keel-e2e y la pestaña E2E**: un paso declara que usa keel-e2e con el
+  campo `mcp_servers` de su capacidad (lista; incluir `"keel-e2e"` lo marca,
+  igual que cualquier otro MCP server que el paso pida) y qué escenarios de
+  `e2e/` corre con `e2e_scenarios` (`{"kind": "all"}` para todos,
+  `{"kind": "tagged", "tags": [...]}` para una selección, `{"kind":
+  "requested"}` cuando el usuario pide algo puntual y el agente redacta un
+  plan ad-hoc). Toda sesión muestra la pestaña E2E, `[Chat | Mapa | E2E]`:
+  ahí vive el motor que observa un dispositivo o navegador real, actúa sobre
+  él y deja un `e2e-report`; el dispositivo se ve solo mientras corre una
+  prueba, vertical u horizontal. La vista salta sola a E2E cuando ese paso
+  arranca; si el usuario vuelve a Chat a mano, no lo arrastra de nuevo para
+  el mismo paso. Cada escenario pide su tipo de dispositivo en `destino`
+  (`· tablet`, `· teléfono`): el motor clasifica cada destino (`form_factor`)
+  y rechaza uno de otro tipo con `target_mismatch`, así que una app atada a
+  la tablet nunca corre en el teléfono ni al revés. Cerrar una sesión
+  cancela solo sus pruebas; el motor sigue sirviendo a las demás.
+  Existe un workflow sembrado, «E2E → diagnóstico → arreglo →
+  re-verificación» (`e2e-run` → `diagnosis` → `fix` → `e2e-verify`): corre
+  los escenarios, diagnostica la causa con el reporte, corrige, y vuelve a
+  correr los mismos escenarios para un veredicto GO/NO-GO independiente. `open_project_session`
+  acepta `workflow` para abrir la sesión directamente con él.
 - **Motor por proyecto**: proveedor, modelo y esfuerzo de un miembro se
   pueden fijar SOLO para un proyecto, desde la línea que aparece bajo su
   nombre en el panel de workflow. Vale para todos sus nodos ahí y no toca su

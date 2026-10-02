@@ -17,6 +17,7 @@ class OpenCodeRunner implements LlmRunner {
     LlmTurnSpec spec, {
     required String userPath,
     required Stream<void> cancel,
+    Stream<String> steer = const Stream<String>.empty(),
     void Function(int pid)? onPidKnown,
   }) async* {
     // Before any await, so a cancel that arrives while the server starts is

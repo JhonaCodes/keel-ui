@@ -57,7 +57,7 @@ class ClaudeLiveSession implements LlmLiveSession {
     final Process process;
     try {
       process = await ClaudeLaunch.start(
-        buildClaudeLiveArguments(
+        buildClaudeArguments(
           model: spec.model,
           effort: spec.effort,
           allowedTools: launch.allowedTools,
@@ -89,12 +89,7 @@ class ClaudeLiveSession implements LlmLiveSession {
     _settleTimer?.cancel();
     _turnActive = true;
     _modelActive = true;
-    _process.stdin.writeln(
-      jsonEncode({
-        'type': 'user',
-        'message': {'role': 'user', 'content': prompt},
-      }),
-    );
+    _process.stdin.writeln(claudeUserLine(prompt));
   }
 
   @override

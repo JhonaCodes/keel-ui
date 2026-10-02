@@ -59,7 +59,9 @@ turn, returns the `running` node to `pending`
 message is handled as a follow-up, and when it finishes, `resumeWorkflow` goes
 back to `_runWorkflow` if the case is still active and has a ready node. A bare
 Stop still seals `failed`. And a turn cut off by Stop or an interruption is no
-longer recorded as a compiler finding.
+longer recorded as a compiler finding. Since F53 a claude node is not
+cut at all: the message enters at its next step; for the other providers the
+cut node resumes in one continuation turn with the message inside.
 
 **A fallback with the node's mode.** The external session of a
 `providerSubagent` runs with `planMode: capability.readOnly`, not a hardcoded

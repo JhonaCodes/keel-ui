@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:keel_ui/src/integrations/llm/claude/claude_arguments.dart';
@@ -13,7 +15,6 @@ void main() {
       int maxTurns = 0,
       double maxBudgetUsd = 0,
     }) => buildClaudeArguments(
-      prompt: 'Hola',
       model: 'sonnet',
       effort: 'high',
       allowedTools: const ['Read', 'Glob'],
@@ -30,7 +31,8 @@ void main() {
     test('turno mínimo: sin mcp, sin hooks, sin resume', () {
       expect(minimal(), [
         '-p',
-        'Hola',
+        '--input-format',
+        'stream-json',
         '--output-format',
         'stream-json',
         '--verbose',
@@ -89,10 +91,7 @@ void main() {
     });
 
     test('limita los turnos agentic cuando el workflow lo pide', () {
-      expect(
-        minimal(maxTurns: 4),
-        containsAllInOrder(['--max-turns', '4']),
-      );
+      expect(minimal(maxTurns: 4), containsAllInOrder(['--max-turns', '4']));
     });
 
     test('cero conserva el límite por defecto del CLI', () {
@@ -142,11 +141,27 @@ void main() {
       expect(minimal(), isNot(contains('--max-budget-usd')));
     });
 
-    test('el prompt siempre va justo después de -p', () {
+    test('el prompt entra por stdin: argv lo deja abierto para mensajes a '
+        'mitad de turno', () {
       final args = minimal();
 
-      expect(args[0], '-p');
-      expect(args[1], 'Hola');
+      expect(args.sublist(0, 3), ['-p', '--input-format', 'stream-json']);
+    });
+  });
+
+  group('claudeUserLine', () {
+    test('un mensaje del usuario como línea stream-json', () {
+      expect(jsonDecode(claudeUserLine('Hola')), {
+        'type': 'user',
+        'message': {'role': 'user', 'content': 'Hola'},
+      });
+    });
+
+    test('con prioridad, el CLI lo entrega en el próximo corte del turno', () {
+      expect(
+        jsonDecode(claudeUserLine('Cambio', priority: 'next')),
+        containsPair('priority', 'next'),
+      );
     });
   });
 }

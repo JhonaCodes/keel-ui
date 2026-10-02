@@ -23,6 +23,7 @@ class CodexCliRunner implements LlmRunner {
     LlmTurnSpec spec, {
     required String userPath,
     required Stream<void> cancel,
+    Stream<String> steer = const Stream<String>.empty(),
     void Function(int pid)? onPidKnown,
   }) async* {
     // Lo primero, antes de cualquier `await`: ver CliCancelGuard — un

@@ -38,6 +38,15 @@ class ClaudeStreamReader {
   /// correcto entre las entradas de `modelUsage`.
   String _turnModel = '';
 
+  /// Lo que ya se cobró en los `result` anteriores de este proceso.
+  ///
+  /// `total_cost_usd` es el ACUMULADO del proceso, no el del turno: con dos
+  /// turnos en el mismo proceso —un mensaje que entró tarde, una tarea en
+  /// segundo plano que despierta al modelo, o el proceso vivo del chat— el
+  /// segundo `result` repetía el costo del primero. Medido contra el CLI
+  /// 2.1.280: 0,0041 y después 0,0100, con menos tokens en el segundo.
+  double _costReportedUsd = 0;
+
   List<Map<String, dynamic>> read(Map<String, dynamic> event) {
     if (event['type'] == 'system' &&
         const {
@@ -114,6 +123,10 @@ class ClaudeStreamReader {
 
       case 'result':
         final usage = readTurnUsage(event, turnModel: _turnModel);
+        final turnCostUsd = usage.costUsd > _costReportedUsd
+            ? usage.costUsd - _costReportedUsd
+            : 0.0;
+        if (usage.costUsd > _costReportedUsd) _costReportedUsd = usage.costUsd;
         // Si el turno no dejó ninguna llamada del hilo principal, no hay
         // «última»: se cae al agregado, que es lo único que hay.
         final contextTokens = _latestContextTokens > 0
@@ -129,7 +142,7 @@ class ClaudeStreamReader {
             // sin esto llega al chat como un fallo cualquiera, así que nadie
             // se enteraría de que la causa es un número configurable.
             'stopReason': event['subtype'] as String? ?? '',
-            'costUsd': usage.costUsd,
+            'costUsd': turnCostUsd,
             'costReported': event['total_cost_usd'] is num,
             'durationMs': usage.durationMs,
             'model': usage.model,

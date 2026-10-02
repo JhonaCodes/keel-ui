@@ -847,8 +847,12 @@ final List<Tool> keelAiTools = _withCatalogChangeParameters([
     name: 'intervene',
     description:
         'Manda una instrucción AL CANAL de una sesión, en nombre del '
-        'usuario. Si la sesión está corriendo interrumpe el turno actual (el '
-        'nodo retoma después); si no, abre el turno siguiente. LLAMALA SOLO '
+        'usuario. Si un nodo de claude está corriendo, la recibe en su '
+        'próximo paso sin cortar el turno; con otro proveedor el turno se '
+        'corta y el nodo vuelve en un solo turno de continuación con la '
+        'instrucción adentro. Si no corre nada, abre el turno siguiente. '
+        'Cortar a un agente le hace perder el paso a medias: aun sin corte, '
+        'cada intervención le cuesta reorientarse. LLAMALA SOLO '
         'cuando el usuario te pidió intervenir y con una instrucción '
         'concreta que salga de lo que viste en inspect_session.',
     inputSchema: ObjectSchema(

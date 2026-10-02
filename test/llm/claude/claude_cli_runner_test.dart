@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -15,6 +16,56 @@ const _spec = LlmTurnSpec(
   fullFileSystemAccess: false,
   effort: 'medium',
 );
+
+/// A `claude` that behaves like CLI 2.1.280 with `--input-format
+/// stream-json`: the prompt is the first stdin line, a line written while a
+/// tool runs enters the same turn, and the process leaves only when its stdin
+/// closes. Each stdin line lands in `stdin.log` next to the script. Python and
+/// `select` so that a missing line times out instead of hanging the test.
+const _steerableCli = r'''#!/usr/bin/env python3
+import json, select, sys
+from pathlib import Path
+
+log = Path(__file__).with_name('stdin.log')
+
+def line(timeout):
+    ready, _, _ = select.select([sys.stdin], [], [], timeout)
+    if not ready:
+        return None
+    return sys.stdin.readline() or None
+
+def emit(event):
+    print(json.dumps(event), flush=True)
+
+with log.open('a') as out:
+    out.write(line(5) or '<eof>\n')
+emit({'type': 'system', 'subtype': 'init', 'session_id': 's1', 'model': 'sonnet'})
+emit({'type': 'assistant', 'message': {'content': [
+    {'type': 'tool_use', 'id': 't1', 'name': 'Bash', 'input': {'command': 'sleep 1'}}]}})
+second = line(3)
+with log.open('a') as out:
+    out.write(second or '<none>\n')
+text = 'GOT-IT' if second else 'NO-STEER'
+emit({'type': 'assistant', 'message': {'content': [{'type': 'text', 'text': text}]}})
+emit({'type': 'result', 'subtype': 'success', 'is_error': False, 'result': text,
+      'total_cost_usd': 0.01, 'duration_ms': 5})
+while True:
+    rest = line(5)
+    if rest is None:
+        break
+    with log.open('a') as out:
+        out.write(rest)
+''';
+
+/// A stdin line as the fake logged it: the JSON it got, or its marker
+/// (`<none>`, `<eof>`) when nothing arrived.
+Object? _decoded(String line) {
+  try {
+    return jsonDecode(line);
+  } on FormatException {
+    return line;
+  }
+}
 
 void main() {
   group('ClaudeCliRunner — cancelación', () {
@@ -98,6 +149,92 @@ void main() {
     });
   });
 
+  group('ClaudeCliRunner — mensaje a mitad de turno', () {
+    late Directory fakeBin;
+
+    tearDown(() {
+      if (fakeBin.existsSync()) fakeBin.deleteSync(recursive: true);
+    });
+
+    test('el mensaje entra por stdin con prioridad next, el turno sigue vivo y '
+        'el stdin se cierra al primer result', () async {
+      fakeBin = createFakeCliBin('claude', _steerableCli);
+      final steer = StreamController<String>();
+      // Sin await: un stream que nadie escuchó no termina de cerrarse.
+      addTearDown(() => unawaited(steer.close()));
+      const runner = ClaudeCliRunner();
+      final events = <LlmEvent>[];
+      final started = DateTime.now();
+
+      await for (final event in runner.run(
+        _spec,
+        userPath: fakeCliUserPath(fakeBin),
+        cancel: const Stream<void>.empty(),
+        steer: steer.stream,
+      )) {
+        events.add(event);
+        // Como el usuario: escribe mientras el agente está en una
+        // herramienta.
+        if (event['type'] == 'toolUse') steer.add('cambio de rumbo');
+      }
+
+      final stdinLines = File('${fakeBin.path}/stdin.log').readAsLinesSync();
+      expect(_decoded(stdinLines[0]), {
+        'type': 'user',
+        'message': {'role': 'user', 'content': 'hola'},
+      });
+      expect(_decoded(stdinLines[1]), {
+        'type': 'user',
+        'message': {'role': 'user', 'content': 'cambio de rumbo'},
+        'priority': 'next',
+      });
+      expect(
+        events
+            .where((event) => event['type'] == 'assistantText')
+            .map((event) => event['text']),
+        ['GOT-IT'],
+      );
+      expect(events.where((event) => event['type'] == 'steerDelivered'), [
+        {'type': 'steerDelivered', 'text': 'cambio de rumbo'},
+      ]);
+      expect(events.where((event) => event['type'] == 'failure'), isEmpty);
+      // El fake espera 5 s a que se cierre su stdin después del `result`:
+      // terminar antes prueba que el runner lo cerró al ver el `result`.
+      expect(
+        DateTime.now().difference(started),
+        lessThan(const Duration(seconds: 4)),
+      );
+    });
+
+    test('un mensaje que llega después del result no se da por entregado: '
+        'sin acuse, quien lo mandó lo devuelve a la cola', () async {
+      fakeBin = createFakeCliBin('claude', _steerableCli);
+      final steer = StreamController<String>();
+      addTearDown(() => unawaited(steer.close()));
+      const runner = ClaudeCliRunner();
+      final events = <LlmEvent>[];
+
+      await for (final event in runner.run(
+        _spec,
+        userPath: fakeCliUserPath(fakeBin),
+        cancel: const Stream<void>.empty(),
+        steer: steer.stream,
+      )) {
+        events.add(event);
+        if (event['type'] == 'turnCompleted') steer.add('tarde');
+      }
+
+      expect(
+        events.where((event) => event['type'] == 'steerDelivered'),
+        isEmpty,
+      );
+      expect(
+        File('${fakeBin.path}/stdin.log').readAsStringSync(),
+        isNot(contains('tarde')),
+      );
+    });
+  });
+
   group('ClaudeCliRunner — stdin', () {
     late Directory fakeBin;
 
@@ -105,16 +242,18 @@ void main() {
       if (fakeBin.existsSync()) fakeBin.deleteSync(recursive: true);
     });
 
-    test('cierra el stdin del CLI: sin la espera de 3s ni su aviso en stderr',
-        () async {
+    test('el prompt llega por stdin: el CLI no espera datos ni deja su aviso '
+        'en stderr', () async {
       // `claude -p` con stdin que no es TTY espera datos unos segundos y, al
       // vencer, escribe "Warning: no stdin data received..." en stderr. Con
       // un exit distinto de cero, ese stderr era el "error" que veía el
-      // usuario en el hilo, y cada turno pagaba la espera.
+      // usuario en el hilo, y cada turno pagaba la espera. Hoy el prompt es
+      // la primera línea del stdin, así que el `read` del CLI vuelve al
+      // instante.
       // POSIX a propósito: el `read -t` de bash devuelve >128 al vencer en
       // bash 5 y 1 en el bash 3.2 de macOS, así que un fake con `-t` pasaba
       // sin probar nada. Acá se mira si un `read` en segundo plano sigue
-      // vivo tras un segundo: con stdin cerrado termina al instante.
+      // vivo tras un segundo.
       fakeBin = createFakeCliBin('claude', '''#!/bin/sh
 exec 3<&0
 ( read -r _line <&3 ) &

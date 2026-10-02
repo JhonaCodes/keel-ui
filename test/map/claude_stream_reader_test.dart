@@ -375,4 +375,31 @@ void main() {
       expect(firstSentenceOf('   \n  '), '');
     });
   });
+
+  test('cada result de un mismo proceso cobra solo lo suyo: el total del CLI '
+      'es acumulado', () {
+    // Medido contra el CLI 2.1.280: un proceso con dos turnos reporta 0,0041
+    // en el primer `result` y 0,0100 en el segundo, que generó MENOS tokens.
+    // `total_cost_usd` es el acumulado del proceso; sumarlo turno por turno
+    // cobraba el primero dos veces.
+    final reader = ClaudeStreamReader();
+    Map<String, dynamic> result(double total) => {
+      'type': 'result',
+      'subtype': 'success',
+      'is_error': false,
+      'result': '',
+      'total_cost_usd': total,
+      'duration_ms': 10,
+    };
+
+    final first = reader
+        .read(result(0.004))
+        .singleWhere((e) => e['type'] == 'turnCompleted');
+    final second = reader
+        .read(result(0.010))
+        .singleWhere((e) => e['type'] == 'turnCompleted');
+
+    expect(first['costUsd'], closeTo(0.004, 1e-9));
+    expect(second['costUsd'], closeTo(0.006, 1e-9));
+  });
 }

@@ -20,9 +20,12 @@ the prompt.
   verdict), a deterministic summary (`sessionDigest`, F46), open findings,
   pending decisions with their id, and — with `full` — the last 20 messages
   untrimmed plus the subagents with their results.
-- `intervene(project, session, text)`: if the session is running, it queues and
-  interrupts (the node resumes afterward, F43); if not, it opens the next turn.
-  It is marked as placed by Keel AI on the user's behalf.
+- `intervene(project, session, text)`: if a claude node is running, the
+  instruction reaches it at its next step without cutting the turn; with a
+  provider that takes no mid-turn input, it interrupts and the node comes back
+  in one continuation turn with the instruction inside (F53). If nothing is
+  running, it opens the next turn. It is marked as placed by Keel AI on the
+  user's behalf.
 - `answer_decision(project, session, decision_id, answer | approve, scope)`:
   answers a pending decision (F44/F45) with what the user decided.
 - `lint_workflow(capabilities)`: the lint without creating anything.

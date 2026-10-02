@@ -64,12 +64,20 @@ sealed class TaskEvent {
         contextWindowTokens: message['contextWindowTokens'] as int,
       ),
       'notice' => TaskNotice(message['message'] as String),
+      'steerDelivered' => TaskSteerDelivered(message['text'] as String),
       'failure' => TaskFailure(message['message'] as String),
       _ => TaskFailure(
         'Evento desconocido del task runner: ${message['type']}',
       ),
     };
   }
+}
+
+/// A message sent with [TaskRun.steer] entered the turn: the provider has it
+/// and answers it at its next step. Without this, the message did not arrive.
+class TaskSteerDelivered extends TaskEvent {
+  final String text;
+  const TaskSteerDelivered(this.text);
 }
 
 class TaskSessionStarted extends TaskEvent {

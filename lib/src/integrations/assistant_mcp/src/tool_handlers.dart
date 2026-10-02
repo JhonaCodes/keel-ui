@@ -1802,9 +1802,7 @@ Project? _projectNamed(String name) => ProjectsService
 /// La sesión pedida por id o por título exacto; vacío devuelve la activa.
 Session? _sessionOf(Project project, String idOrTitle) {
   if (idOrTitle.isEmpty) return project.activeSession;
-  return project.sessions
-          .where((entry) => entry.id == idOrTitle)
-          .firstOrNull ??
+  return project.sessions.where((entry) => entry.id == idOrTitle).firstOrNull ??
       project.sessions.where((entry) => entry.title == idOrTitle).firstOrNull;
 }
 
@@ -1843,7 +1841,9 @@ String _threadLine(
     ChatRole.system => 'la app',
     ChatRole.assistant => '@${_handleOf(message.authorProfileId) ?? 'miembro'}',
   };
-  final node = message.workNodeId == null ? '' : ' · nodo ${message.workNodeId}';
+  final node = message.workNodeId == null
+      ? ''
+      : ' · nodo ${message.workNodeId}';
   final consult = message.consultOfProfileId == null
       ? ''
       : ' · consulta de @${_handleOf(message.consultOfProfileId) ?? 'miembro'}';
@@ -2074,7 +2074,6 @@ String _describeMcpCatalog() {
   return buffer.toString();
 }
 
-
 // ── supervisión de sesiones (solo a pedido del usuario) ─────────────────
 
 String _profileHandle(String profileId) {
@@ -2219,6 +2218,8 @@ String _profileHandle(String profileId) {
   }
   final projects = ProjectsService.instance.notifier;
   if (open.isRunning) {
+    // Antes de mandarla: después ya no hay turno que mirar.
+    final steers = projects.canSteerSession(open.id);
     // Sin await: interrumpir dispara el turno siguiente, que dura lo que
     // dure. Lo único que hay que confirmar es que el mensaje entró.
     unawaited(() async {
@@ -2234,9 +2235,13 @@ String _profileHandle(String profileId) {
     }());
     return (
       true,
-      'Interrumpí "${open.title}" en "${target.name}" con tu instrucción; '
-          'el nodo en curso vuelve a pendiente y el workflow lo retoma después '
-          'de atenderla.',
+      steers
+          ? 'Le entregué tu instrucción al agente de "${open.title}" en '
+                '"${target.name}": la lee en su próximo paso, sin cortar el '
+                'turno.'
+          : 'Interrumpí "${open.title}" en "${target.name}" con tu '
+                'instrucción; el nodo en curso vuelve en un solo turno de '
+                'continuación con ella adentro.',
     );
   }
   unawaited(projects.replyInSession(target.id, open.id, text));

@@ -27,10 +27,17 @@ void _taskRunnerEntryPoint(_IsolateBootstrap bootstrap) {
   // (el runner, dentro de `_runInIsolate`) son suscriptores distintos del
   // mismo evento — un StreamController normal solo admite uno.
   final cancelController = StreamController<void>.broadcast();
+  // Un solo suscriptor —el runner—, y sin broadcast a propósito: un mensaje
+  // que llega antes de que el runner escuche queda guardado, no se pierde.
+  final steerController = StreamController<String>();
 
   commandPort.listen((message) {
-    if (message is Map && message['type'] == 'cancel') {
-      cancelController.add(null);
+    if (message is! Map) return;
+    switch (message['type']) {
+      case 'cancel':
+        cancelController.add(null);
+      case 'steer':
+        steerController.add(message['text'] as String);
     }
   });
 
@@ -41,6 +48,7 @@ void _taskRunnerEntryPoint(_IsolateBootstrap bootstrap) {
       mainSendPort: bootstrap.mainSendPort,
       commandPort: commandPort,
       cancel: cancelController.stream,
+      steer: steerController.stream,
     ),
   );
 }
@@ -51,6 +59,7 @@ Future<void> _runInIsolate({
   required SendPort mainSendPort,
   required ReceivePort commandPort,
   required Stream<void> cancel,
+  required Stream<String> steer,
 }) async {
   // El único lugar donde el alias persistido decide qué modelo corre —
   // agregar un proveedor nuevo sin extender `LlmProvider.fromLegacyAlias` ni
@@ -63,6 +72,7 @@ Future<void> _runInIsolate({
         turnSpec,
         userPath: userPath,
         cancel: cancel,
+        steer: steer,
         onPidKnown: (pid) {
           // El pid cruza el isolate como dato: un Process no se puede mandar, y
           // del otro lado solo hace falta el número para poder mirarlo con `ps`

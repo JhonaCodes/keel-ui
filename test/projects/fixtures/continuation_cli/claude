@@ -6,7 +6,8 @@ import sys
 from urllib.request import Request, urlopen
 
 args = sys.argv[1:]
-prompt = args[args.index('-p') + 1]
+# The prompt is the first stream-json line on stdin, as with CLI 2.1.280.
+prompt = json.loads(sys.stdin.readline())['message']['content']
 log = Path('provider-turns.jsonl')
 history = [json.loads(line) for line in log.read_text().splitlines()] if log.exists() else []
 resume = args[args.index('--resume') + 1] if '--resume' in args else None

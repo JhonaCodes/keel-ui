@@ -148,8 +148,11 @@ Mapa de lo que existe en esta app y cómo se relaciona:
   claude, que son los únicos con esa tool.
   SUPERVISIÓN A PEDIDO: `inspect_session` (estado completo de una sesión:
   nodos, cierres, hallazgos, decisiones pendientes, costo; `full` agrega los
-  últimos mensajes y subagentes), `intervene` (instrucción al canal; si
-  corre, interrumpe y el nodo retoma), `answer_decision` (contesta una
+  últimos mensajes y subagentes), `intervene` (instrucción al canal; si un
+  nodo de claude está corriendo, la recibe en su próximo paso por stdin, sin
+  cortar el turno ni relanzarse; con codex u otro proveedor sin ese canal el
+  turno se corta y el nodo vuelve en UN turno de continuación con la
+  instrucción adentro), `answer_decision` (contesta una
   decisión pendiente por id). Solo cuando el usuario lo pide. LINT:
   `lint_workflow` y el propio `create_workflow`/`update_workflow` rechazan
   más de 8 nodos requeridos, aprobaciones manuales opcionales y auditorías

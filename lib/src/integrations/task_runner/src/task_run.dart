@@ -4,12 +4,23 @@ part of '../task_runner.dart';
 /// parsed turn events; [cancel] kills the underlying CLI process and tears
 /// the isolate down.
 class TaskRun {
-  TaskRun._(this.events, this._onCancel);
+  TaskRun._(this.events, this._onCancel, [this._onSteer]);
 
   final Stream<TaskEvent> events;
   final void Function() _onCancel;
+  final bool Function(String text)? _onSteer;
 
   void cancel() => _onCancel();
+
+  /// Whether this turn takes a message without being stopped.
+  bool get canSteer => _onSteer != null;
+
+  /// Hands [text] to the turn in flight, to enter at its next tool boundary.
+  /// False when it could not be handed over (no steering, or the isolate is
+  /// not listening yet): the caller keeps the message. True only means it
+  /// was handed over — a [TaskSteerDelivered] with the same text confirms
+  /// that it entered the turn.
+  bool steer(String text) => _onSteer?.call(text) ?? false;
 }
 
 Future<TaskRun> _startTaskRun(TaskRunSpec spec) async {
@@ -58,7 +69,17 @@ Future<TaskRun> _startTaskRun(TaskRunSpec spec) async {
     onError: receivePort.sendPort,
   );
 
+  bool sendSteer(String text) {
+    final port = commandPort;
+    if (port == null) return false;
+    port.send({'type': 'steer', 'text': text});
+    return true;
+  }
+
+  final steerable = dispatchLlmSteering(
+    LlmProvider.fromLegacyAlias(spec.provider),
+  );
   return TaskRun._(controller.stream, () {
     commandPort?.send({'type': 'cancel'});
-  });
+  }, steerable ? sendSteer : null);
 }

@@ -396,6 +396,14 @@ class AppLocalizationsEs extends AppLocalizations {
   String get labelMap => 'Mapa';
 
   @override
+  String get labelE2e => 'E2E';
+
+  @override
+  String e2eEngineBinaryMissing(String envVar) {
+    return 'No se encontró keel_e2e. Configura $envVar o instala keel-e2e junto a Keel.';
+  }
+
+  @override
   String get labelEngine => 'MOTOR';
 
   @override
@@ -2879,6 +2887,14 @@ class AppLocalizationsEsCo extends AppLocalizationsEs {
 
   @override
   String get labelMap => 'Mapa';
+
+  @override
+  String get labelE2e => 'E2E';
+
+  @override
+  String e2eEngineBinaryMissing(String envVar) {
+    return 'No se encontró keel_e2e. Configura $envVar o instala keel-e2e junto a Keel.';
+  }
 
   @override
   String get labelEngine => 'MOTOR';

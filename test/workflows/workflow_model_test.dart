@@ -84,6 +84,8 @@ void main() {
           'outputContract': '',
           'requiresIndependentOwner': false,
           'approvalRequired': false,
+          'mcpServers': <String>[],
+          'e2eScenarios': {'kind': 'all'},
         },
         {
           'id': 'device-e2e',
@@ -99,8 +101,47 @@ void main() {
           'outputContract': '',
           'requiresIndependentOwner': true,
           'approvalRequired': false,
+          'mcpServers': <String>[],
+          'e2eScenarios': {'kind': 'all'},
         },
       ]);
+    });
+
+    test(
+      'una capacidad parseada de un JSON anterior carga mcpServers y '
+      'e2eScenarios por defecto',
+      () {
+        final capability = WorkflowCapability.fromJson({
+          'id': 'implement',
+          'title': 'Implementar',
+          'instruction': 'Implementar.',
+          'role': 'implementador',
+        });
+
+        // RED antes del fix: el campo no existía, así que esto fallaba en
+        // compilación/lectura. El oráculo es el valor leído, no solo que no
+        // reviente.
+        expect(capability.mcpServers, isEmpty);
+        expect(capability.e2eScenarios, const AllScenarios());
+        expect(capability.usesKeelE2e, isFalse);
+      },
+    );
+
+    test('mcpServers y e2eScenarios sobreviven al viaje por disco', () {
+      const capability = WorkflowCapability(
+        id: 'e2e-run',
+        title: 'Correr E2E',
+        instruction: 'Correr escenarios de e2e/.',
+        role: 'verifier',
+        mcpServers: [kKeelE2eMcpServerName],
+        e2eScenarios: TaggedScenarios(['pedidos']),
+      );
+
+      final roundTripped = WorkflowCapability.fromJson(capability.toJson());
+
+      expect(roundTripped.mcpServers, [kKeelE2eMcpServerName]);
+      expect(roundTripped.usesKeelE2e, isTrue);
+      expect(roundTripped.e2eScenarios, const TaggedScenarios(['pedidos']));
     });
 
     test('migra filas registradas conservando agentes sin ejecutar ocho', () {
@@ -217,6 +258,74 @@ void main() {
           workflow.toJson()['capabilities'],
           everyElement(contains('requiresIndependentOwner')),
         );
+      },
+    );
+
+    test(
+      'usesKeelE2e es true solo con una capacidad requerida que declare '
+      'keel-e2e',
+      () {
+        final sinE2e = Workflow(
+          id: 'w1',
+          name: 'w1',
+          whenToApply: '',
+          createdAt: DateTime(2026),
+          capabilities: const [
+            WorkflowCapability(
+              id: 'implement',
+              title: 'Implementar',
+              instruction: 'Implementar.',
+              role: 'implementador',
+            ),
+          ],
+        );
+        expect(sinE2e.usesKeelE2e, isFalse);
+
+        final conE2eOpcional = sinE2e.copyWith(
+          capabilities: [
+            ...sinE2e.capabilities,
+            const WorkflowCapability(
+              id: 'e2e',
+              title: 'E2E',
+              instruction: 'Correr E2E.',
+              role: 'verifier',
+              activation: WorkflowCapabilityActivation.optional,
+              mcpServers: [kKeelE2eMcpServerName],
+            ),
+          ],
+        );
+        expect(
+          conE2eOpcional.usesKeelE2e,
+          isFalse,
+          reason: 'un nodo OPCIONAL nunca se instancia solo',
+        );
+
+        final conE2eRequerido = sinE2e.copyWith(
+          capabilities: [
+            ...sinE2e.capabilities,
+            const WorkflowCapability(
+              id: 'e2e',
+              title: 'E2E',
+              instruction: 'Correr E2E.',
+              role: 'verifier',
+              mcpServers: [kKeelE2eMcpServerName],
+            ),
+          ],
+        );
+        expect(conE2eRequerido.usesKeelE2e, isTrue);
+      },
+    );
+
+    test(
+      'la plantilla de migración declara keel-e2e en su device-e2e opcional',
+      () {
+        final capabilities = defaultWorkflowCapabilities(
+          WorkflowKind.migration,
+          'verifier',
+        );
+        final deviceE2e = capabilities.firstWhere((c) => c.id == 'device-e2e');
+        expect(deviceE2e.usesKeelE2e, isTrue);
+        expect(deviceE2e.activation, WorkflowCapabilityActivation.optional);
       },
     );
 

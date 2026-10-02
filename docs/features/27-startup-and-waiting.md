@@ -18,8 +18,9 @@ blocked thread freezes just the same.
 
 ### The database was read whole, over and over
 
-`flutter_local_db` has no prefix query. It only knows how to return **one** key
-(`GetById`) or the **whole** database (`GetAll`). So
+`flutter_local_db` 1.x (the version keel-ui pins) has no prefix query. It only
+knows how to return **one** key (`GetById`) or the **whole** database (`GetAll`).
+(3.x adds tables with field queries; see `docs/build-and-distribute.md`.) So
 `LocalDatabase.getAllWithPrefix` fetched everything and filtered in Dart.
 
 And `GetAll` is not a read: it serializes the entire database to JSON, crosses it

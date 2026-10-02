@@ -185,6 +185,16 @@
   "labelWhatExecutes": "What executes",
   "labelChat": "Chat",
   "labelMap": "Map",
+  "labelE2e": "E2E",
+  "e2eEngineBinaryMissing": "keel_e2e was not found. Set {envVar} or install keel-e2e next to Keel.",
+  "@e2eEngineBinaryMissing": {
+    "description": "Shown on the E2E tab when the keel_e2e engine binary cannot be found.",
+    "placeholders": {
+      "envVar": {
+        "type": "String"
+      }
+    }
+  },
   "labelEngine": "ENGINE",
   "labelTurns": "TURNS",
   "labelInput": "INPUT",

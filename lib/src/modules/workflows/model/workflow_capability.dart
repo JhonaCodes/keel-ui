@@ -2,6 +2,81 @@ import 'package:flutter/foundation.dart';
 
 enum WorkflowCapabilityActivation { required, optional }
 
+/// El nombre del servidor MCP de keel-e2e, tal cual el engine lo expone
+/// (`KeelE2eProtocol.mcpServerKey` en `keel_e2e_protocol`). Repetida acá en
+/// vez de importar el protocolo: este módulo no depende del motor, solo
+/// declara el nombre con el que un paso lo pide.
+const kKeelE2eMcpServerName = 'keel-e2e';
+
+/// Which scenarios a keel-e2e step runs, read from the project's `e2e/`
+/// folder (architecture §3.3). Persisted as `{kind, tags}`; `tags` is only
+/// meaningful for [TaggedScenarios].
+@immutable
+sealed class E2eScenarioSelection {
+  const E2eScenarioSelection();
+
+  Map<String, Object> toJson();
+
+  /// Old records and records without the field default to [AllScenarios]:
+  /// a keel-e2e step that declares no selection runs everything in `e2e/`.
+  factory E2eScenarioSelection.fromJson(Map<String, dynamic>? json) {
+    if (json == null) return const AllScenarios();
+    return switch (json['kind'] as String?) {
+      'tagged' => TaggedScenarios(
+        (json['tags'] as List?)?.cast<String>() ?? const [],
+      ),
+      'requested' => const RequestedScenario(),
+      _ => const AllScenarios(),
+    };
+  }
+}
+
+/// Every scenario file under the project's `e2e/`.
+final class AllScenarios extends E2eScenarioSelection {
+  const AllScenarios();
+
+  @override
+  Map<String, Object> toJson() => {'kind': 'all'};
+
+  @override
+  bool operator ==(Object other) => other is AllScenarios;
+
+  @override
+  int get hashCode => (AllScenarios).hashCode;
+}
+
+/// Only the scenario files carrying every tag in [tags].
+final class TaggedScenarios extends E2eScenarioSelection {
+  const TaggedScenarios(this.tags);
+
+  final List<String> tags;
+
+  @override
+  Map<String, Object> toJson() => {'kind': 'tagged', 'tags': tags};
+
+  @override
+  bool operator ==(Object other) =>
+      other is TaggedScenarios && listEquals(tags, other.tags);
+
+  @override
+  int get hashCode => Object.hashAll(tags);
+}
+
+/// Whatever the user asked for in the turn; the agent drafts an ad-hoc plan
+/// when nothing registered matches (architecture §3.3).
+final class RequestedScenario extends E2eScenarioSelection {
+  const RequestedScenario();
+
+  @override
+  Map<String, Object> toJson() => {'kind': 'requested'};
+
+  @override
+  bool operator ==(Object other) => other is RequestedScenario;
+
+  @override
+  int get hashCode => (RequestedScenario).hashCode;
+}
+
 /// The explicit execution route for a workflow capability.
 enum WorkflowExecutor {
   newSession,
@@ -108,6 +183,16 @@ class WorkflowCapability {
   /// aprobación es una decisión sobre el paso, no un paso más.
   final bool approvalRequired;
 
+  /// Servidores MCP adicionales que este paso declara, por nombre. Es cómo
+  /// un paso pide keel-e2e (architecture §14): hoy los servidores solo
+  /// entran por `AgentProfile.mcpServers`, que es del AGENTE y no del paso.
+  /// Default `[]`; un registro viejo sin este campo carga `[]`.
+  final List<String> mcpServers;
+
+  /// Qué escenarios de `e2e/` corre este paso cuando declara keel-e2e.
+  /// Un registro viejo sin este campo carga [AllScenarios].
+  final E2eScenarioSelection e2eScenarios;
+
   const WorkflowCapability({
     required this.id,
     required this.title,
@@ -122,7 +207,13 @@ class WorkflowCapability {
     this.outputContract = '',
     this.requiresIndependentOwner = false,
     this.approvalRequired = false,
+    this.mcpServers = const [],
+    this.e2eScenarios = const AllScenarios(),
   });
+
+  /// Whether this capability declares keel-e2e: its tools attach to the
+  /// step's turn only when this is true (architecture §14).
+  bool get usesKeelE2e => mcpServers.contains(kKeelE2eMcpServerName);
 
   /// El tope que corre de verdad: el declarado, o **0 = sin tope**.
   ///
@@ -147,6 +238,8 @@ class WorkflowCapability {
     String? outputContract,
     bool? requiresIndependentOwner,
     bool? approvalRequired,
+    List<String>? mcpServers,
+    E2eScenarioSelection? e2eScenarios,
   }) => WorkflowCapability(
     id: id,
     title: title ?? this.title,
@@ -162,6 +255,8 @@ class WorkflowCapability {
     requiresIndependentOwner:
         requiresIndependentOwner ?? this.requiresIndependentOwner,
     approvalRequired: approvalRequired ?? this.approvalRequired,
+    mcpServers: mcpServers ?? this.mcpServers,
+    e2eScenarios: e2eScenarios ?? this.e2eScenarios,
   );
 
   Map<String, Object> toJson() => {
@@ -178,6 +273,8 @@ class WorkflowCapability {
     'outputContract': outputContract,
     'requiresIndependentOwner': requiresIndependentOwner,
     'approvalRequired': approvalRequired,
+    'mcpServers': mcpServers,
+    'e2eScenarios': e2eScenarios.toJson(),
   };
 
   factory WorkflowCapability.fromJson(Map<String, dynamic> json) =>
@@ -206,6 +303,10 @@ class WorkflowCapability {
         requiresIndependentOwner:
             json['requiresIndependentOwner'] as bool? ?? false,
         approvalRequired: json['approvalRequired'] as bool? ?? false,
+        mcpServers: (json['mcpServers'] as List?)?.cast<String>() ?? const [],
+        e2eScenarios: E2eScenarioSelection.fromJson(
+          (json['e2eScenarios'] as Map?)?.cast<String, dynamic>(),
+        ),
       );
 
   @override
@@ -224,7 +325,9 @@ class WorkflowCapability {
           readOnly == other.readOnly &&
           outputContract == other.outputContract &&
           requiresIndependentOwner == other.requiresIndependentOwner &&
-          approvalRequired == other.approvalRequired;
+          approvalRequired == other.approvalRequired &&
+          listEquals(mcpServers, other.mcpServers) &&
+          e2eScenarios == other.e2eScenarios;
 
   @override
   int get hashCode => Object.hash(
@@ -241,6 +344,8 @@ class WorkflowCapability {
     outputContract,
     requiresIndependentOwner,
     approvalRequired,
+    Object.hashAll(mcpServers),
+    e2eScenarios,
   );
 }
 
@@ -297,19 +402,24 @@ List<WorkflowLint> lintWorkflowCapabilities(
   }
 
   final byId = {for (final c in capabilities) c.id: c};
+  // Un nodo que cierra con `e2e-report` no cuenta como "escritor": corre
+  // escenarios contra un dispositivo real y entrega un reporte, no un
+  // cambio de código (architecture §14). Sin esto, el nodo que lo lee en
+  // solo lectura (`diagnosis`) calificaba como auditoría de ese reporte.
   bool writes(WorkflowCapability c) =>
-      !c.readOnly && c.executor != WorkflowExecutor.manualApproval;
-  bool auditLike(WorkflowCapability c) {
-    final role = c.role.toLowerCase();
-    final roleSaysSo =
-        role.contains('audit') ||
-        role.contains('revis') ||
-        role.contains('review');
-    final readsAWriter =
-        c.readOnly &&
-        c.dependencyIds.any((id) => byId[id] != null && writes(byId[id]!));
-    return roleSaysSo || readsAWriter;
-  }
+      !c.readOnly &&
+      c.executor != WorkflowExecutor.manualApproval &&
+      c.outputContract != 'e2e-report';
+  // Una auditoría se reconoce por su estructura (solo lectura, depende de un
+  // nodo que escribe), nunca por una subcadena del nombre del rol: `role` es
+  // el `resolutionRole` del workflow, el mismo valor que heredan TODOS sus
+  // nodos sin rol propio (`fallback` en `defaultWorkflowCapabilities`). Un
+  // workflow cuyo dueño se llama "auditor" marcaba como auditoría a `plan` o
+  // `implement` por el solo nombre del rol, aunque esos nodos escriban y no
+  // dependan de nada de solo lectura.
+  bool auditLike(WorkflowCapability c) =>
+      c.readOnly &&
+      c.dependencyIds.any((id) => byId[id] != null && writes(byId[id]!));
 
   for (final c in capabilities) {
     if (c.executor == WorkflowExecutor.manualApproval &&

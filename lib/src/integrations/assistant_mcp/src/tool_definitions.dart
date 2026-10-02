@@ -579,6 +579,28 @@ final List<Tool> keelAiTools = _withCatalogChangeParameters([
               'output_contract': Schema.string(
                 description: 'Contrato de salida, por ejemplo audit-feedback.',
               ),
+              'mcp_servers': Schema.list(
+                items: Schema.string(),
+                description:
+                    'Servidores MCP que este paso agrega, por nombre. '
+                    'Incluir "keel-e2e" es cómo un paso corre escenarios de '
+                    'e2e/ contra un dispositivo o navegador real: la sesión '
+                    'gana la pestaña E2E.',
+              ),
+              'e2e_scenarios': ObjectSchema(
+                properties: {
+                  'kind': Schema.string(
+                    description:
+                        '"all" (todo e2e/), "tagged" (con tags) o '
+                        '"requested" (lo que pidió el usuario; el agente '
+                        'redacta un plan ad-hoc).',
+                  ),
+                  'tags': Schema.list(items: Schema.string()),
+                },
+                description:
+                    'Qué escenarios corre un paso con keel-e2e. Sin esto, '
+                    'default "all".',
+              ),
             },
             required: ['id', 'title', 'instruction', 'role', 'activation'],
           ),
@@ -709,6 +731,12 @@ final List<Tool> keelAiTools = _withCatalogChangeParameters([
         'project': Schema.string(description: 'Nombre del proyecto.'),
         'prompt': Schema.string(
           description: 'Qué tiene que hacer el proyecto, en detalle.',
+        ),
+        'workflow': Schema.string(
+          description:
+              'Nombre de un workflow del proyecto, para abrir la sesión '
+              'con ESE en vez del activo por defecto. Omitirlo deja el '
+              'comportamiento de siempre.',
         ),
       },
       required: ['project', 'prompt'],
@@ -1078,6 +1106,28 @@ final List<Tool> keelAiTools = _withCatalogChangeParameters([
               ),
               'output_contract': Schema.string(
                 description: 'Contrato de salida, por ejemplo audit-feedback.',
+              ),
+              'mcp_servers': Schema.list(
+                items: Schema.string(),
+                description:
+                    'Servidores MCP que este paso agrega, por nombre. '
+                    'Incluir "keel-e2e" es cómo un paso corre escenarios de '
+                    'e2e/ contra un dispositivo o navegador real: la sesión '
+                    'gana la pestaña E2E.',
+              ),
+              'e2e_scenarios': ObjectSchema(
+                properties: {
+                  'kind': Schema.string(
+                    description:
+                        '"all" (todo e2e/), "tagged" (con tags) o '
+                        '"requested" (lo que pidió el usuario; el agente '
+                        'redacta un plan ad-hoc).',
+                  ),
+                  'tags': Schema.list(items: Schema.string()),
+                },
+                description:
+                    'Qué escenarios corre un paso con keel-e2e. Sin esto, '
+                    'default "all".',
               ),
             },
             required: ['id', 'title', 'instruction', 'role', 'activation'],

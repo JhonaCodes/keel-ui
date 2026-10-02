@@ -590,6 +590,7 @@ Future<(bool, String)> _runKeelAiTool(
       return _openProjectSession(
         project: (arguments['project'] as String).trim(),
         prompt: (arguments['prompt'] as String).trim(),
+        workflowName: (arguments['workflow'] as String? ?? '').trim(),
       );
 
     case 'list_project_sessions':
@@ -1526,6 +1527,7 @@ List<String> _without(List<String> current, List<String> removed) {
 (bool, String) _openProjectSession({
   required String project,
   required String prompt,
+  String workflowName = '',
 }) {
   final projects = ProjectsService.instance.notifier;
   final target = projects.data.projects
@@ -1540,7 +1542,24 @@ List<String> _without(List<String> current, List<String> removed) {
   }
   if (prompt.isEmpty) return (false, 'La sesión necesita un prompt.');
 
-  projects.createSession(target.id);
+  String? workflowId;
+  if (workflowName.isNotEmpty) {
+    final choosable = projects.choosableWorkflowsOf(target);
+    final match = choosable
+        .where((workflow) => workflow.name == workflowName)
+        .firstOrNull;
+    if (match == null) {
+      final available = choosable.map((workflow) => workflow.name).join(', ');
+      return (
+        false,
+        'El proyecto "$project" no tiene el workflow "$workflowName". '
+            'Opciones: $available.',
+      );
+    }
+    workflowId = match.id;
+  }
+
+  projects.createSession(target.id, workflowId: workflowId);
   final session = projects.data.projects
       .firstWhere((entry) => entry.id == target.id)
       .activeSession;
@@ -2005,10 +2024,25 @@ List<WorkflowCapability>? _workflowCapabilities(Object? value) {
         readOnly: data['read_only'] as bool? ?? false,
         approvalRequired: data['approval_required'] as bool? ?? false,
         outputContract: (data['output_contract'] as String? ?? '').trim(),
+        mcpServers: _stringList(data['mcp_servers']),
+        e2eScenarios: _e2eScenarioSelection(data['e2e_scenarios']),
       ),
     );
   }
   return capabilities;
+}
+
+/// `e2e_scenarios` tal como lo manda Keel AI: `{kind, tags}`, mismo shape
+/// que [E2eScenarioSelection.toJson]. Sin el campo, el default es
+/// [AllScenarios] — igual que un registro viejo sin el campo.
+E2eScenarioSelection _e2eScenarioSelection(Object? value) {
+  if (value is! Map) return const AllScenarios();
+  final data = value.cast<String, dynamic>();
+  return switch (data['kind'] as String?) {
+    'tagged' => TaggedScenarios(_stringList(data['tags'])),
+    'requested' => const RequestedScenario(),
+    _ => const AllScenarios(),
+  };
 }
 
 /// El catálogo en texto, que es como lo lee un modelo.

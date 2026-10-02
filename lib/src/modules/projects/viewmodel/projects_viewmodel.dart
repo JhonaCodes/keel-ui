@@ -134,6 +134,26 @@ class _AdaptivePreflightResult {
   String? get error => preflight.ready ? null : preflight.errorSummary;
 }
 
+/// El turno de trabajo vivo de una sesión: quién corre, en qué nodo y con qué
+/// ejecución del CLI. [workNodeId] es null en un turno suelto del canal.
+typedef _WorkTurn = ({
+  TaskRun run,
+  String memberId,
+  String? workNodeId,
+  String executionId,
+});
+
+/// Un nodo cortado para entregarle un mensaje. [executionId] es la sesión del
+/// CLI que tenía: si sigue guardada, el nodo vuelve a correr ahí como
+/// continuación. [message] llega cuando el mensaje sale de la cola; vacío si
+/// se contestó en el canal antes de retomar el nodo.
+typedef _InterruptedNode = ({
+  String nodeId,
+  String memberId,
+  String executionId,
+  String message,
+});
+
 /// Cada cuánto se relee el roadmap para la fila de Estado del sidebar.
 const _kBadgeTtl = Duration(seconds: 15);
 
@@ -152,6 +172,23 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
   /// still run strictly in sequence, so the agents of a single session never
   /// write files on top of each other.
   final Map<String, TaskRun> _runningSessions = {};
+
+  /// El turno que trabaja el caso —nunca una consulta—, por sesión. Sirve
+  /// para entregarle un mensaje a mitad de turno cuando el proveedor puede
+  /// ([TaskRun.canSteer]) y, cuando no puede y hay que cortarlo, para saber
+  /// qué nodo retomar como continuación.
+  final Map<String, _WorkTurn> _workTurns = {};
+
+  /// Los mensajes inyectados al turno en curso que todavía no tienen acuse
+  /// ([TaskSteerDelivered]), por sesión y por el texto que viajó. Lo que
+  /// sigue acá cuando el turno termina no entró: vuelve a la cola.
+  final Map<String, Map<String, SessionQueuedMessage>> _unconfirmedSteers = {};
+
+  /// El nodo cuyo turno se cortó para entregarle un mensaje, por sesión, en
+  /// los proveedores que no reciben texto a mitad de turno. Vuelve a correr
+  /// con el mensaje adentro de su continuación: un solo turno, no uno para
+  /// el mensaje y otro que lo relanza desde su contrato.
+  final Map<String, _InterruptedNode> _interruptedNodes = {};
 
   /// The outer session futures, including the gaps between CLI turns. A
   /// missing [TaskRun] does not mean the workflow has handed control back,
@@ -1514,6 +1551,9 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     _runningSessions.remove(sessionId)?.cancel();
     _activeSessionRuns.remove(sessionId);
     _stoppedSessionIds.add(sessionId);
+    _workTurns.remove(sessionId);
+    _unconfirmedSteers.remove(sessionId);
+    _interruptedNodes.remove(sessionId);
 
     final closingProject = _projectById(projectId);
     final closingSession = closingProject == null
@@ -1567,6 +1607,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     _stoppedSessionIds.add(sessionId);
     _cancelBlockingDecisions(projectId, sessionId);
     run?.cancel();
+    if (interrupting) _rememberInterruptedNode(sessionId);
     _releaseRunningNodes(projectId, sessionId);
 
     if (interrupting) {
@@ -1594,6 +1635,39 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
       ),
     );
     _finishSession(projectId, sessionId, SessionStatus.failed);
+  }
+
+  /// Anota qué nodo se cortó para entregarle un mensaje, así vuelve a correr
+  /// como continuación y no como encargo nuevo. Solo si lo que se cortó era
+  /// el turno de un nodo: una consulta o un turno suelto no tienen qué
+  /// retomar.
+  void _rememberInterruptedNode(String sessionId) {
+    final workTurn = _workTurns[sessionId];
+    final nodeId = workTurn?.workNodeId;
+    if (workTurn == null || nodeId == null || nodeId.isEmpty) return;
+    _interruptedNodes[sessionId] = (
+      nodeId: nodeId,
+      memberId: workTurn.memberId,
+      executionId: workTurn.executionId,
+      message: '',
+    );
+  }
+
+  /// Si la sesión guarda todavía la conversación del CLI de [executionId].
+  /// Una compactación o una sesión descartada la borran, y entonces el nodo
+  /// arranca de cero y necesita su contrato completo.
+  bool _hasCliSession(String projectId, String sessionId, String executionId) {
+    final project = _projectById(projectId);
+    final session = project == null ? null : _sessionById(project, sessionId);
+    return session?.cliSessionsByExecutionId.containsKey(executionId) ?? false;
+  }
+
+  /// Saca el corte anotado para [nodeId], si lo hay: lo consume el turno que
+  /// retoma ese nodo, una sola vez.
+  _InterruptedNode? _takeInterruption(String sessionId, String nodeId) {
+    final interrupted = _interruptedNodes[sessionId];
+    if (interrupted == null || interrupted.nodeId != nodeId) return null;
+    return _interruptedNodes.remove(sessionId);
   }
 
   void _releaseRunningNodes(String projectId, String sessionId) {
@@ -1647,19 +1721,25 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
   Future<void> resumeWorkflow(String projectId, String sessionId) async {
     final project = _projectById(projectId);
     final session = project == null ? null : _sessionById(project, sessionId);
-    final resolution = session?.resolutionCase;
-    if (session == null || resolution == null) return;
-    if (session.isRunning || _activeSessionRuns.contains(sessionId)) return;
-    if (!resolution.preflight.ready) return;
-    if (resolution.status != ResolutionCaseStatus.active) return;
+    if (session == null || !_workflowResumable(session)) return;
+    await _runWorkflow(projectId, sessionId, session.request);
+  }
+
+  /// Si [session] tiene un workflow a mitad que se puede retomar ahora: no
+  /// corre nada, el caso está activo y hay un nodo listo.
+  bool _workflowResumable(Session session) {
+    final resolution = session.resolutionCase;
+    if (resolution == null) return false;
+    if (session.isRunning || _activeSessionRuns.contains(session.id)) {
+      return false;
+    }
+    if (!resolution.preflight.ready) return false;
+    if (resolution.status != ResolutionCaseStatus.active) return false;
     // Sin la segunda condición, un caso cuyo único nodo abierto quedó en
     // `running` no podía ni entrar a repararse: la guarda lo rebotaba acá y
     // el trabajo terminado se quedaba adentro de una sesión muerta.
-    if (_nextReadyNode(resolution) == null &&
-        !ResolutionEngine.hasOrphanRunningNodes(resolution)) {
-      return;
-    }
-    await _runWorkflow(projectId, sessionId, session.request);
+    return _nextReadyNode(resolution) != null ||
+        ResolutionEngine.hasOrphanRunningNodes(resolution);
   }
 
   /// Runs an adaptive workflow. Nodes are selected by dependencies and fresh
@@ -1989,18 +2069,28 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
         final hasClosedHistory = resolution.nodes.any(
           (entry) => entry.status == WorkNodeStatus.done,
         );
-        final nodePrompt = adaptiveNodePrompt(
-          request: storedRequest == null || storedRequest.isEmpty
-              ? request
-              : storedRequest,
-          workflow: workflow,
-          resolution: resolution,
-          node: node,
-          isAudit: isAudit,
-          dependencyContext: renderDependencyOutputs(outputs),
-          digest: hasClosedHistory ? sessionDigest(resolution) : '',
-          members: membersOf(project, session: session),
-        );
+        // Un nodo que se cortó para entregarle un mensaje vuelve como
+        // continuación cuando reanuda su misma sesión del CLI: el contrato ya
+        // está en su conversación, y repetírselo lo hacía empezar de cero.
+        final interruption = _takeInterruption(sessionId, node.id);
+        final nodePrompt = switch (interruption) {
+          final cut?
+              when _hasCliSession(projectId, sessionId, cut.executionId) =>
+            nodeContinuationPrompt(node: node, message: cut.message),
+          _ => adaptiveNodePrompt(
+            request: storedRequest == null || storedRequest.isEmpty
+                ? request
+                : storedRequest,
+            workflow: workflow,
+            resolution: resolution,
+            node: node,
+            isAudit: isAudit,
+            dependencyContext: renderDependencyOutputs(outputs),
+            digest: hasClosedHistory ? sessionDigest(resolution) : '',
+            members: membersOf(project, session: session),
+            interruptionMessage: interruption?.message ?? '',
+          ),
+        };
         // Lo que el usuario contestó a este nodo viaja en la instrucción: la
         // sesión del CLI se reanuda con el prompt nuevo, no lee el hilo.
         final answers = [
@@ -3503,11 +3593,7 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
       }
       return;
     }
-    final prompt = [
-      if (trimmed.isNotEmpty) trimmed,
-      if (explicitContext.isNotEmpty) explicitContext,
-      if (imagePaths.isNotEmpty) _describeChannelAttachments(imagePaths),
-    ].join('\n\n');
+    final prompt = _channelPrompt(trimmed, explicitContext, imagePaths);
 
     if (!started) {
       return _runWorkflow(projectId, session.id, prompt);
@@ -3658,14 +3744,17 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     }
   }
 
-  /// Interrumpe el turno en curso, pero espera a que su Future realmente
-  /// termine antes de abrir el siguiente. Así dos agentes nunca escriben el
+  /// Entrega el mensaje ya. Si el turno en curso lo puede recibir a mitad de
+  /// camino, entra en el próximo paso del agente sin cortar nada. Si no,
+  /// interrumpe el turno, pero espera a que su Future realmente termine
+  /// antes de abrir el siguiente: así dos agentes nunca escriben el
   /// workspace al mismo tiempo por una carrera entre Stop y Send.
   Future<void> sendQueuedSessionMessageNow(
     String projectId,
     String sessionId,
     String messageId,
   ) async {
+    if (await _steerQueuedMessage(projectId, sessionId, messageId)) return;
     _setQueuedDelivery(
       projectId,
       sessionId,
@@ -3694,6 +3783,136 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
       return;
     }
     await _dispatchNextQueuedMessage(projectId, sessionId);
+  }
+
+  /// Si un mensaje mandado «ya» entra al turno en curso sin cortarlo: hay un
+  /// turno de trabajo vivo y su proveedor recibe texto a mitad de camino.
+  bool canSteerSession(String sessionId) =>
+      _workTurns[sessionId]?.run.canSteer ?? false;
+
+  /// Entrega un mensaje de la cola al turno en curso SIN cortarlo: el agente
+  /// lo lee en su próximo paso, entre una herramienta y la siguiente, y el
+  /// nodo sigue corriendo. Antes «Enviar ahora» mataba el proceso y el nodo
+  /// volvía a correr dos veces —un turno para el mensaje y otro con el
+  /// contrato completo—, y el agente se reorientaba desde cero.
+  ///
+  /// False cuando no se puede: no hay turno de trabajo vivo, su proveedor no
+  /// recibe texto a mitad de turno, o el mensaje nombra a otro agente. Ahí
+  /// sigue el camino de siempre.
+  Future<bool> _steerQueuedMessage(
+    String projectId,
+    String sessionId,
+    String messageId,
+  ) async {
+    final workTurn = _workTurns[sessionId];
+    final project = _projectById(projectId);
+    final session = project == null ? null : _sessionById(project, sessionId);
+    final message = session?.queuedMessages
+        .where((queued) => queued.id == messageId)
+        .firstOrNull;
+    if (workTurn == null ||
+        !workTurn.run.canSteer ||
+        project == null ||
+        session == null ||
+        message == null) {
+      return false;
+    }
+    final members = membersOf(project, session: session);
+    final mentioned = ChatReferenceService.explicitlyMentionedMember(
+      message.text,
+      members,
+    );
+    if (mentioned != null && mentioned.id != workTurn.memberId) return false;
+
+    final explicitContext = await ChatReferenceService.promptContext(
+      ProjectReferenceScope(project: project, members: members),
+      message.text,
+    );
+    // Resolver las referencias espera: el turno pudo terminar mientras tanto.
+    if (!identical(_workTurns[sessionId]?.run, workTurn.run)) return false;
+    final prompt = _channelPrompt(
+      message.text,
+      explicitContext,
+      message.imagePaths,
+    );
+    if (!workTurn.run.steer(prompt)) return false;
+
+    (_unconfirmedSteers[sessionId] ??= {})[prompt] = message;
+    final agentName = members
+        .where((member) => member.id == workTurn.memberId)
+        .firstOrNull
+        ?.name;
+    _updateSession(
+      projectId,
+      sessionId,
+      (open) => open.copyWith(
+        queuedMessages: [
+          for (final queued in open.queuedMessages)
+            if (queued.id != messageId) queued,
+        ],
+      ),
+    );
+    _appendMessage(
+      projectId,
+      sessionId,
+      ChatMessage(
+        role: ChatRole.user,
+        text: message.text,
+        timestamp: DateTime.now(),
+        imagePaths: message.imagePaths,
+        viaKeelAi: message.viaKeelAi,
+        workNodeId: workTurn.workNodeId,
+      ),
+    );
+    _appendMessage(
+      projectId,
+      sessionId,
+      ChatMessage(
+        role: ChatRole.system,
+        text:
+            'Entregado${agentName == null ? '' : ' a @$agentName'} en su '
+            'próximo paso, sin cortar el turno.',
+        timestamp: DateTime.now(),
+        workNodeId: workTurn.workNodeId,
+      ),
+    );
+    await _persist();
+    return true;
+  }
+
+  /// Lo que se le inyectó al turno y no llegó a entrar —el turno terminó
+  /// antes, o lo frenaron— vuelve a la cola. Tras un Detener queda en
+  /// espera: parar es tomar el control, no pedir que salga solo.
+  void _requeueUnconfirmedSteers(String projectId, String sessionId) {
+    final missed = _unconfirmedSteers.remove(sessionId);
+    if (missed == null || missed.isEmpty) return;
+    final delivery = _stoppedSessionIds.contains(sessionId)
+        ? SessionQueuedDelivery.standby
+        : SessionQueuedDelivery.afterCurrentTurn;
+    _updateSession(
+      projectId,
+      sessionId,
+      (session) => session.copyWith(
+        queuedMessages: [
+          ...session.queuedMessages,
+          for (final message in missed.values)
+            message.copyWith(delivery: delivery),
+        ],
+      ),
+    );
+    _appendMessage(
+      projectId,
+      sessionId,
+      ChatMessage(
+        role: ChatRole.system,
+        text: missed.length == 1
+            ? 'El turno terminó antes de que el agente leyera tu mensaje: '
+                  'volvió a la cola.'
+            : 'El turno terminó antes de que el agente leyera '
+                  '${missed.length} mensajes: volvieron a la cola.',
+        timestamp: DateTime.now(),
+      ),
+    );
   }
 
   void _setQueuedDelivery(
@@ -3727,6 +3946,18 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
       ),
     );
   }
+
+  /// Lo que le llega al agente por un mensaje del canal: el texto, el
+  /// contexto de lo que nombra y cómo leer los adjuntos.
+  String _channelPrompt(
+    String text,
+    String explicitContext,
+    List<String> imagePaths,
+  ) => [
+    if (text.isNotEmpty) text,
+    if (explicitContext.isNotEmpty) explicitContext,
+    if (imagePaths.isNotEmpty) _describeChannelAttachments(imagePaths),
+  ].join('\n\n');
 
   String _describeChannelAttachments(List<String> imagePaths) {
     final buffer = StringBuffer(
@@ -4091,14 +4322,12 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
     // el hilo, no lo lee nadie, y el usuario lo tiene que escribir de nuevo.
     // La corrida de workflow lo limpiaba en su `finally`; una sesión sin
     // workflow no tenía quién.
-    // La marca de «detenido» es del turno que se frenó, no de la sesión. Acá
-    // el mensaje YA salió de la cola: si la marca sobrevive, `_runTurn` corta
-    // en su primera guarda y el mensaje se pierde para siempre — aparece en
-    // el hilo, no lo lee nadie, y el usuario lo tiene que escribir de nuevo.
-    // La corrida de workflow lo limpiaba en su `finally`; una sesión sin
-    // workflow no tenía quién.
     _stoppedSessionIds.remove(sessionId);
     await _persist();
+    if (next.delivery == SessionQueuedDelivery.interrupting &&
+        await _resumeInterruptedNodeWith(projectId, sessionId, next)) {
+      return;
+    }
     await _sendToSession(
       projectId,
       sessionId,
@@ -4106,6 +4335,97 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
       imagePaths: next.imagePaths,
       viaKeelAi: next.viaKeelAi,
     );
+  }
+
+  /// El mensaje que cortó el turno de un nodo viaja ADENTRO de la
+  /// continuación de ese nodo: un solo turno, en vez de uno para el mensaje
+  /// y otro que relanza el nodo desde su contrato.
+  ///
+  /// False cuando no aplica —no se cortó un nodo, el mensaje nombra a otro
+  /// agente, o el workflow no se puede retomar— y el mensaje sale por el
+  /// camino de siempre. Si el workflow arrancó pero no llegó a ese nodo, el
+  /// mensaje vuelve a la cola en espera: nadie lo leyó.
+  Future<bool> _resumeInterruptedNodeWith(
+    String projectId,
+    String sessionId,
+    SessionQueuedMessage message,
+  ) async {
+    final interrupted = _interruptedNodes[sessionId];
+    final project = _projectById(projectId);
+    final session = project == null ? null : _sessionById(project, sessionId);
+    if (interrupted == null ||
+        project == null ||
+        session == null ||
+        !_workflowResumable(session)) {
+      return false;
+    }
+    final members = membersOf(project, session: session);
+    final mentioned = ChatReferenceService.explicitlyMentionedMember(
+      message.text,
+      members,
+    );
+    if (mentioned != null && mentioned.id != interrupted.memberId) {
+      return false;
+    }
+
+    final explicitContext = await ChatReferenceService.promptContext(
+      ProjectReferenceScope(project: project, members: members),
+      message.text,
+    );
+    final pending = (
+      nodeId: interrupted.nodeId,
+      memberId: interrupted.memberId,
+      executionId: interrupted.executionId,
+      message: _channelPrompt(
+        message.text,
+        explicitContext,
+        message.imagePaths,
+      ),
+    );
+    _interruptedNodes[sessionId] = pending;
+    _appendMessage(
+      projectId,
+      sessionId,
+      ChatMessage(
+        role: ChatRole.user,
+        text: message.text,
+        timestamp: DateTime.now(),
+        imagePaths: message.imagePaths,
+        viaKeelAi: message.viaKeelAi,
+        workNodeId: interrupted.nodeId,
+      ),
+    );
+    await _persist();
+    await resumeWorkflow(projectId, sessionId);
+
+    // Por valor y no por nodo: otro corte del mismo nodo durante la corrida
+    // deja una entrada nueva, que no es la de este mensaje.
+    if (_interruptedNodes[sessionId] == pending) {
+      _interruptedNodes.remove(sessionId);
+      _updateSession(
+        projectId,
+        sessionId,
+        (open) => open.copyWith(
+          queuedMessages: [
+            ...open.queuedMessages,
+            message.copyWith(delivery: SessionQueuedDelivery.standby),
+          ],
+        ),
+      );
+      _appendMessage(
+        projectId,
+        sessionId,
+        ChatMessage(
+          role: ChatRole.system,
+          text:
+              'El workflow no retomó el paso que se cortó: tu mensaje volvió '
+              'a la cola.',
+          timestamp: DateTime.now(),
+        ),
+      );
+      await _persist();
+    }
+    return true;
   }
 
   /// Follow-ups return to the resolution owner, then to the last author.
@@ -4569,6 +4889,18 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
       ),
     );
     _runningSessions[sessionId] = run;
+    // Solo el turno que trabaja el caso recibe mensajes a mitad de camino o
+    // se retoma tras un corte: una consulta es de solo lectura y le contesta
+    // a otro agente, no al usuario.
+    final _WorkTurn? workTurn = consultOfProfileId == null
+        ? (
+            run: run,
+            memberId: member.id,
+            workNodeId: workNodeId,
+            executionId: effectiveExecutionId,
+          )
+        : null;
+    if (workTurn != null) _workTurns[sessionId] = workTurn;
     // El pid del CLI de este turno. Se anota para que la pantalla de Máquina
     // pueda decir de parte de quién corre cada proceso, y se suelta al
     // terminar: una lista que no se limpia es una lista que miente.
@@ -4938,6 +5270,9 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
             ),
           );
 
+        case TaskSteerDelivered(text: final text):
+          _unconfirmedSteers[sessionId]?.remove(text);
+
         case TaskFailure(message: final message):
           turnFailed = true;
           failureMessage = message;
@@ -4980,6 +5315,10 @@ class ProjectsViewModel extends ViewModel<ProjectsState> {
       ),
     );
     if (livePid != 0) RunningProcesses.unregister(livePid);
+    if (workTurn != null && identical(_workTurns[sessionId]?.run, run)) {
+      _workTurns.remove(sessionId);
+      _requeueUnconfirmedSteers(projectId, sessionId);
+    }
 
     // Un turno parado, caído o con la sesión muerta no llega al evento
     // `result`: sin esta fila, el intento que igual gastó no existe para la

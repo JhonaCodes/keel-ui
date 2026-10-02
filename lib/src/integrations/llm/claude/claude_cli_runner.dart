@@ -26,6 +26,7 @@ class ClaudeCliRunner implements LlmRunner {
     LlmTurnSpec spec, {
     required String userPath,
     required Stream<void> cancel,
+    Stream<String> steer = const Stream<String>.empty(),
     void Function(int pid)? onPidKnown,
   }) async* {
     // Lo primero, antes de cualquier `await`: ver CliCancelGuard — un
@@ -41,7 +42,6 @@ class ClaudeCliRunner implements LlmRunner {
       if (cancelGuard.cancelled) return;
 
       final arguments = buildClaudeArguments(
-        prompt: spec.prompt,
         model: spec.model,
         effort: spec.effort,
         allowedTools: launch.allowedTools,
@@ -72,28 +72,70 @@ class ClaudeCliRunner implements LlmRunner {
       }
       cancelGuard.attach(process);
       onPidKnown?.call(process.pid);
-      // `claude -p` con un stdin que no es TTY espera unos segundos por si
-      // le llega el prompt por ahí, y al vencer escribe «Warning: no stdin
-      // data received…» en stderr. El prompt ya va por argumento: cerrar el
-      // stdin le ahorra la espera a CADA turno y saca ese aviso del stderr,
-      // que es lo que se muestra como error cuando el turno sale con código
-      // distinto de cero (por ejemplo, al tope de turnos).
-      await process.stdin.close();
+      // Escribir en un proceso que ya murió falla acá, no en la llamada.
+      unawaited(
+        process.stdin.done.catchError(
+          (Object error) => Log.w('stdin de claude cerrado: $error'),
+        ),
+      );
+
+      // El prompt es la primera línea del stdin, y el stdin queda abierto
+      // mientras el modelo trabaja: es el canal por el que un mensaje del
+      // usuario entra en el próximo corte del turno, sin matar el proceso.
+      // Se cierra en el primer `result`; lo que ya se escribió, el CLI lo
+      // atiende antes de salir (como turno siguiente si el modelo ya había
+      // terminado), y con eso el proceso sale solo. Verificado contra el CLI
+      // 2.1.280.
+      var inputOpen = true;
+      process.stdin.writeln(claudeUserLine(spec.prompt));
+      void closeInput() {
+        if (!inputOpen) return;
+        inputOpen = false;
+        unawaited(process.stdin.close());
+      }
 
       // Uno por corrida: se acuerda de los `Task` que abrió este turno, que
       // es cómo reconoce después cuál `tool_result` es la devolución de un
       // subagente.
       final claudeReader = ClaudeStreamReader();
-      yield* cliTurnEvents(
+      final turn = cliTurnEvents(
         lines: process.stdout
             .transform(utf8.decoder)
             .transform(const LineSplitter()),
-        read: claudeReader.read,
+        read: (event) {
+          if (event['type'] == 'result') closeInput();
+          return claudeReader.read(event);
+        },
         stderr: process.stderr.transform(utf8.decoder).join(),
         exitCode: process.exitCode,
         provider: 'claude',
         isCancelled: () => cancelGuard.cancelled,
       );
+
+      // Los eventos del turno y los acuses de los mensajes salen por el mismo
+      // stream. Un mensaje que llega con el stdin ya cerrado no tiene acuse:
+      // quien lo mandó lo devuelve a la cola.
+      final output = StreamController<LlmEvent>();
+      final steering = steer.listen((text) {
+        if (!inputOpen) return;
+        process.stdin.writeln(claudeUserLine(text, priority: 'next'));
+        output.add({'type': 'steerDelivered', 'text': text});
+      });
+      final forwarding = turn.listen(
+        output.add,
+        onError: output.addError,
+        onDone: () {
+          unawaited(steering.cancel());
+          unawaited(output.close());
+        },
+      );
+      try {
+        yield* output.stream;
+      } finally {
+        await steering.cancel();
+        await forwarding.cancel();
+        closeInput();
+      }
     } finally {
       await cancelGuard.dispose();
       await workspace?.dispose();

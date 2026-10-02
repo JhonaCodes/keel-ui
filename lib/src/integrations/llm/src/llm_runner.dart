@@ -15,10 +15,17 @@ abstract interface class LlmRunner {
   /// request. [onPidKnown] solo lo llaman los runners que corren un
   /// [Process] real — sirve para poder mirarlo desde afuera con `ps`; un
   /// runner de API nunca lo invoca.
+  ///
+  /// [steer] trae los mensajes que el usuario manda con el turno en curso.
+  /// Solo los entrega un runner que `dispatchLlmSteering` marca como capaz:
+  /// cada texto que de verdad entró al turno sale como un evento
+  /// `steerDelivered` con ese mismo texto, y lo que no tiene acuse no llegó.
+  /// El resto de los runners lo ignora, y quien llama no les manda nada.
   Stream<LlmEvent> run(
     LlmTurnSpec spec, {
     required String userPath,
     required Stream<void> cancel,
+    Stream<String> steer = const Stream<String>.empty(),
     void Function(int pid)? onPidKnown,
   });
 }

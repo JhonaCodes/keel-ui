@@ -39,6 +39,7 @@ part 'src/delivery_prompt.dart';
 part 'src/subagent_policy_prompt.dart';
 part 'src/plan_section_prompt.dart';
 part 'src/adaptive_node_prompt.dart';
+part 'src/node_continuation_prompt.dart';
 part 'src/outcome_protocol_prompt.dart';
 part 'src/consult_prompt.dart';
 part 'src/known_roots_prompt.dart';

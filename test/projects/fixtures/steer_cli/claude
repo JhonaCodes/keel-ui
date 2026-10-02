@@ -1,0 +1,47 @@
+#!/usr/bin/env python3
+"""A provider that takes a message mid-turn, like CLI 2.1.280 with
+--input-format stream-json: the prompt is the first stdin line, a line
+written while a tool runs enters the same turn, and the process leaves when
+its stdin closes. Logs each process and each stdin line in its cwd."""
+import json
+import os
+import select
+import sys
+from pathlib import Path
+
+
+def line(timeout):
+    ready, _, _ = select.select([sys.stdin], [], [], timeout)
+    if not ready:
+        return None
+    return sys.stdin.readline() or None
+
+
+def emit(event):
+    print(json.dumps(event), flush=True)
+
+
+with Path('invocations.log').open('a') as out:
+    out.write(f'{os.getpid()}\n')
+log = Path('stdin.jsonl')
+first = line(10)
+with log.open('a') as out:
+    out.write(first or '<eof>\n')
+emit({'type': 'system', 'subtype': 'init', 'session_id': 'fake-steer', 'model': 'sonnet'})
+emit({'type': 'assistant', 'message': {'content': [
+    {'type': 'tool_use', 'id': 't1', 'name': 'Bash', 'input': {'command': 'sleep 1'}}]}})
+# The test writes the message while this tool "runs".
+Path('turn-waiting').write_text('1')
+second = line(15)
+with log.open('a') as out:
+    out.write(second or '<none>\n')
+emit({'type': 'user', 'message': {'content': [
+    {'type': 'tool_result', 'tool_use_id': 't1', 'content': 'ok'}]}})
+heard = json.loads(second)['message']['content'] if second else 'NADA'
+answer = (f'RECIBIDO: {heard}\n```keel-outcome\nstatus: done\n'
+          'summary: Apliqué el cambio pedido a mitad de turno.\n```')
+emit({'type': 'assistant', 'message': {'content': [{'type': 'text', 'text': answer}]}})
+emit({'type': 'result', 'subtype': 'success', 'is_error': False, 'result': answer,
+      'session_id': 'fake-steer', 'total_cost_usd': 0.5})
+while line(10):
+    pass

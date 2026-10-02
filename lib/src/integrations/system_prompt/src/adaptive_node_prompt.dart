@@ -34,6 +34,12 @@ String adaptiveNodePrompt({
   /// El estado del caso nodo por nodo (ver `sessionDigest`). Va cuando el
   /// nodo arranca sin la sesión del CLI: es su única memoria del caso.
   String digest = '',
+
+  /// El mensaje que cortó el turno anterior de este nodo, cuando el nodo
+  /// vuelve a correr SIN la sesión del CLI que tenía. Con la sesión va
+  /// `nodeContinuationPrompt` en lugar de este contrato. Vacío si no hubo
+  /// corte.
+  String interruptionMessage = '',
 }) {
   final assignments = resolution.nodes
       .map((entry) {
@@ -77,6 +83,7 @@ String adaptiveNodePrompt({
       '${dependencyContext.trim().isEmpty ? '' : '\n\nLO QUE DEJARON LOS NODOS DE LOS QUE DEPENDES (parte de esta evidencia):\n${dependencyContext.trim()}\n\n'}'
       '${digest.trim().isEmpty ? '' : '\n\nESTADO ACTUAL DEL CASO:\n${digest.trim()}\n\n'}'
       '${node.output?.status == TurnOutcomeStatus.inProgress ? '\n\nAVANCE DE TU TURNO ANTERIOR (continúa desde aquí):\n${node.output?.summary}\n${node.output?.artifacts}\n\n' : ''}'
+      '${interruptionMessage.trim().isEmpty ? '' : '\n\nMENSAJE DEL USUARIO QUE CORTÓ TU TURNO ANTERIOR (atiéndelo antes de seguir):\n${interruptionMessage.trim()}\n\n'}'
       'No recorras un flujo fijo ni delegues '
       'la escritura. Trabaja solo en lo que desbloquea este nodo y conserva la '
       'evidencia verificable. Hallazgos abiertos:\n'

@@ -114,6 +114,7 @@ class OpenAiCompatibleApiRunner implements LlmRunner {
     LlmTurnSpec spec, {
     required String userPath,
     required Stream<void> cancel,
+    Stream<String> steer = const Stream<String>.empty(),
     void Function(int pid)? onPidKnown,
   }) async* {
     final started = Stopwatch()..start();

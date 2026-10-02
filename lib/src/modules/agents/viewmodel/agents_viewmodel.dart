@@ -1107,6 +1107,11 @@ class AgentsViewModel extends ViewModel<AgentsState> {
               ),
             );
 
+          // El chat 1:1 no le manda mensajes a un turno en curso: los suyos
+          // esperan en la cola. Nunca llega un acuse.
+          case TaskSteerDelivered():
+            break;
+
           case TaskFailure(message: final message):
             _appendMessage(
               agentId,

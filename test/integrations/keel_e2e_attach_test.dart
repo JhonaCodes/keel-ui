@@ -39,8 +39,8 @@ void main() {
       // RED antes del fix: ni `ensureKeelE2eAttached` ni `KeelE2eBinaryMissing`
       // existían, así que esta llamada ni compilaba. Sin
       // `debugEngineBinaryOverride`, la resolución real cae en este entorno
-      // de test: ni `KEEL_E2E_BIN`, ni el bundle de una `.app`, ni un build
-      // hermano junto al binario del test runner.
+      // de test: el test runner no corre desde una `.app` que traiga el
+      // motor embebido.
       final project = Project(
         id: 'p',
         name: 'p',
@@ -58,7 +58,7 @@ void main() {
       final failure = (result as Err<EngineConnection, KeelE2eAttachFailure>)
           .error;
       expect(failure, isA<KeelE2eBinaryMissing>());
-      expect(failure.message, contains('KEEL_E2E_BIN'));
+      expect(failure.message, contains('Vuelve a compilar Keel'));
     },
   );
 

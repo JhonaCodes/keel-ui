@@ -777,11 +777,11 @@ abstract class AppLocalizations {
   /// **'E2E'**
   String get labelE2e;
 
-  /// Shown on the E2E tab when the keel_e2e engine binary cannot be found.
+  /// Shown on the E2E tab when this Keel build lacks the embedded keel_e2e engine.
   ///
   /// In en, this message translates to:
-  /// **'keel_e2e was not found. Set {envVar} or install keel-e2e next to Keel.'**
-  String e2eEngineBinaryMissing(String envVar);
+  /// **'This Keel build does not include the keel-e2e engine. Rebuild Keel to include it.'**
+  String get e2eEngineBinaryMissing;
 
   /// No description provided for @labelEngine.
   ///

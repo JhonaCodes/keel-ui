@@ -398,9 +398,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get labelE2e => 'E2E';
 
   @override
-  String e2eEngineBinaryMissing(String envVar) {
-    return 'keel_e2e was not found. Set $envVar or install keel-e2e next to Keel.';
-  }
+  String get e2eEngineBinaryMissing =>
+      'This Keel build does not include the keel-e2e engine. Rebuild Keel to include it.';
 
   @override
   String get labelEngine => 'ENGINE';

@@ -18,15 +18,15 @@ sealed class KeelE2eAttachFailure {
   String get message;
 }
 
-/// Ningún binario resuelto (`KEEL_E2E_BIN`, el bundle de la app, ni el build
-/// de desarrollo hermano) — [KeelE2eHostViewModel.attach] nunca se llamó.
+/// This build of Keel carries no embedded engine ([KeelE2eBinary]), so
+/// [KeelE2eHostViewModel.attach] was never called.
 final class KeelE2eBinaryMissing extends KeelE2eAttachFailure {
   const KeelE2eBinaryMissing();
 
   @override
   String get message =>
-      'No se encontró el binario de keel_e2e. Configurá $kKeelE2eBinEnvVar '
-      'o instalá keel-e2e junto a este clon de Keel.';
+      'Esta compilación de Keel no incluye el motor keel-e2e. Vuelve a '
+      'compilar Keel para incluirlo.';
 }
 
 /// El proceso arrancó pero nunca imprimió `KEEL_E2E_READY` (timeout, crash,
@@ -61,13 +61,7 @@ Future<Result<EngineConnection, KeelE2eAttachFailure>> ensureKeelE2eAttached({
   required String sessionId,
   String? debugEngineBinaryOverride,
 }) async {
-  final binary =
-      debugEngineBinaryOverride ??
-      resolveKeelE2eBinary(
-        envOverride: Platform.environment[kKeelE2eBinEnvVar],
-        resolvedExecutablePath: Platform.resolvedExecutable,
-        exists: (path) => File(path).existsSync(),
-      );
+  final binary = debugEngineBinaryOverride ?? KeelE2eBinary.embedded();
   if (binary == null) return Err(const KeelE2eBinaryMissing());
 
   final dataDir = await keelE2eDataDir();
@@ -98,13 +92,7 @@ Future<Result<void, KeelE2eAttachFailure>> prepareKeelE2eHost({
   required String sessionId,
   String? debugEngineBinaryOverride,
 }) async {
-  final binary =
-      debugEngineBinaryOverride ??
-      resolveKeelE2eBinary(
-        envOverride: Platform.environment[kKeelE2eBinEnvVar],
-        resolvedExecutablePath: Platform.resolvedExecutable,
-        exists: (path) => File(path).existsSync(),
-      );
+  final binary = debugEngineBinaryOverride ?? KeelE2eBinary.embedded();
   if (binary == null) return Err(const KeelE2eBinaryMissing());
 
   final dataDir = await keelE2eDataDir();

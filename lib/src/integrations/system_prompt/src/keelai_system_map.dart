@@ -358,6 +358,9 @@ Mapa de lo que existe en esta app y cómo se relaciona:
   y rechaza uno de otro tipo con `target_mismatch`, así que una app atada a
   la tablet nunca corre en el teléfono ni al revés. Cerrar una sesión
   cancela solo sus pruebas; el motor sigue sirviendo a las demás.
+  El motor viene embebido en la app de Keel, con sus modelos de OCR: no hay
+  nada que instalar ni configurar aparte. Si la pestaña E2E dice que esta
+  compilación no lo incluye, la solución es volver a compilar Keel.
   Existe un workflow sembrado, «E2E → diagnóstico → arreglo →
   re-verificación» (`e2e-run` → `diagnosis` → `fix` → `e2e-verify`): corre
   los escenarios, diagnostica la causa con el reporte, corrige, y vuelve a

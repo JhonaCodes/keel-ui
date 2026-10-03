@@ -33,7 +33,7 @@ class SessionE2eView extends StatefulWidget {
   final Project project;
   final Session? session;
 
-  /// A fixed engine binary path, skipping [resolveKeelE2eBinary] — for
+  /// A fixed engine binary path, skipping [KeelE2eBinary.embedded] — for
   /// widget tests that need a deterministic, never-really-executed
   /// "binary" (e.g. a non-executable fixture that makes `Process.start`
   /// fail fast, instead of racing the real engine or the 30 s ready
@@ -89,7 +89,7 @@ class _SessionE2eViewState extends State<SessionE2eView> {
         setState(() {
           _missingBinaryReason = AppLocalizations.of(
             context,
-          ).e2eEngineBinaryMissing(kKeelE2eBinEnvVar);
+          ).e2eEngineBinaryMissing;
         });
       }
     }

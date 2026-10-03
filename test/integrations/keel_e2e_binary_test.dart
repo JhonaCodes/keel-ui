@@ -18,72 +18,31 @@ void main() {
 
   bool existsOnDisk(String path) => File(path).existsSync();
 
-  test('KEEL_E2E_BIN gana sobre cualquier otra búsqueda, si existe', () {
-    final override = p.join(tmp.path, 'custom', 'keel_e2e');
-    File(override).createSync(recursive: true);
-
-    final resolved = resolveKeelE2eBinary(
-      envOverride: override,
-      resolvedExecutablePath: p.join(tmp.path, 'Keel.app', 'Contents', 'MacOS', 'keel_ui'),
-      exists: existsOnDisk,
-    );
-
-    expect(resolved, override);
-  });
-
-  test('KEEL_E2E_BIN puesto pero inexistente no cae a otra ruta', () {
-    final resolved = resolveKeelE2eBinary(
-      envOverride: p.join(tmp.path, 'no-existe', 'keel_e2e'),
-      resolvedExecutablePath: p.join(tmp.path, 'Keel.app', 'Contents', 'MacOS', 'keel_ui'),
-      exists: existsOnDisk,
-    );
-
-    expect(resolved, isNull);
-  });
-
-  test('sin override, busca el bundle de la app por el .app ancestro', () {
-    final exe = p.join(tmp.path, 'Applications', 'Keel.app', 'Contents', 'MacOS', 'keel_ui');
-    final bundled = p.join(
-      tmp.path,
-      'Applications',
-      'Keel.app',
+  test('finds the engine embedded in the installed app', () {
+    final app = p.join(tmp.path, 'Applications', 'Keel.app');
+    final embedded = p.join(
+      app,
       'Contents',
       'Resources',
       'keel_e2e',
       'bin',
       'keel_e2e',
     );
-    File(bundled).createSync(recursive: true);
+    File(embedded).createSync(recursive: true);
 
-    // RED antes del fix: `resolveKeelE2eBinary` no existía, así que esta
-    // llamada ni compilaba.
-    final resolved = resolveKeelE2eBinary(
-      resolvedExecutablePath: exe,
+    final resolved = KeelE2eBinary.resolve(
+      resolvedExecutablePath: p.join(app, 'Contents', 'MacOS', 'Keel'),
       exists: existsOnDisk,
     );
 
-    expect(resolved, bundled);
+    expect(resolved, embedded);
   });
 
-  test(
-    'sin bundle, busca el build hermano subiendo hasta una carpeta '
-    '"keel-ui"',
-    () {
-      final exe = p.join(
-        tmp.path,
-        'KEEL',
-        'keel-ui',
-        'build',
-        'macos',
-        'Build',
-        'Products',
-        'Debug',
-        'keel_ui.app',
-        'Contents',
-        'MacOS',
-        'keel_ui',
-      );
-      final devBuild = p.join(
+  test('a bundle without the engine resolves to null, never elsewhere', () {
+    // A checkout of keel-e2e next to keel-ui no longer counts: only what
+    // the build embedded in the app does.
+    File(
+      p.join(
         tmp.path,
         'KEEL',
         'keel-e2e',
@@ -91,20 +50,33 @@ void main() {
         'bundle',
         'bin',
         'keel_e2e',
-      );
-      File(devBuild).createSync(recursive: true);
+      ),
+    ).createSync(recursive: true);
+    final exe = p.join(
+      tmp.path,
+      'KEEL',
+      'keel-ui',
+      'build',
+      'macos',
+      'Build',
+      'Products',
+      'Debug',
+      'Keel.app',
+      'Contents',
+      'MacOS',
+      'Keel',
+    );
 
-      final resolved = resolveKeelE2eBinary(
-        resolvedExecutablePath: exe,
-        exists: existsOnDisk,
-      );
+    final resolved = KeelE2eBinary.resolve(
+      resolvedExecutablePath: exe,
+      exists: existsOnDisk,
+    );
 
-      expect(resolved, devBuild);
-    },
-  );
+    expect(resolved, isNull);
+  });
 
-  test('sin ninguno de los tres, devuelve null', () {
-    final resolved = resolveKeelE2eBinary(
+  test('outside a macOS bundle, resolves to null', () {
+    final resolved = KeelE2eBinary.resolve(
       resolvedExecutablePath: p.join(tmp.path, 'solo', 'un', 'binario'),
       exists: existsOnDisk,
     );

@@ -186,7 +186,7 @@
   "labelChat": "Chat",
   "labelMap": "Mapa",
   "labelE2e": "E2E",
-  "e2eEngineBinaryMissing": "No se encontró keel_e2e. Configura {envVar} o instala keel-e2e junto a Keel.",
+  "e2eEngineBinaryMissing": "Esta compilación de Keel no incluye el motor keel-e2e. Vuelve a compilar Keel para incluirlo.",
   "labelEngine": "MOTOR",
   "labelTurns": "TURNOS",
   "labelInput": "ENTRADA",

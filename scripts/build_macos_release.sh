@@ -116,6 +116,15 @@ EXECUTABLE_PATH="$APP_PATH/Contents/MacOS/Keel"
   exit 66
 }
 
+# La fase de Xcode «Embed keel-e2e» deja el motor E2E dentro del bundle;
+# sin él, la pestaña E2E de esta release no funcionaría.
+E2E_DIR="$APP_PATH/Contents/Resources/keel_e2e"
+[[ -x "$E2E_DIR/bin/keel_e2e" && -d "$E2E_DIR/models/ppocrv5" ]] &&
+  "$E2E_DIR/bin/keel_e2e" --version >/dev/null || {
+  echo "Keel.app no incluye keel-e2e: la fase «Embed keel-e2e» no corrió." >&2
+  exit 66
+}
+
 codesign --force --deep --sign - "$APP_PATH"
 codesign --verify --deep --strict --verbose=2 "$APP_PATH"
 

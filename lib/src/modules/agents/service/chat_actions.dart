@@ -1,8 +1,8 @@
 import 'dart:async';
 
-import 'package:keel_ui/src/integrations/chat_references/chat_references.dart';
-import 'package:keel_ui/src/modules/agents/model/agent_provider.dart';
-import 'package:keel_ui/src/modules/agents/model/file_edit.dart';
+import 'package:keel_core/integrations/chat_references/chat_references.dart';
+import 'package:keel_core/modules/agents/model/agent_provider.dart';
+import 'package:keel_core/modules/agents/model/file_edit.dart';
 import 'package:keel_ui/src/modules/agents/viewmodel/agents_viewmodel.dart';
 
 /// Every intent the chat UI ([ChatView] and its bubbles) can fire, abstracted
@@ -152,11 +152,8 @@ class LocalChatActions extends ChatActions {
     String agentId, {
     required bool grant,
     bool always = false,
-  }) => _agents.respondToPermissionRequest(
-    agentId,
-    grant: grant,
-    always: always,
-  );
+  }) =>
+      _agents.respondToPermissionRequest(agentId, grant: grant, always: always);
 
   @override
   void setAgentFullFileSystemAccess(String agentId, bool enabled) =>

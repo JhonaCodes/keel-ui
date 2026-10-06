@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:keel_ui/src/modules/agents/model/queued_message.dart';
+import 'package:keel_core/modules/agents/model/queued_message.dart';
 
 void main() {
   group('el modelo de la cola', () {

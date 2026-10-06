@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
 
-import 'package:keel_ui/src/modules/secrets/model/secret.dart';
+import 'package:keel_core/modules/secrets/model/secret.dart';
 import 'package:keel_ui/src/modules/secrets/ui/screen/secret_form_screen.dart';
 import 'package:keel_ui/src/modules/secrets/ui/widget/secret_delete_dialog.dart';
 import 'package:keel_ui/src/modules/secrets/viewmodel/secrets_viewmodel.dart';

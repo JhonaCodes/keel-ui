@@ -3,10 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/core/ui/app_theme.dart';
 import 'package:keel_ui/src/core/ui/keel_mark.dart';
-import 'package:keel_ui/src/modules/agents/model/chat_message.dart';
+import 'package:keel_core/modules/agents/model/chat_message.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/bubble_width.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/markdown_text.dart';
-import 'package:keel_ui/src/modules/projects/model/session_message_reference.dart';
+import 'package:keel_core/modules/projects/model/session_message_reference.dart';
 import 'package:keel_ui/src/modules/projects/ui/widget/session_message_bubble.dart';
 
 /// El tono de una nota del hilo: qué color la enmarca, qué ícono la firma y

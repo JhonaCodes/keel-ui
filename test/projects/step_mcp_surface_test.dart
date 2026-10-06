@@ -2,7 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:keel_e2e_panel/keel_e2e_panel.dart';
 
 import 'package:keel_ui/src/modules/projects/service/step_mcp_surface.dart';
-import 'package:keel_ui/src/modules/workflows/model/workflow_capability.dart';
+import 'package:keel_core/modules/workflows/model/workflow_capability.dart';
 
 void main() {
   const connection = EngineConnection(

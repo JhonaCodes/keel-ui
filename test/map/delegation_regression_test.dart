@@ -1,10 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:keel_ui/src/core/services/claude_stream_events.dart';
-import 'package:keel_ui/src/integrations/llm/codex/codex_stream_reader.dart';
-import 'package:keel_ui/src/integrations/task_runner/task_runner.dart';
-import 'package:keel_ui/src/modules/projects/model/thread_entry.dart';
-import 'package:keel_ui/src/modules/projects/model/session_subagent.dart';
+import 'package:keel_core/core/services/claude_stream_events.dart';
+import 'package:keel_core/integrations/llm/codex/codex_stream_reader.dart';
+import 'package:keel_core/integrations/task_runner/task_runner.dart';
+import 'package:keel_core/modules/projects/model/thread_entry.dart';
+import 'package:keel_core/modules/projects/model/session_subagent.dart';
 
 void main() {
   test('reloaded unfinished child has unconfirmed outcome, not failure', () {

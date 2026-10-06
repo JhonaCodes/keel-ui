@@ -111,7 +111,7 @@ class _Plan extends StatelessWidget {
             // Lo ignorado no sale en ningún `git status` y se borra igual.
             // Es el `.env` que escribiste a mano hace tres semanas.
             text:
-                'Con la carpeta se van ${_files(plan.ignoredHere.length)} '
+                'Con la carpeta se van ${worktreeFileCount(plan.ignoredHere.length)} '
                 'ignorados, que no están en git y no vuelven:\n'
                 '${plan.ignoredHere.take(8).map((path) => '· $path').join('\n')}'
                 '${plan.ignoredHere.length > 8 ? '\n· …y ${plan.ignoredHere.length - 8} más' : ''}',

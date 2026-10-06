@@ -1,41 +1,16 @@
 import 'dart:async';
 
-import 'package:logger_rs/logger_rs.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
 
-import 'package:keel_ui/src/modules/workflows/model/workflow.dart';
-import 'package:keel_ui/src/modules/workflows/repository/workflows_repository.dart';
-import 'package:keel_ui/src/shared/shared.dart';
+import 'package:keel_core/modules/workflows/model/workflow.dart';
+import 'package:keel_core/modules/workflows/service/workflows_store.dart';
+import 'package:keel_ui/src/core/services/store_mirror_view_model.dart';
 
-class WorkflowsViewModel extends ViewModel<WorkflowsState> {
-  WorkflowsViewModel() : super(const WorkflowsState());
+class WorkflowsViewModel extends StoreMirrorViewModel<WorkflowsState> {
+  WorkflowsViewModel() : super(WorkflowsStore.instance);
 
-  WorkflowsRepository get _repository => WorkflowsRepository();
+  Future<void> get ready => WorkflowsStore.instance.ready;
 
-  /// Resolves once the persisted catalog has loaded — callers that read
-  /// [data] outside a widget (catalog sync, MCP tools) must await this,
-  /// and the guard keeps `reinitializeWithContext()`'s second init() from
-  /// wiping an already-loaded catalog. Same pattern as SkillsViewModel.
-  Future<void>? _ready;
-  Future<void> get ready => _ready ??= _loadPersistedWorkflows();
-
-  @override
-  void init() {
-    if (_ready == null) updateSilently(const WorkflowsState());
-    unawaited(ready);
-  }
-
-  Future<void> _loadPersistedWorkflows() async {
-    try {
-      final workflows = await _repository.load();
-      updateState(data.copyWith(workflows: workflows));
-    } catch (error) {
-      Log.e('Failed to load persisted workflows', error: error);
-    }
-  }
-
-  /// Registers a new workflow. Returns a user-facing error message on
-  /// failure (invalid or duplicate name), or null on success.
   String? createWorkflow({
     required String name,
     required String whenToApply,
@@ -44,47 +19,15 @@ class WorkflowsViewModel extends ViewModel<WorkflowsState> {
     WorkflowKind kind = WorkflowKind.general,
     WorkflowPolicy policy = const WorkflowPolicy(),
     List<WorkflowCapability>? capabilities,
-  }) {
-    final error = _validateName(name);
-    if (error != null) return error;
-    final resolvedCapabilities =
-        capabilities ??
-        defaultWorkflowCapabilities(kind, policy.resolutionRole);
-    final capabilitiesError =
-        validateWorkflowCapabilities(resolvedCapabilities) ??
-        _lintErrors(resolvedCapabilities);
-    if (capabilitiesError != null) return capabilitiesError;
-
-    final workflow = Workflow(
-      id: generateUuidV4(),
-      name: name,
-      whenToApply: whenToApply.trim(),
-      skillNames: skillNames,
-      buildsRoadmap: buildsRoadmap,
-      kind: kind,
-      policy: policy,
-      capabilities: resolvedCapabilities,
-      createdAt: DateTime.now(),
-    );
-    final workflows = [...data.workflows, workflow];
-    updateState(data.copyWith(workflows: workflows));
-    unawaited(_repository.save(workflows));
-    return null;
-  }
-
-  /// Updates an existing workflow. Returns a user-facing error message on
-  /// failure (invalid or duplicate name), or null on success.
-  /// Lo que no se pasa NO se toca. `buildsRoadmap` no está en ningún
-  /// formulario —lo pone el sistema en el workflow que arma la carpeta— y un
-  /// `required` acá lo habría borrado en cada edición de nombre.
-  /// Los errores del lint, en un solo mensaje. Los warnings no frenan.
-  String? _lintErrors(List<WorkflowCapability> capabilities) {
-    final errors = lintWorkflowCapabilities(capabilities)
-        .where((lint) => lint.severity == WorkflowLintSeverity.error)
-        .map((lint) => lint.message)
-        .toList();
-    return errors.isEmpty ? null : errors.join(' ');
-  }
+  }) => WorkflowsStore.instance.createWorkflow(
+    name: name,
+    whenToApply: whenToApply,
+    skillNames: skillNames,
+    buildsRoadmap: buildsRoadmap,
+    kind: kind,
+    policy: policy,
+    capabilities: capabilities,
+  );
 
   String? updateWorkflow(
     String id, {
@@ -95,46 +38,16 @@ class WorkflowsViewModel extends ViewModel<WorkflowsState> {
     WorkflowKind? kind,
     WorkflowPolicy? policy,
     List<WorkflowCapability>? capabilities,
-  }) {
-    final error = _validateName(name, excludingId: id);
-    if (error != null) return error;
-    if (capabilities != null) {
-      final capabilitiesError =
-          validateWorkflowCapabilities(capabilities) ??
-          _lintErrors(capabilities);
-      if (capabilitiesError != null) return capabilitiesError;
-    }
-
-    final workflows = data.workflows
-        .map(
-          (workflow) => workflow.id == id
-              ? workflow.copyWith(
-                  name: name,
-                  whenToApply: whenToApply.trim(),
-                  skillNames: skillNames,
-                  buildsRoadmap: buildsRoadmap,
-                  kind: kind,
-                  policy: policy,
-                  capabilities: capabilities,
-                )
-              : workflow,
-        )
-        .toList();
-    updateState(data.copyWith(workflows: workflows));
-    unawaited(_repository.save(workflows));
-    return null;
-  }
-
-  String? _validateName(String name, {String? excludingId}) {
-    final formatError = validateWorkflowName(name);
-    if (formatError != null) return formatError;
-
-    final isTaken = data.workflows.any(
-      (workflow) => workflow.name == name && workflow.id != excludingId,
-    );
-    if (isTaken) return 'Ya existe un workflow con ese nombre.';
-    return null;
-  }
+  }) => WorkflowsStore.instance.updateWorkflow(
+    id,
+    name: name,
+    whenToApply: whenToApply,
+    skillNames: skillNames,
+    buildsRoadmap: buildsRoadmap,
+    kind: kind,
+    policy: policy,
+    capabilities: capabilities,
+  );
 }
 
 mixin WorkflowsService {

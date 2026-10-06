@@ -4,15 +4,15 @@ import 'dart:convert';
 import 'package:logger_rs/logger_rs.dart';
 
 import 'package:keel_ui/src/core/services/app_window_service.dart';
-import 'package:keel_ui/src/integrations/chat_references/chat_references.dart';
-import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
+import 'package:keel_core/integrations/chat_references/chat_references.dart';
+import 'package:keel_core/modules/agent_profiles/model/agent_profile.dart';
 import 'package:keel_ui/src/modules/agent_profiles/viewmodel/agent_profiles_viewmodel.dart';
-import 'package:keel_ui/src/modules/agents/model/agent.dart';
-import 'package:keel_ui/src/modules/agents/model/agent_provider.dart';
-import 'package:keel_ui/src/modules/agents/model/chat_message.dart';
-import 'package:keel_ui/src/modules/agents/model/file_edit.dart';
+import 'package:keel_core/modules/agents/model/agent.dart';
+import 'package:keel_core/modules/agents/model/agent_provider.dart';
+import 'package:keel_core/modules/agents/model/chat_message.dart';
+import 'package:keel_core/modules/agents/model/file_edit.dart';
 import 'package:keel_ui/src/modules/agents/viewmodel/agents_viewmodel.dart';
-import 'package:keel_ui/src/modules/assistant/model/assistant_window_arguments.dart';
+import 'package:keel_core/modules/assistant/model/assistant_window_arguments.dart';
 import 'package:keel_ui/src/modules/assistant/model/assistant_window_state.dart';
 import 'package:keel_ui/src/modules/settings/viewmodel/settings_viewmodel.dart';
 

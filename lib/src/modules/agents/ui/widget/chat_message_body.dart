@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import 'package:keel_ui/src/modules/agents/model/chat_message.dart';
-import 'package:keel_ui/src/modules/agents/model/message_block.dart';
+import 'package:keel_core/modules/agents/model/chat_message.dart';
+import 'package:keel_core/modules/agents/model/message_block.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/chat_image_attachments.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/file_editor_content.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/inline_file_editor.dart';

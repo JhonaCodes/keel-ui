@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:keel_ui/src/integrations/llm/llm.dart';
+import 'package:keel_core/integrations/llm/llm.dart';
 
 void main() {
   group('LlmProvider.fromLegacyAlias', () {

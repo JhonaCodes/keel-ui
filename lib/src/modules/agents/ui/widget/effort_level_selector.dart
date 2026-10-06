@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'package:keel_ui/src/modules/agents/model/effort_level.dart';
+import 'package:keel_core/modules/agents/model/effort_level.dart';
 
 class EffortLevelSelector extends StatelessWidget {
   const EffortLevelSelector({

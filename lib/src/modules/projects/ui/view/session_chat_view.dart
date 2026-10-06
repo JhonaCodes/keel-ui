@@ -6,28 +6,28 @@ import 'package:reactive_notifier/reactive_notifier.dart';
 import 'package:desktop_drop/desktop_drop.dart';
 
 import 'package:keel_ui/l10n/generated/app_localizations.dart';
-import 'package:keel_ui/src/core/services/external_link_service.dart';
+import 'package:keel_core/core/services/external_link_service.dart';
 import 'package:keel_ui/src/integrations/workspace_roots/workspace_roots.dart';
-import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
+import 'package:keel_core/modules/agent_profiles/model/agent_profile.dart';
 import 'package:keel_ui/src/modules/agent_profiles/viewmodel/agent_profiles_viewmodel.dart';
-import 'package:keel_ui/src/modules/agents/model/chat_message.dart';
-import 'package:keel_ui/src/modules/agents/service/chat_attachment_store.dart';
+import 'package:keel_core/modules/agents/model/chat_message.dart';
+import 'package:keel_core/modules/agents/service/chat_attachment_store.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/chat_attachment_strip.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/fade_in_entrance.dart';
-import 'package:keel_ui/src/modules/agents/model/agent_provider.dart';
+import 'package:keel_core/modules/agents/model/agent_provider.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/permission_request_banner.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/plan_mode_toggle.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/plan_ready_banner.dart';
 import 'package:keel_ui/src/modules/projects/model/member_color.dart';
-import 'package:keel_ui/src/modules/projects/model/project.dart';
-import 'package:keel_ui/src/modules/projects/model/session.dart';
-import 'package:keel_ui/src/modules/projects/model/session_queued_message.dart';
-import 'package:keel_ui/src/modules/projects/model/session_tab.dart';
+import 'package:keel_core/modules/projects/model/project.dart';
+import 'package:keel_core/modules/projects/model/session.dart';
+import 'package:keel_core/modules/projects/model/session_queued_message.dart';
+import 'package:keel_core/modules/projects/model/session_tab.dart';
 import 'package:keel_ui/src/modules/projects/ui/view/session_e2e_view.dart';
-import 'package:keel_ui/src/integrations/chat_references/chat_references.dart';
-import 'package:keel_ui/src/modules/projects/model/thread_entry.dart';
+import 'package:keel_core/integrations/chat_references/chat_references.dart';
+import 'package:keel_core/modules/projects/model/thread_entry.dart';
 import 'package:keel_ui/src/modules/projects/ui/view/session_map_view.dart';
-import 'package:keel_ui/src/modules/projects/model/resolution_case.dart';
+import 'package:keel_core/modules/projects/model/resolution_case.dart';
 import 'package:keel_ui/src/modules/projects/ui/widget/session_subagent_card.dart';
 import 'package:keel_ui/src/modules/projects/ui/widget/session_decision_card.dart';
 import 'package:keel_ui/src/modules/projects/ui/widget/session_agent_picker.dart';
@@ -38,11 +38,12 @@ import 'package:keel_ui/src/modules/agents/ui/widget/queued_messages_panel.dart'
 import 'package:keel_ui/src/modules/agents/ui/widget/chat_reference_composer_field.dart';
 import 'package:keel_ui/src/modules/projects/ui/widget/workflow_progress_panel.dart';
 import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
-import 'package:keel_ui/src/modules/workflows/model/workflow.dart';
+import 'package:keel_core/modules/workflows/model/workflow.dart';
 import 'package:keel_ui/src/modules/workflows/ui/screen/workflow_picker_panel.dart';
 import 'package:keel_ui/src/modules/workflows/viewmodel/workflows_viewmodel.dart';
 import 'package:keel_ui/src/modules/workspace/viewmodel/workspace_viewmodel.dart';
-import 'package:keel_ui/src/shared/shared.dart';
+import 'package:keel_core/shared/shared.dart';
+import 'package:keel_ui/src/shared/num_extension.dart';
 import 'package:keel_e2e_panel/keel_e2e_panel.dart'
     show
         HostFailed,

@@ -1,7 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:keel_ui/src/core/services/local_database.dart';
-import 'package:keel_ui/src/modules/boards/model/board.dart';
+import 'package:keel_core/core/store/keel_store.dart';
+import 'package:keel_ui/src/core/services/flutter_local_db_store.dart';
+import 'package:keel_core/modules/boards/model/board.dart';
 import 'package:keel_ui/src/modules/boards/viewmodel/boards_viewmodel.dart';
 import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
 import 'package:keel_ui/src/modules/workspace/model/workspace_lens.dart';
@@ -25,6 +27,7 @@ String _project(String name) {
 
 void main() {
   setUpAll(LocalDatabase.markUnavailable);
+  setUpAll(() => KeelStore.instance = const FlutterLocalDbStore());
 
   // La carga de disco se espera ANTES de sembrar. Con la base marcada como
   // no disponible devuelve vacío, pero devuelve tarde: sin esperarla, esa

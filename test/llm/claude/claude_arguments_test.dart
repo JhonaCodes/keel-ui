@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:keel_ui/src/integrations/llm/claude/claude_arguments.dart';
+import 'package:keel_core/integrations/llm/claude/claude_arguments.dart';
 
 void main() {
   group('buildClaudeArguments', () {

@@ -5,10 +5,12 @@ import 'package:reactive_notifier/reactive_notifier.dart';
 
 import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/core/services/local_database.dart';
+import 'package:keel_core/core/store/keel_store.dart';
+import 'package:keel_ui/src/core/services/flutter_local_db_store.dart';
 import 'package:keel_ui/src/core/ui/app_theme.dart';
 import 'package:keel_ui/src/core/ui/sidebar_section_row.dart';
-import 'package:keel_ui/src/modules/boards/model/board.dart';
-import 'package:keel_ui/src/modules/projects/model/project.dart';
+import 'package:keel_core/modules/boards/model/board.dart';
+import 'package:keel_core/modules/projects/model/project.dart';
 import 'package:keel_ui/src/modules/boards/viewmodel/boards_viewmodel.dart';
 import 'package:keel_ui/src/modules/projects/ui/view/projects_sidebar.dart';
 import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
@@ -89,6 +91,7 @@ Widget _app() => MaterialApp(
 
 void main() {
   setUpAll(LocalDatabase.markUnavailable);
+  setUpAll(() => KeelStore.instance = const FlutterLocalDbStore());
 
   // La carga de disco se espera ANTES de sembrar. Con la base marcada como
   // no disponible devuelve vacío, pero devuelve tarde: sin esperarla, esa

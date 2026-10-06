@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:keel_ui/src/shared/shared.dart';
+import 'package:keel_core/shared/shared.dart';
 
 void main() {
   group('el mismo punto escrito distinto es el mismo punto', () {

@@ -1,16 +1,16 @@
-import 'package:keel_ui/src/integrations/system_prompt/system_prompt.dart';
-import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
+import 'package:keel_core/integrations/system_prompt/system_prompt.dart';
+import 'package:keel_core/modules/agent_profiles/model/agent_profile.dart';
 import 'package:keel_ui/src/modules/agent_profiles/viewmodel/agent_profiles_viewmodel.dart';
-import 'package:keel_ui/src/modules/agents/model/agent_model_option.dart';
-import 'package:keel_ui/src/modules/agents/model/effort_level.dart';
+import 'package:keel_core/modules/agents/model/agent_model_option.dart';
+import 'package:keel_core/modules/agents/model/effort_level.dart';
 import 'package:keel_ui/src/modules/skills/viewmodel/skills_viewmodel.dart';
-import 'package:keel_ui/src/shared/shared.dart';
+import 'package:keel_core/shared/shared.dart';
 
 /// El contenido del mapa y el system prompt viven centralizados en
 /// `integrations/system_prompt/`, con el resto de los prompts de la app. Se
 /// re-exportan acá porque este archivo era su dirección conocida: quien
 /// importaba `keelai_seed.dart` los sigue viendo.
-export 'package:keel_ui/src/integrations/system_prompt/system_prompt.dart'
+export 'package:keel_core/integrations/system_prompt/system_prompt.dart'
     show kKeelAiSkillContent, kKeelAiSystemPrompt;
 
 /// The one skill Keel AI is always seeded with — the domain map. Lives as a

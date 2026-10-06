@@ -1,10 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:keel_ui/src/integrations/llm/claude/claude_cli_runner.dart';
-import 'package:keel_ui/src/integrations/llm/codex/codex_cli_runner.dart';
-import 'package:keel_ui/src/integrations/llm/llm.dart';
-import 'package:keel_ui/src/integrations/llm/openai_compatible/openai_compatible_api_runner.dart';
-import 'package:keel_ui/src/integrations/llm/src/llm_dispatcher.dart';
+import 'package:keel_core/integrations/llm/claude/claude_cli_runner.dart';
+import 'package:keel_core/integrations/llm/codex/codex_cli_runner.dart';
+import 'package:keel_core/integrations/llm/llm.dart';
+import 'package:keel_core/integrations/llm/openai_compatible/openai_compatible_api_runner.dart';
+import 'package:keel_core/integrations/llm/src/llm_dispatcher.dart';
 
 void main() {
   group('dispatchLlmProvider', () {

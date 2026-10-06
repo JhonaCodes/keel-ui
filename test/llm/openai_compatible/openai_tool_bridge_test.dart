@@ -4,8 +4,8 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:keel_ui/src/integrations/assistant_mcp/assistant_mcp_server.dart';
-import 'package:keel_ui/src/integrations/llm/llm.dart';
-import 'package:keel_ui/src/integrations/llm/openai_compatible/openai_tool_bridge.dart';
+import 'package:keel_core/integrations/llm/llm.dart';
+import 'package:keel_core/integrations/llm/openai_compatible/openai_tool_bridge.dart';
 
 void main() {
   test('publica las tools de Keel AI desde su MCP HTTP local', () async {

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:keel_ui/l10n/generated/app_localizations.dart';
-import 'package:keel_ui/src/shared/shared.dart';
+import 'package:keel_ui/src/shared/num_extension.dart';
 
 /// Un detalle de la confirmación: lo que se lleva puesto, o lo que va a
 /// pasar, con la parte que importa al frente.

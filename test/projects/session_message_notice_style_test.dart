@@ -5,8 +5,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:keel_ui/l10n/generated/app_localizations.dart';
 
 import 'package:keel_ui/src/core/services/local_database.dart';
+import 'package:keel_core/core/store/keel_store.dart';
+import 'package:keel_ui/src/core/services/flutter_local_db_store.dart';
 import 'package:keel_ui/src/core/ui/app_theme.dart';
-import 'package:keel_ui/src/modules/agents/model/chat_message.dart';
+import 'package:keel_core/modules/agents/model/chat_message.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/chat_notice_bubble.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/markdown_text.dart';
 import 'package:keel_ui/src/modules/projects/ui/widget/session_message_bubble.dart';
@@ -18,6 +20,7 @@ import 'package:keel_ui/src/modules/projects/ui/widget/session_message_bubble.da
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   LocalDatabase.markUnavailable();
+  KeelStore.instance = const FlutterLocalDbStore();
 
   final at = DateTime(2026, 9, 7, 11, 20);
 

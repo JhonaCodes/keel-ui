@@ -3,11 +3,11 @@ import 'package:reactive_notifier/reactive_notifier.dart';
 
 import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/core/ui/form_panel.dart';
-import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
+import 'package:keel_core/modules/agent_profiles/model/agent_profile.dart';
 import 'package:keel_ui/src/modules/agent_profiles/viewmodel/agent_profiles_viewmodel.dart';
 import 'package:keel_ui/src/modules/agent_profiles/ui/screen/agent_profile_form_screen.dart';
-import 'package:keel_ui/src/modules/agents/model/effort_level.dart';
-import 'package:keel_ui/src/modules/agents/model/agent_model_option.dart';
+import 'package:keel_core/modules/agents/model/effort_level.dart';
+import 'package:keel_core/modules/agents/model/agent_model_option.dart';
 import 'package:keel_ui/src/modules/agents/viewmodel/agents_viewmodel.dart';
 
 Future<void> openUseAgentPanel(BuildContext context) {

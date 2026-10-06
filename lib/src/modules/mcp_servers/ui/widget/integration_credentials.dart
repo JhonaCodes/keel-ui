@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
 
-import 'package:keel_ui/src/integrations/mcp_catalog/mcp_catalog.dart';
-import 'package:keel_ui/src/modules/secrets/model/secret.dart';
+import 'package:keel_core/integrations/mcp_catalog/mcp_catalog.dart';
+import 'package:keel_core/modules/secrets/model/secret.dart';
 import 'package:keel_ui/src/modules/secrets/ui/screen/secret_form_screen.dart';
 import 'package:keel_ui/src/modules/secrets/viewmodel/secrets_viewmodel.dart';
 

@@ -3,7 +3,7 @@ import 'dart:isolate';
 
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:keel_ui/src/integrations/system_vault/system_vault.dart';
+import 'package:keel_core/integrations/system_vault/vault_archive.dart';
 
 Directory _tempDir(String prefix) {
   final dir = Directory.systemTemp.createTempSync('keel-$prefix-');

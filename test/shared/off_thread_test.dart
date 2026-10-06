@@ -2,7 +2,7 @@ import 'dart:isolate';
 
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:keel_ui/src/shared/shared.dart';
+import 'package:keel_core/shared/shared.dart';
 
 /// El trabajo que se va al otro isolate: de nivel superior, como corresponde.
 int _square(int value) => value * value;

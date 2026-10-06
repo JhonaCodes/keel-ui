@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'package:keel_ui/src/integrations/usage_ledger/usage_ledger.dart';
+import 'package:keel_core/integrations/usage_ledger/usage_ledger_data.dart';
 import 'package:keel_ui/src/modules/projects/model/member_color.dart';
 
 /// Tokens por día, apilados por modelo.

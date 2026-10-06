@@ -2,8 +2,8 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 
-import 'package:keel_ui/src/modules/boards/model/board.dart';
-import 'package:keel_ui/src/modules/boards/model/board_run.dart';
+import 'package:keel_core/modules/boards/model/board.dart';
+import 'package:keel_core/modules/boards/model/board_run.dart';
 
 /// Lo que contestó la última corrida.
 ///

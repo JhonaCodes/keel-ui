@@ -1,7 +1,7 @@
 import 'dart:math' as math;
 import 'dart:ui';
 
-import 'package:keel_ui/src/modules/projects/model/session_map.dart';
+import 'package:keel_core/modules/projects/model/session_map.dart';
 
 /// Dónde cae cada nodo en el lienzo, y por dónde va cada línea.
 ///

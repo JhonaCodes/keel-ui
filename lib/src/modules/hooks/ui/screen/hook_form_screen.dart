@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 
 import 'package:keel_ui/l10n/generated/app_localizations.dart';
+import 'package:keel_ui/src/core/ui/app_localizations_validation.dart';
 import 'package:keel_ui/src/core/ui/form_panel.dart';
-import 'package:keel_ui/src/modules/hooks/model/hook.dart';
-import 'package:keel_ui/src/modules/hooks/model/hook_event.dart';
+import 'package:keel_core/modules/hooks/model/hook.dart';
+import 'package:keel_core/modules/hooks/model/hook_event.dart';
 import 'package:keel_ui/src/modules/hooks/viewmodel/hooks_viewmodel.dart';
 import 'package:keel_ui/src/modules/rules/ui/widget/rule_multi_select.dart';
 import 'package:keel_ui/src/modules/tools/viewmodel/tools_viewmodel.dart';
@@ -70,7 +71,7 @@ class _HookFormScreenState extends State<HookFormScreen> {
   void _submit() {
     final t = AppLocalizations.of(context)!;
     final name = _nameController.text.trim();
-    final nameError = validateHookName(name, t);
+    final nameError = validateHookName(name, AppLocalizationsValidation(t));
     if (nameError != null) {
       setState(() => _nameError = nameError);
       return;
@@ -151,7 +152,10 @@ class _HookFormScreenState extends State<HookFormScreen> {
               ),
             ),
             onChanged: (value) => setState(() {
-              _nameError = validateHookName(value.trim(), t);
+              _nameError = validateHookName(
+                value.trim(),
+                AppLocalizationsValidation(t),
+              );
               _formError = null;
             }),
           ),

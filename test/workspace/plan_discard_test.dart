@@ -1,8 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:keel_ui/src/core/services/local_database.dart';
-import 'package:keel_ui/src/modules/agents/model/chat_message.dart';
-import 'package:keel_ui/src/modules/projects/model/session_plan_item.dart';
+import 'package:keel_core/core/store/keel_store.dart';
+import 'package:keel_ui/src/core/services/flutter_local_db_store.dart';
+import 'package:keel_core/modules/agents/model/chat_message.dart';
+import 'package:keel_core/modules/projects/model/session_plan_item.dart';
 import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
 
 ProjectsViewModel get _projects => ProjectsService.instance.notifier;
@@ -63,6 +65,7 @@ void main() {
     late String sessionId;
 
     setUpAll(LocalDatabase.markUnavailable);
+    setUpAll(() => KeelStore.instance = const FlutterLocalDbStore());
 
     setUp(() async {
       await _projects.ready;

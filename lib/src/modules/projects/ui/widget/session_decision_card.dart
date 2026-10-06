@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'package:keel_ui/src/modules/projects/model/session_decision.dart';
+import 'package:keel_core/modules/projects/model/session_decision.dart';
 
 /// La tarjeta de «te está esperando»: una pregunta, un permiso o una
 /// aprobación que un agente le pidió al usuario y sin la cual el nodo no
@@ -82,8 +82,7 @@ class _SessionDecisionCardState extends State<SessionDecisionCard> {
                   switch (decision.kind) {
                     SessionDecisionKind.question => Icons.help_outline_rounded,
                     SessionDecisionKind.permission => Icons.lock_open_rounded,
-                    SessionDecisionKind.approval =>
-                      Icons.fact_check_outlined,
+                    SessionDecisionKind.approval => Icons.fact_check_outlined,
                   },
                   size: 16,
                   color: scheme.tertiary,
@@ -132,15 +131,11 @@ class _SessionDecisionCardState extends State<SessionDecisionCard> {
                     child: const Text('Solo esta vez'),
                   ),
                   FilledButton.tonal(
-                    onPressed: _answered
-                        ? null
-                        : () => permit(true, 'session'),
+                    onPressed: _answered ? null : () => permit(true, 'session'),
                     child: const Text('Esta sesión'),
                   ),
                   FilledButton.tonal(
-                    onPressed: _answered
-                        ? null
-                        : () => permit(true, 'profile'),
+                    onPressed: _answered ? null : () => permit(true, 'profile'),
                     child: const Text('Este agente acá'),
                   ),
                   FilledButton(
@@ -185,9 +180,7 @@ class _SessionDecisionCardState extends State<SessionDecisionCard> {
                         for (final option in decision.options)
                           ActionChip(
                             label: Text(option),
-                            onPressed: _answered
-                                ? null
-                                : () => _submit(option),
+                            onPressed: _answered ? null : () => _submit(option),
                           ),
                       ],
                     ),

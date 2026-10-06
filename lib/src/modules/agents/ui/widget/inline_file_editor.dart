@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 
 import 'package:keel_ui/src/core/services/app_window_service.dart';
-import 'package:keel_ui/src/core/services/file_edit_collector.dart';
-import 'package:keel_ui/src/modules/agents/model/file_edit.dart';
-import 'package:keel_ui/src/modules/agents/model/file_editor_window_arguments.dart';
-import 'package:keel_ui/src/modules/agents/model/line_diff.dart';
+import 'package:keel_core/core/services/file_edit_collector.dart';
+import 'package:keel_core/modules/agents/model/file_edit.dart';
+import 'package:keel_core/modules/agents/model/file_editor_window_arguments.dart';
+import 'package:keel_core/modules/agents/model/line_diff.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/file_editor_content.dart';
 import 'package:keel_ui/src/modules/settings/viewmodel/settings_viewmodel.dart';
-import 'package:keel_ui/src/shared/shared.dart';
+import 'package:keel_ui/src/shared/num_extension.dart';
 
 /// The chat-bubble entry point for a [FileEdit]: a compact collapsed header
 /// (name + change counts) that expands, in place, into the full

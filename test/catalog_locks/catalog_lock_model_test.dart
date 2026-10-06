@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:keel_ui/src/modules/catalog_locks/model/catalog_lock.dart';
+import 'package:keel_core/modules/catalog_locks/model/catalog_lock.dart';
 
 void main() {
   test('uses stable public aliases and round-trips a persisted lock', () {

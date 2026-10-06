@@ -2,11 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:gpt_markdown/gpt_markdown.dart';
 
 import 'package:keel_ui/l10n/generated/app_localizations.dart';
-import 'package:keel_ui/src/core/services/external_link_service.dart';
+import 'package:keel_core/core/services/external_link_service.dart';
 import 'package:keel_ui/src/core/ui/form_panel.dart';
-import 'package:keel_ui/src/modules/agents/model/code_block_presentation.dart';
+import 'package:keel_core/modules/agents/model/code_block_presentation.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/syntax_highlighted_code_view.dart';
-import 'package:keel_ui/src/shared/shared.dart';
+import 'package:keel_core/shared/shared.dart';
+import 'package:keel_ui/src/shared/num_extension.dart';
 
 /// Un bloque ```código``` de un mensaje: una tarjeta compacta de máximo dos
 /// filas, nunca el código expandido en el hilo.

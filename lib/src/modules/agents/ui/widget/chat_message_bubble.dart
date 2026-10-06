@@ -3,8 +3,8 @@ import 'package:info_label/info_label.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
 
 import 'package:keel_ui/src/core/ui/app_theme.dart';
-import 'package:keel_ui/src/modules/agents/model/chat_message.dart';
-import 'package:keel_ui/src/modules/agents/model/file_edit.dart';
+import 'package:keel_core/modules/agents/model/chat_message.dart';
+import 'package:keel_core/modules/agents/model/file_edit.dart';
 import 'package:keel_ui/src/modules/agents/service/chat_actions.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/bubble_width.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/chat_message_body.dart';
@@ -13,7 +13,7 @@ import 'package:keel_ui/src/modules/agents/ui/widget/reasoning_panel.dart';
 import 'package:keel_ui/src/modules/agents/viewmodel/agents_viewmodel.dart';
 import 'package:keel_ui/src/modules/settings/model/app_settings.dart';
 import 'package:keel_ui/src/modules/settings/viewmodel/settings_viewmodel.dart';
-import 'package:keel_ui/src/shared/shared.dart';
+import 'package:keel_ui/src/shared/num_extension.dart';
 
 class ChatMessageBubble extends StatelessWidget {
   const ChatMessageBubble({

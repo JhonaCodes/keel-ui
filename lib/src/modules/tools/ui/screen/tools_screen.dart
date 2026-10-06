@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
 
 import 'package:keel_ui/l10n/generated/app_localizations.dart';
-import 'package:keel_ui/src/modules/tools/model/tool.dart';
+import 'package:keel_core/modules/tools/model/tool.dart';
 import 'package:keel_ui/src/modules/tools/viewmodel/tools_viewmodel.dart';
 import 'package:keel_ui/src/modules/tools/ui/screen/tool_form_screen.dart';
 import 'package:keel_ui/src/modules/tools/ui/widget/tool_tile.dart';

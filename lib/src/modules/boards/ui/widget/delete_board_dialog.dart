@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/core/ui/confirm_card.dart';
-import 'package:keel_ui/src/modules/boards/model/board.dart';
+import 'package:keel_core/modules/boards/model/board.dart';
 import 'package:keel_ui/src/modules/boards/viewmodel/boards_viewmodel.dart';
 
 /// Borrar un tablero, desde donde sea que estés parado.

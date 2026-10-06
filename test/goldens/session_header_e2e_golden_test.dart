@@ -6,14 +6,16 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/core/services/local_database.dart';
+import 'package:keel_core/core/store/keel_store.dart';
+import 'package:keel_ui/src/core/services/flutter_local_db_store.dart';
 import 'package:keel_ui/src/core/ui/app_theme.dart';
-import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
+import 'package:keel_core/modules/agent_profiles/model/agent_profile.dart';
 import 'package:keel_ui/src/modules/agent_profiles/viewmodel/agent_profiles_viewmodel.dart';
-import 'package:keel_ui/src/modules/projects/model/project.dart';
-import 'package:keel_ui/src/modules/projects/model/session.dart';
+import 'package:keel_core/modules/projects/model/project.dart';
+import 'package:keel_core/modules/projects/model/session.dart';
 import 'package:keel_ui/src/modules/projects/ui/view/session_chat_view.dart';
 import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
-import 'package:keel_ui/src/modules/workflows/model/workflow.dart';
+import 'package:keel_core/modules/workflows/model/workflow.dart';
 import 'package:keel_ui/src/modules/workflows/viewmodel/workflows_viewmodel.dart';
 
 /// Cómo se ve la cabecera del canal con la tercera pestaña E2E (mockup
@@ -31,6 +33,7 @@ final _materialIconsFont = File(
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   LocalDatabase.markUnavailable();
+  KeelStore.instance = const FlutterLocalDbStore();
 
   setUpAll(() async {
     if (!await _productFont.exists() || !await _materialIconsFont.exists()) {

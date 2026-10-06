@@ -4,8 +4,8 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:keel_ui/src/integrations/llm/llm.dart';
-import 'package:keel_ui/src/integrations/llm/opencode/opencode_serve_session.dart';
+import 'package:keel_core/integrations/llm/llm.dart';
+import 'package:keel_core/integrations/llm/opencode/opencode_serve_session.dart';
 
 /// The REAL `opencode` binary and a free model (`opencode/big-pickle`),
 /// with a stand-in for Keel's gate that allows. Network, no paid tokens:

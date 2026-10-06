@@ -1,7 +1,7 @@
 import 'package:flutter_local_db/flutter_local_db.dart';
 import 'package:logger_rs/logger_rs.dart';
 
-import 'package:keel_ui/src/core/services/key_index.dart';
+import 'package:keel_core/core/services/key_index.dart';
 
 /// Thrown when a database operation fails. Repositories let this propagate
 /// exactly like the file-based repositories they replace let I/O exceptions

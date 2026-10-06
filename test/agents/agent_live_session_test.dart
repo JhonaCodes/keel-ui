@@ -3,14 +3,17 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:keel_ui/src/core/services/local_database.dart';
-import 'package:keel_ui/src/core/services/user_shell_path.dart';
-import 'package:keel_ui/src/modules/agents/model/agent_provider.dart';
-import 'package:keel_ui/src/modules/agents/model/chat_message.dart';
+import 'package:keel_core/core/store/keel_store.dart';
+import 'package:keel_ui/src/core/services/flutter_local_db_store.dart';
+import 'package:keel_core/core/services/user_shell_path.dart';
+import 'package:keel_core/modules/agents/model/agent_provider.dart';
+import 'package:keel_core/modules/agents/model/chat_message.dart';
 import 'package:keel_ui/src/modules/agents/viewmodel/agents_viewmodel.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   LocalDatabase.markUnavailable();
+  KeelStore.instance = const FlutterLocalDbStore();
 
   test(
     'dos mensajes seguidos a un agente claude los atiende el mismo proceso',

@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:keel_ui/src/integrations/roadmap_mcp/roadmap_mcp.dart';
+import 'package:keel_core/integrations/roadmap/roadmap_reading.dart';
 
 void main() {
   late Directory project;

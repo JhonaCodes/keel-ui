@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 
-import 'package:keel_ui/src/modules/catalog_locks/model/catalog_lock.dart';
+import 'package:keel_core/modules/catalog_locks/model/catalog_lock.dart';
 import 'package:keel_ui/src/modules/catalog_locks/ui/widget/catalog_lock_button.dart';
 import 'package:keel_ui/src/modules/catalog_locks/viewmodel/catalog_locks_viewmodel.dart';
 import 'package:keel_ui/src/integrations/catalog_bundle/catalog_bundle.dart';
-import 'package:keel_ui/src/modules/workflows/model/workflow.dart';
+import 'package:keel_core/modules/workflows/model/workflow.dart';
 import 'package:keel_ui/src/modules/workflows/service/workflow_deletion_service.dart';
 import 'package:keel_ui/src/modules/workflows/ui/screen/workflow_form_screen.dart';
 import 'package:keel_ui/src/core/ui/confirm_card.dart';

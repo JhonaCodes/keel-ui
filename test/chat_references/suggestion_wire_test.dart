@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:keel_ui/src/integrations/chat_references/chat_references.dart';
+import 'package:keel_core/integrations/chat_references/chat_references.dart';
 
 void main() {
   test('una sugerencia sobrevive el viaje a la ventana de Keel AI', () {

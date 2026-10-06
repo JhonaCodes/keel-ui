@@ -3,7 +3,7 @@ import 'package:reactive_notifier/reactive_notifier.dart';
 
 import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/core/ui/running_dot.dart';
-import 'package:keel_ui/src/modules/requirements/model/internal_requirement.dart';
+import 'package:keel_core/modules/requirements/model/internal_requirement.dart';
 import 'package:keel_ui/src/modules/sidebar_layout/model/sidebar_layout.dart';
 import 'package:keel_ui/src/modules/sidebar_layout/ui/widget/sidebar_section_list.dart';
 import 'package:keel_ui/src/modules/requirements/viewmodel/requirements_viewmodel.dart';
@@ -75,7 +75,9 @@ class RequirementsGroup extends StatelessWidget {
                         ),
                       ),
                     IconButton(
-                      tooltip: AppLocalizations.of(context).sidebarTooltipAllRequirements,
+                      tooltip: AppLocalizations.of(
+                        context,
+                      ).sidebarTooltipAllRequirements,
                       icon: const Icon(Icons.tune, size: 15),
                       constraints: const BoxConstraints.tightFor(
                         width: 28,
@@ -85,7 +87,9 @@ class RequirementsGroup extends StatelessWidget {
                       onPressed: onManage,
                     ),
                     IconButton(
-                      tooltip: AppLocalizations.of(context).sidebarTooltipOpenRequirement,
+                      tooltip: AppLocalizations.of(
+                        context,
+                      ).sidebarTooltipOpenRequirement,
                       icon: const Icon(Icons.add, size: 17),
                       constraints: const BoxConstraints.tightFor(
                         width: 28,

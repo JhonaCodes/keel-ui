@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:keel_ui/src/modules/workflows/model/workflow.dart';
+import 'package:keel_core/modules/workflows/model/workflow.dart';
 
 void main() {
   /// La plantilla vieja, en su forma: once nodos, dos auditorías con el mismo

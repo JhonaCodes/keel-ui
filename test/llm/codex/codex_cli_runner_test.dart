@@ -4,8 +4,8 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:keel_ui/src/integrations/llm/llm.dart';
-import 'package:keel_ui/src/integrations/llm/codex/codex_cli_runner.dart';
+import 'package:keel_core/integrations/llm/llm.dart';
+import 'package:keel_core/integrations/llm/codex/codex_cli_runner.dart';
 
 import '../support/fake_cli_process.dart';
 

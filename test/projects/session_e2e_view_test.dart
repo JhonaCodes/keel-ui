@@ -7,13 +7,16 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:keel_e2e_panel/keel_e2e_panel.dart';
 
 import 'package:keel_ui/src/core/services/local_database.dart';
-import 'package:keel_ui/src/modules/projects/model/project.dart';
-import 'package:keel_ui/src/modules/projects/model/session.dart';
+import 'package:keel_core/core/store/keel_store.dart';
+import 'package:keel_ui/src/core/services/flutter_local_db_store.dart';
+import 'package:keel_core/modules/projects/model/project.dart';
+import 'package:keel_core/modules/projects/model/session.dart';
 import 'package:keel_ui/src/modules/projects/ui/view/session_e2e_view.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   LocalDatabase.markUnavailable();
+  KeelStore.instance = const FlutterLocalDbStore();
 
   late Directory tmp;
 

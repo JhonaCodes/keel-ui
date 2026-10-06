@@ -5,14 +5,17 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/core/services/local_database.dart';
-import 'package:keel_ui/src/integrations/llm/openai_compatible/remote_model_catalog.dart';
-import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
+import 'package:keel_core/core/store/keel_store.dart';
+import 'package:keel_ui/src/core/services/flutter_local_db_store.dart';
+import 'package:keel_core/integrations/llm/openai_compatible/remote_model_catalog.dart';
+import 'package:keel_core/modules/agent_profiles/model/agent_profile.dart';
 import 'package:keel_ui/src/modules/agent_profiles/ui/screen/agent_profile_form_screen.dart';
-import 'package:keel_ui/src/modules/agents/model/agent_provider.dart';
+import 'package:keel_core/modules/agents/model/agent_provider.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   LocalDatabase.markUnavailable();
+  KeelStore.instance = const FlutterLocalDbStore();
 
   testWidgets('un perfil con el Haiku fechado de antes abre con su modelo, y '
       'al pasar a Codex no quedan modelos de Claude en la lista', (

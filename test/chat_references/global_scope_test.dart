@@ -3,15 +3,18 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:keel_ui/src/core/services/local_database.dart';
-import 'package:keel_ui/src/integrations/chat_references/chat_references.dart';
+import 'package:keel_core/core/store/keel_store.dart';
+import 'package:keel_ui/src/core/services/flutter_local_db_store.dart';
+import 'package:keel_core/integrations/chat_references/chat_references.dart';
 import 'package:keel_ui/src/integrations/workspace_roots/workspace_roots.dart';
-import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
+import 'package:keel_core/modules/agent_profiles/model/agent_profile.dart';
 import 'package:keel_ui/src/modules/agent_profiles/viewmodel/agent_profiles_viewmodel.dart';
 import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   LocalDatabase.markUnavailable();
+  KeelStore.instance = const FlutterLocalDbStore();
 
   late Directory root;
 

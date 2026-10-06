@@ -6,7 +6,7 @@ import 'package:gpt_markdown/gpt_markdown.dart';
 
 import 'package:keel_ui/src/modules/agents/ui/widget/mermaid_diagram.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/svg_diagram.dart';
-import 'package:keel_ui/src/modules/knowledge/model/knowledge_document.dart';
+import 'package:keel_core/modules/knowledge/model/knowledge_document.dart';
 import 'package:keel_ui/src/modules/knowledge/viewmodel/knowledge_viewmodel.dart';
 
 /// El visor del Saber: elige cómo mostrar el documento según su extensión.

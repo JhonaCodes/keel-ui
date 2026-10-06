@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:keel_ui/l10n/generated/app_localizations.dart';
 
+import 'package:keel_ui/src/core/ui/app_localizations_validation.dart';
 import 'package:keel_ui/src/core/ui/form_panel.dart';
-import 'package:keel_ui/src/modules/skills/model/skill.dart';
+import 'package:keel_core/modules/skills/model/skill.dart';
 import 'package:keel_ui/src/modules/skills/viewmodel/skills_viewmodel.dart';
 
 Future<void> openSkillFormScreen(
@@ -61,7 +62,10 @@ class _SkillFormScreenState extends State<SkillFormScreen> {
   void _onNameChanged(String value) {
     final t = AppLocalizations.of(context)!;
     setState(() {
-      _nameError = validateSkillName(value.trim(), t);
+      _nameError = validateSkillName(
+        value.trim(),
+        AppLocalizationsValidation(t),
+      );
       _formError = null;
     });
   }
@@ -69,7 +73,7 @@ class _SkillFormScreenState extends State<SkillFormScreen> {
   void _submit() {
     final t = AppLocalizations.of(context)!;
     final name = _nameController.text.trim();
-    final nameError = validateSkillName(name, t);
+    final nameError = validateSkillName(name, AppLocalizationsValidation(t));
     if (nameError != null) {
       setState(() => _nameError = nameError);
       return;

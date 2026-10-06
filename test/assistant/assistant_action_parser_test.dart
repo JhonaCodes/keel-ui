@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:keel_ui/src/modules/assistant/model/assistant_action.dart';
-import 'package:keel_ui/src/modules/assistant/service/assistant_action_parser.dart';
-import 'package:keel_ui/src/modules/workflows/model/workflow.dart';
+import 'package:keel_core/modules/assistant/model/assistant_action.dart';
+import 'package:keel_core/modules/assistant/service/assistant_action_parser.dart';
+import 'package:keel_core/modules/workflows/model/workflow.dart';
 
 void main() {
   test('el bloque workflow conserva todo su contexto obligatorio', () {

@@ -1,6 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:keel_ui/src/core/services/local_database.dart';
+import 'package:keel_core/core/store/keel_store.dart';
+import 'package:keel_ui/src/core/services/flutter_local_db_store.dart';
 import 'package:keel_ui/src/integrations/fault_journal/fault_journal.dart';
 
 void main() {
@@ -9,6 +11,7 @@ void main() {
   // Sin base, el diario tiene que seguir funcionando en memoria — que es
   // exactamente lo que hace en una máquina donde la base no abre.
   LocalDatabase.markUnavailable();
+  KeelStore.instance = const FlutterLocalDbStore();
 
   final journal = FaultJournalService.instance.notifier;
 

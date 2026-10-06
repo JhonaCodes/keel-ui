@@ -2,8 +2,8 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:keel_ui/src/integrations/llm/codex/codex_config_overrides.dart';
-import 'package:keel_ui/src/shared/utils/toml_string.dart';
+import 'package:keel_core/integrations/llm/codex/codex_config_overrides.dart';
+import 'package:keel_core/shared/utils/toml_string.dart';
 
 void main() {
   group('codexMcpConfig', () {

@@ -1,9 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:keel_ui/src/modules/agents/model/agent.dart';
+import 'package:keel_core/modules/agents/model/agent.dart';
 import 'package:keel_ui/src/modules/agents/model/agent_icon_colors.dart';
-import 'package:keel_ui/src/modules/projects/model/project.dart';
-import 'package:keel_ui/src/modules/projects/model/session.dart';
+import 'package:keel_core/modules/projects/model/project.dart';
+import 'package:keel_core/modules/projects/model/session.dart';
 import 'package:keel_ui/src/modules/workspace/model/running_work.dart';
 
 final _epoch = DateTime.utc(2026, 8, 27);
@@ -31,7 +31,7 @@ Agent _agent(String id, {bool streaming = false}) => Agent(
   name: id,
   model: 'sonnet',
   createdAt: _epoch,
-  iconColor: kAgentIconColorPalette.first,
+  iconColorValue: kAgentIconColorPalette.first.toARGB32(),
   effort: 'medium',
   isStreaming: streaming,
 );

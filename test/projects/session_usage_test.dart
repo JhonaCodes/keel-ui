@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:keel_ui/src/modules/projects/model/session_usage.dart';
-import 'package:keel_ui/src/modules/projects/model/token_usage.dart';
+import 'package:keel_core/modules/projects/model/session_usage.dart';
+import 'package:keel_core/modules/projects/model/token_usage.dart';
 
 void main() {
   test('un acumulado de Codex se convierte en delta sin contar dos veces', () {

@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:keel_ui/src/integrations/git_worktree/git_worktree.dart';
+import 'package:keel_core/integrations/git_worktree/git_worktree.dart';
 
 /// Estas pruebas corren git DE VERDAD sobre repos de juguete, en una carpeta
 /// temporal que se borra al terminar.

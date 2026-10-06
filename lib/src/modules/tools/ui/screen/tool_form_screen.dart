@@ -3,10 +3,10 @@ import 'package:keel_ui/l10n/generated/app_localizations.dart';
 
 import 'package:keel_ui/src/core/ui/form_panel.dart';
 import 'package:keel_ui/src/modules/secrets/ui/widget/secret_multi_select.dart';
-import 'package:keel_ui/src/modules/agents/model/code_language.dart';
+import 'package:keel_core/modules/agents/model/code_language.dart';
 import 'package:keel_ui/src/modules/agents/model/highlighted_line.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/code_editing_controller.dart';
-import 'package:keel_ui/src/modules/tools/model/tool.dart';
+import 'package:keel_core/modules/tools/model/tool.dart';
 import 'package:keel_ui/src/modules/tools/viewmodel/tools_viewmodel.dart';
 
 Future<void> openToolFormScreen(BuildContext context, {Tool? initial}) {

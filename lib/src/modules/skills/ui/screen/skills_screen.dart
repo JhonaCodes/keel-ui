@@ -3,7 +3,7 @@ import 'package:reactive_notifier/reactive_notifier.dart';
 
 import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/integrations/prompt_insights/prompt_insights.dart';
-import 'package:keel_ui/src/modules/skills/model/skill.dart';
+import 'package:keel_core/modules/skills/model/skill.dart';
 import 'package:keel_ui/src/modules/skills/viewmodel/skills_viewmodel.dart';
 import 'package:keel_ui/src/integrations/catalog_bundle/catalog_bundle.dart';
 import 'package:keel_ui/src/modules/skills/ui/screen/skill_form_screen.dart';

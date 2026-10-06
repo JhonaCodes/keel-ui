@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:keel_ui/src/modules/projects/service/turn_prompt.dart';
-import 'package:keel_ui/src/modules/skills/model/skill.dart';
+import 'package:keel_core/modules/projects/service/turn_prompt.dart';
+import 'package:keel_core/modules/skills/model/skill.dart';
 
 void main() {
   test('una skill del workflow se compone una sola vez', () {

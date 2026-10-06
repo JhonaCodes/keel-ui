@@ -41,7 +41,7 @@ import 'package:window_manager/window_manager.dart';
 
 import 'package:keel_ui/src/core/services/local_database.dart';
 import 'package:keel_ui/src/core/ui/form_panel.dart';
-import 'package:keel_ui/src/shared/shared.dart';
+import 'package:keel_core/shared/shared.dart';
 
 part 'src/fault.dart';
 part 'src/fault_capture.dart';

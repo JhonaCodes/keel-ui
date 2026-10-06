@@ -1,15 +1,15 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:keel_ui/src/modules/projects/model/resolution_evidence.dart';
-import 'package:keel_ui/src/modules/projects/model/resolution_case.dart';
-import 'package:keel_ui/src/modules/projects/model/resolution_finding.dart';
-import 'package:keel_ui/src/modules/projects/model/resolution_preflight.dart';
-import 'package:keel_ui/src/modules/projects/model/migration_coverage.dart';
-import 'package:keel_ui/src/modules/projects/model/session_decision.dart';
-import 'package:keel_ui/src/modules/projects/model/turn_outcome_report.dart';
-import 'package:keel_ui/src/modules/projects/model/work_node.dart';
-import 'package:keel_ui/src/modules/projects/service/resolution_engine.dart';
-import 'package:keel_ui/src/modules/workflows/model/workflow.dart';
+import 'package:keel_core/modules/projects/model/resolution_evidence.dart';
+import 'package:keel_core/modules/projects/model/resolution_case.dart';
+import 'package:keel_core/modules/projects/model/resolution_finding.dart';
+import 'package:keel_core/modules/projects/model/resolution_preflight.dart';
+import 'package:keel_core/modules/projects/model/migration_coverage.dart';
+import 'package:keel_core/modules/projects/model/session_decision.dart';
+import 'package:keel_core/modules/projects/model/turn_outcome_report.dart';
+import 'package:keel_core/modules/projects/model/work_node.dart';
+import 'package:keel_core/modules/projects/service/resolution_engine.dart';
+import 'package:keel_core/modules/workflows/model/workflow.dart';
 
 void main() {
   final evidence = ResolutionEvidence(

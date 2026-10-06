@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:keel_ui/src/modules/app_status/model/app_status.dart';
+import 'package:keel_core/modules/app_status/model/app_status.dart';
 import 'package:keel_ui/src/modules/app_status/viewmodel/app_status_viewmodel.dart';
 
 void main() {

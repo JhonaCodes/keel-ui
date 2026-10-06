@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:keel_ui/src/integrations/llm/llm.dart';
-import 'package:keel_ui/src/modules/agents/model/chat_message.dart';
-import 'package:keel_ui/src/modules/agents/service/remote_conversation_history.dart';
+import 'package:keel_core/integrations/llm/llm.dart';
+import 'package:keel_core/modules/agents/model/chat_message.dart';
+import 'package:keel_core/modules/agents/service/remote_conversation_history.dart';
 
 final _time = DateTime(2026, 8, 27);
 

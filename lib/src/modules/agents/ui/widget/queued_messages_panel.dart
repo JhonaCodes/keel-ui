@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import 'package:keel_ui/src/modules/agents/model/queued_message.dart';
-import 'package:keel_ui/src/integrations/chat_references/chat_references.dart';
+import 'package:keel_core/modules/agents/model/queued_message.dart';
+import 'package:keel_core/integrations/chat_references/chat_references.dart';
 
 /// Mensajes que el usuario dejó preparados mientras el agente trabaja.
 ///

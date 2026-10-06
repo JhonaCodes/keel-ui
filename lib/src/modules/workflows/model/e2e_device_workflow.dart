@@ -1,4 +1,4 @@
-import 'package:keel_ui/src/modules/workflows/model/workflow.dart';
+import 'package:keel_core/modules/workflows/model/workflow.dart';
 import 'package:keel_ui/src/modules/workflows/viewmodel/workflows_viewmodel.dart';
 
 /// El nombre reservado del workflow sembrado de keel-e2e — el mismo texto

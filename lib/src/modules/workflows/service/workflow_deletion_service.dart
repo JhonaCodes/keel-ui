@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
-import 'package:keel_ui/src/modules/workflows/repository/workflows_repository.dart';
+import 'package:keel_core/modules/workflows/repository/workflows_repository.dart';
 import 'package:keel_ui/src/modules/workflows/viewmodel/workflows_viewmodel.dart';
 
 /// Coordinates deletion across the workflow catalog and every project that

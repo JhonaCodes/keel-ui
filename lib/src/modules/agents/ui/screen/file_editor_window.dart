@@ -9,7 +9,7 @@ import 'package:keel_ui/src/core/ui/app_locale.dart';
 import 'package:keel_ui/src/core/ui/app_theme.dart';
 
 import 'package:keel_ui/src/core/services/agent_bridge_channel.dart';
-import 'package:keel_ui/src/modules/agents/model/file_editor_window_arguments.dart';
+import 'package:keel_core/modules/agents/model/file_editor_window_arguments.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/file_editor_content.dart';
 
 class FileEditorWindow extends StatefulWidget {

@@ -3,8 +3,8 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:keel_ui/src/integrations/hook_delivery/hook_delivery.dart';
-import 'package:keel_ui/src/modules/hooks/model/hook_event.dart';
+import 'package:keel_core/integrations/hook_delivery/hook_delivery.dart';
+import 'package:keel_core/modules/hooks/model/hook_event.dart';
 
 void main() {
   group('subagent guard hook', () {

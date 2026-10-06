@@ -27,7 +27,7 @@ class _WorktreeStripState extends State<WorktreeStrip> {
     super.initState();
     _worktrees.watch(widget.project.workingDirectory);
     _timer = Timer.periodic(
-      _kPlaceTtl,
+      kWorktreePlaceTtl,
       (_) => _worktrees.watch(widget.project.workingDirectory),
     );
   }

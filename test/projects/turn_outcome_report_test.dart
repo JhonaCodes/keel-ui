@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:keel_ui/src/modules/projects/model/turn_outcome_report.dart';
+import 'package:keel_core/modules/projects/model/turn_outcome_report.dart';
 
 void main() {
   group('parseKeelOutcome', () {

@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 
 import 'package:keel_ui/src/core/ui/confirm_card.dart';
-import 'package:keel_ui/src/modules/catalog_locks/model/catalog_lock.dart';
+import 'package:keel_core/modules/catalog_locks/model/catalog_lock.dart';
 import 'package:keel_ui/src/modules/catalog_locks/ui/widget/catalog_lock_button.dart';
 import 'package:keel_ui/src/modules/catalog_locks/viewmodel/catalog_locks_viewmodel.dart';
-import 'package:keel_ui/src/modules/projects/model/project.dart';
+import 'package:keel_core/modules/projects/model/project.dart';
 import 'package:keel_ui/src/modules/requirements/viewmodel/requirements_viewmodel.dart';
 import 'package:keel_ui/src/modules/roadmap/viewmodel/task_claims_viewmodel.dart';
 import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';

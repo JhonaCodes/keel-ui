@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/core/ui/confirm_card.dart';
-import 'package:keel_ui/src/modules/secrets/model/secret.dart';
+import 'package:keel_core/modules/secrets/model/secret.dart';
 import 'package:keel_ui/src/modules/secrets/viewmodel/secrets_viewmodel.dart';
 
 /// Asks for confirmation and deletes [secret]. Shared by every surface that

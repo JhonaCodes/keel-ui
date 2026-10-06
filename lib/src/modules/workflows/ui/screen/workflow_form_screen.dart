@@ -2,11 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
 
 import 'package:keel_ui/l10n/generated/app_localizations.dart';
+import 'package:keel_ui/src/core/ui/app_localizations_validation.dart';
 import 'package:keel_ui/src/core/ui/form_panel.dart';
-import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
+import 'package:keel_core/modules/agent_profiles/model/agent_profile.dart';
 import 'package:keel_ui/src/modules/agent_profiles/viewmodel/agent_profiles_viewmodel.dart';
 import 'package:keel_ui/src/modules/skills/ui/widget/skill_multi_select.dart';
-import 'package:keel_ui/src/modules/workflows/model/workflow.dart';
+import 'package:keel_core/modules/workflows/model/workflow.dart';
 import 'package:keel_ui/src/modules/workflows/viewmodel/workflows_viewmodel.dart';
 
 Future<void> openWorkflowFormScreen(BuildContext context, {Workflow? initial}) {
@@ -39,8 +40,11 @@ class _WorkflowFormScreenState extends State<WorkflowFormScreen> {
   // Clamped, not just defaulted: a workflow saved before a ceiling moved can
   // hold a value the slider no longer accepts, and Slider asserts on that.
   // Rendering a stored workflow must never be able to crash the editor.
-  late int _maxReplans = (widget.initial?.policy.maxReplans ?? kDefaultMaxReplans)
-      .clamp(0, kMaxReplans);
+  late int _maxReplans =
+      (widget.initial?.policy.maxReplans ?? kDefaultMaxReplans).clamp(
+        0,
+        kMaxReplans,
+      );
   late int _maxSubagents =
       (widget.initial?.policy.maxSubagents ?? kDefaultMaxSubagents).clamp(
         0,
@@ -189,7 +193,9 @@ class _WorkflowFormScreenState extends State<WorkflowFormScreen> {
                 _capabilities = defaultWorkflowCapabilities(
                   _kind,
                   _ownerRole,
-                  l10n: AppLocalizations.of(context),
+                  l10n: AppLocalizationsValidation(
+                    AppLocalizations.of(context),
+                  ),
                 );
               }
             }),

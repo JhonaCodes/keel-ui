@@ -3,7 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 
 import 'package:keel_ui/src/core/services/image_export.dart';
-import 'package:keel_ui/src/core/services/mermaid_render_service.dart';
+import 'package:keel_core/core/services/mermaid_render_service.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/diagram_save_badge.dart';
 
 class MermaidDiagram extends StatefulWidget {

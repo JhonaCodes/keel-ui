@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:keel_ui/src/integrations/llm/openai_compatible/remote_model_catalog.dart';
+import 'package:keel_core/integrations/llm/openai_compatible/remote_model_catalog.dart';
 import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:keel_ui/src/modules/agents/model/agent.dart';
-import 'package:keel_ui/src/modules/agents/model/agent_model_option.dart';
-import 'package:keel_ui/src/modules/agents/model/agent_provider.dart';
-import 'package:keel_ui/src/modules/agents/model/chat_message.dart';
-import 'package:keel_ui/src/modules/agents/model/permission_request.dart';
+import 'package:keel_core/modules/agents/model/agent.dart';
+import 'package:keel_core/modules/agents/model/agent_model_option.dart';
+import 'package:keel_core/modules/agents/model/agent_provider.dart';
+import 'package:keel_core/modules/agents/model/chat_message.dart';
+import 'package:keel_core/modules/agents/model/permission_request.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/permission_request_banner.dart';
 import 'package:keel_ui/src/modules/agents/service/chat_actions.dart';
 import 'package:keel_ui/src/modules/agents/ui/view/chat_view.dart';
@@ -276,7 +276,7 @@ class _ChatHarnessState extends State<_ChatHarness> {
       model: kDefaultClaudeModelAlias,
       provider: AgentProvider.claude,
       createdAt: _epoch,
-      iconColor: Colors.deepPurple,
+      iconColorValue: Colors.deepPurple.toARGB32(),
       effort: 'medium',
       messages: widget.messages,
       pendingPermission: widget.pendingPermission,

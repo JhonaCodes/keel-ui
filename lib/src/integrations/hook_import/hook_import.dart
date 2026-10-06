@@ -16,8 +16,8 @@ import 'dart:io';
 
 import 'package:logger_rs/logger_rs.dart';
 
-import 'package:keel_ui/src/modules/hooks/model/hook.dart';
-import 'package:keel_ui/src/modules/hooks/model/hook_event.dart';
+import 'package:keel_core/modules/hooks/model/hook.dart';
+import 'package:keel_core/modules/hooks/model/hook_event.dart';
 
 /// Un hook encontrado en una configuración de Claude Code.
 class ImportableHook {

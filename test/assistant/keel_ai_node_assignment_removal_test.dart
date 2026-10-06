@@ -5,16 +5,18 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:dart_mcp/server.dart';
 
 import 'package:keel_ui/src/core/services/local_database.dart';
+import 'package:keel_core/core/store/keel_store.dart';
+import 'package:keel_ui/src/core/services/flutter_local_db_store.dart';
 import 'package:keel_ui/src/integrations/assistant_mcp/assistant_mcp_server.dart';
-import 'package:keel_ui/src/integrations/catalog_shape/catalog_shape.dart';
-import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
+import 'package:keel_core/integrations/catalog_shape/catalog_shape.dart';
+import 'package:keel_core/modules/agent_profiles/model/agent_profile.dart';
 import 'package:keel_ui/src/modules/agent_profiles/viewmodel/agent_profiles_viewmodel.dart';
-import 'package:keel_ui/src/modules/projects/model/project.dart';
-import 'package:keel_ui/src/modules/projects/model/resolution_case.dart';
-import 'package:keel_ui/src/modules/projects/model/session.dart';
-import 'package:keel_ui/src/modules/projects/model/work_node.dart';
+import 'package:keel_core/modules/projects/model/project.dart';
+import 'package:keel_core/modules/projects/model/resolution_case.dart';
+import 'package:keel_core/modules/projects/model/session.dart';
+import 'package:keel_core/modules/projects/model/work_node.dart';
 import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
-import 'package:keel_ui/src/modules/workflows/model/workflow.dart';
+import 'package:keel_core/modules/workflows/model/workflow.dart';
 import 'package:keel_ui/src/modules/workflows/viewmodel/workflows_viewmodel.dart';
 
 /// La segunda vía por la que una asignación de nodo queda sin poder
@@ -31,6 +33,7 @@ import 'package:keel_ui/src/modules/workflows/viewmodel/workflows_viewmodel.dart
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   LocalDatabase.markUnavailable();
+  KeelStore.instance = const FlutterLocalDbStore();
 
   final now = DateTime(2026, 8, 28);
 

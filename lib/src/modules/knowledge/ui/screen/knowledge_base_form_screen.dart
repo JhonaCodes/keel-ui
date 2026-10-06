@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 
 import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/core/ui/form_panel.dart';
-import 'package:keel_ui/src/modules/knowledge/model/knowledge_base.dart';
+import 'package:keel_core/modules/knowledge/model/knowledge_base.dart';
 import 'package:keel_ui/src/modules/knowledge/viewmodel/knowledge_viewmodel.dart';
 import 'package:keel_ui/src/integrations/workspace_roots/workspace_roots.dart';
 

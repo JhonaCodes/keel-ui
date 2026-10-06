@@ -18,24 +18,18 @@
 library;
 
 import 'dart:async';
-import 'dart:io';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:logger_rs/logger_rs.dart';
+import 'package:keel_core/integrations/git_worktree/git_worktree.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
 
 import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/core/ui/form_panel.dart';
 import 'package:keel_ui/src/modules/app_status/viewmodel/app_status_viewmodel.dart';
-import 'package:keel_ui/src/modules/projects/model/project.dart';
+import 'package:keel_core/modules/projects/model/project.dart';
 import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
-import 'package:keel_ui/src/modules/workspace/model/running_work.dart';
+import 'package:keel_ui/src/core/services/store_mirror_view_model.dart';
 
-part 'src/worktree_place.dart';
-part 'src/worktree_probe.dart';
-part 'src/worktree_plan.dart';
-part 'src/worktree_unify.dart';
 part 'src/worktree_viewmodel.dart';
 part 'src/ui/worktree_strip.dart';
 part 'src/ui/worktree_panel.dart';

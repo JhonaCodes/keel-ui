@@ -5,20 +5,20 @@ import 'package:logger_rs/logger_rs.dart';
 import 'package:path_provider/path_provider.dart';
 
 import 'package:keel_ui/src/core/services/local_database.dart';
-import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
-import 'package:keel_ui/src/modules/agent_profiles/repository/agent_profiles_repository.dart';
-import 'package:keel_ui/src/modules/agents/model/agent.dart';
-import 'package:keel_ui/src/modules/agents/repository/agents_repository.dart';
-import 'package:keel_ui/src/modules/rules/model/rule.dart';
-import 'package:keel_ui/src/modules/rules/repository/rules_repository.dart';
+import 'package:keel_core/modules/agent_profiles/model/agent_profile.dart';
+import 'package:keel_core/modules/agent_profiles/repository/agent_profiles_repository.dart';
+import 'package:keel_core/modules/agents/model/agent.dart';
+import 'package:keel_core/modules/agents/repository/agents_repository.dart';
+import 'package:keel_core/modules/rules/model/rule.dart';
+import 'package:keel_core/modules/rules/repository/rules_repository.dart';
 import 'package:keel_ui/src/modules/settings/model/app_settings.dart';
 import 'package:keel_ui/src/modules/settings/repository/settings_repository.dart';
-import 'package:keel_ui/src/modules/skills/model/skill.dart';
-import 'package:keel_ui/src/modules/skills/repository/skills_repository.dart';
-import 'package:keel_ui/src/modules/projects/model/project.dart';
-import 'package:keel_ui/src/modules/projects/repository/projects_repository.dart';
-import 'package:keel_ui/src/modules/workflows/model/workflow.dart';
-import 'package:keel_ui/src/modules/workflows/repository/workflows_repository.dart';
+import 'package:keel_core/modules/skills/model/skill.dart';
+import 'package:keel_core/modules/skills/repository/skills_repository.dart';
+import 'package:keel_core/modules/projects/model/project.dart';
+import 'package:keel_core/modules/projects/repository/projects_repository.dart';
+import 'package:keel_core/modules/workflows/model/workflow.dart';
+import 'package:keel_core/modules/workflows/repository/workflows_repository.dart';
 
 /// Imports the pre-`flutter_local_db` JSON files (from
 /// `getApplicationSupportDirectory()`) into the database exactly once. Safe

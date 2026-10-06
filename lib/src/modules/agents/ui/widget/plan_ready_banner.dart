@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'package:keel_ui/src/shared/shared.dart';
+import 'package:keel_ui/src/shared/num_extension.dart';
 
 /// «Terminé de planificar. ¿Lo implemento?»
 ///

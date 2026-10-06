@@ -4,17 +4,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'package:keel_ui/l10n/generated/app_localizations.dart';
-import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
-import 'package:keel_ui/src/modules/projects/model/project.dart';
-import 'package:keel_ui/src/modules/projects/model/session.dart';
-import 'package:keel_ui/src/modules/projects/model/session_map.dart';
+import 'package:keel_core/modules/agent_profiles/model/agent_profile.dart';
+import 'package:keel_core/modules/projects/model/project.dart';
+import 'package:keel_core/modules/projects/model/session.dart';
+import 'package:keel_core/modules/projects/model/session_map.dart';
 import 'package:keel_ui/src/modules/projects/model/session_map_layout.dart';
 import 'package:keel_ui/src/modules/projects/ui/screen/map_node_inspector_screen.dart';
 import 'package:keel_ui/src/modules/projects/ui/widget/map_edges_painter.dart';
 import 'package:keel_ui/src/modules/projects/ui/widget/map_legend.dart';
 import 'package:keel_ui/src/modules/projects/ui/widget/map_callout_box.dart';
 import 'package:keel_ui/src/modules/projects/ui/widget/map_node_card.dart';
-import 'package:keel_ui/src/modules/workflows/model/workflow.dart';
+import 'package:keel_core/modules/workflows/model/workflow.dart';
 
 /// Debajo de esto el nodo pierde el pie: a esa escala se mira la forma del
 /// recorrido, no los detalles de cada cuadro.

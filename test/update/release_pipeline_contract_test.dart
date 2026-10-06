@@ -6,11 +6,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:keel_ui/l10n/generated/app_localizations.dart';
 
 import 'package:keel_ui/src/core/services/local_database.dart';
+import 'package:keel_core/core/store/keel_store.dart';
+import 'package:keel_ui/src/core/services/flutter_local_db_store.dart';
 import 'package:keel_ui/src/integrations/app_update/app_update.dart';
 import 'package:keel_ui/src/modules/agents/ui/view/agent_rail.dart';
 
 void main() {
   setUpAll(LocalDatabase.markUnavailable);
+  setUpAll(() => KeelStore.instance = const FlutterLocalDbStore());
 
   group('versionado de compilaciones', () {
     test('CI conserva la versión del tag con --no-bump', () async {

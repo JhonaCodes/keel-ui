@@ -6,31 +6,33 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/core/ui/app_theme.dart';
-import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
+import 'package:keel_core/modules/agent_profiles/model/agent_profile.dart';
 import 'package:keel_ui/src/modules/agent_profiles/viewmodel/agent_profiles_viewmodel.dart';
-import 'package:keel_ui/src/modules/knowledge/model/knowledge_base.dart';
+import 'package:keel_core/modules/knowledge/model/knowledge_base.dart';
 import 'package:keel_ui/src/modules/knowledge/viewmodel/knowledge_viewmodel.dart';
-import 'package:keel_ui/src/modules/projects/model/project.dart';
-import 'package:keel_ui/src/modules/projects/model/resolution_case.dart';
-import 'package:keel_ui/src/modules/projects/model/session.dart';
-import 'package:keel_ui/src/modules/projects/model/session_subagent.dart';
-import 'package:keel_ui/src/modules/projects/model/work_node.dart';
+import 'package:keel_core/modules/projects/model/project.dart';
+import 'package:keel_core/modules/projects/model/resolution_case.dart';
+import 'package:keel_core/modules/projects/model/session.dart';
+import 'package:keel_core/modules/projects/model/session_subagent.dart';
+import 'package:keel_core/modules/projects/model/work_node.dart';
 import 'package:keel_ui/src/modules/projects/ui/view/session_map_view.dart';
 import 'package:keel_ui/src/modules/projects/ui/view/session_chat_view.dart';
 import 'package:keel_ui/src/modules/projects/ui/widget/workflow_progress_panel.dart';
-import 'package:keel_ui/src/modules/agents/model/chat_message.dart';
+import 'package:keel_core/modules/agents/model/chat_message.dart';
 import 'package:keel_ui/src/modules/agents/ui/screen/agents_screen.dart';
 import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
-import 'package:keel_ui/src/modules/rules/model/rule.dart';
+import 'package:keel_core/modules/rules/model/rule.dart';
 import 'package:keel_ui/src/modules/rules/viewmodel/rules_viewmodel.dart';
 import 'package:keel_ui/src/modules/sidebar_layout/model/sidebar_layout.dart';
 import 'package:keel_ui/src/modules/sidebar_layout/viewmodel/sidebar_layout_viewmodel.dart';
-import 'package:keel_ui/src/modules/workflows/model/workflow.dart';
+import 'package:keel_core/modules/workflows/model/workflow.dart';
 import 'package:keel_ui/src/modules/workflows/ui/screen/workflow_form_screen.dart';
 import 'package:keel_ui/src/modules/workflows/viewmodel/workflows_viewmodel.dart';
 import 'package:keel_ui/src/modules/workspace/model/workspace_lens.dart';
 import 'package:keel_ui/src/modules/workspace/viewmodel/workspace_viewmodel.dart';
 import 'package:keel_ui/src/core/services/local_database.dart';
+import 'package:keel_core/core/store/keel_store.dart';
+import 'package:keel_ui/src/core/services/flutter_local_db_store.dart';
 
 final _date = DateTime.utc(2026, 8, 31, 12);
 final _productFont = File('/System/Library/Fonts/Supplemental/Arial.ttf');
@@ -523,6 +525,7 @@ void main() {
 
   setUpAll(() async {
     LocalDatabase.markUnavailable();
+    KeelStore.instance = const FlutterLocalDbStore();
     // KnowledgeViewModel resolves Application Support through path_provider
     // before it reports ready. Under a widget test that channel has no
     // handler, so the reply never reaches the fake-async zone and every test

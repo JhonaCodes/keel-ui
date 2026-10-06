@@ -3,7 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-import 'package:keel_ui/src/modules/projects/model/session_map.dart';
+import 'package:keel_core/modules/projects/model/session_map.dart';
 import 'package:keel_ui/src/modules/projects/ui/widget/map_edges_painter.dart';
 
 /// Qué significa cada línea.

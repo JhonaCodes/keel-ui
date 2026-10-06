@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
 import 'package:keel_ui/l10n/generated/app_localizations.dart';
-import 'package:keel_ui/src/integrations/chat_references/chat_references.dart';
-import 'package:keel_ui/src/modules/agents/model/queued_message.dart';
+import 'package:keel_core/integrations/chat_references/chat_references.dart';
+import 'package:keel_core/modules/agents/model/queued_message.dart';
 
 /// Reescribir un mensaje que todavía no salió.
 ///

@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:keel_ui/src/core/services/turn_usage.dart';
-import 'package:keel_ui/src/integrations/usage_ledger/usage_ledger.dart';
+import 'package:keel_core/core/services/turn_usage.dart';
+import 'package:keel_core/integrations/usage_ledger/usage_ledger_data.dart';
 
 UsageEntry entry({
   required DateTime at,

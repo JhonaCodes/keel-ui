@@ -1,16 +1,4 @@
-import 'package:keel_ui/src/core/services/local_database.dart';
-import 'package:keel_ui/src/modules/settings/model/app_settings.dart';
-
-class SettingsRepository {
-  static const _key = 'settings';
-
-  Future<AppSettings> load() async {
-    final data = await LocalDatabase.get(_key);
-    if (data == null) return const AppSettings();
-    return AppSettings.fromJson(data);
-  }
-
-  Future<void> save(AppSettings settings) async {
-    await LocalDatabase.put(_key, settings.toJson());
-  }
-}
+/// `SettingsRepository` now lives in `keel_core`, over `KeelStore` instead
+/// of talking to `LocalDatabase` directly — re-exported here so existing
+/// imports of this path keep working unchanged.
+export 'package:keel_core/modules/settings/repository/settings_repository.dart';

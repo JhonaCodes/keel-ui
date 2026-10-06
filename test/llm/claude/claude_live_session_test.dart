@@ -2,8 +2,8 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:keel_ui/src/integrations/llm/claude/claude_live_session.dart';
-import 'package:keel_ui/src/integrations/llm/llm.dart';
+import 'package:keel_core/integrations/llm/claude/claude_live_session.dart';
+import 'package:keel_core/integrations/llm/llm.dart';
 
 import '../support/fake_cli_process.dart';
 

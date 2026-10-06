@@ -3,7 +3,8 @@ import 'package:reactive_notifier/reactive_notifier.dart';
 
 import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/integrations/app_update/app_update.dart';
-import 'package:keel_ui/src/integrations/machine/machine.dart';
+import 'package:keel_core/integrations/machine/machine.dart';
+import 'package:keel_core/integrations/usage_ledger/usage_ledger_data.dart';
 import 'package:keel_ui/src/integrations/usage_ledger/usage_ledger.dart';
 import 'package:keel_ui/src/modules/machine/model/machine_snapshot.dart';
 import 'package:keel_ui/src/modules/machine/ui/widget/usage_bars.dart';
@@ -163,7 +164,10 @@ class _EngineTable extends StatelessWidget {
             Text('TURNOS', style: head),
             Text('ENTRADA', style: head),
             Text('SALIDA', style: head),
-            Text(AppLocalizations.of(context)!.labelCacheReadShort, style: head),
+            Text(
+              AppLocalizations.of(context)!.labelCacheReadShort,
+              style: head,
+            ),
           ],
         ),
         for (final engine in engines)
@@ -253,7 +257,8 @@ class _Hardware extends StatelessWidget {
               child: _Metric(
                 label: 'Carga',
                 value: machine.load.toStringAsFixed(2).replaceAll('.', ','),
-                detail: 'de ${AppLocalizations.of(context)!.labelCoresShort(machine.cores)}',
+                detail:
+                    'de ${AppLocalizations.of(context)!.labelCoresShort(machine.cores)}',
                 ratio: machine.loadRatio,
               ),
             ),
@@ -474,7 +479,9 @@ class _ServiceRow extends StatelessWidget {
           ),
           Expanded(
             child: Text(
-              service.installed ? service.path : AppLocalizations.of(context)!.messageNotInPath,
+              service.installed
+                  ? service.path
+                  : AppLocalizations.of(context)!.messageNotInPath,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(

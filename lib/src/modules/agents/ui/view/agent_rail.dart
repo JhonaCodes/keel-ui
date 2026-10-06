@@ -7,10 +7,10 @@ import 'package:keel_ui/src/modules/assistant/service/assistant_window_bridge.da
 import 'package:keel_ui/src/integrations/app_update/app_update.dart';
 import 'package:keel_ui/src/integrations/fault_journal/fault_journal.dart';
 import 'package:keel_ui/src/integrations/system_vault/system_vault.dart';
-import 'package:keel_ui/src/modules/agents/model/agent.dart';
+import 'package:keel_core/modules/agents/model/agent.dart';
 import 'package:keel_ui/src/modules/agents/viewmodel/agents_viewmodel.dart';
-import 'package:keel_ui/src/modules/projects/model/project.dart';
-import 'package:keel_ui/src/modules/requirements/model/internal_requirement.dart';
+import 'package:keel_core/modules/projects/model/project.dart';
+import 'package:keel_core/modules/requirements/model/internal_requirement.dart';
 import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
 import 'package:keel_ui/src/modules/requirements/viewmodel/requirements_viewmodel.dart';
 import 'package:keel_ui/src/modules/settings/ui/widget/settings_panel.dart';

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'package:keel_ui/src/modules/mcp_servers/model/mcp_probe_result.dart';
+import 'package:keel_core/modules/mcp_servers/model/mcp_probe_result.dart';
 
 /// El punto de estado del último probe, con lo que contestó al lado.
 ///

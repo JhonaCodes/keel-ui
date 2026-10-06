@@ -4,12 +4,14 @@ import 'package:reactive_notifier/reactive_notifier.dart';
 
 import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/core/services/local_database.dart';
+import 'package:keel_core/core/store/keel_store.dart';
+import 'package:keel_ui/src/core/services/flutter_local_db_store.dart';
 import 'package:keel_ui/src/core/ui/app_theme.dart';
-import 'package:keel_ui/src/modules/agents/model/agent_tool_activity.dart';
+import 'package:keel_core/modules/agents/model/agent_tool_activity.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/agent_activity_indicator.dart';
-import 'package:keel_ui/src/modules/projects/model/project.dart';
-import 'package:keel_ui/src/modules/projects/model/session.dart';
-import 'package:keel_ui/src/modules/projects/model/session_subagent.dart';
+import 'package:keel_core/modules/projects/model/project.dart';
+import 'package:keel_core/modules/projects/model/session.dart';
+import 'package:keel_core/modules/projects/model/session_subagent.dart';
 import 'package:keel_ui/src/modules/projects/ui/view/session_chat_view.dart';
 import 'package:keel_ui/src/modules/projects/ui/widget/session_subagent_card.dart';
 import 'package:keel_ui/src/modules/projects/ui/widget/turn_phase_label.dart';
@@ -20,6 +22,7 @@ void main() {
     'session notifications show child progress and remove its animation on completion',
     (tester) async {
       LocalDatabase.markUnavailable();
+      KeelStore.instance = const FlutterLocalDbStore();
       final vm = ProjectsService.instance.notifier;
       await vm.ready;
       tester.view.physicalSize = const Size(1400, 1000);

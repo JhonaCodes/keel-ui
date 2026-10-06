@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 
 import 'package:keel_ui/src/core/ui/app_theme.dart';
 import 'package:keel_ui/src/modules/projects/model/member_color.dart';
-import 'package:keel_ui/src/modules/projects/model/session_map.dart';
+import 'package:keel_core/modules/projects/model/session_map.dart';
 import 'package:keel_ui/src/modules/projects/model/session_map_layout.dart';
 
 /// Las dos familias de línea que no salen del acento de la app: consultar y

@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:keel_ui/src/integrations/requirements_mcp/requirements_mcp.dart';
-import 'package:keel_ui/src/modules/requirements/model/internal_requirement.dart';
+import 'package:keel_core/integrations/requirements_mcp/requirements_mcp.dart';
+import 'package:keel_core/modules/requirements/model/internal_requirement.dart';
 
 final _epoch = DateTime.utc(2026, 8, 27);
 

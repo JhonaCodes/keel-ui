@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import 'package:keel_ui/src/integrations/chat_references/chat_references.dart';
+import 'package:keel_core/integrations/chat_references/chat_references.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/chat_composer_field.dart';
 
 /// Cómo se piden las sugerencias cuando este engine no puede armarlas.

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-import 'package:keel_ui/src/modules/catalog_locks/model/catalog_lock.dart';
+import 'package:keel_core/modules/catalog_locks/model/catalog_lock.dart';
 import 'package:keel_ui/src/modules/catalog_locks/ui/widget/catalog_lock_button.dart';
 import 'package:keel_ui/src/modules/catalog_locks/viewmodel/catalog_locks_viewmodel.dart';
-import 'package:keel_ui/src/modules/secrets/model/secret.dart';
+import 'package:keel_core/modules/secrets/model/secret.dart';
 import 'package:keel_ui/src/modules/secrets/ui/screen/secret_form_screen.dart';
 import 'package:keel_ui/src/modules/secrets/ui/widget/secret_delete_dialog.dart';
 

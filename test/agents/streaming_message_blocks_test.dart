@@ -5,9 +5,9 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:keel_ui/l10n/generated/app_localizations.dart';
 
-import 'package:keel_ui/src/modules/agents/model/chat_message.dart';
-import 'package:keel_ui/src/modules/agents/model/file_edit.dart';
-import 'package:keel_ui/src/modules/agents/model/message_block.dart';
+import 'package:keel_core/modules/agents/model/chat_message.dart';
+import 'package:keel_core/modules/agents/model/file_edit.dart';
+import 'package:keel_core/modules/agents/model/message_block.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/chat_message_bubble.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/inline_file_editor.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/markdown_text.dart';

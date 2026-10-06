@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:keel_ui/l10n/generated/app_localizations.dart';
 
+import 'package:keel_ui/src/core/ui/app_localizations_validation.dart';
 import 'package:keel_ui/src/core/ui/form_panel.dart';
-import 'package:keel_ui/src/modules/secrets/model/secret.dart';
+import 'package:keel_core/modules/secrets/model/secret.dart';
 import 'package:keel_ui/src/modules/secrets/viewmodel/secrets_viewmodel.dart';
 
 Future<void> openSecretFormScreen(
@@ -64,7 +65,10 @@ class _SecretFormScreenState extends State<SecretFormScreen> {
   void _onNameChanged(String value) {
     final t = AppLocalizations.of(context)!;
     setState(() {
-      _nameError = validateSecretName(value.trim(), t);
+      _nameError = validateSecretName(
+        value.trim(),
+        AppLocalizationsValidation(t),
+      );
       _formError = null;
     });
   }
@@ -72,7 +76,7 @@ class _SecretFormScreenState extends State<SecretFormScreen> {
   void _submit() {
     final t = AppLocalizations.of(context)!;
     final name = _nameController.text.trim();
-    final nameError = validateSecretName(name, t);
+    final nameError = validateSecretName(name, AppLocalizationsValidation(t));
     if (nameError != null) {
       setState(() => _nameError = nameError);
       return;

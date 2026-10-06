@@ -7,9 +7,9 @@ import 'package:result_controller/result_controller.dart';
 import 'package:keel_ui/l10n/generated/app_localizations.dart';
 
 import 'package:keel_ui/src/integrations/keel_e2e/keel_e2e.dart';
-import 'package:keel_ui/src/modules/projects/model/project.dart';
-import 'package:keel_ui/src/modules/projects/model/session.dart';
-import 'package:keel_ui/src/modules/projects/model/session_tab.dart';
+import 'package:keel_core/modules/projects/model/project.dart';
+import 'package:keel_core/modules/projects/model/session.dart';
+import 'package:keel_core/modules/projects/model/session_tab.dart';
 import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
 
 /// Thin host for the keel-e2e panel on the E2E tab (architecture §14).

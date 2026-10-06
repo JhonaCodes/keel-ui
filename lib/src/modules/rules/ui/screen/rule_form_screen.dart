@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/core/ui/form_panel.dart';
-import 'package:keel_ui/src/modules/rules/model/rule.dart';
+import 'package:keel_core/modules/rules/model/rule.dart';
 import 'package:keel_ui/src/modules/rules/viewmodel/rules_viewmodel.dart';
 
 Future<void> openRuleFormScreen(BuildContext context, {Rule? initial}) {

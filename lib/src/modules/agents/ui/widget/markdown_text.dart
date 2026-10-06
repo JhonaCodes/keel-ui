@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:gpt_markdown/gpt_markdown.dart';
 
-import 'package:keel_ui/src/core/services/external_link_service.dart';
+import 'package:keel_core/core/services/external_link_service.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/collapsible_code_block.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/mermaid_diagram.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/svg_diagram.dart';
-import 'package:keel_ui/src/shared/shared.dart';
+import 'package:keel_core/shared/shared.dart';
 
 /// Texto de un agente, leído como lo escribió: markdown, no `##` y `**`.
 ///

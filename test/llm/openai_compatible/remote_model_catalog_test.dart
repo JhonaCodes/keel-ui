@@ -5,9 +5,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
-import 'package:keel_ui/src/integrations/llm/openai_compatible/remote_model_catalog.dart';
-import 'package:keel_ui/src/modules/agents/model/agent_model_option.dart';
-import 'package:keel_ui/src/modules/agents/model/agent_provider.dart';
+import 'package:keel_core/integrations/llm/openai_compatible/remote_model_catalog.dart';
+import 'package:keel_core/modules/agents/model/agent_model_option.dart';
+import 'package:keel_core/modules/agents/model/agent_provider.dart';
 
 void main() {
   test(

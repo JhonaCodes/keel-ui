@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:keel_ui/src/integrations/task_runner/task_runner.dart';
+import 'package:keel_core/integrations/task_runner/task_runner.dart';
 
 void main() {
   test('una causa concreta suprime la atribución genérica al proveedor', () {

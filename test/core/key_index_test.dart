@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:keel_ui/src/core/services/key_index.dart';
+import 'package:keel_core/core/services/key_index.dart';
 
 void main() {
   group('KeyIndex', () {

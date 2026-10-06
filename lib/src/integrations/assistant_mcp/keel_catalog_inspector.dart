@@ -1,6 +1,6 @@
-import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
-import 'package:keel_ui/src/modules/projects/model/project.dart';
-import 'package:keel_ui/src/modules/workflows/model/workflow.dart';
+import 'package:keel_core/modules/agent_profiles/model/agent_profile.dart';
+import 'package:keel_core/modules/projects/model/project.dart';
+import 'package:keel_core/modules/workflows/model/workflow.dart';
 
 /// Read-only, typed view of Keel's live catalog for the system assistant.
 ///

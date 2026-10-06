@@ -1,15 +1,15 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
-import 'package:keel_ui/src/modules/agents/model/chat_message.dart';
-import 'package:keel_ui/src/modules/projects/model/resolution_case.dart';
-import 'package:keel_ui/src/modules/projects/model/session.dart';
-import 'package:keel_ui/src/modules/projects/model/session_map.dart';
+import 'package:keel_core/modules/agent_profiles/model/agent_profile.dart';
+import 'package:keel_core/modules/agents/model/chat_message.dart';
+import 'package:keel_core/modules/projects/model/resolution_case.dart';
+import 'package:keel_core/modules/projects/model/session.dart';
+import 'package:keel_core/modules/projects/model/session_map.dart';
 import 'package:keel_ui/src/modules/projects/model/session_map_layout.dart';
-import 'package:keel_ui/src/modules/projects/model/session_live_turn.dart';
-import 'package:keel_ui/src/modules/projects/model/session_subagent.dart';
-import 'package:keel_ui/src/modules/projects/model/work_node.dart';
-import 'package:keel_ui/src/modules/workflows/model/workflow.dart';
+import 'package:keel_core/modules/projects/model/session_live_turn.dart';
+import 'package:keel_core/modules/projects/model/session_subagent.dart';
+import 'package:keel_core/modules/projects/model/work_node.dart';
+import 'package:keel_core/modules/workflows/model/workflow.dart';
 
 final _epoch = DateTime(2026, 8, 24);
 

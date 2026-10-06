@@ -3,11 +3,13 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/core/services/local_database.dart';
+import 'package:keel_core/core/store/keel_store.dart';
+import 'package:keel_ui/src/core/services/flutter_local_db_store.dart';
 import 'package:keel_ui/src/core/ui/app_theme.dart';
-import 'package:keel_ui/src/modules/boards/model/board.dart';
+import 'package:keel_core/modules/boards/model/board.dart';
 import 'package:keel_ui/src/modules/boards/ui/view/project_boards_view.dart';
 import 'package:keel_ui/src/modules/boards/viewmodel/boards_viewmodel.dart';
-import 'package:keel_ui/src/modules/projects/model/project.dart';
+import 'package:keel_core/modules/projects/model/project.dart';
 import 'package:keel_ui/src/modules/workspace/model/workspace_lens.dart';
 import 'package:keel_ui/src/modules/workspace/viewmodel/workspace_viewmodel.dart';
 
@@ -50,6 +52,7 @@ Widget _app() => MaterialApp(
 
 void main() {
   setUpAll(LocalDatabase.markUnavailable);
+  setUpAll(() => KeelStore.instance = const FlutterLocalDbStore());
 
   // Borrando de verdad: `cleanState` no repone el estado inicial una vez
   // que el ViewModel ya cargó, y los tableros del test anterior quedarían.

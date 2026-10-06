@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
 
 import 'package:keel_ui/l10n/generated/app_localizations.dart';
-import 'package:keel_ui/src/modules/catalog_locks/model/catalog_lock.dart';
+import 'package:keel_core/modules/catalog_locks/model/catalog_lock.dart';
 import 'package:keel_ui/src/modules/catalog_locks/ui/widget/catalog_lock_button.dart';
 import 'package:keel_ui/src/modules/catalog_locks/viewmodel/catalog_locks_viewmodel.dart';
-import 'package:keel_ui/src/modules/boards/model/board.dart';
-import 'package:keel_ui/src/modules/boards/model/board_run.dart';
+import 'package:keel_core/modules/boards/model/board.dart';
+import 'package:keel_core/modules/boards/model/board_run.dart';
 import 'package:keel_ui/src/modules/boards/ui/screen/board_form_screen.dart';
 import 'package:keel_ui/src/modules/boards/ui/widget/delete_board_dialog.dart';
 import 'package:keel_ui/src/modules/boards/viewmodel/boards_viewmodel.dart';

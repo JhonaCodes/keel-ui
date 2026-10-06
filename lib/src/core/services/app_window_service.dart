@@ -1,7 +1,7 @@
 import 'package:logger_rs/logger_rs.dart';
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 
-import 'package:keel_ui/src/core/services/app_window_arguments.dart';
+import 'package:keel_core/core/services/app_window_arguments.dart';
 
 /// Live sub-window controllers, keyed by [AppWindowArguments.businessId].
 /// The controller is the ONLY vehicle for pushing a method call from the

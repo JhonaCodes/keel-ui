@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
 
-import 'package:keel_ui/src/modules/app_status/model/app_status.dart';
+import 'package:keel_core/modules/app_status/model/app_status.dart';
 import 'package:keel_ui/src/modules/app_status/viewmodel/app_status_viewmodel.dart';
 
 /// La franja de 2px arriba de todo mientras la app trabaja, y la pantalla

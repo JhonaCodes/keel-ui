@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:keel_ui/src/core/services/claude_stream_events.dart';
-import 'package:keel_ui/src/integrations/task_runner/task_runner.dart';
+import 'package:keel_core/core/services/claude_stream_events.dart';
+import 'package:keel_core/integrations/task_runner/task_runner.dart';
 
 Map<String, dynamic> _assistant(
   List<Map<String, dynamic>> content, {

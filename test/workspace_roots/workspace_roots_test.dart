@@ -3,11 +3,15 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:keel_ui/src/core/services/local_database.dart';
-import 'package:keel_ui/src/integrations/system_prompt/system_prompt.dart';
+import 'package:keel_core/core/store/keel_store.dart';
+import 'package:keel_ui/src/core/services/flutter_local_db_store.dart';
+import 'package:keel_core/integrations/system_prompt/system_prompt.dart';
+import 'package:keel_core/integrations/workspace_roots/workspace_roots.dart';
 import 'package:keel_ui/src/integrations/workspace_roots/workspace_roots.dart';
 
 void main() {
   LocalDatabase.markUnavailable();
+  KeelStore.instance = const FlutterLocalDbStore();
 
   group('volúmenes montados', () {
     test('deja afuera lo que no existe', () {

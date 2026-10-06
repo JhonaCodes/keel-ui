@@ -2,9 +2,9 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:keel_ui/src/core/services/claude_stream_events.dart';
-import 'package:keel_ui/src/integrations/llm/src/cli_turn_stream.dart';
-import 'package:keel_ui/src/integrations/task_runner/task_runner.dart';
+import 'package:keel_core/core/services/claude_stream_events.dart';
+import 'package:keel_core/integrations/llm/src/cli_turn_stream.dart';
+import 'package:keel_core/integrations/task_runner/task_runner.dart';
 
 /// Lo que el CLI escribe cuando se queda sin turnos agénticos: dice cómo
 /// terminó en el stream Y sale con código distinto de cero.

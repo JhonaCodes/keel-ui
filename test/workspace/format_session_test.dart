@@ -6,11 +6,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:keel_ui/l10n/generated/app_localizations.dart';
 
 import 'package:keel_ui/src/core/services/local_database.dart';
+import 'package:keel_core/core/store/keel_store.dart';
+import 'package:keel_ui/src/core/services/flutter_local_db_store.dart';
 import 'package:keel_ui/src/core/ui/app_theme.dart';
-import 'package:keel_ui/src/modules/projects/model/project.dart';
-import 'package:keel_ui/src/modules/projects/model/roadmap_format_skill.dart';
-import 'package:keel_ui/src/modules/projects/model/session.dart';
-import 'package:keel_ui/src/modules/workflows/model/workflow.dart';
+import 'package:keel_core/modules/projects/model/project.dart';
+import 'package:keel_core/modules/projects/model/roadmap_format_skill.dart';
+import 'package:keel_core/modules/projects/model/session.dart';
+import 'package:keel_core/modules/workflows/model/workflow.dart';
 import 'package:keel_ui/src/modules/projects/ui/view/project_state_view.dart';
 import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
 import 'package:keel_ui/src/modules/workspace/model/workspace_lens.dart';
@@ -45,6 +47,7 @@ void main() {
   late String projectId;
 
   setUpAll(LocalDatabase.markUnavailable);
+  setUpAll(() => KeelStore.instance = const FlutterLocalDbStore());
 
   setUp(() async {
     tmp = Directory.systemTemp.createTempSync('keel-formato');

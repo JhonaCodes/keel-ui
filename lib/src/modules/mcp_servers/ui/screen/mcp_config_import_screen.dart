@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/core/ui/form_panel.dart';
-import 'package:keel_ui/src/integrations/mcp_catalog/mcp_catalog.dart';
+import 'package:keel_core/integrations/mcp_catalog/mcp_catalog.dart';
 import 'package:keel_ui/src/modules/mcp_servers/viewmodel/mcp_servers_viewmodel.dart';
 
 Future<void> openMcpConfigImportScreen(BuildContext context) {

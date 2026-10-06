@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
 
 import 'package:keel_ui/src/modules/agent_profiles/viewmodel/agent_profiles_viewmodel.dart';
-import 'package:keel_ui/src/modules/boards/model/board.dart';
-import 'package:keel_ui/src/modules/boards/model/board_run.dart';
+import 'package:keel_core/modules/boards/model/board.dart';
+import 'package:keel_core/modules/boards/model/board_run.dart';
 import 'package:keel_ui/src/modules/boards/ui/screen/board_form_screen.dart';
 import 'package:keel_ui/src/modules/boards/ui/widget/board_field_input.dart';
 import 'package:keel_ui/src/modules/boards/ui/widget/board_response_pane.dart';

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
 
 import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
-import 'package:keel_ui/src/modules/requirements/model/internal_requirement.dart';
+import 'package:keel_core/modules/requirements/model/internal_requirement.dart';
 import 'package:keel_ui/src/modules/requirements/ui/screen/requirement_form_screen.dart';
 import 'package:keel_ui/src/modules/requirements/viewmodel/requirements_viewmodel.dart';
 

@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 
 import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/core/ui/form_panel.dart';
-import 'package:keel_ui/src/integrations/genui/genui.dart';
-import 'package:keel_ui/src/modules/boards/model/board.dart';
+import 'package:keel_core/integrations/genui/genui.dart';
+import 'package:keel_core/modules/boards/model/board.dart';
 import 'package:keel_ui/src/modules/boards/viewmodel/boards_viewmodel.dart';
 
 Future<void> openBoardFormScreen(

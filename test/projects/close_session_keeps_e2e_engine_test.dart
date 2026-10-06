@@ -6,11 +6,15 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:keel_e2e_panel/keel_e2e_panel.dart';
 
 import 'package:keel_ui/src/core/services/local_database.dart';
-import 'package:keel_ui/src/modules/projects/model/project.dart';
-import 'package:keel_ui/src/modules/projects/model/session.dart';
+import 'package:keel_core/core/store/keel_store.dart';
+import 'package:keel_ui/src/core/services/flutter_local_db_store.dart';
+import 'package:keel_core/modules/projects/model/project.dart';
+import 'package:keel_core/modules/projects/model/session.dart';
 import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
 import 'package:keel_ui/src/modules/workflows/model/e2e_device_workflow.dart';
 import 'package:keel_ui/src/modules/workflows/viewmodel/workflows_viewmodel.dart';
+import 'package:keel_core/core/host/keel_host.dart';
+import 'package:keel_ui/src/core/host/keel_host_impl.dart';
 
 final _epoch = DateTime(2026, 10, 2);
 
@@ -21,6 +25,7 @@ final _epoch = DateTime(2026, 10, 2);
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   LocalDatabase.markUnavailable();
+  KeelStore.instance = const FlutterLocalDbStore();
   // The oracle is a real HTTP request reaching the engine's control API;
   // the test binding's default client answers 400 to everything.
   HttpOverrides.global = null;
@@ -83,6 +88,7 @@ void main() {
     final workflowId = WorkflowsService.instance.notifier.data.workflows
         .firstWhere((workflow) => workflow.name == kE2eDeviceWorkflowName)
         .id;
+    KeelHost.instance = const KeelHostImpl();
     final projects = ProjectsService.instance.notifier;
     await projects.ready;
     projects.updateState(

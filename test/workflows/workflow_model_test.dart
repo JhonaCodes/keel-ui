@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:keel_ui/src/modules/workflows/model/workflow.dart';
-import 'package:keel_ui/src/modules/workflows/repository/workflows_repository.dart';
+import 'package:keel_core/modules/workflows/model/workflow.dart';
+import 'package:keel_core/modules/workflows/repository/workflows_repository.dart';
 
 void main() {
   group('Workflow adaptativo', () {

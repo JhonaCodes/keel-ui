@@ -1,12 +1,12 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:keel_ui/src/integrations/assistant_mcp/keel_catalog_inspector.dart';
-import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
-import 'package:keel_ui/src/modules/agents/model/agent_provider.dart';
-import 'package:keel_ui/src/modules/projects/model/member_tuning.dart';
-import 'package:keel_ui/src/modules/projects/model/project.dart';
-import 'package:keel_ui/src/modules/projects/model/session.dart';
-import 'package:keel_ui/src/modules/workflows/model/workflow.dart';
+import 'package:keel_core/modules/agent_profiles/model/agent_profile.dart';
+import 'package:keel_core/modules/agents/model/agent_provider.dart';
+import 'package:keel_core/modules/projects/model/member_tuning.dart';
+import 'package:keel_core/modules/projects/model/project.dart';
+import 'package:keel_core/modules/projects/model/session.dart';
+import 'package:keel_core/modules/workflows/model/workflow.dart';
 
 void main() {
   final now = DateTime(2026);

@@ -1,7 +1,7 @@
 import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:flutter/material.dart';
 
-import 'package:keel_ui/src/modules/projects/model/session_subagent.dart';
+import 'package:keel_core/modules/projects/model/session_subagent.dart';
 import 'package:keel_ui/src/modules/projects/ui/widget/session_subagent_activity.dart';
 
 /// Un subagente, en el hilo: qué se le pidió, en qué anda o qué devolvió.

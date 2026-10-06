@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:keel_ui/l10n/generated/app_localizations.dart';
-import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
-import 'package:keel_ui/src/modules/agents/model/agent_tool_activity.dart';
+import 'package:keel_core/modules/agent_profiles/model/agent_profile.dart';
+import 'package:keel_core/modules/agents/model/agent_tool_activity.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/agent_activity_indicator.dart';
-import 'package:keel_ui/src/modules/projects/model/session_live_turn.dart';
+import 'package:keel_core/modules/projects/model/session_live_turn.dart';
 import 'package:keel_ui/src/modules/projects/ui/widget/session_live_turn_strip.dart';
 import 'package:keel_ui/src/modules/projects/ui/widget/turn_phase_label.dart';
 

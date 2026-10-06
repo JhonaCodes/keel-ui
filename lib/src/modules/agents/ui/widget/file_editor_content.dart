@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:gpt_markdown/gpt_markdown.dart';
 
 import 'package:keel_ui/l10n/generated/app_localizations.dart';
-import 'package:keel_ui/src/core/services/local_file_service.dart';
-import 'package:keel_ui/src/modules/agents/model/code_language.dart';
-import 'package:keel_ui/src/modules/agents/model/file_edit.dart';
+import 'package:keel_core/core/services/local_file_service.dart';
+import 'package:keel_core/modules/agents/model/code_language.dart';
+import 'package:keel_core/modules/agents/model/file_edit.dart';
 import 'package:keel_ui/src/modules/agents/model/highlighted_line.dart';
-import 'package:keel_ui/src/modules/agents/model/line_diff.dart';
+import 'package:keel_core/modules/agents/model/line_diff.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/code_editing_controller.dart';
 import 'package:keel_ui/src/core/ui/confirm_card.dart';
 

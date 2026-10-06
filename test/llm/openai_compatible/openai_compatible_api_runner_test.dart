@@ -6,9 +6,12 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 import 'package:keel_ui/src/core/services/local_database.dart';
-import 'package:keel_ui/src/integrations/llm/llm.dart';
-import 'package:keel_ui/src/integrations/llm/openai_compatible/openai_compatible_api_runner.dart';
-import 'package:keel_ui/src/integrations/llm/openai_compatible/openai_tool_bridge.dart';
+import 'package:keel_core/core/store/keel_store.dart';
+import 'package:keel_ui/src/core/services/flutter_local_db_store.dart';
+import 'package:keel_ui/src/integrations/llm/llm_keel_ui_wiring.dart';
+import 'package:keel_core/integrations/llm/llm.dart';
+import 'package:keel_core/integrations/llm/openai_compatible/openai_compatible_api_runner.dart';
+import 'package:keel_core/integrations/llm/openai_compatible/openai_tool_bridge.dart';
 
 const _spec = LlmTurnSpec(
   prompt: 'hola',
@@ -701,6 +704,7 @@ void main() {
       'resolver un secret sin storage no intenta inicializar LocalDB',
       () async {
         LocalDatabase.markUnavailable();
+        KeelStore.instance = const FlutterLocalDbStore();
 
         expect(await resolveLlmSecret('OPENROUTER_API_KEY'), isNull);
       },

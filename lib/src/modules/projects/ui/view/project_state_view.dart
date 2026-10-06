@@ -4,18 +4,18 @@ import 'package:flutter/material.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
 
 import 'package:keel_ui/l10n/generated/app_localizations.dart';
-import 'package:keel_ui/src/integrations/project_radar/project_radar.dart';
-import 'package:keel_ui/src/integrations/roadmap_mcp/roadmap_mcp.dart';
-import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
+import 'package:keel_core/integrations/project_radar/project_radar.dart';
+import 'package:keel_core/integrations/roadmap/roadmap_reading.dart';
+import 'package:keel_core/modules/agent_profiles/model/agent_profile.dart';
 import 'package:keel_ui/src/modules/agent_profiles/viewmodel/agent_profiles_viewmodel.dart';
 import 'package:keel_ui/src/modules/projects/model/member_color.dart';
-import 'package:keel_ui/src/modules/projects/model/project.dart';
-import 'package:keel_ui/src/modules/projects/model/session.dart';
+import 'package:keel_core/modules/projects/model/project.dart';
+import 'package:keel_core/modules/projects/model/session.dart';
 import 'package:keel_ui/src/modules/projects/ui/widget/member_avatar.dart';
 import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
-import 'package:keel_ui/src/modules/requirements/model/internal_requirement.dart';
+import 'package:keel_core/modules/requirements/model/internal_requirement.dart';
 import 'package:keel_ui/src/modules/requirements/viewmodel/requirements_viewmodel.dart';
-import 'package:keel_ui/src/modules/roadmap/model/task_claim.dart';
+import 'package:keel_core/modules/roadmap/model/task_claim.dart';
 import 'package:keel_ui/src/modules/roadmap/viewmodel/task_claims_viewmodel.dart';
 import 'package:keel_ui/src/modules/workspace/viewmodel/workspace_viewmodel.dart';
 

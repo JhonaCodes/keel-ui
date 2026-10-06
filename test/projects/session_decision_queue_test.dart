@@ -1,18 +1,21 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:keel_ui/src/core/services/local_database.dart';
-import 'package:keel_ui/src/modules/projects/model/project.dart';
-import 'package:keel_ui/src/modules/projects/model/session.dart';
-import 'package:keel_ui/src/modules/projects/model/session_decision.dart';
-import 'package:keel_ui/src/modules/projects/model/resolution_case.dart';
-import 'package:keel_ui/src/modules/projects/model/work_node.dart';
-import 'package:keel_ui/src/modules/agents/model/chat_message.dart';
+import 'package:keel_core/core/store/keel_store.dart';
+import 'package:keel_ui/src/core/services/flutter_local_db_store.dart';
+import 'package:keel_core/modules/projects/model/project.dart';
+import 'package:keel_core/modules/projects/model/session.dart';
+import 'package:keel_core/modules/projects/model/session_decision.dart';
+import 'package:keel_core/modules/projects/model/resolution_case.dart';
+import 'package:keel_core/modules/projects/model/work_node.dart';
+import 'package:keel_core/modules/agents/model/chat_message.dart';
 import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
 
 final _epoch = DateTime(2026, 9, 5);
 
 void main() {
   LocalDatabase.markUnavailable();
+  KeelStore.instance = const FlutterLocalDbStore();
 
   Project project(String sessionId) => Project(
     id: 'project',

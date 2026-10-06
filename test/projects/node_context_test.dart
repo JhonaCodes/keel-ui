@@ -1,9 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:keel_ui/src/modules/projects/model/resolution_case.dart';
-import 'package:keel_ui/src/modules/projects/model/turn_outcome_report.dart';
-import 'package:keel_ui/src/modules/projects/model/work_node.dart';
-import 'package:keel_ui/src/modules/projects/service/node_context.dart';
+import 'package:keel_core/modules/projects/model/resolution_case.dart';
+import 'package:keel_core/modules/projects/model/turn_outcome_report.dart';
+import 'package:keel_core/modules/projects/model/work_node.dart';
+import 'package:keel_core/modules/projects/service/node_context.dart';
 
 void main() {
   const implementation = WorkNode(

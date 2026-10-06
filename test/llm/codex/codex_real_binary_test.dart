@@ -4,10 +4,10 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:keel_ui/src/integrations/hook_delivery/hook_delivery.dart';
-import 'package:keel_ui/src/integrations/llm/codex/codex_cli_runner.dart';
-import 'package:keel_ui/src/integrations/llm/llm.dart';
-import 'package:keel_ui/src/modules/hooks/model/hook_event.dart';
+import 'package:keel_core/integrations/hook_delivery/hook_delivery.dart';
+import 'package:keel_core/integrations/llm/codex/codex_cli_runner.dart';
+import 'package:keel_core/integrations/llm/llm.dart';
+import 'package:keel_core/modules/hooks/model/hook_event.dart';
 
 /// Runs the REAL `codex` binary against a fake model provider and a fake MCP
 /// server, both in this process. No account, no network beyond loopback:

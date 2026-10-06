@@ -7,7 +7,7 @@ import 'package:keel_e2e_panel/keel_e2e_panel.dart';
 import 'package:result_controller/result_controller.dart';
 
 import 'package:keel_ui/src/integrations/keel_e2e/keel_e2e.dart';
-import 'package:keel_ui/src/modules/projects/model/project.dart';
+import 'package:keel_core/modules/projects/model/project.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

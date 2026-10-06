@@ -2,8 +2,8 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:keel_ui/src/core/services/cli_turn_contract.dart';
-import 'package:keel_ui/src/integrations/llm/codex/codex_arguments.dart';
+import 'package:keel_core/core/services/cli_turn_contract.dart';
+import 'package:keel_core/integrations/llm/codex/codex_arguments.dart';
 
 void main() {
   group('buildCodexPrompt', () {

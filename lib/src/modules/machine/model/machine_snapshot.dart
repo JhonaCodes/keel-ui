@@ -1,4 +1,4 @@
-import 'package:keel_ui/src/integrations/machine/machine.dart';
+import 'package:keel_core/integrations/machine/machine.dart';
 
 class MachineSnapshot {
   /// Los CLIs encontrados. Vacío hasta la primera búsqueda.

@@ -1,9 +1,9 @@
 import 'dart:convert';
 
 import 'package:keel_ui/src/core/services/agent_bridge_channel.dart';
-import 'package:keel_ui/src/integrations/chat_references/chat_references.dart';
-import 'package:keel_ui/src/modules/agents/model/agent_provider.dart';
-import 'package:keel_ui/src/modules/agents/model/file_edit.dart';
+import 'package:keel_core/integrations/chat_references/chat_references.dart';
+import 'package:keel_core/modules/agents/model/agent_provider.dart';
+import 'package:keel_core/modules/agents/model/file_edit.dart';
 import 'package:keel_ui/src/modules/agents/service/chat_actions.dart';
 
 /// [ChatActions] for the dedicated assistant window: every intent travels to

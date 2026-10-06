@@ -16,7 +16,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:result_controller/result_controller.dart';
 import 'package:window_manager/window_manager.dart';
 
-import 'package:keel_ui/src/modules/projects/model/project.dart';
+import 'package:keel_core/modules/projects/model/project.dart';
 
 part 'src/keel_e2e_attach.dart';
 part 'src/keel_e2e_binary.dart';

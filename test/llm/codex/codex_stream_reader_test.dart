@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:keel_ui/src/integrations/llm/codex/codex_stream_reader.dart';
+import 'package:keel_core/integrations/llm/codex/codex_stream_reader.dart';
 
 void main() {
   late CodexStreamReader reader;

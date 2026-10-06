@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import 'package:keel_ui/src/integrations/mcp_catalog/mcp_catalog.dart';
-import 'package:keel_ui/src/modules/mcp_servers/model/mcp_server_config.dart';
+import 'package:keel_core/integrations/mcp_catalog/mcp_catalog.dart';
+import 'package:keel_core/modules/mcp_servers/model/mcp_server_config.dart';
 import 'package:keel_ui/src/modules/mcp_servers/ui/widget/integration_glyph.dart';
 
 /// Una ficha del catálogo, todavía sin instalar.

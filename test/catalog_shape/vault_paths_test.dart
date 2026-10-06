@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:keel_ui/src/integrations/catalog_shape/catalog_shape.dart';
+import 'package:keel_core/integrations/catalog_shape/catalog_shape.dart';
 
 const _root = '/Users/quien/keel-knowledge-bases';
 

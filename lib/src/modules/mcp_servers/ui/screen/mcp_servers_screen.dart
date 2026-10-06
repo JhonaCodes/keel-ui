@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
 
-import 'package:keel_ui/src/integrations/mcp_catalog/mcp_catalog.dart';
-import 'package:keel_ui/src/modules/mcp_servers/model/mcp_server_config.dart';
+import 'package:keel_core/integrations/mcp_catalog/mcp_catalog.dart';
+import 'package:keel_core/modules/mcp_servers/model/mcp_server_config.dart';
 import 'package:keel_ui/src/modules/mcp_servers/ui/screen/mcp_config_import_screen.dart';
 import 'package:keel_ui/src/modules/mcp_servers/ui/screen/mcp_server_form_screen.dart';
 import 'package:keel_ui/src/modules/mcp_servers/ui/widget/catalog_entry_card.dart';

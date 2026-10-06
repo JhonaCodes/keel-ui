@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:keel_ui/src/integrations/mcp_catalog/mcp_catalog.dart';
-import 'package:keel_ui/src/modules/mcp_servers/model/mcp_server_config.dart';
-import 'package:keel_ui/src/modules/secrets/model/secret.dart';
+import 'package:keel_core/integrations/mcp_catalog/mcp_catalog.dart';
+import 'package:keel_core/modules/mcp_servers/model/mcp_server_config.dart';
+import 'package:keel_core/modules/secrets/model/secret.dart';
 
 void main() {
   group('el catálogo', () {

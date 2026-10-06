@@ -1,26 +1,27 @@
 import 'package:keel_ui/l10n/generated/app_localizations.dart';
+import 'package:keel_ui/src/core/ui/app_localizations_validation.dart';
 import 'package:flutter/material.dart';
 
-import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
-import 'package:keel_ui/src/modules/agents/model/agent_model_option.dart';
-import 'package:keel_ui/src/modules/agents/model/agent_provider.dart';
-import 'package:keel_ui/src/modules/agents/model/effort_level.dart';
+import 'package:keel_core/modules/agent_profiles/model/agent_profile.dart';
+import 'package:keel_core/modules/agents/model/agent_model_option.dart';
+import 'package:keel_core/modules/agents/model/agent_provider.dart';
+import 'package:keel_core/modules/agents/model/effort_level.dart';
 import 'package:keel_ui/src/modules/knowledge/ui/screen/knowledge_base_form_screen.dart';
 import 'package:keel_ui/src/modules/knowledge/viewmodel/knowledge_viewmodel.dart';
 import 'package:keel_ui/src/modules/projects/model/member_color.dart';
-import 'package:keel_ui/src/modules/projects/model/migration_coverage.dart';
-import 'package:keel_ui/src/modules/projects/model/project.dart';
-import 'package:keel_ui/src/modules/projects/model/resolution_case.dart';
-import 'package:keel_ui/src/modules/projects/model/resolution_finding.dart';
-import 'package:keel_ui/src/modules/projects/model/session.dart';
-import 'package:keel_ui/src/modules/projects/model/work_node.dart';
+import 'package:keel_core/modules/projects/model/migration_coverage.dart';
+import 'package:keel_core/modules/projects/model/project.dart';
+import 'package:keel_core/modules/projects/model/resolution_case.dart';
+import 'package:keel_core/modules/projects/model/resolution_finding.dart';
+import 'package:keel_core/modules/projects/model/session.dart';
+import 'package:keel_core/modules/projects/model/work_node.dart';
 import 'package:keel_ui/src/modules/projects/ui/widget/member_engine_panel.dart';
 import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
 import 'package:keel_ui/src/modules/rules/ui/screen/rule_form_screen.dart';
 import 'package:keel_ui/src/modules/rules/viewmodel/rules_viewmodel.dart';
 import 'package:keel_ui/src/modules/secrets/ui/widget/provider_credential_card.dart';
-import 'package:keel_ui/src/modules/projects/service/resolution_engine.dart';
-import 'package:keel_ui/src/modules/workflows/model/workflow.dart';
+import 'package:keel_core/modules/projects/service/resolution_engine.dart';
+import 'package:keel_core/modules/workflows/model/workflow.dart';
 import 'package:keel_ui/src/modules/workflows/viewmodel/workflows_viewmodel.dart';
 
 enum _CapabilityState {
@@ -57,7 +58,7 @@ class WorkflowProgressPanel extends StatelessWidget {
         ? defaultWorkflowCapabilities(
             flow.kind,
             flow.policy.resolutionRole,
-            l10n: t,
+            l10n: AppLocalizationsValidation(t),
           )
         : flow.capabilities;
   }
@@ -675,10 +676,18 @@ class _CapabilityRow extends StatelessWidget {
                                 : null,
                             child: Tooltip(
                               message: state == _CapabilityState.available
-                                  ? AppLocalizations.of(context).panelActivateOptional
-                                  : _stateLabel(AppLocalizations.of(context), state),
+                                  ? AppLocalizations.of(
+                                      context,
+                                    ).panelActivateOptional
+                                  : _stateLabel(
+                                      AppLocalizations.of(context),
+                                      state,
+                                    ),
                               child: Text(
-                                _stateLabel(AppLocalizations.of(context), state),
+                                _stateLabel(
+                                  AppLocalizations.of(context),
+                                  state,
+                                ),
                                 style: TextStyle(
                                   fontFamily: 'monospace',
                                   fontSize: 9.5,
@@ -727,7 +736,9 @@ class _CapabilityRow extends StatelessWidget {
                             InkWell(
                               onTap: onSharedRole,
                               child: Tooltip(
-                                message: AppLocalizations.of(context).panelChangeDefaultRole,
+                                message: AppLocalizations.of(
+                                  context,
+                                ).panelChangeDefaultRole,
                                 child: Icon(
                                   Icons.more_horiz,
                                   size: 15,
@@ -758,7 +769,11 @@ class _CapabilityRow extends StatelessWidget {
                         TextButton.icon(
                           onPressed: onApprove,
                           icon: const Icon(Icons.verified_outlined, size: 15),
-                          label: Text(AppLocalizations.of(context).panelApproveAndContinue),
+                          label: Text(
+                            AppLocalizations.of(
+                              context,
+                            ).panelApproveAndContinue,
+                          ),
                         ),
                       if (consulted != null)
                         Text(

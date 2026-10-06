@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:keel_ui/src/core/services/user_shell_path.dart';
+import 'package:keel_core/core/services/user_shell_path.dart';
 
 /// Lo que se prueba acá es la resolución, no el shell.
 ///

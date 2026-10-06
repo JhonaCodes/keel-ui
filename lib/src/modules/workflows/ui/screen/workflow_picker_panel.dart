@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:keel_ui/src/core/ui/form_panel.dart';
-import 'package:keel_ui/src/modules/workflows/model/workflow.dart';
+import 'package:keel_core/modules/workflows/model/workflow.dart';
 
 /// Elegir con qué workflow adaptativo corre algo. Devuelve el id, o null si
 /// te fuiste.

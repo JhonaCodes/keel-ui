@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:keel_ui/src/modules/projects/service/subagent_budget.dart';
-import 'package:keel_ui/src/modules/workflows/model/workflow.dart';
+import 'package:keel_core/modules/projects/service/subagent_budget.dart';
+import 'package:keel_core/modules/workflows/model/workflow.dart';
 
 void main() {
   test('rechaza el primer subagente cuando el máximo es cero', () {

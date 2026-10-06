@@ -4,8 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
-import 'package:keel_ui/src/integrations/genui/genui.dart';
-import 'package:keel_ui/src/modules/boards/model/board.dart';
+import 'package:keel_core/integrations/genui/genui.dart';
+import 'package:keel_core/modules/boards/model/board.dart';
 
 Board boardWith(List<BoardStep> steps) => Board(
   id: 'b1',

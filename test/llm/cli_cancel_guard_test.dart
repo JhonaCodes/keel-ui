@@ -3,7 +3,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:keel_ui/src/integrations/llm/src/cli_cancel_guard.dart';
+import 'package:keel_core/integrations/llm/src/cli_cancel_guard.dart';
 
 void main() {
   group('CliCancelGuard', () {

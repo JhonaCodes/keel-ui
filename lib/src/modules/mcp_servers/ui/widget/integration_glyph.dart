@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'package:keel_ui/src/integrations/mcp_catalog/mcp_catalog.dart';
+import 'package:keel_core/integrations/mcp_catalog/mcp_catalog.dart';
 import 'package:keel_ui/src/modules/projects/model/member_color.dart';
 
 /// Dos letras sobre un color de la paleta, en vez del logo del servicio.

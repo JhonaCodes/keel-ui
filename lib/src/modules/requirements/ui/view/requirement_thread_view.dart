@@ -2,16 +2,16 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import 'package:keel_ui/l10n/generated/app_localizations.dart';
-import 'package:keel_ui/src/integrations/requirements_mcp/requirements_mcp.dart';
+import 'package:keel_core/integrations/requirements_mcp/requirements_mcp.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/markdown_text.dart';
-import 'package:keel_ui/src/modules/projects/model/project.dart';
+import 'package:keel_core/modules/projects/model/project.dart';
 import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
-import 'package:keel_ui/src/modules/requirements/model/internal_requirement.dart';
-import 'package:keel_ui/src/modules/requirements/service/requirement_target_activity.dart';
+import 'package:keel_core/modules/requirements/model/internal_requirement.dart';
+import 'package:keel_core/modules/requirements/service/requirement_target_activity.dart';
 import 'package:keel_ui/src/modules/requirements/viewmodel/requirements_viewmodel.dart';
 import 'package:keel_ui/src/modules/workflows/ui/screen/workflow_picker_panel.dart';
 import 'package:keel_ui/src/modules/workspace/viewmodel/workspace_viewmodel.dart';
-import 'package:keel_ui/src/integrations/chat_references/chat_references.dart';
+import 'package:keel_core/integrations/chat_references/chat_references.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/chat_reference_composer_field.dart';
 
 /// Los dos lados, con su color. Origen y destino se distinguen a simple vista
@@ -588,9 +588,7 @@ class _Composer extends StatelessWidget {
       child: Row(
         children: [
           IconButton(
-            tooltip: planMode
-                ? t.tooltipPlanModeActive
-                : t.messagePlanMode,
+            tooltip: planMode ? t.tooltipPlanModeActive : t.messagePlanMode,
             icon: Icon(
               planMode ? Icons.architecture : Icons.architecture_outlined,
               size: 18,

@@ -3,16 +3,22 @@ import 'dart:async';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:keel_core/core/keel_core_runtime.dart';
+import 'package:keel_core/core/store/keel_store.dart';
+import 'package:keel_core/modules/agents/service/chat_attachment_store.dart';
 import 'package:keel_e2e_panel/keel_e2e_panel.dart' show E2eLocalizations;
 import 'package:logger_rs/logger_rs.dart';
 import 'package:mcpe2e/mcpe2e.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
 
 import 'package:keel_ui/l10n/generated/app_localizations.dart';
+import 'package:keel_ui/src/core/host/keel_host_impl.dart';
 import 'package:keel_ui/src/core/services/agent_bridge_channel.dart';
-import 'package:keel_ui/src/core/services/app_window_arguments.dart';
+import 'package:keel_core/core/services/app_window_arguments.dart';
+import 'package:keel_ui/src/core/services/flutter_local_db_store.dart';
 import 'package:keel_ui/src/core/services/legacy_json_migration.dart';
 import 'package:keel_ui/src/core/services/station_to_project_migration.dart';
 import 'package:keel_ui/src/core/services/local_database.dart';
@@ -23,24 +29,24 @@ import 'package:keel_ui/src/integrations/app_update/app_update.dart';
 import 'package:keel_ui/src/integrations/assistant_mcp/assistant_mcp_server.dart';
 import 'package:keel_ui/src/integrations/jobs_api/jobs_api.dart';
 import 'package:keel_ui/src/integrations/keel_e2e/keel_e2e.dart';
-import 'package:keel_ui/src/integrations/boards_mcp/boards_mcp.dart';
-import 'package:keel_ui/src/integrations/requirements_mcp/requirements_mcp.dart';
-import 'package:keel_ui/src/integrations/roadmap_mcp/roadmap_mcp.dart';
-import 'package:keel_ui/src/integrations/catalog_shape/catalog_shape.dart';
+import 'package:keel_core/integrations/boards_mcp/boards_mcp.dart';
+import 'package:keel_core/integrations/requirements_mcp/requirements_mcp.dart';
+import 'package:keel_core/integrations/roadmap_mcp/roadmap_mcp.dart';
+import 'package:keel_core/integrations/catalog_shape/catalog_shape.dart';
 import 'package:keel_ui/src/integrations/fault_journal/fault_journal.dart';
 import 'package:keel_ui/src/integrations/system_vault/system_vault.dart';
-import 'package:keel_ui/src/integrations/session_plan_mcp/session_plan_mcp_server.dart';
-import 'package:keel_ui/src/integrations/user_tools_mcp/user_tools_mcp_server.dart';
-import 'package:keel_ui/src/modules/agents/model/file_edit.dart';
-import 'package:keel_ui/src/modules/agents/model/file_editor_window_arguments.dart';
+import 'package:keel_core/integrations/session_plan_mcp/session_plan_mcp_server.dart';
+import 'package:keel_core/integrations/user_tools_mcp/user_tools_mcp_server.dart';
+import 'package:keel_core/modules/agents/model/file_edit.dart';
+import 'package:keel_core/modules/agents/model/file_editor_window_arguments.dart';
 import 'package:keel_ui/src/modules/agents/ui/screen/agents_screen.dart';
 import 'package:keel_ui/src/modules/agents/ui/screen/file_editor_window.dart';
 import 'package:keel_ui/src/modules/agents/viewmodel/agents_viewmodel.dart';
 import 'package:keel_ui/src/modules/app_status/ui/widget/app_busy_overlay.dart';
 import 'package:keel_ui/src/modules/app_status/viewmodel/app_status_viewmodel.dart';
-import 'package:keel_ui/src/modules/assistant/model/assistant_window_arguments.dart';
+import 'package:keel_core/modules/assistant/model/assistant_window_arguments.dart';
 import 'package:keel_ui/src/modules/assistant/model/keelai_seed.dart';
-import 'package:keel_ui/src/modules/projects/model/roadmap_format_skill.dart';
+import 'package:keel_core/modules/projects/model/roadmap_format_skill.dart';
 import 'package:keel_ui/src/modules/workflows/model/e2e_device_workflow.dart';
 import 'package:keel_ui/src/modules/assistant/service/assistant_window_bridge.dart';
 import 'package:keel_ui/src/modules/assistant/ui/screen/assistant_window.dart';
@@ -81,7 +87,17 @@ Future<void> main(List<String> rawArgs) async {
     // empty ViewModels.
     case AppWindowArguments.idMain:
     default:
+      // Wires the `keel_core` persistence contract to this host's concrete
+      // `flutter_local_db` backend before any repository moved to
+      // `keel_core` can touch `KeelStore.instance`. `KeelCoreRuntime.start`
+      // (below) assigns it again — harmless, `KeelStore.instance` is just a
+      // field — but THIS assignment has to happen first: nothing between
+      // here and `LocalDatabase.ensureInitialized()` may read it, and nothing
+      // before this line may either.
+      KeelStore.instance = const FlutterLocalDbStore();
       await LocalDatabase.ensureInitialized();
+      ChatAttachmentStore.appSupportDirectoryPath =
+          (await getApplicationSupportDirectory()).path;
       // Apenas hay dónde escribir, y antes que nada más: de acá en adelante
       // toda excepción queda anotada en vez de morir en una consola que
       // quizá nadie tenga abierta. Va después de la base a propósito — un
@@ -104,6 +120,15 @@ Future<void> main(List<String> rawArgs) async {
           Log.w('mcpe2e server not started: $error');
         }
       }
+      // Boots every engine store (the former `reactive_notifier` ViewModels
+      // now living in `keel_core`) and assigns the host seam. Must run
+      // before any of the seeding/MCP-server calls below, which read or
+      // write through those stores.
+      KeelCoreRuntime.start(
+        store: const FlutterLocalDbStore(),
+        host: const KeelHostImpl(),
+      );
+
       await seedKeelAi();
       await seedRoadmapFormatSkill();
       await seedRoadmapFormatWorkflow();

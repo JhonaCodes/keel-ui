@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 
 import 'package:keel_ui/l10n/generated/app_localizations.dart';
-import 'package:keel_ui/src/integrations/mcp_catalog/mcp_catalog.dart';
-import 'package:keel_ui/src/modules/catalog_locks/model/catalog_lock.dart';
+import 'package:keel_core/integrations/mcp_catalog/mcp_catalog.dart';
+import 'package:keel_core/modules/catalog_locks/model/catalog_lock.dart';
 import 'package:keel_ui/src/modules/catalog_locks/ui/widget/catalog_lock_button.dart';
 import 'package:keel_ui/src/modules/catalog_locks/viewmodel/catalog_locks_viewmodel.dart';
 import 'package:keel_ui/src/modules/agent_profiles/viewmodel/agent_profiles_viewmodel.dart';
-import 'package:keel_ui/src/modules/mcp_servers/model/mcp_probe_result.dart';
-import 'package:keel_ui/src/modules/mcp_servers/model/mcp_server_config.dart';
+import 'package:keel_core/modules/mcp_servers/model/mcp_probe_result.dart';
+import 'package:keel_core/modules/mcp_servers/model/mcp_server_config.dart';
 import 'package:keel_ui/src/modules/mcp_servers/ui/screen/mcp_server_form_screen.dart';
 import 'package:keel_ui/src/modules/mcp_servers/ui/widget/integration_glyph.dart';
 import 'package:keel_ui/src/modules/mcp_servers/ui/widget/probe_status.dart';

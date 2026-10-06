@@ -8,57 +8,57 @@ import 'package:reactive_notifier/reactive_notifier.dart';
 import 'package:keel_ui/l10n/generated/app_localizations_en.dart';
 import 'package:keel_ui/l10n/generated/app_localizations_es.dart';
 
-import 'package:keel_ui/src/integrations/task_runner/task_runner.dart';
-import 'package:keel_ui/src/core/services/cli_turn_contract.dart';
-import 'package:keel_ui/src/core/services/file_edit_collector.dart';
+import 'package:keel_core/integrations/task_runner/task_runner.dart';
+import 'package:keel_core/core/services/cli_turn_contract.dart';
+import 'package:keel_core/core/services/file_edit_collector.dart';
 import 'package:keel_ui/src/integrations/assistant_mcp/assistant_mcp_server.dart';
 import 'package:keel_ui/src/integrations/prompt_insights/prompt_insights.dart';
-import 'package:keel_ui/src/integrations/machine/machine.dart';
+import 'package:keel_core/integrations/machine/machine.dart';
 import 'package:keel_ui/src/integrations/usage_ledger/usage_ledger.dart';
-import 'package:keel_ui/src/integrations/user_tools_mcp/user_tools_mcp_server.dart';
-import 'package:keel_ui/src/modules/agents/model/agent.dart';
+import 'package:keel_core/integrations/user_tools_mcp/user_tools_mcp_server.dart';
+import 'package:keel_core/modules/agents/model/agent.dart';
 import 'package:keel_ui/src/modules/agents/model/agent_icon_colors.dart';
-import 'package:keel_ui/src/modules/agents/model/agent_model_option.dart';
-import 'package:keel_ui/src/modules/agents/model/agent_provider.dart';
-import 'package:keel_ui/src/modules/agents/model/agent_tool_activity.dart';
-import 'package:keel_ui/src/modules/agents/model/chat_message.dart';
-import 'package:keel_ui/src/modules/agents/service/remote_conversation_history.dart';
-import 'package:keel_ui/src/modules/agents/model/file_edit.dart';
-import 'package:keel_ui/src/modules/agents/model/line_diff.dart';
-import 'package:keel_ui/src/modules/agents/model/permission_request.dart';
-import 'package:keel_ui/src/modules/agents/model/plan_decision.dart';
-import 'package:keel_ui/src/modules/agents/model/queued_message.dart';
+import 'package:keel_core/modules/agents/model/agent_model_option.dart';
+import 'package:keel_core/modules/agents/model/agent_provider.dart';
+import 'package:keel_core/modules/agents/model/agent_tool_activity.dart';
+import 'package:keel_core/modules/agents/model/chat_message.dart';
+import 'package:keel_core/modules/agents/service/remote_conversation_history.dart';
+import 'package:keel_core/modules/agents/model/file_edit.dart';
+import 'package:keel_core/modules/agents/model/line_diff.dart';
+import 'package:keel_core/modules/agents/model/permission_request.dart';
+import 'package:keel_core/modules/agents/model/plan_decision.dart';
+import 'package:keel_core/modules/agents/model/queued_message.dart';
 import 'package:keel_ui/src/modules/agents/viewmodel/model_catalog_viewmodel.dart';
-import 'package:keel_ui/src/modules/agents/repository/agents_repository.dart';
-import 'package:keel_ui/src/integrations/decisions_mcp/decisions_mcp_server.dart';
-import 'package:keel_ui/src/integrations/hook_delivery/hook_delivery.dart';
-import 'package:keel_ui/src/integrations/chat_references/chat_references.dart';
-import 'package:keel_ui/src/integrations/system_prompt/system_prompt.dart';
+import 'package:keel_core/modules/agents/repository/agents_repository.dart';
+import 'package:keel_core/integrations/decisions_mcp/decisions_mcp_server.dart';
+import 'package:keel_core/integrations/hook_delivery/hook_delivery.dart';
+import 'package:keel_core/integrations/chat_references/chat_references.dart';
+import 'package:keel_core/integrations/system_prompt/system_prompt.dart';
 import 'package:keel_ui/src/integrations/workspace_roots/workspace_roots.dart';
 // keel-debt: `composeTurnSystemPrompt` vive bajo `modules/projects/` y lo
 // usan los dos caminos de turno. Su lugar natural es
 // `integrations/system_prompt/`; se mueve cuando nadie más lo esté editando.
-import 'package:keel_ui/src/modules/projects/service/turn_prompt.dart';
+import 'package:keel_core/modules/projects/service/turn_prompt.dart';
 import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
-import 'package:keel_ui/src/modules/hooks/model/hook_event.dart';
+import 'package:keel_core/modules/hooks/model/hook_event.dart';
 import 'package:keel_ui/src/modules/hooks/viewmodel/hooks_viewmodel.dart';
-import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
+import 'package:keel_core/modules/agent_profiles/model/agent_profile.dart';
 import 'package:keel_ui/src/modules/agent_profiles/viewmodel/agent_profiles_viewmodel.dart';
-import 'package:keel_ui/src/modules/catalog_locks/model/catalog_lock.dart';
+import 'package:keel_core/modules/catalog_locks/model/catalog_lock.dart';
 import 'package:keel_ui/src/modules/catalog_locks/viewmodel/catalog_locks_viewmodel.dart';
-import 'package:keel_ui/src/modules/assistant/model/assistant_action.dart';
+import 'package:keel_core/modules/assistant/model/assistant_action.dart';
 import 'package:keel_ui/src/modules/assistant/service/assistant_action_executor.dart';
-import 'package:keel_ui/src/modules/assistant/service/assistant_action_parser.dart';
+import 'package:keel_core/modules/assistant/service/assistant_action_parser.dart';
 import 'package:keel_ui/src/modules/settings/viewmodel/settings_viewmodel.dart';
 import 'package:keel_ui/src/modules/knowledge/viewmodel/knowledge_viewmodel.dart';
-import 'package:keel_ui/src/modules/mcp_servers/model/mcp_server_config.dart';
+import 'package:keel_core/modules/mcp_servers/model/mcp_server_config.dart';
 import 'package:keel_ui/src/modules/mcp_servers/viewmodel/mcp_servers_viewmodel.dart';
 import 'package:keel_ui/src/modules/rules/viewmodel/rules_viewmodel.dart';
 import 'package:keel_ui/src/modules/secrets/viewmodel/secrets_viewmodel.dart';
 import 'package:keel_ui/src/modules/skills/viewmodel/skills_viewmodel.dart';
-import 'package:keel_ui/src/modules/tools/model/tool.dart';
+import 'package:keel_core/modules/tools/model/tool.dart';
 import 'package:keel_ui/src/modules/tools/viewmodel/tools_viewmodel.dart';
-import 'package:keel_ui/src/shared/shared.dart';
+import 'package:keel_core/shared/shared.dart';
 
 class AgentsViewModel extends ViewModel<AgentsState> {
   AgentsViewModel() : super(const AgentsState());
@@ -188,7 +188,7 @@ class AgentsViewModel extends ViewModel<AgentsState> {
       provider: provider,
       createdAt: DateTime.now(),
       fullFileSystemAccess: fullFileSystemAccess,
-      iconColor: suggestNextIconColor(),
+      iconColorValue: suggestNextIconColor().toARGB32(),
       effort: effort,
       profileId: profileId,
     );

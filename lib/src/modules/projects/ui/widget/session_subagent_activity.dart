@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
 import 'package:keel_ui/src/modules/agents/ui/widget/agent_activity_indicator.dart';
-import 'package:keel_ui/src/modules/projects/model/session_live_turn.dart';
-import 'package:keel_ui/src/modules/projects/model/session_subagent.dart';
+import 'package:keel_core/modules/projects/model/session_live_turn.dart';
+import 'package:keel_core/modules/projects/model/session_subagent.dart';
 import 'package:keel_ui/src/modules/projects/ui/widget/turn_phase_label.dart';
 
 /// Uses the same animated activity as the parent, driven by session state.

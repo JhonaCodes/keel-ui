@@ -1,9 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:keel_ui/src/modules/agents/model/agent.dart';
+import 'package:keel_core/modules/agents/model/agent.dart';
 import 'package:keel_ui/src/modules/agents/model/agent_icon_colors.dart';
-import 'package:keel_ui/src/modules/agents/model/chat_message.dart';
-import 'package:keel_ui/src/modules/agents/model/file_edit.dart';
+import 'package:keel_core/modules/agents/model/chat_message.dart';
+import 'package:keel_core/modules/agents/model/file_edit.dart';
 import 'package:keel_ui/src/modules/assistant/model/assistant_window_state.dart';
 
 final _epoch = DateTime.utc(2026, 8, 27);
@@ -20,7 +20,7 @@ void main() {
     name: 'Keel AI',
     model: 'sonnet',
     createdAt: _epoch,
-    iconColor: kAgentIconColorPalette.first,
+    iconColorValue: kAgentIconColorPalette.first.toARGB32(),
     effort: 'medium',
     messages: messages,
   );

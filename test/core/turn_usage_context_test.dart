@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:keel_ui/src/core/services/claude_stream_events.dart';
-import 'package:keel_ui/src/core/services/turn_usage.dart';
+import 'package:keel_core/core/services/claude_stream_events.dart';
+import 'package:keel_core/core/services/turn_usage.dart';
 
 /// Un evento `assistant` con el `usage` de UNA llamada.
 Map<String, dynamic> llamada({

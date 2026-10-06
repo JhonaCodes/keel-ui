@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 
 import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/core/ui/form_panel.dart';
-import 'package:keel_ui/src/modules/agents/model/permission_request.dart';
-import 'package:keel_ui/src/shared/shared.dart';
+import 'package:keel_core/modules/agents/model/permission_request.dart';
+import 'package:keel_ui/src/shared/num_extension.dart';
 
 /// Lo que un agente te pide para poder seguir.
 ///
@@ -75,10 +75,7 @@ class _PermissionRequestBannerState extends State<PermissionRequestBanner> {
     // que frenó. Ofrecer "permitir" ahí manda al usuario a prender un ajuste
     // global que no cambia nada, y a quedarse sin entender por qué.
     if (request.isHookDenial) {
-      return _HookDenialBanner(
-        request: request,
-        onDismiss: widget.onDismiss,
-      );
+      return _HookDenialBanner(request: request, onDismiss: widget.onDismiss);
     }
 
     if (request.blocking) {

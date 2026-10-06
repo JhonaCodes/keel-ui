@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:logger_rs/logger_rs.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
 
-import 'package:keel_ui/src/integrations/machine/machine.dart';
+import 'package:keel_core/integrations/machine/machine.dart';
 import 'package:keel_ui/src/modules/machine/model/machine_snapshot.dart';
 
 class MachineViewModel extends ViewModel<MachineSnapshot> {

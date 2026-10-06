@@ -1,14 +1,17 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:keel_ui/src/core/services/local_database.dart';
-import 'package:keel_ui/src/modules/agents/model/agent.dart';
+import 'package:keel_core/core/store/keel_store.dart';
+import 'package:keel_ui/src/core/services/flutter_local_db_store.dart';
+import 'package:keel_core/modules/agents/model/agent.dart';
 import 'package:keel_ui/src/modules/agents/model/agent_icon_colors.dart';
-import 'package:keel_ui/src/modules/agents/model/agent_model_option.dart';
-import 'package:keel_ui/src/modules/agents/model/plan_decision.dart';
+import 'package:keel_core/modules/agents/model/agent_model_option.dart';
+import 'package:keel_core/modules/agents/model/plan_decision.dart';
 import 'package:keel_ui/src/modules/agents/viewmodel/agents_viewmodel.dart';
 
 void main() {
   setUpAll(LocalDatabase.markUnavailable);
+  setUpAll(() => KeelStore.instance = const FlutterLocalDbStore());
 
   group('cuándo se pregunta si implementar', () {
     test('el turno planificó y llegó al final solo', () {
@@ -155,7 +158,7 @@ void main() {
         name: 'Agente',
         model: 'sonnet',
         createdAt: DateTime.utc(2026, 8, 27),
-        iconColor: kAgentIconColorPalette.first,
+        iconColorValue: kAgentIconColorPalette.first.toARGB32(),
         effort: 'medium',
         planMode: true,
         planAwaitingDecision: true,

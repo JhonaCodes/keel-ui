@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'package:keel_ui/src/modules/agents/model/agent_provider.dart';
+import 'package:keel_core/modules/agents/model/agent_provider.dart';
 
 /// Tiny mark next to an agent's name saying which CLI drives it. Neutral
 /// glyphs (two letters), no third-party trademarks.

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:keel_ui/src/modules/agents/model/agent.dart';
-import 'package:keel_ui/src/modules/agents/model/agent_provider.dart';
+import 'package:keel_core/modules/agents/model/agent.dart';
+import 'package:keel_core/modules/agents/model/agent_provider.dart';
 import 'package:keel_ui/src/modules/assistant/model/assistant_window_state.dart';
 
 void main() {
@@ -14,7 +14,7 @@ void main() {
         model: 'gpt-5.5',
         provider: AgentProvider.codex,
         createdAt: DateTime(2026, 8, 24),
-        iconColor: Colors.deepPurple,
+        iconColorValue: Colors.deepPurple.toARGB32(),
         effort: 'medium',
       ),
     );

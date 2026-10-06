@@ -2,9 +2,9 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:keel_ui/src/core/services/user_shell_path.dart';
-import 'package:keel_ui/src/integrations/llm/openai_compatible/remote_model_catalog.dart';
-import 'package:keel_ui/src/modules/agents/model/agent_provider.dart';
+import 'package:keel_core/core/services/user_shell_path.dart';
+import 'package:keel_core/integrations/llm/openai_compatible/remote_model_catalog.dart';
+import 'package:keel_core/modules/agents/model/agent_provider.dart';
 import 'package:keel_ui/src/modules/agents/viewmodel/model_catalog_viewmodel.dart';
 
 void main() {

@@ -4,8 +4,8 @@ import 'package:flutter/services.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
 
 import 'package:keel_ui/src/core/ui/app_theme.dart';
-import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
-import 'package:keel_ui/src/modules/agents/model/chat_message.dart';
+import 'package:keel_core/modules/agent_profiles/model/agent_profile.dart';
+import 'package:keel_core/modules/agents/model/chat_message.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/bubble_width.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/chat_message_body.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/chat_notice_bubble.dart';
@@ -13,10 +13,10 @@ import 'package:keel_ui/src/modules/agents/ui/widget/reasoning_panel.dart';
 import 'package:keel_ui/src/modules/settings/model/app_settings.dart';
 import 'package:keel_ui/src/modules/settings/viewmodel/settings_viewmodel.dart';
 import 'package:keel_ui/src/modules/projects/model/member_color.dart';
-import 'package:keel_ui/src/modules/projects/model/session_message_reference.dart';
+import 'package:keel_core/modules/projects/model/session_message_reference.dart';
 import 'package:keel_ui/src/modules/projects/ui/widget/member_avatar.dart';
 import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
-import 'package:keel_ui/src/shared/shared.dart';
+import 'package:keel_ui/src/shared/num_extension.dart';
 
 /// A message in a workstation channel. Unlike the 1:1 bubble, several authors
 /// share this thread, so every agent message carries an avatar outside the
@@ -283,7 +283,9 @@ class _AuthorLine extends StatelessWidget {
                 ),
               ),
               child: Text(
-                AppLocalizations.of(context).threadConsultOf(bubble.askedBy!.name),
+                AppLocalizations.of(
+                  context,
+                ).threadConsultOf(bubble.askedBy!.name),
                 style: TextStyle(
                   fontFamily: 'monospace',
                   fontSize: 10,

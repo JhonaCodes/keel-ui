@@ -1,7 +1,7 @@
 import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:flutter/material.dart';
 
-import 'package:keel_ui/src/modules/projects/model/session_live_turn.dart';
+import 'package:keel_core/modules/projects/model/session_live_turn.dart';
 
 /// La línea que late: «pensando…», «escribiendo…», «trabajando…».
 ///

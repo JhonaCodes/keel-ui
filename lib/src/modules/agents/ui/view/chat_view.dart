@@ -6,18 +6,19 @@ import 'package:flutter/material.dart';
 import 'package:multiselect_field/multiselect_field.dart';
 
 import 'package:keel_ui/l10n/generated/app_localizations.dart';
-import 'package:keel_ui/src/modules/agents/model/agent.dart';
-import 'package:keel_ui/src/modules/agents/model/agent_model_option.dart';
-import 'package:keel_ui/src/modules/agents/model/agent_provider.dart';
+import 'package:keel_core/modules/agents/model/agent.dart';
+import 'package:keel_ui/src/modules/agents/model/agent_icon_colors.dart';
+import 'package:keel_core/modules/agents/model/agent_model_option.dart';
+import 'package:keel_core/modules/agents/model/agent_provider.dart';
 import 'package:keel_ui/src/modules/agents/service/chat_actions.dart';
-import 'package:keel_ui/src/modules/agents/service/chat_attachment_store.dart';
+import 'package:keel_core/modules/agents/service/chat_attachment_store.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/chat_attachment_strip.dart';
 import 'package:keel_ui/src/core/ui/confirm_card.dart';
-import 'package:keel_ui/src/integrations/chat_references/chat_references.dart';
-import 'package:keel_ui/src/integrations/llm/openai_compatible/remote_model_catalog.dart';
+import 'package:keel_core/integrations/chat_references/chat_references.dart';
+import 'package:keel_core/integrations/llm/openai_compatible/remote_model_catalog.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/chat_reference_composer_field.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/chat_message_bubble.dart';
-import 'package:keel_ui/src/modules/agents/model/queued_message.dart';
+import 'package:keel_core/modules/agents/model/queued_message.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/queued_message_editor_dialog.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/queued_messages_panel.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/agent_activity_indicator.dart';
@@ -29,7 +30,7 @@ import 'package:keel_ui/src/modules/agents/ui/widget/permission_request_banner.d
 import 'package:keel_ui/src/modules/agents/ui/widget/plan_mode_toggle.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/plan_ready_banner.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/reasoning_panel.dart';
-import 'package:keel_ui/src/shared/shared.dart';
+import 'package:keel_ui/src/shared/num_extension.dart';
 import 'package:keel_ui/src/modules/agents/viewmodel/model_catalog_viewmodel.dart';
 
 class ChatView extends StatefulWidget {
@@ -440,8 +441,7 @@ class _ChatViewState extends State<ChatView> {
                       builder: (context, snapshot) => EffortLevelSelector(
                         effort: agent.effort,
                         levels:
-                            snapshot.data?.effortsOf(agent.model) ??
-                            const [],
+                            snapshot.data?.effortsOf(agent.model) ?? const [],
                         onChanged: (effort) =>
                             widget.actions.setAgentEffort(agent.id, effort),
                       ),

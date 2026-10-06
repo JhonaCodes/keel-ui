@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:keel_ui/src/modules/workflows/model/workflow.dart';
-import 'package:keel_ui/src/modules/workflows/repository/workflows_repository.dart';
+import 'package:keel_core/modules/workflows/model/workflow.dart';
+import 'package:keel_core/modules/workflows/repository/workflows_repository.dart';
 
 /// El techo de costo por sesión no tiene default: un caso no se corta por
 /// precio salvo que alguien lo declare. El default anterior (US$ 20) cortaba

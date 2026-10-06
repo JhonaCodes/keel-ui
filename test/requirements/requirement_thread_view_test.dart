@@ -4,13 +4,15 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:keel_ui/l10n/generated/app_localizations.dart';
 
 import 'package:keel_ui/src/core/services/local_database.dart';
-import 'package:keel_ui/src/modules/projects/model/project.dart';
-import 'package:keel_ui/src/modules/projects/model/session.dart';
-import 'package:keel_ui/src/modules/projects/model/session_decision.dart';
-import 'package:keel_ui/src/modules/projects/model/session_live_turn.dart';
-import 'package:keel_ui/src/modules/requirements/service/requirement_target_activity.dart';
+import 'package:keel_core/core/store/keel_store.dart';
+import 'package:keel_ui/src/core/services/flutter_local_db_store.dart';
+import 'package:keel_core/modules/projects/model/project.dart';
+import 'package:keel_core/modules/projects/model/session.dart';
+import 'package:keel_core/modules/projects/model/session_decision.dart';
+import 'package:keel_core/modules/projects/model/session_live_turn.dart';
+import 'package:keel_core/modules/requirements/service/requirement_target_activity.dart';
 import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
-import 'package:keel_ui/src/modules/requirements/model/internal_requirement.dart';
+import 'package:keel_core/modules/requirements/model/internal_requirement.dart';
 import 'package:keel_ui/src/modules/requirements/ui/view/requirement_thread_view.dart';
 import 'package:keel_ui/src/modules/workspace/model/workspace_lens.dart';
 import 'package:keel_ui/src/modules/workspace/viewmodel/workspace_viewmodel.dart';
@@ -63,6 +65,7 @@ Session _sesion(String id) =>
 
 void main() {
   LocalDatabase.markUnavailable();
+  KeelStore.instance = const FlutterLocalDbStore();
 
   Future<void> abrir(
     WidgetTester tester,

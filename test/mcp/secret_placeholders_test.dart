@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:keel_ui/src/modules/mcp_servers/model/mcp_server_config.dart';
+import 'package:keel_core/modules/mcp_servers/model/mcp_server_config.dart';
 
 void main() {
   group('secrets adentro de un header', () {

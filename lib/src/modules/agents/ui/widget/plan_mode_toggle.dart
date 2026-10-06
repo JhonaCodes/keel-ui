@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'package:keel_ui/src/modules/agents/model/agent_provider.dart';
+import 'package:keel_core/modules/agents/model/agent_provider.dart';
 
 /// El botón que decide si el próximo turno planifica o trabaja.
 ///

@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:keel_ui/src/core/services/file_edit_collector.dart';
+import 'package:keel_core/core/services/file_edit_collector.dart';
 
 void main() {
   test(

@@ -3,12 +3,12 @@ import 'package:keel_ui/l10n/generated/app_localizations.dart';
 
 import 'package:reactive_notifier/reactive_notifier.dart';
 
-import 'package:keel_ui/src/modules/hooks/model/hook.dart';
-import 'package:keel_ui/src/modules/catalog_locks/model/catalog_lock.dart';
+import 'package:keel_core/modules/hooks/model/hook.dart';
+import 'package:keel_core/modules/catalog_locks/model/catalog_lock.dart';
 import 'package:keel_ui/src/modules/catalog_locks/ui/widget/catalog_lock_button.dart';
 import 'package:keel_ui/src/modules/catalog_locks/viewmodel/catalog_locks_viewmodel.dart';
 import 'package:keel_ui/src/modules/hooks/viewmodel/hooks_viewmodel.dart';
-import 'package:keel_ui/src/modules/rules/model/rule.dart';
+import 'package:keel_core/modules/rules/model/rule.dart';
 import 'package:keel_ui/src/modules/rules/viewmodel/rules_viewmodel.dart';
 import 'package:keel_ui/src/modules/rules/ui/screen/rule_form_screen.dart';
 import 'package:keel_ui/src/core/ui/confirm_card.dart';

@@ -1,15 +1,15 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
 
-import 'package:keel_ui/src/modules/agents/model/agent.dart';
+import 'package:keel_core/modules/agents/model/agent.dart';
 import 'package:keel_ui/src/modules/agents/model/agent_icon_colors.dart';
-import 'package:keel_ui/src/modules/agents/model/agent_provider.dart';
-import 'package:keel_ui/src/modules/agents/model/agent_tool_activity.dart';
-import 'package:keel_ui/src/modules/agents/model/chat_message.dart';
-import 'package:keel_ui/src/modules/agents/model/file_edit.dart';
-import 'package:keel_ui/src/modules/agents/model/message_block.dart';
-import 'package:keel_ui/src/modules/agents/model/permission_request.dart';
-import 'package:keel_ui/src/modules/agents/model/queued_message.dart';
+import 'package:keel_core/modules/agents/model/agent_provider.dart';
+import 'package:keel_core/modules/agents/model/agent_tool_activity.dart';
+import 'package:keel_core/modules/agents/model/chat_message.dart';
+import 'package:keel_core/modules/agents/model/file_edit.dart';
+import 'package:keel_core/modules/agents/model/message_block.dart';
+import 'package:keel_core/modules/agents/model/permission_request.dart';
+import 'package:keel_core/modules/agents/model/queued_message.dart';
 import 'package:keel_ui/src/modules/settings/model/app_settings.dart';
 
 /// Wire model for the assistant window bridge: the full [Agent] state the
@@ -105,7 +105,7 @@ class AssistantAgentSnapshot {
       model: model,
       provider: provider,
       createdAt: DateTime.fromMicrosecondsSinceEpoch(0),
-      iconColor: iconColor,
+      iconColorValue: iconColor.toARGB32(),
       effort: effort,
       messages: messages,
       isStreaming: isStreaming,

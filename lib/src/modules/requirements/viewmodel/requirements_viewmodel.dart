@@ -1,73 +1,38 @@
-import 'dart:async';
-
-import 'package:logger_rs/logger_rs.dart';
+import 'package:keel_core/modules/requirements/model/internal_requirement.dart';
+import 'package:keel_core/modules/requirements/service/requirements_store.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
+import 'package:keel_ui/src/core/services/store_mirror_view_model.dart';
 
-import 'package:keel_ui/src/modules/requirements/model/internal_requirement.dart';
-import 'package:keel_ui/src/modules/requirements/repository/requirements_repository.dart';
-import 'package:keel_ui/src/shared/shared.dart';
+/// Mirror delgado de [RequirementsStore] (keel_core): toda la lógica real
+/// vive ahí.
+class RequirementsViewModel extends StoreMirrorViewModel<RequirementsState> {
+  RequirementsViewModel() : super(RequirementsStore.instance);
 
-class RequirementsViewModel extends ViewModel<RequirementsState> {
-  RequirementsViewModel() : super(const RequirementsState());
-
-  RequirementsRepository get _repository => RequirementsRepository();
-
-  Future<void>? _ready;
-  Future<void> get ready => _ready ??= _loadPersistedRequirements();
-
-  @override
-  void init() {
-    if (_ready == null) updateSilently(const RequirementsState());
-    unawaited(ready);
-  }
-
-  Future<void> _loadPersistedRequirements() async {
-    try {
-      final requirements = await _repository.load();
-      updateState(data.copyWith(requirements: requirements));
-    } catch (error) {
-      Log.e('Failed to load persisted requirements', error: error);
-    }
-  }
+  Future<void> get ready => RequirementsStore.instance.ready;
 
   // ── lectura ─────────────────────────────────────────────────────────
 
-  InternalRequirement? byId(String id) =>
-      data.requirements.where((entry) => entry.id == id).firstOrNull;
+  InternalRequirement? byId(String id) => RequirementsStore.instance.byId(id);
 
-  InternalRequirement? byCode(String code) => data.requirements
-      .where((entry) => entry.code.toLowerCase() == code.toLowerCase())
-      .firstOrNull;
+  InternalRequirement? byCode(String code) =>
+      RequirementsStore.instance.byCode(code);
 
   /// Los que abrió este proyecto.
-  List<InternalRequirement> outgoingOf(String projectId) => data.requirements
-      .where((entry) => entry.fromProjectId == projectId)
-      .toList();
+  List<InternalRequirement> outgoingOf(String projectId) =>
+      RequirementsStore.instance.outgoingOf(projectId);
 
   /// Los que le llegaron.
-  List<InternalRequirement> incomingOf(String projectId) => data.requirements
-      .where((entry) => entry.toProjectId == projectId)
-      .toList();
+  List<InternalRequirement> incomingOf(String projectId) =>
+      RequirementsStore.instance.incomingOf(projectId);
 
   /// Los que esperan que alguien haga algo.
-  List<InternalRequirement> get pending =>
-      data.requirements.where((entry) => entry.status.isOpen).toList();
+  List<InternalRequirement> get pending => RequirementsStore.instance.pending;
 
-  void select(String? id) {
-    updateState(
-      id == null
-          ? data.copyWith(clearSelection: true)
-          : data.copyWith(selectedId: id),
-    );
-  }
+  void select(String? id) => RequirementsStore.instance.select(id);
 
   // ── alta ────────────────────────────────────────────────────────────
 
   /// Abre un requerimiento de un proyecto hacia otro.
-  ///
-  /// [external] lo marca como del lado de un proyecto que el usuario no
-  /// mantiene: se anota igual, porque perder el pedido no ayuda a nadie, pero
-  /// nadie lo va a tomar automáticamente.
   ({InternalRequirement? requirement, String? error}) open({
     required String fromProjectId,
     required String toProjectId,
@@ -78,271 +43,83 @@ class RequirementsViewModel extends ViewModel<RequirementsState> {
     required String openedInSessionId,
     bool blocking = false,
     bool external = false,
-  }) {
-    final cleanTitle = title.trim();
-    if (cleanTitle.isEmpty) {
-      return (requirement: null, error: 'El requerimiento necesita un título.');
-    }
-    if (need.trim().isEmpty) {
-      return (
-        requirement: null,
-        error: 'Escribí qué necesitás: sin eso el otro lado no puede evaluar.',
-      );
-    }
-    if (fromProjectId == toProjectId) {
-      return (
-        requirement: null,
-        error: 'Un proyecto no se pide cosas a sí mismo — eso es una sesión.',
-      );
-    }
-
-    final now = DateTime.now();
-    final requirement = InternalRequirement(
-      id: generateUuidV4(),
-      code: _nextCode(),
-      title: cleanTitle,
-      fromProjectId: fromProjectId,
-      toProjectId: toProjectId,
-      need: need.trim(),
-      context: context.trim(),
-      blocking: blocking,
-      openedByHandle: openedByHandle,
-      openedInSessionId: openedInSessionId,
-      status: external ? RequirementStatus.externo : RequirementStatus.abierto,
-      createdAt: now,
-      updatedAt: now,
-    );
-    _replace([...data.requirements, requirement]);
-    return (requirement: requirement, error: null);
-  }
-
-  /// `REQ-0001`, `REQ-0002`… Sale del máximo que ya existe y no del conteo:
-  /// borrar uno del medio no puede hacer que el próximo repita un código.
-  String _nextCode() {
-    var top = 0;
-    for (final requirement in data.requirements) {
-      final digits = requirement.code.replaceAll(RegExp(r'[^0-9]'), '');
-      final value = int.tryParse(digits) ?? 0;
-      if (value > top) top = value;
-    }
-    return 'REQ-${(top + 1).toString().padLeft(4, '0')}';
-  }
+  }) => RequirementsStore.instance.open(
+    fromProjectId: fromProjectId,
+    toProjectId: toProjectId,
+    title: title,
+    need: need,
+    context: context,
+    openedByHandle: openedByHandle,
+    openedInSessionId: openedInSessionId,
+    blocking: blocking,
+    external: external,
+  );
 
   // ── el lado del destino ─────────────────────────────────────────────
 
   /// Lo toma y lo pone en evaluación.
-  String? take(String id, {required String handle, required String sessionId}) {
-    final requirement = byId(id);
-    if (requirement == null) return 'Ese requerimiento no existe.';
-    if (requirement.status == RequirementStatus.externo) {
-      return 'Ese requerimiento va a un proyecto que no mantenés: lo tenés '
-          'que resolver vos por afuera.';
-    }
-    if (!requirement.status.waitsOnTarget) {
-      return 'No está esperando al destino: está ${requirement.status.label.toLowerCase()}.';
-    }
-    _update(
-      requirement.copyWith(
-        status: RequirementStatus.tomado,
-        takenByHandle: handle,
-        takenInSessionId: sessionId,
-      ),
-    );
-    return null;
-  }
+  String? take(
+    String id, {
+    required String handle,
+    required String sessionId,
+  }) =>
+      RequirementsStore.instance.take(id, handle: handle, sessionId: sessionId);
 
   /// Deja el dictamen: viable, bloqueado, no viable, o ya resuelto de otra
-  /// forma. Pasa a "en curso" salvo que ya esté resuelto, que va derecho a
-  /// pedir el cierre.
+  /// forma.
   String? recordVerdict(
     String id, {
     required RequirementVerdict verdict,
     required String handle,
-  }) {
-    final requirement = byId(id);
-    if (requirement == null) return 'Ese requerimiento no existe.';
-    if (!requirement.status.isOpen) {
-      return 'Ese requerimiento ya está ${requirement.status.label.toLowerCase()}.';
-    }
-    final entry = RequirementEntry(
-      id: generateUuidV4(),
-      side: RequirementSide.destino,
-      kind: RequirementEntryKind.evaluacion,
-      text: verdict.reason,
-      createdAt: DateTime.now(),
-      authorHandle: handle,
-    );
-    _update(
-      requirement.copyWith(
-        verdict: verdict,
-        status: verdict.kind == RequirementVerdictKind.yaResuelto
-            ? RequirementStatus.respondido
-            : RequirementStatus.enCurso,
-        thread: [...requirement.thread, entry],
-      ),
-    );
-    return null;
-  }
+  }) => RequirementsStore.instance.recordVerdict(
+    id,
+    verdict: verdict,
+    handle: handle,
+  );
 
   /// El destino pide que se cierre, con justificación.
-  ///
-  /// **No lo cierra.** Es la asimetría que sostiene todo esto: quien abrió es
-  /// el único que sabe si lo que necesitaba está de verdad.
   String? requestClosure(
     String id, {
     required String justification,
     required String handle,
-  }) {
-    final requirement = byId(id);
-    if (requirement == null) return 'Ese requerimiento no existe.';
-    if (!requirement.status.isOpen) {
-      return 'Ese requerimiento ya está ${requirement.status.label.toLowerCase()}.';
-    }
-    if (justification.trim().isEmpty) {
-      return 'Pedir el cierre necesita una justificación clara: es lo único '
-          'que el otro lado va a leer para decidir.';
-    }
-    final entry = RequirementEntry(
-      id: generateUuidV4(),
-      side: RequirementSide.destino,
-      kind: RequirementEntryKind.cierre,
-      text: justification.trim(),
-      createdAt: DateTime.now(),
-      authorHandle: handle,
-    );
-    _update(
-      requirement.copyWith(
-        status: RequirementStatus.respondido,
-        thread: [...requirement.thread, entry],
-      ),
-    );
-    return null;
-  }
+  }) => RequirementsStore.instance.requestClosure(
+    id,
+    justification: justification,
+    handle: handle,
+  );
 
   // ── el lado del origen ──────────────────────────────────────────────
 
   /// Lo cierra. Solo el origen.
-  String? close(String id, {String? handle, String? note}) {
-    final requirement = byId(id);
-    if (requirement == null) return 'Ese requerimiento no existe.';
-    if (requirement.status == RequirementStatus.cerrado) {
-      return 'Ya estaba cerrado.';
-    }
-    final thread = [...requirement.thread];
-    if (note != null && note.trim().isNotEmpty) {
-      thread.add(
-        RequirementEntry(
-          id: generateUuidV4(),
-          side: handle == null
-              ? RequirementSide.usuario
-              : RequirementSide.origen,
-          kind: RequirementEntryKind.cierre,
-          text: note.trim(),
-          createdAt: DateTime.now(),
-          authorHandle: handle,
-        ),
-      );
-    }
-    _update(
-      requirement.copyWith(status: RequirementStatus.cerrado, thread: thread),
-    );
-    return null;
-  }
+  String? close(String id, {String? handle, String? note}) =>
+      RequirementsStore.instance.close(id, handle: handle, note: note);
 
   /// Lo cancela. También del origen: es la otra cara de la misma potestad.
-  String? cancel(String id, {String? handle, String? note}) {
-    final requirement = byId(id);
-    if (requirement == null) return 'Ese requerimiento no existe.';
-    if (!requirement.status.isOpen) {
-      return 'Ese requerimiento ya está ${requirement.status.label.toLowerCase()}.';
-    }
-    _update(requirement.copyWith(status: RequirementStatus.cancelado));
-    if (note != null && note.trim().isNotEmpty) {
-      reply(
-        id,
-        side: handle == null ? RequirementSide.usuario : RequirementSide.origen,
-        kind: RequirementEntryKind.respuesta,
-        text: note,
-        handle: handle,
-      );
-    }
-    return null;
-  }
+  String? cancel(String id, {String? handle, String? note}) =>
+      RequirementsStore.instance.cancel(id, handle: handle, note: note);
 
   /// Rechaza el pedido de cierre y lo devuelve a en curso, explicando.
-  String? rejectClosure(String id, {required String reason, String? handle}) {
-    final requirement = byId(id);
-    if (requirement == null) return 'Ese requerimiento no existe.';
-    if (requirement.status != RequirementStatus.respondido) {
-      return 'Nadie pidió cerrar este requerimiento.';
-    }
-    if (reason.trim().isEmpty) {
-      return 'Decí qué falta: rechazar sin explicar deja al otro lado '
-          'adivinando.';
-    }
-    final entry = RequirementEntry(
-      id: generateUuidV4(),
-      side: handle == null ? RequirementSide.usuario : RequirementSide.origen,
-      kind: RequirementEntryKind.correccion,
-      text: reason.trim(),
-      createdAt: DateTime.now(),
-      authorHandle: handle,
-    );
-    _update(
-      requirement.copyWith(
-        status: RequirementStatus.enCurso,
-        thread: [...requirement.thread, entry],
-      ),
-    );
-    return null;
-  }
+  String? rejectClosure(String id, {required String reason, String? handle}) =>
+      RequirementsStore.instance.rejectClosure(
+        id,
+        reason: reason,
+        handle: handle,
+      );
 
   // ── el hilo, que es lo único compartido ─────────────────────────────
 
-  /// Los requerimientos donde un agente está redactando su respuesta.
-  ///
-  /// Es un dato de pantalla y no del requerimiento: no se persiste, porque
-  /// un turno no sobrevive a cerrar la app. Vive acá y no en el ViewModel de
-  /// proyectos para que el hilo lo pueda leer sin conocerlo.
-  final Set<String> _thinking = {};
+  bool isThinking(String id) => RequirementsStore.instance.isThinking(id);
 
-  bool isThinking(String id) => _thinking.contains(id);
-
-  void markThinking(String id, bool thinking) {
-    final changed = thinking ? _thinking.add(id) : _thinking.remove(id);
-    // `updateState` con el MISMO estado no notifica: el set es aparte y hay
-    // que empujar el redibujo a mano.
-    if (changed) updateState(data.copyWith());
-  }
+  void markThinking(String id, bool thinking) =>
+      RequirementsStore.instance.markThinking(id, thinking);
 
   /// Anota en qué tarea del roadmap del destino terminó.
-  ///
-  /// El archivo ya está escrito cuando esto corre: acá solo queda el vínculo,
-  /// para que el requerimiento sepa en qué terminó y el hilo lo pueda mostrar.
-  String? linkTask(String id, {required String taskPath, String? handle}) {
-    final requirement = byId(id);
-    if (requirement == null) return 'No encontré ese requerimiento.';
-    if (!requirement.status.isOpen) {
-      return 'Ese requerimiento ya está ${requirement.status.label.toLowerCase()}.';
-    }
-    _update(
-      requirement.copyWith(
+  String? linkTask(String id, {required String taskPath, String? handle}) =>
+      RequirementsStore.instance.linkTask(
+        id,
         taskPath: taskPath,
-        thread: [
-          ...requirement.thread,
-          RequirementEntry(
-            id: generateUuidV4(),
-            side: RequirementSide.destino,
-            kind: RequirementEntryKind.avance,
-            text: 'Quedó como tarea en el roadmap: `$taskPath`.',
-            createdAt: DateTime.now(),
-            authorHandle: handle,
-          ),
-        ],
-      ),
-    );
-    return null;
-  }
+        handle: handle,
+      );
 
   String? reply(
     String id, {
@@ -350,66 +127,21 @@ class RequirementsViewModel extends ViewModel<RequirementsState> {
     required RequirementEntryKind kind,
     required String text,
     String? handle,
-  }) {
-    final requirement = byId(id);
-    if (requirement == null) return 'Ese requerimiento no existe.';
-    if (text.trim().isEmpty) return 'No hay nada escrito.';
-
-    final entry = RequirementEntry(
-      id: generateUuidV4(),
-      side: side,
-      kind: kind,
-      text: text.trim(),
-      createdAt: DateTime.now(),
-      authorHandle: handle,
-    );
-    _update(requirement.copyWith(thread: [...requirement.thread, entry]));
-    return null;
-  }
+  }) => RequirementsStore.instance.reply(
+    id,
+    side: side,
+    kind: kind,
+    text: text,
+    handle: handle,
+  );
 
   /// Mete un requerimiento entero como vino del respaldo.
-  ///
-  /// Si ese código ya existe, **no lo pisa**. Un requerimiento es una
-  /// conversación viva: restaurar una foto vieja encima borraría todo lo que
-  /// pasó desde que se hizo el respaldo, que es exactamente lo que uno NO
-  /// quiere de un respaldo.
-  bool importSnapshot(InternalRequirement requirement) {
-    if (byCode(requirement.code) != null) return false;
-    _replace([...data.requirements, requirement]);
-    return true;
-  }
+  bool importSnapshot(InternalRequirement requirement) =>
+      RequirementsStore.instance.importSnapshot(requirement);
 
   /// Marca los requerimientos de un proyecto que ya no existe.
-  ///
-  /// No se borran: son historia compartida, y el otro lado sigue teniendo
-  /// derecho a verla. Lo que sí pasa es que no se pueden tomar más.
-  void markProjectDeleted(String projectId) {
-    final touched = data.requirements
-        .map(
-          (requirement) =>
-              (requirement.fromProjectId == projectId ||
-                      requirement.toProjectId == projectId) &&
-                  requirement.status.isOpen
-              ? requirement.copyWith(status: RequirementStatus.externo)
-              : requirement,
-        )
-        .toList();
-    _replace(touched);
-  }
-
-  // ── plomería ────────────────────────────────────────────────────────
-
-  void _update(InternalRequirement requirement) {
-    _replace([
-      for (final entry in data.requirements)
-        if (entry.id == requirement.id) requirement else entry,
-    ]);
-  }
-
-  void _replace(List<InternalRequirement> requirements) {
-    updateState(data.copyWith(requirements: requirements));
-    unawaited(_repository.save(requirements));
-  }
+  void markProjectDeleted(String projectId) =>
+      RequirementsStore.instance.markProjectDeleted(projectId);
 }
 
 mixin RequirementsService {

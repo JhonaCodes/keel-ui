@@ -2,7 +2,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
-import 'package:keel_ui/src/modules/agents/model/agent_tool_activity.dart';
+import 'package:keel_core/modules/agents/model/agent_tool_activity.dart';
 
 enum _ToolAnimationStyle { spin, pulse, bounce }
 

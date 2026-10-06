@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:keel_ui/src/core/ui/form_panel.dart';
 import 'package:keel_ui/src/integrations/hook_import/hook_import.dart';
-import 'package:keel_ui/src/modules/hooks/model/hook.dart';
+import 'package:keel_core/modules/hooks/model/hook.dart';
 import 'package:keel_ui/src/modules/hooks/viewmodel/hooks_viewmodel.dart';
 
 Future<void> openHookImportScreen(BuildContext context) {

@@ -13,13 +13,14 @@ import 'package:keel_ui/src/modules/requirements/ui/widget/requirements_group.da
 import 'package:keel_ui/src/modules/requirements/viewmodel/requirements_viewmodel.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
 
-import 'package:keel_ui/src/modules/agents/model/agent.dart';
+import 'package:keel_core/modules/agents/model/agent.dart';
+import 'package:keel_ui/src/modules/agents/model/agent_icon_colors.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/agent_status_icon.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/use_agent_panel.dart';
 import 'package:keel_ui/src/modules/agents/viewmodel/agents_viewmodel.dart';
 import 'package:keel_ui/src/modules/boards/ui/widget/boards_group.dart';
-import 'package:keel_ui/src/modules/projects/model/project.dart';
-import 'package:keel_ui/src/modules/projects/model/session.dart';
+import 'package:keel_core/modules/projects/model/project.dart';
+import 'package:keel_core/modules/projects/model/session.dart';
 import 'package:keel_ui/src/modules/projects/ui/widget/session_plan_list.dart';
 import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
 import 'package:keel_ui/src/core/ui/running_dot.dart';
@@ -27,7 +28,7 @@ import 'package:keel_ui/src/modules/workspace/model/running_work.dart';
 import 'package:keel_ui/src/modules/sidebar_layout/model/sidebar_layout.dart';
 import 'package:keel_ui/src/modules/sidebar_layout/ui/widget/sidebar_section_list.dart';
 import 'package:keel_ui/src/modules/sidebar_layout/viewmodel/sidebar_layout_viewmodel.dart';
-import 'package:keel_ui/src/modules/workflows/model/workflow.dart';
+import 'package:keel_core/modules/workflows/model/workflow.dart';
 import 'package:keel_ui/src/modules/workflows/viewmodel/workflows_viewmodel.dart';
 import 'package:keel_ui/src/modules/workspace/model/workspace_lens.dart';
 import 'package:keel_ui/src/modules/workspace/viewmodel/workspace_viewmodel.dart';
@@ -560,7 +561,9 @@ class _ProjectRowState extends State<_ProjectRow> {
             if (!project.maintained) ...[
               const SizedBox(width: 4),
               Tooltip(
-                message: AppLocalizations.of(context).sidebarTooltipReadOnlyProject,
+                message: AppLocalizations.of(
+                  context,
+                ).sidebarTooltipReadOnlyProject,
                 child: Icon(
                   Icons.lock_outline,
                   size: 12,
@@ -575,7 +578,9 @@ class _ProjectRowState extends State<_ProjectRow> {
               const SizedBox(width: 6),
               Tooltip(
                 message: widget.running == 1
-                    ? AppLocalizations.of(context).sidebarTooltipOneSessionWorking
+                    ? AppLocalizations.of(
+                        context,
+                      ).sidebarTooltipOneSessionWorking
                     : AppLocalizations.of(
                         context,
                       ).sidebarTooltipSessionsWorking(widget.running),

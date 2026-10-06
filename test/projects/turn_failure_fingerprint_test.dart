@@ -1,9 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:keel_ui/src/modules/projects/model/resolution_case.dart';
-import 'package:keel_ui/src/modules/projects/model/resolution_evidence.dart';
-import 'package:keel_ui/src/modules/projects/model/work_node.dart';
-import 'package:keel_ui/src/modules/projects/service/resolution_engine.dart';
+import 'package:keel_core/modules/projects/model/resolution_case.dart';
+import 'package:keel_core/modules/projects/model/resolution_evidence.dart';
+import 'package:keel_core/modules/projects/model/work_node.dart';
+import 'package:keel_core/modules/projects/service/resolution_engine.dart';
 
 ResolutionEvidence _mute(String nodeId, String failureMessage) =>
     ResolutionEvidence(

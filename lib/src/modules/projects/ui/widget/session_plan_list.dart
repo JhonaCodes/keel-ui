@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'package:keel_ui/src/modules/projects/model/session_plan_item.dart';
+import 'package:keel_core/modules/projects/model/session_plan_item.dart';
 import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
 
 /// El plan de trabajo de una sesión, colgando de ella en el sidebar.

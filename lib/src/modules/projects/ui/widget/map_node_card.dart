@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:keel_ui/src/core/ui/app_theme.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/agent_activity_indicator.dart';
 import 'package:keel_ui/src/modules/projects/model/member_color.dart';
-import 'package:keel_ui/src/modules/projects/model/session_map.dart';
+import 'package:keel_core/modules/projects/model/session_map.dart';
 import 'package:keel_ui/src/modules/projects/model/session_map_layout.dart';
 import 'package:keel_ui/src/modules/projects/ui/widget/map_callout_box.dart';
 import 'package:keel_ui/src/modules/projects/ui/widget/map_edges_painter.dart';

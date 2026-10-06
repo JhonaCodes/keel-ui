@@ -3,7 +3,7 @@ import 'dart:isolate';
 
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:keel_ui/src/modules/knowledge/viewmodel/knowledge_viewmodel.dart';
+import 'package:keel_core/modules/knowledge/service/knowledge_store.dart';
 
 Directory _base() {
   final dir = Directory.systemTemp.createTempSync('keel-saber-');

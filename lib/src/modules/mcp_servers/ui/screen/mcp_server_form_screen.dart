@@ -3,11 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
 
 import 'package:keel_ui/l10n/generated/app_localizations.dart';
-import 'package:keel_ui/src/core/services/external_link_service.dart';
+import 'package:keel_core/core/services/external_link_service.dart';
 import 'package:keel_ui/src/core/ui/form_panel.dart';
-import 'package:keel_ui/src/integrations/mcp_catalog/mcp_catalog.dart';
+import 'package:keel_core/integrations/mcp_catalog/mcp_catalog.dart';
 import 'package:keel_ui/src/modules/agent_profiles/viewmodel/agent_profiles_viewmodel.dart';
-import 'package:keel_ui/src/modules/mcp_servers/model/mcp_server_config.dart';
+import 'package:keel_core/modules/mcp_servers/model/mcp_server_config.dart';
 import 'package:keel_ui/src/modules/mcp_servers/viewmodel/mcp_servers_viewmodel.dart';
 import 'package:keel_ui/src/modules/mcp_servers/ui/widget/integration_credentials.dart';
 import 'package:keel_ui/src/modules/mcp_servers/ui/widget/integration_glyph.dart';

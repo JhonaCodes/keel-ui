@@ -4,7 +4,7 @@ import 'dart:typed_data';
 import 'package:archive/archive.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:keel_ui/src/integrations/system_vault/system_vault.dart';
+import 'package:keel_core/integrations/system_vault/vault_archive.dart';
 
 VaultContents _sampleContents() => VaultContents(
   catalog: {

@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 
-import 'package:keel_ui/src/modules/catalog_locks/model/catalog_lock.dart';
+import 'package:keel_core/modules/catalog_locks/model/catalog_lock.dart';
 import 'package:keel_ui/src/modules/catalog_locks/ui/widget/catalog_lock_button.dart';
 import 'package:keel_ui/src/modules/catalog_locks/viewmodel/catalog_locks_viewmodel.dart';
-import 'package:keel_ui/src/modules/knowledge/model/knowledge_base.dart';
-import 'package:keel_ui/src/modules/knowledge/model/knowledge_document.dart';
+import 'package:keel_core/modules/knowledge/model/knowledge_base.dart';
+import 'package:keel_core/modules/knowledge/model/knowledge_document.dart';
 import 'package:keel_ui/src/modules/knowledge/ui/screen/knowledge_base_form_screen.dart';
 import 'package:keel_ui/src/modules/knowledge/viewmodel/knowledge_viewmodel.dart';
 

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:keel_ui/l10n/generated/app_localizations.dart';
-import 'package:keel_ui/src/core/services/external_link_service.dart';
+import 'package:keel_core/core/services/external_link_service.dart';
 import 'package:keel_ui/src/core/ui/form_panel.dart';
 import 'package:keel_ui/src/modules/settings/model/keel_about.dart';
 import 'package:keel_ui/src/modules/settings/model/keel_terms.dart';

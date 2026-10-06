@@ -1,14 +1,16 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:keel_ui/src/core/services/local_database.dart';
-import 'package:keel_ui/src/modules/agent_profiles/model/agent_profile.dart';
+import 'package:keel_core/core/store/keel_store.dart';
+import 'package:keel_ui/src/core/services/flutter_local_db_store.dart';
+import 'package:keel_core/modules/agent_profiles/model/agent_profile.dart';
 import 'package:keel_ui/src/modules/agent_profiles/viewmodel/agent_profiles_viewmodel.dart';
-import 'package:keel_ui/src/modules/agents/model/chat_message.dart';
-import 'package:keel_ui/src/modules/projects/model/project.dart';
-import 'package:keel_ui/src/modules/projects/model/session.dart';
-import 'package:keel_ui/src/modules/projects/model/session_message_reference.dart';
-import 'package:keel_ui/src/modules/projects/model/session_queued_message.dart';
-import 'package:keel_ui/src/modules/projects/model/session_reply_request.dart';
+import 'package:keel_core/modules/agents/model/chat_message.dart';
+import 'package:keel_core/modules/projects/model/project.dart';
+import 'package:keel_core/modules/projects/model/session.dart';
+import 'package:keel_core/modules/projects/model/session_message_reference.dart';
+import 'package:keel_core/modules/projects/model/session_queued_message.dart';
+import 'package:keel_core/modules/projects/model/session_reply_request.dart';
 import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
 
 final _epoch = DateTime(2026, 9, 4, 14, 32);
@@ -71,6 +73,7 @@ String _replyPrompt(String answer) => assistantReplyRequest(
 
 void main() {
   LocalDatabase.markUnavailable();
+  KeelStore.instance = const FlutterLocalDbStore();
 
   setUp(() {
     AgentProfilesService.instance.notifier.updateState(

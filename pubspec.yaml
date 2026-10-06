@@ -39,7 +39,9 @@ dependencies:
   reactive_notifier: 2.18.1
   logger_rs: ^2.1.1
   keel_core:
-    path: ../keel-core
+    git:
+      url: git@github.com:JhonaCodes/keel-core.git
+      ref: main
   # Directa y no transitiva a propósito: `ensureKeelE2eAttached` (el paso
   # keel-e2e) devuelve `Result<EngineConnection, ...>`, el mismo tipo que ya
   # usa `keel_e2e_panel` — importarlo solo por arrastre de esa dependencia

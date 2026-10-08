@@ -231,6 +231,79 @@ int _repoSizeKiB(String countOutput) {
   return total;
 }
 
+/// Lo que otra máquina subió al vault desde la última vez que esta lo vio:
+/// el zip que había entonces ([base], null si nunca lo vio) y el que está
+/// ahora en el remoto ([theirs]).
+typedef VaultIncoming = ({Uint8List? base, Uint8List theirs});
+
+/// El remoto del vault visto desde esta máquina.
+///
+/// keel-ui no es el único que escribe: keel-server sube al mismo repo los
+/// cambios de catálogo que se hacen en el servidor. Sin mirar el remoto
+/// antes de respaldar, el lease del push compara contra una punta vieja y lo
+/// rechaza con "stale info" en cada respaldo.
+final class VaultRemote {
+  const VaultRemote(this.dir);
+
+  final String dir;
+
+  /// Trae la punta del remoto y devuelve lo que subió otra máquina desde la
+  /// última vez que esta lo vio, o null si nadie más escribió.
+  ///
+  /// "La última vez que lo vio" es `origin/<rama>`: lo mueve tanto el push
+  /// propio como el fetch. El zip de esa punta se lee ANTES del fetch,
+  /// porque después queda inalcanzable y un `gc --auto` podría llevárselo.
+  Future<VaultIncoming?> fetchIncoming() async {
+    final branch = await _git(['symbolic-ref', '--short', 'HEAD'], cwd: dir);
+    // HEAD suelto: commitVault ya lo explica con un mensaje propio.
+    if (!branch.ok) return null;
+    final name = branch.output.trim();
+
+    final listed = await _git([
+      'ls-remote',
+      'origin',
+      'refs/heads/$name',
+    ], cwd: dir);
+    if (!listed.ok) {
+      throw _VaultException('git ls-remote falló: ${listed.output}');
+    }
+    final remoteSha = listed.output.split(RegExp(r'\s+')).first.trim();
+    // El remoto todavía no tiene la rama: este respaldo es el primero.
+    if (remoteSha.isEmpty) return null;
+
+    final known = await _git([
+      'rev-parse',
+      '--verify',
+      '--quiet',
+      'refs/remotes/origin/$name',
+    ], cwd: dir);
+    final knownSha = known.ok ? known.output.trim() : null;
+    if (knownSha == remoteSha) return null;
+
+    final base = knownSha == null ? null : await _backupAt(knownSha);
+    final fetched = await _git(['fetch', 'origin'], cwd: dir);
+    if (!fetched.ok) {
+      throw _VaultException('git fetch falló: ${fetched.output}');
+    }
+    final theirs = await _backupAt(remoteSha);
+    // Un commit ajeno sin respaldo adentro no trae nada que integrar.
+    if (theirs == null) return null;
+    return (base: base, theirs: theirs);
+  }
+
+  /// Los bytes de `keel-backup.zip` en el commit [sha], o null si ahí no hay.
+  Future<Uint8List?> _backupAt(String sha) async {
+    final result = await Process.run(
+      'git',
+      ['cat-file', 'blob', '$sha:$kVaultBackupFileName'],
+      workingDirectory: dir,
+      stdoutEncoding: null,
+    );
+    if (result.exitCode != 0) return null;
+    return Uint8List.fromList(result.stdout as List<int>);
+  }
+}
+
 /// Clona [url] en [destination], que tiene que no existir o estar vacío.
 Future<void> cloneVaultRepo(String url, String destination) async {
   final target = Directory(destination);

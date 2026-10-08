@@ -274,13 +274,24 @@ class SystemVaultViewModel extends ViewModel<SystemVaultState> {
       throw _VaultException('La carpeta del vault no existe: $dir');
     }
 
+    // Lo que otra máquina —keel-server— subió al vault entra ANTES de
+    // escribir el zip: así el respaldo lo lleva adentro en vez de pisarlo, y
+    // el lease del push compara contra la punta recién traída.
+    final remote = SettingsService.instance.notifier.data.vaultRepoUrl.trim();
+    final parts = <String>[];
+    if (remote.isNotEmpty) {
+      await ensureVaultRepo(dir, remote);
+      final incoming = await VaultRemote(dir).fetchIncoming();
+      if (incoming != null) parts.add(await _integrate(incoming));
+    }
+
     // A OTRO isolate. Recorrer las carpetas de saber, leer cada archivo y
     // comprimir es medio segundo con pocas bases y varios con muchas; acá
     // adentro eso era un freeze de la app entera en cada respaldo.
     final job = _jobFor(dir);
     final written = await runOffThread(writeVaultArchive, job);
 
-    final parts = [
+    parts.addAll([
       'Respaldé ${written.catalogCount} elementos, '
           '${written.secretCount} secrets por nombre'
           '${written.documentCount == 0 ? '' : ' y ${written.documentCount} documentos'}'
@@ -288,9 +299,8 @@ class SystemVaultViewModel extends ViewModel<SystemVaultState> {
       if (written.skipped.isNotEmpty)
         'Afuera por tamaño (más de ${kMaxVaultDocBytes ~/ (1024 * 1024)} MB): '
             '${written.skipped.join(', ')}.',
-    ];
+    ]);
 
-    final remote = SettingsService.instance.notifier.data.vaultRepoUrl.trim();
     if (remote.isEmpty) {
       throw const _VaultException(
         'Escribí el respaldo, pero no hay repo del vault configurado: '
@@ -299,7 +309,6 @@ class SystemVaultViewModel extends ViewModel<SystemVaultState> {
       );
     }
 
-    await ensureVaultRepo(dir, remote);
     parts.add(
       await commitVault(
         dir,
@@ -309,6 +318,39 @@ class SystemVaultViewModel extends ViewModel<SystemVaultState> {
     );
     return parts.join('\n');
   });
+
+  /// Aplica acá lo que otra máquina cambió en el vault, sin pisar lo que se
+  /// editó acá desde el último respaldo (ver [VaultThreeWayMerge]).
+  Future<String> _integrate(VaultIncoming incoming) async {
+    final there = await runOffThread(
+      VaultThreeWayMerge.catalogOf,
+      incoming.theirs,
+    );
+    final baseBytes = incoming.base;
+    final before = baseBytes == null
+        ? null
+        : await runOffThread(VaultThreeWayMerge.catalogOf, baseBytes);
+    final plan = VaultThreeWayMerge(
+      base: before?.catalog ?? const {},
+      theirs: there.catalog,
+      local: catalogAsJson(),
+    ).plan();
+
+    final applied = plan.toApply.values.fold(
+      0,
+      (sum, list) => sum + list.length,
+    );
+    return [
+      'Otra máquina subió al vault: traje $applied cambios.',
+      if (plan.toApply.isNotEmpty) await mergeCatalogJson(plan.toApply),
+      _applySecrets(VaultContents(secrets: there.secrets)),
+      if (plan.conflicts.isNotEmpty)
+        'Cambiados en los dos lados, quedó lo de acá: '
+            '${plan.conflicts.join(', ')}.',
+      if (plan.deletedThere.isNotEmpty)
+        'Borrados allá, acá se conservan: ${plan.deletedThere.join(', ')}.',
+    ].join('\n');
+  }
 
   /// El encargo que se manda al otro isolate.
   ///

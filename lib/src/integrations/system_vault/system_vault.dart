@@ -19,7 +19,6 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:archive/archive.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:logger_rs/logger_rs.dart';
@@ -43,3 +42,4 @@ part 'src/ui/vault_onboarding.dart';
 part 'src/ui/vault_backup_panel.dart';
 part 'src/ui/vault_panels.dart';
 part 'src/vault_git.dart';
+part 'src/vault_incoming.dart';

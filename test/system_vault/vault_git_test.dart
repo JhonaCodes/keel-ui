@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
@@ -20,6 +21,10 @@ Future<ProcessResult> _git(Directory repo, List<String> arguments) {
 
 Future<void> _initRepo(Directory repo) async {
   expect((await _git(repo, ['init'])).exitCode, 0);
+  await _initRepoIdentity(repo);
+}
+
+Future<void> _initRepoIdentity(Directory repo) async {
   expect((await _git(repo, ['config', 'user.name', 'Keel Test'])).exitCode, 0);
   expect(
     (await _git(repo, ['config', 'user.email', 'keel@test.local'])).exitCode,
@@ -110,6 +115,36 @@ void main() {
 
     expect(result, contains('idéntico'));
     expect(await _read(repo, ['rev-parse', 'HEAD']), before);
+  });
+
+  test('si otra máquina subió al vault, el respaldo trae lo suyo y sube igual', () async {
+    // keel-server sube sus cambios de catálogo al mismo repo. Antes, el
+    // siguiente respaldo de keel-ui chocaba con "stale info" para siempre.
+    final remote = _tempRepo();
+    expect((await _git(remote, ['init', '--bare', '-b', 'master'])).exitCode, 0);
+
+    final vault = _tempRepo();
+    await _initRepo(vault);
+    expect((await _git(vault, ['checkout', '-b', 'master'])).exitCode, 0);
+    await ensureVaultRepo(vault.path, remote.path);
+    File('${vault.path}/keel-backup.zip').writeAsStringSync('ui-1');
+    await commitVault(vault.path, message: 'respaldo ui-1', push: true);
+
+    final server = _tempRepo();
+    expect((await _git(server, ['clone', remote.path, '.'])).exitCode, 0);
+    await _initRepoIdentity(server);
+    File('${server.path}/keel-backup.zip').writeAsStringSync('server');
+    final committed = await _git(server, ['commit', '--no-gpg-sign', '-am', 'keel-server']);
+    expect(committed.exitCode, 0);
+    expect((await _git(server, ['push', 'origin', 'HEAD'])).exitCode, 0);
+
+    final incoming = await VaultRemote(vault.path).fetchIncoming();
+    File('${vault.path}/keel-backup.zip').writeAsStringSync('ui-2');
+    await commitVault(vault.path, message: 'respaldo ui-2', push: true);
+
+    expect(utf8.decode(incoming!.theirs), 'server');
+    expect(utf8.decode(incoming.base!), 'ui-1');
+    expect(await _read(remote, ['show', 'master:keel-backup.zip']), 'ui-2');
   });
 
   test('respaldar muchas veces NO infla el .git: la poda lo mantiene acotado', () async {

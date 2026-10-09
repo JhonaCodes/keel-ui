@@ -116,6 +116,22 @@ EXECUTABLE_PATH="$APP_PATH/Contents/MacOS/Keel"
   exit 66
 }
 
+# El modelo LiteRT es opcional: solo se exige en el bundle si está instalado
+# en keel-core, y con él el worker y las librerías que lo corren.
+for model_file in Qwen2.5-1.5B-Instruct_multi-prefill-seq_q8_ekv4096.litertlm; do
+  MODEL_SOURCE="$ROOT_DIR/../keel-core/model/$model_file"
+  [[ -f "$MODEL_SOURCE" ]] || continue
+  MODEL_BUNDLED="$APP_PATH/Contents/Resources/model/$model_file"
+  [[ -f "$MODEL_BUNDLED" ]] && cmp -s "$MODEL_SOURCE" "$MODEL_BUNDLED" || {
+    echo "Keel.app no incluye el modelo LiteRT $model_file." >&2
+    exit 66
+  }
+  [[ -f "$APP_PATH/Contents/Resources/native/macos_arm64/libLiteRtLm.dylib" && -x "$APP_PATH/Contents/Resources/litert/bin/litert_worker" ]] || {
+    echo "Keel.app no incluye el modelo LiteRT correcto: falta la fase «Embed LiteRT model»." >&2
+    exit 66
+  }
+done
+
 # La fase de Xcode «Embed keel-e2e» deja el motor E2E dentro del bundle;
 # sin él, la pestaña E2E de esta release no funcionaría.
 E2E_DIR="$APP_PATH/Contents/Resources/keel_e2e"

@@ -1,0 +1,28 @@
+#!/usr/bin/env python3
+"""A provider that records how it was launched: its argv and the MCP config
+it received, in its cwd. Answers the first stdin line with a finished node
+and leaves when its stdin closes, like CLI 2.1.280 with stream-json input."""
+import json
+import sys
+from pathlib import Path
+
+args = sys.argv[1:]
+Path('argv.json').write_text(json.dumps(args))
+config = args[args.index('--mcp-config') + 1] if '--mcp-config' in args else None
+Path('mcp-config.json').write_text(Path(config).read_text() if config else '{}')
+
+sys.stdin.readline()
+
+
+def emit(event):
+    print(json.dumps(event), flush=True)
+
+
+answer = ('Listo.\n```keel-outcome\nstatus: done\n'
+          'summary: Apliqué el cambio pedido.\n```')
+emit({'type': 'system', 'subtype': 'init', 'session_id': 'fake-context', 'model': 'sonnet'})
+emit({'type': 'assistant', 'message': {'content': [{'type': 'text', 'text': answer}]}})
+emit({'type': 'result', 'subtype': 'success', 'is_error': False, 'result': answer,
+      'session_id': 'fake-context', 'total_cost_usd': 0.1})
+for _ in sys.stdin:
+    pass

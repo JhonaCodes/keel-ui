@@ -37,6 +37,7 @@ import 'package:keel_ui/src/integrations/fault_journal/fault_journal.dart';
 import 'package:keel_ui/src/integrations/system_vault/system_vault.dart';
 import 'package:keel_core/integrations/session_plan_mcp/session_plan_mcp_server.dart';
 import 'package:keel_core/integrations/user_tools_mcp/user_tools_mcp_server.dart';
+import 'package:keel_core/integrations/context_mcp/context_mcp_server.dart';
 import 'package:keel_core/modules/agents/model/file_edit.dart';
 import 'package:keel_core/modules/agents/model/file_editor_window_arguments.dart';
 import 'package:keel_ui/src/modules/agents/ui/screen/agents_screen.dart';
@@ -135,6 +136,7 @@ Future<void> main(List<String> rawArgs) async {
       await seedE2eDeviceWorkflow();
       await AssistantMcpServer.start();
       await UserToolsMcpServer.start();
+      await ContextMcpServer.start();
       await SessionPlanMcpServer.ensureStarted();
       await RoadmapMcpServer.ensureStarted();
       await RequirementsMcpServer.ensureStarted();

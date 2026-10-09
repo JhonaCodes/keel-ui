@@ -362,7 +362,7 @@ packages:
     description:
       path: "."
       ref: main
-      resolved-ref: "2de2d0fabf1a15ad598dd7fc8ba65bd25862d412"
+      resolved-ref: "8092b24b5dfcf12b0566a2b2e846e22b2fb64f1a"
       url: "git@github.com:JhonaCodes/keel-core.git"
     source: git
     version: "0.1.0"
@@ -412,6 +412,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "6.1.0"
+  litert_dart:
+    dependency: transitive
+    description:
+      name: litert_dart
+      sha256: "8f9bf0944f4103c8d37b70fb92ee1305560d6ec825844461219b4e9583d95b5f"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.2.0"
   logger_rs:
     dependency: "direct main"
     description:
@@ -468,6 +476,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.5.0"
+  mutex:
+    dependency: transitive
+    description:
+      name: mutex
+      sha256: "8827da25de792088eb33e572115a5eb0d61d61a3c01acbc8bcbe76ed78f1a1f2"
+      url: "https://pub.dev"
+    source: hosted
+    version: "3.1.0"
   nested:
     dependency: transitive
     description:

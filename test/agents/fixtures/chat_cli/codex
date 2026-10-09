@@ -1,0 +1,39 @@
+#!/usr/bin/env python3
+"""A provider with no channel for mid-turn messages, like `codex exec`: the
+prompt is the last argv. The first turn stays in its tool until it is killed;
+the next one answers with the prompt it got. Logs each process in
+KEEL_FAKE_DIR/codex."""
+import json
+import os
+import sys
+import time
+from pathlib import Path
+
+out_dir = Path(os.environ['KEEL_FAKE_DIR']) / 'codex'
+out_dir.mkdir(exist_ok=True)
+args = sys.argv[1:]
+# `codex debug models`: Keel reads the catalog; nothing to run.
+if args[:2] == ['debug', 'models']:
+    print(json.dumps({'models': [{'slug': 'gpt-5', 'display_name': 'GPT-5',
+                                  'visibility': 'list', 'priority': 1}]}))
+    sys.exit(0)
+prompt = args[-1]
+
+
+def emit(event):
+    print(json.dumps(event), flush=True)
+
+
+waiting = out_dir / 'turn-waiting'
+first = not waiting.exists()
+with (out_dir / 'invocations.log').open('a') as out:
+    out.write(f'{os.getpid()} {"first" if first else "next"}\n')
+emit({'type': 'thread.started', 'thread_id': 'fake-codex-chat'})
+if first:
+    waiting.write_text('1')
+    time.sleep(30)
+    sys.exit(0)
+emit({'type': 'item.completed', 'item': {'id': 'i1', 'type': 'agent_message',
+                                         'text': f'RECIBIDO: {prompt}'}})
+emit({'type': 'turn.completed', 'usage': {'input_tokens': 1, 'cached_input_tokens': 0,
+                                          'output_tokens': 1}})

@@ -1,0 +1,84 @@
+#!/usr/bin/env python3
+"""A live claude for a 1:1 chat: one process for the whole conversation and
+one stream-json line per turn on stdin, like CLI 2.1.280. The first process
+stays in a tool long enough for the test to write, and answers with what it
+heard mid-turn, and on SIGTERM takes a second to exit, as a real CLI does its
+cleanup. Any later process (one that replaced a stopped one) answers each line
+after two seconds. Logs each process and each stdin line in
+KEEL_FAKE_DIR/claude."""
+import json
+import os
+import select
+import signal
+import sys
+import time
+from pathlib import Path
+
+out_dir = Path(os.environ['KEEL_FAKE_DIR']) / 'claude'
+out_dir.mkdir(parents=True, exist_ok=True)
+
+
+def line(timeout):
+    ready, _, _ = select.select([sys.stdin], [], [], timeout)
+    if not ready:
+        return None
+    return sys.stdin.readline() or None
+
+
+def emit(event):
+    print(json.dumps(event), flush=True)
+
+
+def log(text):
+    with (out_dir / 'stdin.jsonl').open('a') as out:
+        out.write(text)
+
+
+def answer(text):
+    emit({'type': 'assistant', 'message': {'content': [{'type': 'text', 'text': text}]}})
+    emit({'type': 'result', 'subtype': 'success', 'is_error': False, 'result': text,
+          'session_id': 'fake-chat', 'total_cost_usd': 0.1})
+
+
+invocations = out_dir / 'invocations.log'
+replacement = invocations.exists()
+with invocations.open('a') as out:
+    out.write(f'{os.getpid()}\n')
+if replacement:
+    while True:
+        request = line(30)
+        if request is None:
+            sys.exit(0)
+        log(request)
+        emit({'type': 'system', 'subtype': 'init', 'session_id': 'fake-chat', 'model': 'sonnet'})
+        time.sleep(2)
+        answer(f"RESPUESTA: {json.loads(request)['message']['content']}")
+
+
+def exit_slowly(*_):
+    time.sleep(1)
+    sys.exit(0)
+
+
+signal.signal(signal.SIGTERM, exit_slowly)
+first = line(30)
+if first is None:
+    sys.exit(0)
+log(first)
+emit({'type': 'system', 'subtype': 'init', 'session_id': 'fake-chat', 'model': 'sonnet'})
+emit({'type': 'assistant', 'message': {'content': [
+    {'type': 'tool_use', 'id': 't1', 'name': 'Bash', 'input': {'command': 'sleep 1'}}]}})
+# The test writes its message while this tool "runs".
+(out_dir / 'turn-waiting').write_text('1')
+second = line(15)
+log(second or '<none>\n')
+emit({'type': 'user', 'message': {'content': [
+    {'type': 'tool_result', 'tool_use_id': 't1', 'content': 'ok'}]}})
+heard = json.loads(second)['message']['content'] if second else 'NADA'
+answer(f'RECIBIDO: {heard}')
+while True:
+    following = line(60)
+    if following is None:
+        break
+    log(following)
+    answer('OK')

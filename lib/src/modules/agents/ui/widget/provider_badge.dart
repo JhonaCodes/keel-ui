@@ -17,6 +17,7 @@ class ProviderBadge extends StatelessWidget {
       AgentProvider.openCode => const Color(0xFFE0A526),
       AgentProvider.openRouter => const Color(0xFF6E56CF),
       AgentProvider.deepSeek => const Color(0xFF3D82F6),
+      AgentProvider.liteRt => const Color(0xFF8B5CF6),
     };
 
     return Tooltip(

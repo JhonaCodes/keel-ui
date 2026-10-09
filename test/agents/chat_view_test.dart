@@ -82,6 +82,61 @@ void main() {
     ]);
     expect(find.byKey(const ValueKey('model-openrouter')), findsOneWidget);
   });
+
+  testWidgets('Keel AI selecciona Qwen local', (tester) async {
+    late _RecordingChatActions actions;
+    await tester.binding.setSurfaceSize(const Size(1400, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: SizedBox(
+            width: 1200,
+            child: _ChatHarness(onActionsReady: (value) => actions = value),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.byKey(const ValueKey('provider-claude')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Local (LiteRT)'));
+    await tester.pumpAndSettle();
+
+    expect(actions.providerChanges, [('keelai-session', AgentProvider.liteRt)]);
+    expect(find.byKey(const ValueKey('model-litert')), findsOneWidget);
+    expect(find.text('Qwen 2.5 1.5B · rápido · local'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('model-litert')));
+    await tester.pumpAndSettle();
+    expect(find.text('Gemma 4 E2B · local'), findsNothing);
+  });
+
+  testWidgets('sin el modelo local en la máquina no se ofrece LiteRT', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1400, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: SizedBox(
+            width: 1200,
+            child: _ChatHarness(onActionsReady: (_) {}, liteRtInstalled: false),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.byKey(const ValueKey('provider-claude')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Codex'), findsOneWidget);
+    expect(find.text('Local (LiteRT)'), findsNothing);
+  });
 }
 
 /// Un pedido de cambio de catálogo: la variante ALTA, que es la que no
@@ -252,12 +307,16 @@ class _ChatHarness extends StatefulWidget {
     this.messages = const [],
     this.pendingPermission,
     this.isStreaming = false,
+    this.liteRtInstalled = true,
   });
 
   final ValueChanged<_RecordingChatActions> onActionsReady;
   final List<ChatMessage> messages;
   final PermissionRequest? pendingPermission;
   final bool isStreaming;
+
+  /// Whether a LiteRT model is on "this machine" — never the real disk.
+  final bool liteRtInstalled;
 
   @override
   State<_ChatHarness> createState() => _ChatHarnessState();
@@ -301,7 +360,10 @@ class _ChatHarnessState extends State<_ChatHarness> {
       agent: _agent,
       actions: _actions,
       // A provider switch loads its models; never from the real CLI here.
-      catalog: RemoteModelCatalog(codexCatalog: () async => null),
+      catalog: RemoteModelCatalog(
+        codexCatalog: () async => null,
+        liteRtInstalled: () => widget.liteRtInstalled,
+      ),
     );
   }
 }
@@ -311,6 +373,7 @@ class _RecordingChatActions extends LocalChatActions {
 
   final void Function(String agentId, AgentProvider provider) onProviderChanged;
   final List<(String, AgentProvider)> providerChanges = [];
+  final List<(String, String)> modelChanges = [];
   final List<bool> permissionAnswers = [];
 
   /// Sin esto la respuesta cae en el ViewModel de verdad, que en un test no
@@ -328,5 +391,10 @@ class _RecordingChatActions extends LocalChatActions {
   void setAgentProvider(String agentId, AgentProvider provider) {
     providerChanges.add((agentId, provider));
     onProviderChanged(agentId, provider);
+  }
+
+  @override
+  void setAgentModel(String agentId, String model) {
+    modelChanges.add((agentId, model));
   }
 }

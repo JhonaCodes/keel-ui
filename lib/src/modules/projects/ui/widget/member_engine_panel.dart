@@ -91,6 +91,14 @@ class _MemberEnginePanelState extends State<MemberEnginePanel> {
     return injected.load(_provider);
   }
 
+  /// The shared catalog's providers, unless a test handed its own. The
+  /// stored pick stays listed so the dropdown can start at it.
+  List<AgentProvider> _providers() {
+    final stored = widget.project.memberTuning[widget.member.id]?.provider;
+    return widget.catalog?.providers(keep: stored) ??
+        ModelCatalogService.instance.notifier.providers(keep: stored);
+  }
+
   void _refreshModels() {
     setState(() => _models = _loadModels(force: true));
   }
@@ -160,7 +168,7 @@ class _MemberEnginePanelState extends State<MemberEnginePanel> {
                 value: null,
                 child: Text('El del agente (${member.provider.label})'),
               ),
-              for (final provider in AgentProvider.values)
+              for (final provider in _providers())
                 DropdownMenuItem(value: provider, child: Text(provider.label)),
             ],
             // Las dos CLIs no comparten un solo nombre de modelo, así que al

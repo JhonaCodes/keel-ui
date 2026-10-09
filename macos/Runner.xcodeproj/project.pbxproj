@@ -246,6 +246,7 @@
 				3399D490228B24CF009A79C7 /* ShellScript */,
 				0B1E4185FFAA4095ED02E6AF /* [CP] Embed Pods Frameworks */,
 				5E2E0C0DE1A2B3C4D5E6F701 /* Embed keel-e2e */,
+				8F0C401AB2494B259DC65701 /* Embed LiteRT model */,
 			);
 			buildRules = (
 			);
@@ -407,6 +408,25 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "\"$PROJECT_DIR\"/../scripts/embed_keel_e2e.sh \"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/keel_e2e\"\n";
+		};
+		8F0C401AB2494B259DC65701 /* Embed LiteRT model */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Embed LiteRT model";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"$PROJECT_DIR\"/../scripts/embed_litert_model.sh \"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\"\n";
 		};
 		C1E0519A4C38A07185288993 /* [CP] Check Pods Manifest.lock */ = {
 			isa = PBXShellScriptBuildPhase;

@@ -73,6 +73,14 @@ class _AgentProfileFormScreenState extends State<AgentProfileFormScreen> {
       widget.catalog?.load(provider) ??
       ModelCatalogService.instance.notifier.load(provider);
 
+  /// The shared catalog's providers, unless a test handed its own. The
+  /// stored provider stays listed so the dropdown can start at it.
+  List<AgentProvider> _providers() =>
+      widget.catalog?.providers(keep: widget.initial?.provider) ??
+      ModelCatalogService.instance.notifier.providers(
+        keep: widget.initial?.provider,
+      );
+
   @override
   void dispose() {
     _nameController.dispose();
@@ -244,7 +252,7 @@ class _AgentProfileFormScreenState extends State<AgentProfileFormScreen> {
                     ),
                   ),
                   items: [
-                    for (final provider in AgentProvider.values)
+                    for (final provider in _providers())
                       DropdownMenuItem(
                         value: provider,
                         child: Text(provider.label),

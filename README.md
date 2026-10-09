@@ -47,11 +47,20 @@ You need Flutter and at least one of the two CLIs on your PATH. API providers
 need no binary, but they do need their secret loaded.
 
 ```bash
+git clone git@github.com:JhonaCodes/keel-core.git
 git clone git@github.com:JhonaCodes/keel-ui.git
 cd keel-ui
 flutter pub get
 flutter run -d macos      # or -d linux
 ```
+
+For local models, place
+`Qwen2.5-1.5B-Instruct_multi-prefill-seq_q8_ekv4096.litertlm` in the sibling
+`keel-core/model/` directory and run `dart run litert_dart:fetch_natives`
+inside `keel-core`. Keel AI and other agents then offer **Local (LiteRT) →
+Qwen 2.5 1.5B**. Every macOS build embeds the model in
+`Keel.app`; the release script verifies it before packaging. Qwen has a
+4,096-token context window.
 
 The database is local (LMDB, via `flutter_local_db`) and lives in the app
 support directory.

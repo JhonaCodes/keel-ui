@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter/painting.dart';
 import 'package:logger_rs/logger_rs.dart';
 import 'package:reactive_notifier/reactive_notifier.dart';
@@ -16,6 +17,7 @@ import 'package:keel_ui/src/integrations/prompt_insights/prompt_insights.dart';
 import 'package:keel_core/integrations/machine/machine.dart';
 import 'package:keel_ui/src/integrations/usage_ledger/usage_ledger.dart';
 import 'package:keel_core/integrations/user_tools_mcp/user_tools_mcp_server.dart';
+import 'package:keel_core/integrations/context_mcp/context_mcp_server.dart';
 import 'package:keel_core/modules/agents/model/agent.dart';
 import 'package:keel_ui/src/modules/agents/model/agent_icon_colors.dart';
 import 'package:keel_core/modules/agents/model/agent_model_option.dart';
@@ -101,7 +103,17 @@ class AgentsViewModel extends ViewModel<AgentsState> {
 
   /// Pid → agente, para poder despublicarlo de la pantalla de Máquina.
   final Map<String, int> _runningPids = {};
-  final Set<String> _stoppedAgentIds = {};
+
+  /// Turns the user stopped, by run and not by agent: «Enviar ahora» starts
+  /// the agent's next turn right away, and a mark kept by agent was taken by
+  /// that new turn, which then died as stopped on its first event.
+  final Set<TaskRun> _stoppedRuns = {};
+
+  /// Messages handed to a turn in flight that have no acknowledgment yet
+  /// ([TaskSteerDelivered]), by run and by the text that travelled. Whatever
+  /// is still here when the turn ends never entered: it goes back to the
+  /// queue.
+  final Map<TaskRun, Map<String, QueuedMessage>> _unconfirmedSteers = {};
 
   /// Dónde corre un agente 1:1: su casa, porque no tiene proyecto asignado.
   /// Sirve además para resolver las rutas relativas que reporte su CLI.
@@ -602,7 +614,7 @@ class AgentsViewModel extends ViewModel<AgentsState> {
     final pid = _runningPids.remove(agentId);
     if (pid != null) RunningProcesses.unregister(pid);
 
-    _stoppedAgentIds.add(agentId);
+    _stoppedRuns.add(run);
     run.cancel();
     // El turno que pedía el permiso ya no existe: aprobarlo no escribiría
     // nada, así que la tarjeta se va y quien esperaba recibe «cancelado».
@@ -654,9 +666,9 @@ class AgentsViewModel extends ViewModel<AgentsState> {
     if (trimmed.isEmpty && imagePaths.isEmpty) return;
 
     final target = data.agents.firstWhere((agent) => agent.id == agentId);
-    // Mid-turn: the CLIs are one-shot per turn, so there is nothing to
-    // inject into. The message waits and goes out as the next turn instead
-    // of the composer refusing to accept it.
+    // Mid-turn: the message waits in the queue and goes out as the next turn
+    // instead of the composer refusing it. «Enviar ahora» hands it to the
+    // turn in flight when its provider takes one (see sendQueuedMessageNow).
     if (target.isStreaming) {
       _updateAgent(
         agentId,
@@ -703,28 +715,15 @@ class AgentsViewModel extends ViewModel<AgentsState> {
 
     final TaskRun run;
     try {
-      // Las referencias `keel://` que el compositor dejó en el texto se
-      // materializan ACÁ, en el mismo turno y solo para él: una skill
-      // enlazada aporta su contenido, una carpeta su ruta absoluta. Lo que
-      // el usuario ve en el hilo sigue siendo el nombre que eligió.
-      await Future.wait([
-        ProjectsService.instance.notifier.ready,
-        WorkspaceRootsService.instance.notifier.ready,
-      ]);
-      final explicitContext = await ChatReferenceService.promptContext(
-        const GlobalReferenceScope(),
+      final promptForModel = await _promptForModel(
         trimmed,
+        imagePaths,
+        pendingUserEdit: pendingUserEdit,
       );
-      final promptForModel = [
-        if (pendingUserEdit != null) _describeManualEdit(pendingUserEdit),
-        if (trimmed.isNotEmpty) trimmed,
-        if (explicitContext.isNotEmpty) explicitContext,
-        if (imagePaths.isNotEmpty) _describeAttachments(imagePaths),
-      ].join('\n\n');
 
       final setup = await _prepareTurn(target, prompt: promptForModel);
       for (final note in setup.hookNotes) {
-        appendSystemNote(agentId, note);
+        appendTurnNotice(agentId, note);
       }
       // UN solo camino para correr un turno, y corre en otro isolate.
       //
@@ -796,6 +795,13 @@ class AgentsViewModel extends ViewModel<AgentsState> {
     }
   }
 
+  /// The spec [sendMessage] and [warmUp] launch for [agentId]'s next turn.
+  @visibleForTesting
+  Future<TaskRunSpec> nextTurnSpec(String agentId) async {
+    final target = data.agents.firstWhere((agent) => agent.id == agentId);
+    return (await _prepareTurn(target, prompt: '')).spec;
+  }
+
   String _processLabel(Agent agent) => 'chat con @${agent.name}';
 
   /// The provider went back to work with nobody sending anything — a
@@ -835,6 +841,9 @@ class AgentsViewModel extends ViewModel<AgentsState> {
       KnowledgeService.instance.notifier.indexReady,
       ProjectsService.instance.notifier.ready,
       WorkspaceRootsService.instance.notifier.ready,
+      SkillsService.instance.notifier.ready,
+      RulesService.instance.notifier.ready,
+      AgentProfilesService.instance.notifier.ready,
     ]);
 
     // One merged --mcp-config for the turn: the system-management tools
@@ -845,6 +854,10 @@ class AgentsViewModel extends ViewModel<AgentsState> {
         ? AssistantMcpServer.mcpServerEntryFor(target.id)
         : null;
     final profileTools = _resolveProfileTools(target.profileId);
+    final contextItems = _profileContextItems(target.profileId);
+    final context = ContextMcpServer.servesProvider(target.provider.alias)
+        ? ContextMcpServer.register(contextItems)
+        : null;
     final toolsEntry = profileTools.isEmpty
         ? null
         : UserToolsMcpServer.mcpServerEntryFor(
@@ -862,6 +875,7 @@ class AgentsViewModel extends ViewModel<AgentsState> {
     final mcpServers = <String, dynamic>{
       'keelai-actions': ?keelAiEntry,
       kUserToolsMcpServerKey: ?toolsEntry,
+      kContextMcpServerKey: ?context?.entry,
       for (final server in externalServers)
         server.name: server.toMcpServerEntry(externalSecretValues),
     };
@@ -882,7 +896,8 @@ class AgentsViewModel extends ViewModel<AgentsState> {
     final offersGatedWrites =
         gate != null &&
         (target.provider == AgentProvider.openRouter ||
-            target.provider == AgentProvider.deepSeek);
+            target.provider == AgentProvider.deepSeek ||
+            target.provider == AgentProvider.liteRt);
     final effort = await ModelCatalogService.instance.notifier.effortFor(
       target.provider,
       target.model,
@@ -902,7 +917,11 @@ class AgentsViewModel extends ViewModel<AgentsState> {
         provider: target.provider.alias,
         providerApiKey: providerApiKey,
         sessionId: target.sessionId,
-        additionalSystemPrompt: _resolveProfileSystemPrompt(target.profileId),
+        additionalSystemPrompt: _resolveProfileSystemPrompt(
+          target.profileId,
+          contextItems,
+          context?.manifest,
+        ),
         extraAllowedTools: [
           ...SettingsService.instance.notifier.data.extraAllowedTools,
           if (offersGatedWrites) ...kDecisionGateTools,
@@ -911,6 +930,7 @@ class AgentsViewModel extends ViewModel<AgentsState> {
             ...profileTools.map(
               (tool) => '$kUserToolsMcpToolPrefix${tool.name}',
             ),
+          if (context != null) ...kContextMcpToolNames,
           // Server-level grant: every tool an external MCP exposes.
           ...externalServers.map((server) => 'mcp__${server.name}'),
         ],
@@ -959,7 +979,7 @@ class AgentsViewModel extends ViewModel<AgentsState> {
     // `_runMemberTurn` del lado de proyectos.
     try {
       await for (final event in run.events) {
-        if (_stoppedAgentIds.remove(agentId)) {
+        if (_stoppedRuns.remove(run)) {
           wasStopped = true;
           break;
         }
@@ -1098,19 +1118,10 @@ class AgentsViewModel extends ViewModel<AgentsState> {
             }
 
           case TaskNotice(message: final message):
-            _appendMessage(
-              agentId,
-              ChatMessage(
-                role: ChatRole.system,
-                text: message,
-                timestamp: DateTime.now(),
-              ),
-            );
+            appendTurnNotice(agentId, message);
 
-          // El chat 1:1 no le manda mensajes a un turno en curso: los suyos
-          // esperan en la cola. Nunca llega un acuse.
-          case TaskSteerDelivered():
-            break;
+          case TaskSteerDelivered(text: final text):
+            _unconfirmedSteers[run]?.remove(text);
 
           case TaskFailure(message: final message):
             _appendMessage(
@@ -1131,7 +1142,7 @@ class AgentsViewModel extends ViewModel<AgentsState> {
       // hacía nada, hasta que mandabas el mismo mensaje una segunda vez.
       // Se consume acá, donde el turno termina de verdad, tome el camino que
       // tome.
-      if (_stoppedAgentIds.remove(agentId)) wasStopped = true;
+      if (_stoppedRuns.remove(run)) wasStopped = true;
 
       // Un turno PARADO o que revienta nunca llega al evento `result`, así
       // que no dejaba fila: los tokens ya se gastaron y para la app el turno
@@ -1159,15 +1170,20 @@ class AgentsViewModel extends ViewModel<AgentsState> {
         );
       }
 
-      _runningTurns.remove(agentId);
-      final finishedPid = _runningPids.remove(agentId);
-      if (finishedPid != null) RunningProcesses.unregister(finishedPid);
-      _setCurrentActivity(agentId, null);
-      _updateAgent(
-        agentId,
-        (agent) => agent.copyWith(clearLiveReasoning: true),
-      );
-      _setStreaming(agentId, false);
+      // A stopped turn already handed the agent back in [stopAgent], and by
+      // now the agent's next turn may be the one running.
+      if (identical(_runningTurns[agentId], run)) {
+        _runningTurns.remove(agentId);
+        final finishedPid = _runningPids.remove(agentId);
+        if (finishedPid != null) RunningProcesses.unregister(finishedPid);
+        _setCurrentActivity(agentId, null);
+        _updateAgent(
+          agentId,
+          (agent) => agent.copyWith(clearLiveReasoning: true),
+        );
+        _setStreaming(agentId, false);
+      }
+      _requeueUnconfirmedSteers(agentId, run, stopped: wasStopped);
 
       if (isKeelAi) {
         await _runAssistantActions(
@@ -1268,12 +1284,11 @@ class AgentsViewModel extends ViewModel<AgentsState> {
     if (!(target?.isStreaming ?? false)) await sendQueuedMessages(agentId);
   }
 
-  /// Interrumpe el turno en curso para que este mensaje salga ya.
-  ///
-  /// Parar es asíncrono: el turno detenido cierra su propio final y ahí
-  /// despacha lo que quedó en cola. Si lo mandáramos también desde acá,
-  /// saldrían dos turnos por el mismo mensaje.
+  /// Lets this message out now. A turn in flight that takes messages gets
+  /// it at its next tool boundary and goes on, as in the session chat. One
+  /// that cannot is stopped, and the message goes out as the next turn.
   Future<void> sendQueuedMessageNow(String agentId, String messageId) async {
+    if (await _steerQueuedMessage(agentId, messageId)) return;
     _setQueuedDelivery(agentId, messageId, QueuedDelivery.interrupting);
 
     final target = data.agents
@@ -1288,6 +1303,83 @@ class AgentsViewModel extends ViewModel<AgentsState> {
       return;
     }
     await sendQueuedMessages(agentId);
+  }
+
+  /// Hands a queued message to the turn in flight without stopping it: the
+  /// agent reads it at its next tool boundary and the turn goes on. False
+  /// when the turn cannot take it.
+  Future<bool> _steerQueuedMessage(String agentId, String messageId) async {
+    final run = _runningTurns[agentId];
+    final message = data.agents
+        .where((agent) => agent.id == agentId)
+        .firstOrNull
+        ?.queuedMessages
+        .where((queued) => queued.id == messageId)
+        .firstOrNull;
+    if (run == null || !run.canSteer || message == null) return false;
+    final prompt = await _promptForModel(message.text, message.imagePaths);
+    // Resolving references waits: the turn may have ended meanwhile.
+    if (!identical(_runningTurns[agentId], run) || !run.steer(prompt)) {
+      return false;
+    }
+    (_unconfirmedSteers[run] ??= {})[prompt] = message;
+    _updateAgent(
+      agentId,
+      (agent) => agent.copyWith(
+        queuedMessages: [
+          for (final queued in agent.queuedMessages)
+            if (queued.id != messageId) queued,
+        ],
+      ),
+    );
+    _appendMessage(
+      agentId,
+      ChatMessage(
+        role: ChatRole.user,
+        text: message.text,
+        timestamp: DateTime.now(),
+        imagePaths: message.imagePaths,
+      ),
+    );
+    appendSystemNote(
+      agentId,
+      'Entregado en su próximo paso, sin cortar el turno.',
+    );
+    _writes.schedule(agentId);
+    return true;
+  }
+
+  /// What was handed to a turn and never entered —the turn ended first, or
+  /// it was stopped— goes back to the queue. After a stop it waits there:
+  /// stopping is taking control, not asking for it to go out on its own.
+  void _requeueUnconfirmedSteers(
+    String agentId,
+    TaskRun run, {
+    required bool stopped,
+  }) {
+    final missed = _unconfirmedSteers.remove(run);
+    if (missed == null || missed.isEmpty) return;
+    final delivery = stopped
+        ? QueuedDelivery.standby
+        : QueuedDelivery.afterCurrentTurn;
+    _updateAgent(
+      agentId,
+      (agent) => agent.copyWith(
+        queuedMessages: [
+          ...agent.queuedMessages,
+          for (final message in missed.values)
+            message.copyWith(delivery: delivery),
+        ],
+      ),
+    );
+    appendSystemNote(
+      agentId,
+      missed.length == 1
+          ? 'El turno terminó antes de que el agente leyera tu mensaje: '
+                'volvió a la cola.'
+          : 'El turno terminó antes de que el agente leyera '
+                '${missed.length} mensajes: volvieron a la cola.',
+    );
   }
 
   void _replaceQueuedMessage(
@@ -1339,6 +1431,19 @@ class AgentsViewModel extends ViewModel<AgentsState> {
       agentId,
       ChatMessage(role: ChatRole.system, text: text, timestamp: DateTime.now()),
     );
+  }
+
+  /// Turn setup can report the same unavailable integration or context
+  /// reduction on every send. Keep one visible notice in this conversation.
+  void appendTurnNotice(String agentId, String text) {
+    final agent = data.agents.where((agent) => agent.id == agentId).firstOrNull;
+    if (agent == null ||
+        agent.messages.any(
+          (message) => message.role == ChatRole.system && message.text == text,
+        )) {
+      return;
+    }
+    appendSystemNote(agentId, text);
   }
 
   /// The executable tools [profileId] has assigned, resolved against the
@@ -1516,91 +1621,141 @@ class AgentsViewModel extends ViewModel<AgentsState> {
       AgentProvider.openCode => true,
       // API providers run Keel's own tools: with the gate, writing and
       // running commands are offered and asked for, not hidden.
-      AgentProvider.openRouter || AgentProvider.deepSeek => true,
+      AgentProvider.openRouter ||
+      AgentProvider.deepSeek ||
+      AgentProvider.liteRt => true,
     };
     if (!usesGate) return null;
     await DecisionGateServer.ensureStarted();
     return DecisionGateServer.agentGateSpecFor(agent.id);
   }
 
-  String? _resolveProfileSystemPrompt(String? profileId) {
+  static const _knowledgeContextKind = 'knowledge';
+
+  List<TurnContextItem> _profileContextItems(String? profileId) {
     final profiles = AgentProfilesService.instance.notifier.data.profiles;
     final profile = profileId == null
         ? null
         : profiles.where((entry) => entry.id == profileId).firstOrNull;
-
     final skills = SkillsService.instance.notifier.data.skills;
     final rules = RulesService.instance.notifier.data.rules;
-    final buffer = StringBuffer();
-
-    for (final skill in skills) {
-      if (!skill.isGlobal || skill.content.isEmpty) continue;
-      if (buffer.isNotEmpty) buffer.writeln();
-      buffer.writeln(skill.content);
-    }
-
+    final items = <TurnContextItem>[
+      for (final skill in skills)
+        if (skill.isGlobal && skill.content.trim().isNotEmpty)
+          TurnContextItem(
+            id: 'skill:${skill.id}',
+            kind: 'skill',
+            name: skill.name,
+            content: skill.content,
+            required: true,
+          ),
+    ];
     if (profile != null) {
-      if (profile.systemPrompt.isNotEmpty) {
-        if (buffer.isNotEmpty) buffer.writeln();
-        buffer.writeln(profile.systemPrompt);
+      if (profile.systemPrompt.trim().isNotEmpty) {
+        items.add(
+          TurnContextItem(
+            id: 'profile:${profile.id}',
+            kind: 'profile',
+            name: profile.name,
+            content: profile.systemPrompt,
+            required: true,
+          ),
+        );
       }
       for (final skillName in profile.skills) {
         final skill = skills
             .where((entry) => entry.name == skillName)
             .firstOrNull;
-        // Globals already went in above — never inject the same skill twice.
         if (skill == null || skill.content.isEmpty || skill.isGlobal) continue;
-        if (buffer.isNotEmpty) buffer.writeln();
-        buffer.writeln(skill.content);
+        items.add(
+          TurnContextItem(
+            id: 'skill:${skill.id}',
+            kind: 'skill',
+            name: skill.name,
+            content: skill.content,
+          ),
+        );
       }
       for (final ruleName in profile.rules) {
         final rule = rules.where((entry) => entry.name == ruleName).firstOrNull;
         if (rule == null || rule.content.isEmpty) continue;
-        if (buffer.isNotEmpty) buffer.writeln();
-        buffer.writeln(rule.content);
+        items.add(
+          TurnContextItem(
+            id: 'rule:${rule.id}',
+            kind: 'rule',
+            name: rule.name,
+            content: rule.content,
+            required: true,
+          ),
+        );
       }
-
-      // Dónde están los proyectos, con ruta absoluta. Un agente 1:1 corre
-      // en `$HOME` y sin esto no tiene forma de saber que el proyecto del
-      // usuario vive en otro disco.
       final rootsSection = _knownRootsSection();
       if (rootsSection.isNotEmpty) {
-        if (buffer.isNotEmpty) buffer.writeln();
-        buffer.writeln(rootsSection);
+        items.add(
+          TurnContextItem(
+            id: 'workspace:roots',
+            kind: 'workspace',
+            name: 'Rutas conocidas',
+            content: rootsSection,
+          ),
+        );
       }
-
-      // Misma regla que en un proyecto: teniendo el MCP de GitHub asignado,
-      // GitHub se toca por ahí y no por `gh`. Acá no hay sección de ENTREGA
-      // que corregir — un chat 1:1 no entrega pull requests.
-      final usesGithubMcp = _resolveProfileMcpServers(
-        profile.id,
-      ).any(isGithubMcpServer);
-      if (usesGithubMcp) {
-        if (buffer.isNotEmpty) buffer.writeln();
-        buffer.writeln(kGithubMcpPrompt);
+      final knowledge = KnowledgeService.instance.notifier.briefFor(
+        profile.knowledgeBaseNames,
+      );
+      if (knowledge.trim().isNotEmpty) {
+        items.add(
+          TurnContextItem(
+            id: 'knowledge:brief',
+            kind: _knowledgeContextKind,
+            name: 'Bases de saber',
+            content: knowledge,
+          ),
+        );
       }
     }
+    return items;
+  }
 
-    // El SABER va al final, después de todo lo estable.
-    //
-    // Su texto lleva el conteo de documentos y la portada de cada base, así
-    // que cambia en cuanto un agente escribe ahí —que es justo lo que hace
-    // Keel AI todo el día—. Antes estaba en el medio, y cada cambio del
-    // índice invalidaba el prefijo cacheado desde ese punto hasta el final.
-    // En este chat eso son decenas de miles de tokens que se vuelven a
-    // cobrar a precio de escritura en vez de leerse al 10%.
-    //
-    // El caso oráculo: en 1:1 no hay proyecto que aporte bases, así que las
-    // únicas que llegan son las del propio perfil.
-    final combined = composeTurnSystemPrompt(
-      stablePrompt: buffer.toString(),
-      knowledge: profile == null
-          ? ''
-          : KnowledgeService.instance.notifier.briefFor(
-              profile.knowledgeBaseNames,
-            ),
-    );
-    return combined.isEmpty ? null : combined;
+  /// The system prompt of a 1:1 turn. With [manifest] the model reads
+  /// [context] on demand; without it, [context] goes inline.
+  String? _resolveProfileSystemPrompt(
+    String? profileId,
+    List<TurnContextItem> context,
+    String? manifest,
+  ) {
+    final profile = profileId == null
+        ? null
+        : AgentProfilesService.instance.notifier.data.profiles
+              .where((entry) => entry.id == profileId)
+              .firstOrNull;
+    final usesGithubMcp =
+        profile != null &&
+        _resolveProfileMcpServers(profile.id).any(isGithubMcpServer);
+    if (manifest == null) {
+      // Knowledge goes last, after everything stable: its text carries each
+      // base's document count, so it changes whenever an agent writes one,
+      // and whatever came after it would fall out of the cached prefix.
+      final combined = composeTurnSystemPrompt(
+        stablePrompt: [
+          for (final item in context)
+            if (item.kind != _knowledgeContextKind) item.content,
+          if (usesGithubMcp) kGithubMcpPrompt,
+        ].join('\n\n'),
+        knowledge: [
+          for (final item in context)
+            if (item.kind == _knowledgeContextKind) item.content,
+        ].join('\n\n'),
+      );
+      return combined.isEmpty ? null : combined;
+    }
+    return [
+      if (profile != null) 'Eres @${profile.name}. Función: ${profile.role}.',
+      if (profile?.name == kKeelAiHandle) '[KEEL_AI_PROFILE]',
+      kOnDemandContextInstructions,
+      'CONTEXT_MANIFEST_JSON: $manifest',
+      if (usesGithubMcp) kGithubMcpPrompt,
+    ].join('\n\n');
   }
 
   /// Las rutas reales de esta máquina, para el prompt de un agente sin
@@ -1624,6 +1779,31 @@ class AgentsViewModel extends ViewModel<AgentsState> {
   /// its own Read tool, never as bytes we inline into the prompt. A 4 MB
   /// screenshot costs nothing until the agent decides it needs to look, and
   /// the path stays valid because the file lives in app storage.
+  /// What the model reads for [text]. The `keel://` references the composer
+  /// left in it are materialized here, for this turn only: a linked skill
+  /// brings its content, a folder its absolute path. The thread keeps showing
+  /// the name the user picked.
+  Future<String> _promptForModel(
+    String text,
+    List<String> imagePaths, {
+    FileEdit? pendingUserEdit,
+  }) async {
+    await Future.wait([
+      ProjectsService.instance.notifier.ready,
+      WorkspaceRootsService.instance.notifier.ready,
+    ]);
+    final explicitContext = await ChatReferenceService.promptContext(
+      const GlobalReferenceScope(),
+      text,
+    );
+    return [
+      if (pendingUserEdit != null) _describeManualEdit(pendingUserEdit),
+      if (text.isNotEmpty) text,
+      if (explicitContext.isNotEmpty) explicitContext,
+      if (imagePaths.isNotEmpty) _describeAttachments(imagePaths),
+    ].join('\n\n');
+  }
+
   String _describeAttachments(List<String> imagePaths) {
     final buffer = StringBuffer()
       ..writeln(

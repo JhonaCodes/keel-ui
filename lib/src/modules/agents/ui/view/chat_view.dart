@@ -93,6 +93,13 @@ class _ChatViewState extends State<ChatView> {
       widget.catalog?.load(widget.agent.provider) ??
       ModelCatalogService.instance.notifier.load(widget.agent.provider);
 
+  /// The shared catalog's providers, unless a test handed its own.
+  List<AgentProvider> _providers() =>
+      widget.catalog?.providers(keep: widget.agent.provider) ??
+      ModelCatalogService.instance.notifier.providers(
+        keep: widget.agent.provider,
+      );
+
   /// A drag is hovering the chat, so the drop hint is showing.
   bool _isDragging = false;
   bool _atLatest = true;
@@ -382,7 +389,7 @@ class _ChatViewState extends State<ChatView> {
                       singleSelection: true,
                       chipSize: ChipSize.small,
                       data: () => [
-                        for (final provider in AgentProvider.values)
+                        for (final provider in _providers())
                           Choice(
                             provider.alias,
                             provider.label,

@@ -16,6 +16,11 @@ class ModelCatalogViewModel extends StoreMirrorViewModel<ModelCatalogState> {
     bool force = false,
   }) => ModelCatalogStore.instance.load(provider, force: force);
 
+  /// The providers a picker offers: one that can't run here is left out,
+  /// unless it is [keep], the value the picker starts at.
+  List<AgentProvider> providers({AgentProvider? keep}) =>
+      ModelCatalogStore.instance.providers(keep: keep);
+
   Future<String> effortFor(
     AgentProvider provider,
     String model,

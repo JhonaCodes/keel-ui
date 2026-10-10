@@ -51,6 +51,8 @@ import 'package:keel_core/modules/projects/model/roadmap_format_skill.dart';
 import 'package:keel_ui/src/modules/workflows/model/e2e_device_workflow.dart';
 import 'package:keel_ui/src/modules/assistant/service/assistant_window_bridge.dart';
 import 'package:keel_ui/src/modules/assistant/ui/screen/assistant_window.dart';
+import 'package:keel_ui/src/modules/keel_remote/service/desktop_node_quit_hook.dart';
+import 'package:keel_ui/src/modules/keel_remote/viewmodel/desktop_node_viewmodel.dart';
 import 'package:keel_ui/src/modules/keel_remote/viewmodel/keel_account_viewmodel.dart';
 import 'package:keel_ui/src/modules/settings/model/app_settings.dart';
 import 'package:keel_ui/src/modules/settings/viewmodel/settings_viewmodel.dart';
@@ -147,6 +149,11 @@ Future<void> main(List<String> rawArgs) async {
       // Keel API client at the person's own server. Without one, nothing
       // leaves this machine.
       unawaited(KeelAccountService.instance.notifier.restore());
+      // This PC as a keel-api node, when it was connected as one: it runs
+      // with its own token, so it does not wait for the account above. Main
+      // window only — sub-windows never reach this branch.
+      DesktopNodeQuitHook.install();
+      unawaited(DesktopNodeService.instance.notifier.resume());
       _registerAgentBridgeHandler();
 
       // Los catálogos se cargan mientras la app ya se ve, con la barra de

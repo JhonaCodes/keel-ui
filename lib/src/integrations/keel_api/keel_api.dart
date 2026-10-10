@@ -12,7 +12,8 @@
 ///
 /// Tokens never reach a log, an argv or a `toString`. The access token lives
 /// in memory only; the refresh token in a file only this user can read
-/// ([KeelCredentialsStore]).
+/// ([KeelCredentialsStore]), and so does the `knt_` token of this PC when it
+/// is connected as a node ([KeelNodeCredentialsStore]).
 library;
 
 import 'dart:async';
@@ -34,3 +35,5 @@ part 'src/keel_api_paths.dart';
 part 'src/keel_api_service.dart';
 part 'src/keel_credentials.dart';
 part 'src/keel_json.dart';
+part 'src/keel_node_credentials.dart';
+part 'src/owner_only_file.dart';

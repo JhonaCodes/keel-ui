@@ -20,6 +20,10 @@ abstract final class KeelApiPaths {
   /// A person's session may enroll a node too (`kind: desktop` for keel-ui).
   /// The answer carries the node's own `knt_` token, shown once.
   static const String enrollNode = '$nodes/enroll';
+
+  /// One node; a person's `DELETE` unlinks it (`204`) and its token stops
+  /// working at once.
+  static String node(String id) => '$nodes/${Uri.encodeComponent(id)}';
   static const String tasks = '$keelBot/tasks';
   static String task(String id) => '$tasks/${Uri.encodeComponent(id)}';
   static String taskEvents(String id) => '${task(id)}/events';

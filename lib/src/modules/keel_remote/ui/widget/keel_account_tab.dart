@@ -3,10 +3,12 @@ import 'package:reactive_notifier/reactive_notifier.dart';
 
 import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/modules/keel_remote/model/keel_account_state.dart';
+import 'package:keel_ui/src/modules/keel_remote/ui/widget/desktop_node_card.dart';
 import 'package:keel_ui/src/modules/keel_remote/ui/widget/keel_remote_parts.dart';
 import 'package:keel_ui/src/modules/keel_remote/viewmodel/keel_account_viewmodel.dart';
 
-/// «Cuenta»: signing this machine in to the person's own Keel API, or out.
+/// «Cuenta»: signing this machine in to the person's own Keel API, or out,
+/// and «Esta PC como nodo» under it.
 class KeelAccountTab extends StatelessWidget {
   const KeelAccountTab({super.key});
 
@@ -30,6 +32,8 @@ class KeelAccountTab extends StatelessWidget {
               _SignedInCard(account: account)
             else
               _SignInForm(account: account),
+            const SizedBox(height: 8),
+            DesktopNodeCard(signedIn: account.isSignedIn),
           ],
         );
       },

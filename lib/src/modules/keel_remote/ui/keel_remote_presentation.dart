@@ -5,6 +5,7 @@ library;
 
 import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/integrations/keel_api/keel_api.dart';
+import 'package:keel_ui/src/modules/keel_remote/model/desktop_node_state.dart';
 import 'package:keel_ui/src/modules/keel_remote/model/keel_account_state.dart';
 import 'package:keel_ui/src/modules/keel_remote/model/keel_node.dart';
 import 'package:keel_ui/src/modules/keel_remote/model/live_session.dart';
@@ -179,6 +180,59 @@ extension ServerChatStateText on ServerChatState {
     final String current => '${t.keelApiChatAnswering} · $current',
     null => t.keelApiChatAnswering,
   };
+}
+
+extension DesktopNodeStatusText on DesktopNodeStatus {
+  String label(AppLocalizations t) => switch (this) {
+    DesktopNodeStatus.off => t.keelThisPcStatusOff,
+    DesktopNodeStatus.connecting => t.keelThisPcStatusConnecting,
+    DesktopNodeStatus.on => t.keelThisPcStatusOn,
+    DesktopNodeStatus.failed => t.keelThisPcStatusFailed,
+    DesktopNodeStatus.disconnecting => t.keelThisPcStatusDisconnecting,
+  };
+}
+
+extension DesktopNodeProblemText on DesktopNodeProblem {
+  String message(AppLocalizations t) => switch (this) {
+    DesktopNodeProblem.tokenNotStored => t.keelThisPcProblemTokenNotStored,
+    DesktopNodeProblem.notStarted => t.keelThisPcProblemNotStarted,
+    DesktopNodeProblem.unlinkNotConfirmed =>
+      t.keelThisPcProblemUnlinkNotConfirmed,
+  };
+}
+
+extension DesktopNodeStateText on DesktopNodeState {
+  /// Whether the Account tab shows the node: always while signed in, and
+  /// while this PC is a node — or just stopped being one — so it can always
+  /// be stopped and what happened is read.
+  bool shownWith({required bool signedIn}) =>
+      signedIn ||
+      status != DesktopNodeStatus.off ||
+      problem != null ||
+      failure != null;
+
+  /// `Última consulta de tareas: HTTP 200 · 18:42`.
+  String pollLine(AppLocalizations t, DateTime now) =>
+      t.keelThisPcLastPoll(_callText(lastPoll, t, now));
+
+  /// `Último reporte de estado: HTTP 200 · 18:42`.
+  String reportLine(AppLocalizations t, DateTime now) =>
+      t.keelThisPcLastReport(_callText(lastReport, t, now));
+
+  static String _callText(
+    DesktopNodeCall? call,
+    AppLocalizations t,
+    DateTime now,
+  ) => switch (call) {
+    final DesktopNodeCall made => '${made.outcome} · ${made.at.stamp(now)}',
+    null => t.keelThisPcNotYet,
+  };
+}
+
+extension DesktopNodeLogLineText on DesktopNodeLogLine {
+  /// `18:42  GET tasks/pending → HTTP 200 · 0 tasks  ×12`.
+  String line(DateTime now) =>
+      '${at.stamp(now)}  $title${count > 1 ? '  ×$count' : ''}';
 }
 
 extension KeelStamp on DateTime {

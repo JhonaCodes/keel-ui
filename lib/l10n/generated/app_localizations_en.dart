@@ -2802,4 +2802,70 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get keelApiOpenTask => 'Open';
+
+  @override
+  String get keelThisPcTitle => 'This PC as a node';
+
+  @override
+  String get keelThisPcIntro =>
+      'Connected as a node, this PC takes work from your Keel API (sessions in its projects, messages, answers) and reports what they do. Its token is kept in a file only your user can read.';
+
+  @override
+  String get keelThisPcConnect => 'Connect this PC as a node';
+
+  @override
+  String get keelThisPcDisconnect => 'Disconnect';
+
+  @override
+  String get keelThisPcStatusOff => 'Not connected';
+
+  @override
+  String get keelThisPcStatusConnecting => 'Connecting…';
+
+  @override
+  String get keelThisPcStatusOn => 'Connected as a node';
+
+  @override
+  String get keelThisPcStatusFailed => 'Enrolled, but not running';
+
+  @override
+  String get keelThisPcStatusDisconnecting => 'Disconnecting…';
+
+  @override
+  String keelThisPcNodeId(Object id) {
+    return 'Node: $id';
+  }
+
+  @override
+  String keelThisPcLastPoll(Object result) {
+    return 'Last task check: $result';
+  }
+
+  @override
+  String keelThisPcLastReport(Object result) {
+    return 'Last status report: $result';
+  }
+
+  @override
+  String get keelThisPcNotYet => 'not yet';
+
+  @override
+  String keelThisPcTasksTaken(Object count) {
+    return 'Tasks taken: $count';
+  }
+
+  @override
+  String get keelThisPcRecent => 'Recent activity';
+
+  @override
+  String get keelThisPcProblemTokenNotStored =>
+      'This machine could not keep the node\'s token with permissions for your user only, so this PC was not connected.';
+
+  @override
+  String get keelThisPcProblemNotStarted =>
+      'The node is enrolled but could not start on this PC. Disconnect it and connect it again.';
+
+  @override
+  String get keelThisPcProblemUnlinkNotConfirmed =>
+      'This PC stopped taking tasks, but the server did not confirm it removed the node.';
 }

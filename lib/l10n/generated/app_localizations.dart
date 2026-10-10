@@ -4916,6 +4916,114 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Open'**
   String get keelApiOpenTask;
+
+  /// No description provided for @keelThisPcTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'This PC as a node'**
+  String get keelThisPcTitle;
+
+  /// No description provided for @keelThisPcIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'Connected as a node, this PC takes work from your Keel API (sessions in its projects, messages, answers) and reports what they do. Its token is kept in a file only your user can read.'**
+  String get keelThisPcIntro;
+
+  /// No description provided for @keelThisPcConnect.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect this PC as a node'**
+  String get keelThisPcConnect;
+
+  /// No description provided for @keelThisPcDisconnect.
+  ///
+  /// In en, this message translates to:
+  /// **'Disconnect'**
+  String get keelThisPcDisconnect;
+
+  /// No description provided for @keelThisPcStatusOff.
+  ///
+  /// In en, this message translates to:
+  /// **'Not connected'**
+  String get keelThisPcStatusOff;
+
+  /// No description provided for @keelThisPcStatusConnecting.
+  ///
+  /// In en, this message translates to:
+  /// **'Connecting…'**
+  String get keelThisPcStatusConnecting;
+
+  /// No description provided for @keelThisPcStatusOn.
+  ///
+  /// In en, this message translates to:
+  /// **'Connected as a node'**
+  String get keelThisPcStatusOn;
+
+  /// No description provided for @keelThisPcStatusFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Enrolled, but not running'**
+  String get keelThisPcStatusFailed;
+
+  /// No description provided for @keelThisPcStatusDisconnecting.
+  ///
+  /// In en, this message translates to:
+  /// **'Disconnecting…'**
+  String get keelThisPcStatusDisconnecting;
+
+  /// No description provided for @keelThisPcNodeId.
+  ///
+  /// In en, this message translates to:
+  /// **'Node: {id}'**
+  String keelThisPcNodeId(Object id);
+
+  /// No description provided for @keelThisPcLastPoll.
+  ///
+  /// In en, this message translates to:
+  /// **'Last task check: {result}'**
+  String keelThisPcLastPoll(Object result);
+
+  /// No description provided for @keelThisPcLastReport.
+  ///
+  /// In en, this message translates to:
+  /// **'Last status report: {result}'**
+  String keelThisPcLastReport(Object result);
+
+  /// No description provided for @keelThisPcNotYet.
+  ///
+  /// In en, this message translates to:
+  /// **'not yet'**
+  String get keelThisPcNotYet;
+
+  /// No description provided for @keelThisPcTasksTaken.
+  ///
+  /// In en, this message translates to:
+  /// **'Tasks taken: {count}'**
+  String keelThisPcTasksTaken(Object count);
+
+  /// No description provided for @keelThisPcRecent.
+  ///
+  /// In en, this message translates to:
+  /// **'Recent activity'**
+  String get keelThisPcRecent;
+
+  /// No description provided for @keelThisPcProblemTokenNotStored.
+  ///
+  /// In en, this message translates to:
+  /// **'This machine could not keep the node\'s token with permissions for your user only, so this PC was not connected.'**
+  String get keelThisPcProblemTokenNotStored;
+
+  /// No description provided for @keelThisPcProblemNotStarted.
+  ///
+  /// In en, this message translates to:
+  /// **'The node is enrolled but could not start on this PC. Disconnect it and connect it again.'**
+  String get keelThisPcProblemNotStarted;
+
+  /// No description provided for @keelThisPcProblemUnlinkNotConfirmed.
+  ///
+  /// In en, this message translates to:
+  /// **'This PC stopped taking tasks, but the server did not confirm it removed the node.'**
+  String get keelThisPcProblemUnlinkNotConfirmed;
 }
 
 class _AppLocalizationsDelegate

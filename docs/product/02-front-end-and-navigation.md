@@ -70,6 +70,29 @@ seconds while it runs; **Chat with its Keel AI** on an online keel-server opens
 the `serverChat` lens, a conversation with that server's own Keel AI through
 `keelai.*` tasks.
 
+### This PC as a node
+
+Under **Account**, **This PC as a node** makes this keel-ui a node of kind
+`desktop` (`lib/src/integrations/keel_node/`, on keel-core's shared node
+link). **Connect this PC as a node** enrolls `<hostname>-desktop` with the
+signed-in session; the `knt_` token it answers is kept in `keel_node.json`, an
+owner-only (0600) file in app support written the same way as the session file,
+and the node runs with that token from then on — not with the person's session,
+so it keeps working while the account renews or ends. The card shows the node
+id, the last task check and status report, the tasks taken and the link's
+recent lines; **Disconnect** stops the link, unlinks the node
+(`DELETE /v1/keel-bot/nodes/{id}`) and deletes the token file.
+
+The node runs in the main window only. It starts with the app when the token
+file exists, resumes reporting the tasks it followed (`node_link/tasks.json`),
+and stops on a best-effort basis when the window closes. Remote work never
+moves the lens; when a remote `session.start` or `session.message` makes a
+session the project's open one, the session the person had open there is put
+back. Task types only keel-server runs (`deploy.run`, `job.run`, `tool.run`,
+`launch.*`, `cloudflare.*`, `keelai.*`) fail at once with why. Work that names
+no workflow fails too (there is no Keel AI orchestrator on this node yet), and
+**Accept all** (`session.auto_approve`) is not available here.
+
 ## Chat 1:1 vs project
 
 There are two ways to talk with an agent:

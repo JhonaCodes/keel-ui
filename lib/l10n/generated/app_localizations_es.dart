@@ -2818,6 +2818,72 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get keelApiOpenTask => 'Abrir';
+
+  @override
+  String get keelThisPcTitle => 'Esta PC como nodo';
+
+  @override
+  String get keelThisPcIntro =>
+      'Conectada como nodo, esta PC recibe trabajo de tu Keel API (sesiones en sus proyectos, mensajes, respuestas) y reporta lo que hacen. Su token se guarda en un archivo que solo tu usuario puede leer.';
+
+  @override
+  String get keelThisPcConnect => 'Conectar esta PC como nodo';
+
+  @override
+  String get keelThisPcDisconnect => 'Desconectar';
+
+  @override
+  String get keelThisPcStatusOff => 'Sin conectar';
+
+  @override
+  String get keelThisPcStatusConnecting => 'Conectando…';
+
+  @override
+  String get keelThisPcStatusOn => 'Conectada como nodo';
+
+  @override
+  String get keelThisPcStatusFailed => 'Inscrita, pero sin funcionar';
+
+  @override
+  String get keelThisPcStatusDisconnecting => 'Desconectando…';
+
+  @override
+  String keelThisPcNodeId(Object id) {
+    return 'Nodo: $id';
+  }
+
+  @override
+  String keelThisPcLastPoll(Object result) {
+    return 'Última consulta de tareas: $result';
+  }
+
+  @override
+  String keelThisPcLastReport(Object result) {
+    return 'Último reporte de estado: $result';
+  }
+
+  @override
+  String get keelThisPcNotYet => 'todavía no';
+
+  @override
+  String keelThisPcTasksTaken(Object count) {
+    return 'Tareas tomadas: $count';
+  }
+
+  @override
+  String get keelThisPcRecent => 'Actividad reciente';
+
+  @override
+  String get keelThisPcProblemTokenNotStored =>
+      'Esta máquina no pudo guardar el token del nodo con permisos solo para tu usuario, así que esta PC no quedó conectada.';
+
+  @override
+  String get keelThisPcProblemNotStarted =>
+      'El nodo está inscrito, pero no pudo arrancar en esta PC. Desconéctalo y vuelve a conectarlo.';
+
+  @override
+  String get keelThisPcProblemUnlinkNotConfirmed =>
+      'Esta PC dejó de tomar tareas, pero el servidor no confirmó que quitó el nodo.';
 }
 
 /// The translations for Spanish Castilian, as used in Colombia (`es_CO`).
@@ -5634,4 +5700,70 @@ class AppLocalizationsEsCo extends AppLocalizationsEs {
 
   @override
   String get keelApiOpenTask => 'Abrir';
+
+  @override
+  String get keelThisPcTitle => 'Esta PC como nodo';
+
+  @override
+  String get keelThisPcIntro =>
+      'Conectada como nodo, esta PC recibe trabajo de tu Keel API (sesiones en sus proyectos, mensajes, respuestas) y reporta lo que hacen. Su token se guarda en un archivo que solo tu usuario puede leer.';
+
+  @override
+  String get keelThisPcConnect => 'Conectar esta PC como nodo';
+
+  @override
+  String get keelThisPcDisconnect => 'Desconectar';
+
+  @override
+  String get keelThisPcStatusOff => 'Sin conectar';
+
+  @override
+  String get keelThisPcStatusConnecting => 'Conectando…';
+
+  @override
+  String get keelThisPcStatusOn => 'Conectada como nodo';
+
+  @override
+  String get keelThisPcStatusFailed => 'Inscrita, pero sin funcionar';
+
+  @override
+  String get keelThisPcStatusDisconnecting => 'Desconectando…';
+
+  @override
+  String keelThisPcNodeId(Object id) {
+    return 'Nodo: $id';
+  }
+
+  @override
+  String keelThisPcLastPoll(Object result) {
+    return 'Última consulta de tareas: $result';
+  }
+
+  @override
+  String keelThisPcLastReport(Object result) {
+    return 'Último reporte de estado: $result';
+  }
+
+  @override
+  String get keelThisPcNotYet => 'todavía no';
+
+  @override
+  String keelThisPcTasksTaken(Object count) {
+    return 'Tareas tomadas: $count';
+  }
+
+  @override
+  String get keelThisPcRecent => 'Actividad reciente';
+
+  @override
+  String get keelThisPcProblemTokenNotStored =>
+      'Esta máquina no pudo guardar el token del nodo con permisos solo para tu usuario, así que esta PC no quedó conectada.';
+
+  @override
+  String get keelThisPcProblemNotStarted =>
+      'El nodo está inscrito, pero no pudo arrancar en esta PC. Desconéctalo y vuelve a conectarlo.';
+
+  @override
+  String get keelThisPcProblemUnlinkNotConfirmed =>
+      'Esta PC dejó de tomar tareas, pero el servidor no confirmó que quitó el nodo.';
 }

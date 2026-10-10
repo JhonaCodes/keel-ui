@@ -19,9 +19,9 @@ class KeelNodesRepository {
   /// Enrolls this keel-ui as a `desktop` node with the signed-in person's
   /// session. Enrolling an id that exists rotates its token.
   ///
-  /// Nothing in keel-ui calls it yet: the node side (taking tasks, reporting
-  /// status) is its own phase, built on keel-core's node link, and it starts
-  /// here — with the session [KeelAccountViewModel] keeps.
+  /// `DesktopNodeViewModel` calls it when the person connects this PC as a
+  /// node; the node runs from then on with the token it answers, not with
+  /// the person's session.
   Future<Result<KeelNodeEnrollment, KeelApiFailure>> enrollDesktop({
     required String id,
     required String label,
@@ -33,4 +33,10 @@ class KeelNodesRepository {
       'label': label,
     },
   )).map(KeelNodeEnrollment.fromJson);
+
+  /// Unlinks node [id] with the person's session (`204`): its token stops
+  /// working at once and it leaves the node list. Tasks bound to it keep
+  /// their state on the server.
+  Future<Result<void, KeelApiFailure>> unlink(String id) async =>
+      (await _client.send('DELETE', KeelApiPaths.node(id))).map((_) {});
 }

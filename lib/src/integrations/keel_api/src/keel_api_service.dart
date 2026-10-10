@@ -11,4 +11,8 @@ mixin KeelApiService {
 
   static final ReactiveNotifier<KeelCredentialsStore> credentials =
       ReactiveNotifier<KeelCredentialsStore>(KeelCredentialsStore.new);
+
+  /// This PC's own node token, while it is connected as a node.
+  static final ReactiveNotifier<KeelNodeCredentialsStore> nodeCredentials =
+      ReactiveNotifier<KeelNodeCredentialsStore>(KeelNodeCredentialsStore.new);
 }

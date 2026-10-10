@@ -80,7 +80,7 @@ class KeelCredentialsStore {
   static const String fileName = 'keel_api_session.json';
 
   /// `rw-------`.
-  static const int ownerOnlyMode = 0x180;
+  static const int ownerOnlyMode = OwnerOnlyFile.mode;
 
   final String? _directory;
 
@@ -111,31 +111,17 @@ class KeelCredentialsStore {
   /// Keeps [credentials]; false when this machine refused to keep them
   /// owner-only, in which case nothing was left behind.
   Future<bool> write(KeelCredentials credentials) async {
-    File? staging;
-    try {
-      final target = await _file();
-      await target.parent.create(recursive: true);
-      staging = File('${target.path}.part');
-      if (await staging.exists()) await staging.delete();
-      // Empty first: nothing secret exists on disk before the mode is set.
-      await staging.create();
-      if (!await _restrictToOwner(staging)) {
-        await staging.delete();
-        Log.e('keel_api: the session file could not be made owner-only');
+    final written = await OwnerOnlyFile.write(
+      await _file(),
+      jsonEncode(credentials.toJson()),
+    );
+    return written.when(
+      ok: (_) => true,
+      err: (why) {
+        Log.e('keel_api: the session could not be stored: $why');
         return false;
-      }
-      await staging.writeAsString(
-        jsonEncode(credentials.toJson()),
-        flush: true,
-      );
-      // A rename keeps the mode and replaces the old session in one step.
-      await staging.rename(target.path);
-      return true;
-    } on FileSystemException catch (error) {
-      Log.e('keel_api: the session could not be stored: ${error.message}');
-      if (staging != null && await staging.exists()) await staging.delete();
-      return false;
-    }
+      },
+    );
   }
 
   /// Forgets the stored session.
@@ -149,15 +135,5 @@ class KeelCredentialsStore {
         '${error.message}',
       );
     }
-  }
-
-  /// `chmod 600`, then checks it took. On Windows the profile's own ACL is
-  /// what keeps other users out, and there is no mode to set.
-  static Future<bool> _restrictToOwner(File file) async {
-    if (Platform.isWindows) return true;
-    final result = await Process.run('chmod', ['600', file.path]);
-    if (result.exitCode != 0) return false;
-    final mode = (await file.stat()).mode & 0x1FF;
-    return mode == ownerOnlyMode;
   }
 }

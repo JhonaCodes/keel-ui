@@ -2855,6 +2855,16 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get keelThisPcKeelAiOn =>
+      'Keel AI: on — chat with it from the Keel app';
+
+  @override
+  String get keelThisPcKeelAiOff => 'Keel AI: not running on this PC';
+
+  @override
+  String get keelThisPcAutoApprove => 'Sessions with Accept all';
+
+  @override
   String get keelThisPcRecent => 'Recent activity';
 
   @override

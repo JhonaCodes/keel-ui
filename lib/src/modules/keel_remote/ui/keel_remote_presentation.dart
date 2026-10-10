@@ -219,6 +219,10 @@ extension DesktopNodeStateText on DesktopNodeState {
   String reportLine(AppLocalizations t, DateTime now) =>
       t.keelThisPcLastReport(_callText(lastReport, t, now));
 
+  /// Whether the Keel app can chat with Keel AI on this PC.
+  String keelAiLine(AppLocalizations t) =>
+      keelAi ? t.keelThisPcKeelAiOn : t.keelThisPcKeelAiOff;
+
   static String _callText(
     DesktopNodeCall? call,
     AppLocalizations t,
@@ -227,6 +231,11 @@ extension DesktopNodeStateText on DesktopNodeState {
     final DesktopNodeCall made => '${made.outcome} · ${made.at.stamp(now)}',
     null => t.keelThisPcNotYet,
   };
+}
+
+extension DesktopNodeAutoApprovalText on DesktopNodeAutoApproval {
+  /// `keel-ui › Fix the login`.
+  String get label => '$project › $title';
 }
 
 extension DesktopNodeLogLineText on DesktopNodeLogLine {

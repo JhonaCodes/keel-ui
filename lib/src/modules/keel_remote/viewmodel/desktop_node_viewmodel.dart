@@ -207,6 +207,15 @@ class DesktopNodeViewModel extends ViewModel<DesktopNodeState> {
               count: line.count,
             ),
         ],
+        keelAi: runtime.keelAiRunning,
+        autoApproved: [
+          for (final session in runtime.autoApprovedSessions)
+            DesktopNodeAutoApproval(
+              sessionId: session.sessionId,
+              project: session.project,
+              title: session.title,
+            ),
+        ],
       ),
     );
   }

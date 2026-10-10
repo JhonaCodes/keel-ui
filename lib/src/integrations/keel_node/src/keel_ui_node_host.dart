@@ -13,11 +13,19 @@ part of '../keel_node.dart';
 /// the person had open back once the command ran ([_OpenSession]); the turn
 /// is not affected, because the engine names its session before that.
 ///
-/// What it leaves at [NodeLinkHost]'s defaults: no orchestrator, so work
-/// that names no workflow fails with why; no «Aceptar todo»; the app's
-/// projects are not adopted (this PC works on the person's own folders).
+/// Work that names no workflow goes to this PC's Keel AI ([delegate]); while
+/// it is not running, such work fails with why. «Aceptar todo» is answered by
+/// keel-core's [NodeAutoApprove], and no session is auto-approved without
+/// one. The app's projects are not adopted: this PC works on the person's
+/// own folders.
 final class KeelUiNodeHost extends NodeLinkHost {
-  KeelUiNodeHost({required this.engine, required this._projection, this.log});
+  KeelUiNodeHost({
+    required this.engine,
+    required this._projection,
+    this.log,
+    this._keelAi = _noKeelAi,
+    this._autoApprove,
+  });
 
   /// How the person reads this node's name («Keel (escritorio) se
   /// reinició…»).
@@ -31,6 +39,14 @@ final class KeelUiNodeHost extends NodeLinkHost {
   final CoreEngine engine;
   final KeelProjection Function() _projection;
 
+  /// This PC's Keel AI; null while it is not running.
+  final NodeKeelAiChat? Function() _keelAi;
+
+  /// «Aceptar todo» on this PC's sessions; without it, none is.
+  final NodeAutoApprove? _autoApprove;
+
+  static NodeKeelAiChat? _noKeelAi() => null;
+
   @override
   final NodeLinkLog? log;
 
@@ -43,7 +59,27 @@ final class KeelUiNodeHost extends NodeLinkHost {
   KeelProjection get projection => _projection();
 
   @override
-  Future<NodeRunResult> run(KeelCommand command) async {
+  NodeDelegate? get delegate => switch (_keelAi()) {
+    final NodeKeelAiChat chat => NodeKeelAiDelegate(chat),
+    null => null,
+  };
+
+  @override
+  bool autoApproved(String sessionId) =>
+      _autoApprove?.autoApproved(sessionId) ?? false;
+
+  @override
+  Future<Result<String, String>> setAutoApprove(String sessionId, bool on) =>
+      _autoApprove?.setAutoApprove(sessionId, on) ??
+      super.setAutoApprove(sessionId, on);
+
+  /// Runs [command] as the app's would run, whoever sent it: [from] names
+  /// who did in the log (`the app`, `Keel AI`, `auto-approve`).
+  @override
+  Future<NodeRunResult> run(
+    KeelCommand command, {
+    String from = 'the app',
+  }) async {
     final open = _OpenSession.before(command, _store.data);
     final Result<Map<String, Object?>, String> result;
     try {
@@ -73,7 +109,7 @@ final class KeelUiNodeHost extends NodeLinkHost {
     final (ok, reason, _) = outcome;
     log?.add(
       'command',
-      '${command.type.wire} from the app${ok ? '' : ' — failed: $reason'}',
+      '${command.type.wire} from $from${ok ? '' : ' — failed: $reason'}',
       level: ok ? 'ok' : 'error',
     );
     return outcome;

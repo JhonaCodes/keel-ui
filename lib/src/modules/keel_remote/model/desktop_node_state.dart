@@ -152,6 +152,55 @@ class DesktopNodeLogLine {
   int get hashCode => Object.hash(at, level, title, count);
 }
 
+/// A session of this PC with «Aceptar todo» on: the node answers every
+/// permission it asks for.
+@immutable
+class DesktopNodeAutoApproval {
+  const DesktopNodeAutoApproval({
+    required this.sessionId,
+    required this.project,
+    required this.title,
+  });
+
+  final String sessionId;
+  final String project;
+  final String title;
+
+  factory DesktopNodeAutoApproval.fromJson(Map<String, dynamic> json) =>
+      DesktopNodeAutoApproval(
+        sessionId: json['session_id'] as String? ?? '',
+        project: json['project'] as String? ?? '',
+        title: json['title'] as String? ?? '',
+      );
+
+  Map<String, dynamic> toJson() => <String, dynamic>{
+    'session_id': sessionId,
+    'project': project,
+    'title': title,
+  };
+
+  DesktopNodeAutoApproval copyWith({
+    String? sessionId,
+    String? project,
+    String? title,
+  }) => DesktopNodeAutoApproval(
+    sessionId: sessionId ?? this.sessionId,
+    project: project ?? this.project,
+    title: title ?? this.title,
+  );
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is DesktopNodeAutoApproval &&
+          sessionId == other.sessionId &&
+          project == other.project &&
+          title == other.title;
+
+  @override
+  int get hashCode => Object.hash(sessionId, project, title);
+}
+
 /// This PC as a node: whether it is one, which, and how its link is doing.
 @immutable
 class DesktopNodeState {
@@ -164,6 +213,8 @@ class DesktopNodeState {
     this.lastReport,
     this.tasksTaken = 0,
     this.recent = const <DesktopNodeLogLine>[],
+    this.keelAi = false,
+    this.autoApproved = const <DesktopNodeAutoApproval>[],
   });
 
   final DesktopNodeStatus status;
@@ -188,6 +239,12 @@ class DesktopNodeState {
   /// The link's last lines, oldest first.
   final List<DesktopNodeLogLine> recent;
 
+  /// Whether Keel AI runs on this node: the Keel app chats with it.
+  final bool keelAi;
+
+  /// The sessions still going with «Aceptar todo» on.
+  final List<DesktopNodeAutoApproval> autoApproved;
+
   bool get isOn => status == DesktopNodeStatus.on;
   bool get isBusy =>
       status == DesktopNodeStatus.connecting ||
@@ -207,6 +264,8 @@ class DesktopNodeState {
     DesktopNodeCall? lastReport,
     int? tasksTaken,
     List<DesktopNodeLogLine>? recent,
+    bool? keelAi,
+    List<DesktopNodeAutoApproval>? autoApproved,
   }) => DesktopNodeState(
     status: status ?? this.status,
     nodeId: nodeId ?? this.nodeId,
@@ -216,6 +275,8 @@ class DesktopNodeState {
     lastReport: lastReport ?? this.lastReport,
     tasksTaken: tasksTaken ?? this.tasksTaken,
     recent: recent ?? this.recent,
+    keelAi: keelAi ?? this.keelAi,
+    autoApproved: autoApproved ?? this.autoApproved,
   );
 
   factory DesktopNodeState.fromJson(Map<String, dynamic> json) =>
@@ -242,6 +303,12 @@ class DesktopNodeState {
           for (final line in json['recent'] as List<Object?>? ?? const [])
             if (line is Map<String, dynamic>) DesktopNodeLogLine.fromJson(line),
         ],
+        keelAi: KeelJson.decodeBool(json['keel_ai']),
+        autoApproved: <DesktopNodeAutoApproval>[
+          for (final item in json['auto_approved'] as List<Object?>? ?? [])
+            if (item is Map<String, dynamic>)
+              DesktopNodeAutoApproval.fromJson(item),
+        ],
       );
 
   Map<String, dynamic> toJson() => <String, dynamic>{
@@ -253,6 +320,8 @@ class DesktopNodeState {
     'last_report': lastReport?.toJson(),
     'tasks_taken': tasksTaken,
     'recent': recent.map((line) => line.toJson()).toList(),
+    'keel_ai': keelAi,
+    'auto_approved': autoApproved.map((session) => session.toJson()).toList(),
   };
 
   @override
@@ -266,7 +335,9 @@ class DesktopNodeState {
           lastPoll == other.lastPoll &&
           lastReport == other.lastReport &&
           tasksTaken == other.tasksTaken &&
-          listEquals(recent, other.recent);
+          listEquals(recent, other.recent) &&
+          keelAi == other.keelAi &&
+          listEquals(autoApproved, other.autoApproved);
 
   @override
   int get hashCode => Object.hash(
@@ -278,5 +349,7 @@ class DesktopNodeState {
     lastReport,
     tasksTaken,
     Object.hashAll(recent),
+    keelAi,
+    Object.hashAll(autoApproved),
   );
 }

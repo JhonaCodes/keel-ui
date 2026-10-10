@@ -1,12 +1,13 @@
 part of '../keel_node.dart';
 
 /// The task types only keel-server runs — deploys, jobs and tools, launches,
-/// Cloudflare proposals, its Keel AI's chat — refused on this PC at once,
-/// with why.
+/// Cloudflare proposals — refused on this PC at once, with why. Keel AI's
+/// chat (`keelai.*`) is not among them: this PC runs its own
+/// ([DesktopKeelAi]).
 ///
 /// Without it they would fall to the link's general path: one that names a
 /// workflow would start a session in this PC's project, and the rest would
-/// fail as if Keel AI were only missing here.
+/// go to Keel AI as work naming no workflow.
 final class ServerOnlyTasks extends NodeTaskHandler {
   const ServerOnlyTasks();
 
@@ -15,7 +16,7 @@ final class ServerOnlyTasks extends NodeTaskHandler {
       'Este tipo de tarea solo corre en un servidor keel-server.';
 
   static const Set<String> _types = {'deploy.run', 'job.run', 'tool.run'};
-  static const List<String> _families = ['launch.', 'cloudflare.', 'keelai.'];
+  static const List<String> _families = ['launch.', 'cloudflare.'];
 
   @override
   bool handles(String type) =>

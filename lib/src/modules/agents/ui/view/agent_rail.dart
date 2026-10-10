@@ -9,6 +9,10 @@ import 'package:keel_ui/src/integrations/fault_journal/fault_journal.dart';
 import 'package:keel_ui/src/integrations/system_vault/system_vault.dart';
 import 'package:keel_core/modules/agents/model/agent.dart';
 import 'package:keel_ui/src/modules/agents/viewmodel/agents_viewmodel.dart';
+import 'package:keel_ui/src/modules/keel_remote/model/keel_account_state.dart';
+import 'package:keel_ui/src/modules/keel_remote/ui/keel_remote_presentation.dart';
+import 'package:keel_ui/src/modules/keel_remote/ui/screen/keel_remote_panel.dart';
+import 'package:keel_ui/src/modules/keel_remote/viewmodel/keel_account_viewmodel.dart';
 import 'package:keel_core/modules/projects/model/project.dart';
 import 'package:keel_core/modules/requirements/model/internal_requirement.dart';
 import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
@@ -212,6 +216,11 @@ class _AgentRailState extends State<AgentRail> {
             _MachineRailButton(
               onPressed: () => _open('machine', widget.onOpenMachine),
               selected: _openPanel == 'machine',
+            ),
+            _KeelApiRailButton(
+              onPressed: () =>
+                  _open('keel', () => openKeelRemotePanel(context)),
+              selected: _openPanel == 'keel',
             ),
             _VaultRailButton(
               onPressed: () => _open('backup', () => openVaultPanel(context)),
@@ -542,6 +551,52 @@ class _Dot extends StatelessWidget {
       width: 8,
       height: 8,
       decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+    );
+  }
+}
+
+/// The person's own Keel API: optional, so without a session the button is
+/// quiet. Signed in, a dot in the primary colour; a session the server
+/// ended, a dot in the error colour — the next click is signing in again.
+class _KeelApiRailButton extends StatelessWidget {
+  const _KeelApiRailButton({required this.onPressed, this.selected = false});
+
+  final VoidCallback onPressed;
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    return ReactiveViewModelBuilder<KeelAccountViewModel, KeelAccountState>(
+      viewmodel: KeelAccountService.instance.notifier,
+      build: (account, viewmodel, keep) {
+        final scheme = Theme.of(context).colorScheme;
+        return Stack(
+          alignment: Alignment.topRight,
+          children: [
+            _RailButton(
+              label: 'Keel',
+              icon: Icons.cloud_outlined,
+              busy: account.isSigningIn,
+              tooltip: account.railTooltip(AppLocalizations.of(context)),
+              onPressed: onPressed,
+              selected: selected,
+            ),
+            switch (account.connection) {
+              KeelConnection.off => const SizedBox.shrink(),
+              KeelConnection.connected => Positioned(
+                right: 6,
+                top: 4,
+                child: _Dot(color: scheme.primary),
+              ),
+              KeelConnection.ended => Positioned(
+                right: 6,
+                top: 4,
+                child: _Dot(color: scheme.error),
+              ),
+            },
+          ],
+        );
+      },
     );
   }
 }

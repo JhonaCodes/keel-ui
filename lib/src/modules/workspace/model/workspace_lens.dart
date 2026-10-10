@@ -23,6 +23,12 @@ enum WorkspaceLens {
 
   /// La sesión abierta del proyecto.
   session,
+
+  /// One task of the person's own Keel API, followed while a node works it.
+  remoteTask,
+
+  /// The conversation with Keel AI on a keel-server node.
+  serverChat,
 }
 
 /// El área central, en un dato.
@@ -42,7 +48,10 @@ class WorkspaceState {
     WorkspaceLens.boards ||
     WorkspaceLens.board ||
     WorkspaceLens.session => true,
-    WorkspaceLens.agent || WorkspaceLens.requirement => false,
+    WorkspaceLens.agent ||
+    WorkspaceLens.requirement ||
+    WorkspaceLens.remoteTask ||
+    WorkspaceLens.serverChat => false,
   };
 
   /// El lente que se puede dibujar de verdad.

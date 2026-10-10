@@ -23,8 +23,10 @@ Keel is a desktop app — macOS and Linux x86_64 — that wraps the **local CLI*
 of Claude and Codex: it runs the same binary you would run in a terminal, with
 the same login and the same subscription, and builds the turn for it. An agent
 can also run against an **OpenAI-compatible API** (OpenRouter, DeepSeek) when
-its secret is configured. What does not exist is a backend of our own: no Keel
-API, no account, nothing to upload.
+its secret is configured. It works fully local: there is no backend it depends
+on, no account to create and nothing it uploads. Optionally, it can connect to
+**your own Keel API** — a server you run yourself — to see the nodes enrolled
+with it, queue tasks for them and follow what they report.
 
 What it adds is not the model. It is everything around it: who your agents
 are, what each one knows, in what order they speak, what each one may touch,

@@ -2871,6 +2871,16 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
+  String get keelThisPcKeelAiOn =>
+      'Keel AI: activo — chatea con él desde la app de Keel';
+
+  @override
+  String get keelThisPcKeelAiOff => 'Keel AI: no está corriendo en esta PC';
+
+  @override
+  String get keelThisPcAutoApprove => 'Sesiones con Aceptar todo';
+
+  @override
   String get keelThisPcRecent => 'Actividad reciente';
 
   @override
@@ -5751,6 +5761,16 @@ class AppLocalizationsEsCo extends AppLocalizationsEs {
   String keelThisPcTasksTaken(Object count) {
     return 'Tareas tomadas: $count';
   }
+
+  @override
+  String get keelThisPcKeelAiOn =>
+      'Keel AI: activo — chatea con él desde la app de Keel';
+
+  @override
+  String get keelThisPcKeelAiOff => 'Keel AI: no está corriendo en esta PC';
+
+  @override
+  String get keelThisPcAutoApprove => 'Sesiones con Aceptar todo';
 
   @override
   String get keelThisPcRecent => 'Actividad reciente';

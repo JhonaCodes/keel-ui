@@ -106,7 +106,8 @@ class _NodeIntro extends StatelessWidget {
   }
 }
 
-/// The node's id, its last calls, the tasks it took and its recent lines.
+/// The node's id, its last calls, the tasks it took, whether Keel AI runs
+/// on it, its sessions with «Aceptar todo» on and its recent lines.
 class _NodeDetails extends StatelessWidget {
   const _NodeDetails({required this.node});
 
@@ -126,6 +127,13 @@ class _NodeDetails extends StatelessWidget {
         Text(node.reportLine(t, now)),
         const SizedBox(height: 4),
         Text(t.keelThisPcTasksTaken(node.tasksTaken)),
+        const SizedBox(height: 4),
+        Text(node.keelAiLine(t)),
+        if (node.autoApproved.isNotEmpty) ...[
+          KeelSectionTitle(text: t.keelThisPcAutoApprove),
+          for (final session in node.autoApproved)
+            Text(session.label, maxLines: 1, overflow: TextOverflow.ellipsis),
+        ],
         if (node.recent.isNotEmpty) ...[
           KeelSectionTitle(text: t.keelThisPcRecent),
           for (final line in node.recent) _NodeLogRow(line: line, now: now),

@@ -5001,6 +5001,24 @@ abstract class AppLocalizations {
   /// **'Tasks taken: {count}'**
   String keelThisPcTasksTaken(Object count);
 
+  /// No description provided for @keelThisPcKeelAiOn.
+  ///
+  /// In en, this message translates to:
+  /// **'Keel AI: on — chat with it from the Keel app'**
+  String get keelThisPcKeelAiOn;
+
+  /// No description provided for @keelThisPcKeelAiOff.
+  ///
+  /// In en, this message translates to:
+  /// **'Keel AI: not running on this PC'**
+  String get keelThisPcKeelAiOff;
+
+  /// No description provided for @keelThisPcAutoApprove.
+  ///
+  /// In en, this message translates to:
+  /// **'Sessions with Accept all'**
+  String get keelThisPcAutoApprove;
+
   /// No description provided for @keelThisPcRecent.
   ///
   /// In en, this message translates to:

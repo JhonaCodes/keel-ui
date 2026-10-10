@@ -15,6 +15,8 @@ import 'package:keel_ui/src/modules/machine/ui/screen/machine_screen.dart';
 import 'package:keel_ui/src/modules/agents/ui/view/chat_view.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/empty_chat_placeholder.dart';
 import 'package:keel_ui/src/modules/hooks/ui/screen/hooks_screen.dart';
+import 'package:keel_ui/src/modules/keel_remote/ui/view/remote_task_view.dart';
+import 'package:keel_ui/src/modules/keel_remote/ui/view/server_chat_view.dart';
 import 'package:keel_ui/src/modules/knowledge/ui/screen/knowledge_screen.dart';
 import 'package:keel_ui/src/modules/mcp_servers/ui/screen/mcp_servers_screen.dart';
 import 'package:keel_ui/src/modules/rules/ui/screen/rules_screen.dart';
@@ -157,6 +159,15 @@ class _ConversationArea extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // The Keel API's own lenses: what they follow lives on the server, not
+    // in a project or an agent of this machine.
+    if (workspace.lens == WorkspaceLens.remoteTask) {
+      return const RemoteTaskView();
+    }
+    if (workspace.lens == WorkspaceLens.serverChat) {
+      return const ServerChatView();
+    }
+
     if (workspace.lens == WorkspaceLens.requirement) {
       return ReactiveViewModelBuilder<RequirementsViewModel, RequirementsState>(
         viewmodel: RequirementsService.instance.notifier,

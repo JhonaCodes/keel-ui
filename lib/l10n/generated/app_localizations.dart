@@ -2688,7 +2688,7 @@ abstract class AppLocalizations {
   /// No description provided for @termsSection1Body.
   ///
   /// In en, this message translates to:
-  /// **'Keel is a desktop tool that works on top of the agent CLIs you already have installed on your machine. It isn\'t a service: there\'s no Keel server you connect to, no account to create, and no registration. If you turn off the internet, Keel still opens.\n\nUsing Keel means accepting these terms. If you disagree with any of them, don\'t use it.'**
+  /// **'Keel is a desktop tool that works on top of the agent CLIs you already have installed on your machine. It works fully on your machine: there\'s no Keel account to create and no registration, and if you turn off the internet, Keel still opens.\n\nOptionally, you can connect it to your own Keel API — a server you run yourself — to see your nodes, queue tasks for them and follow what they report. Keel works the same without it.\n\nUsing Keel means accepting these terms. If you disagree with any of them, don\'t use it.'**
   String get termsSection1Body;
 
   /// No description provided for @termsSection2Title.
@@ -2736,7 +2736,7 @@ abstract class AppLocalizations {
   /// No description provided for @termsSection5Body.
   ///
   /// In en, this message translates to:
-  /// **'It doesn\'t ask for your name, email, passwords, or any keys. There\'s no login. Everything you set up — projects, agents, skills, tools, knowledge bases, chat threads, and settings — is stored on your own machine.\n\nYour secret values never leave in a backup: the backup only carries the names, so you know which ones to fill in on the other end. The scheduled-jobs API only listens on loopback, meaning it can\'t be reached from outside your machine.'**
+  /// **'It doesn\'t ask for your name, email, passwords, or any keys to work. Everything you set up — projects, agents, skills, tools, knowledge bases, chat threads, and settings — is stored on your own machine.\n\nIf you choose to connect to your own Keel API, you sign in to THAT server with its username, password and authenticator code. The password and the code are sent once and never stored; only the session\'s refresh token is kept, in a file only your user can read.\n\nYour secret values never leave in a backup: the backup only carries the names, so you know which ones to fill in on the other end. The scheduled-jobs API only listens on loopback, meaning it can\'t be reached from outside your machine.'**
   String get termsSection5Body;
 
   /// No description provided for @termsSection6Title.
@@ -2748,7 +2748,7 @@ abstract class AppLocalizations {
   /// No description provided for @termsSection6Body.
   ///
   /// In en, this message translates to:
-  /// **'If this build ships with a reporting channel configured, when something breaks it\'s sent to that channel: the error message, its trace, the Keel file where it happened, your team\'s name, and whether the build is development or production.\n\nNothing else is sent. Not your chat content, not your files, not your secrets, not what projects you have. It serves one purpose: letting whoever maintains Keel know something failed.'**
+  /// **'If this build ships with a reporting channel configured, when something breaks it\'s sent to that channel: the error message, its trace, the Keel file where it happened, your team\'s name, and whether the build is development or production.\n\nIf you connect Keel to your own Keel API, what you do from its panel — signing in, reading your nodes, tasks and sessions, queuing a task, writing to the server\'s Keel AI — travels to that server, which is yours. Nothing goes there unless you sign in.\n\nNothing else is sent. Not your chat content, not your files, not your secrets, not what projects you have. The reporting channel serves one purpose: letting whoever maintains Keel know something failed.'**
   String get termsSection6Body;
 
   /// No description provided for @termsSection7Title.
@@ -4334,6 +4334,588 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Lets it write outside the project folder. A chat can turn it on just for itself.'**
   String get codexFullDiskAccessHelp;
+
+  /// No description provided for @keelApiRailTooltipOff.
+  ///
+  /// In en, this message translates to:
+  /// **'Keel API — optional. Keel works fully on this machine; sign in to reach your own server.'**
+  String get keelApiRailTooltipOff;
+
+  /// No description provided for @keelApiRailTooltipConnected.
+  ///
+  /// In en, this message translates to:
+  /// **'Connected to {host} as {username}'**
+  String keelApiRailTooltipConnected(Object host, Object username);
+
+  /// No description provided for @keelApiRailTooltipEnded.
+  ///
+  /// In en, this message translates to:
+  /// **'Your Keel API session ended. Sign in again.'**
+  String get keelApiRailTooltipEnded;
+
+  /// No description provided for @keelApiPanelTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Keel API'**
+  String get keelApiPanelTitle;
+
+  /// No description provided for @keelApiTabAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'Account'**
+  String get keelApiTabAccount;
+
+  /// No description provided for @keelApiTabNodes.
+  ///
+  /// In en, this message translates to:
+  /// **'Nodes'**
+  String get keelApiTabNodes;
+
+  /// No description provided for @keelApiTabTasks.
+  ///
+  /// In en, this message translates to:
+  /// **'Tasks'**
+  String get keelApiTabTasks;
+
+  /// No description provided for @keelApiTabSessions.
+  ///
+  /// In en, this message translates to:
+  /// **'Sessions'**
+  String get keelApiTabSessions;
+
+  /// No description provided for @keelApiIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'Keel works fully on this machine. Connecting it to your own Keel API is optional: it shows the nodes enrolled with it, lets you queue tasks for them and follow what they report.'**
+  String get keelApiIntro;
+
+  /// No description provided for @keelApiSignInFirst.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in on the Account tab to see this.'**
+  String get keelApiSignInFirst;
+
+  /// No description provided for @keelApiRefresh.
+  ///
+  /// In en, this message translates to:
+  /// **'Refresh'**
+  String get keelApiRefresh;
+
+  /// No description provided for @keelApiServerLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Server'**
+  String get keelApiServerLabel;
+
+  /// No description provided for @keelApiUsernameLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Username'**
+  String get keelApiUsernameLabel;
+
+  /// No description provided for @keelApiPasswordLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Password'**
+  String get keelApiPasswordLabel;
+
+  /// No description provided for @keelApiCodeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Authenticator code'**
+  String get keelApiCodeLabel;
+
+  /// No description provided for @keelApiSignIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in'**
+  String get keelApiSignIn;
+
+  /// No description provided for @keelApiSignOut.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign out'**
+  String get keelApiSignOut;
+
+  /// No description provided for @keelApiSignedInAs.
+  ///
+  /// In en, this message translates to:
+  /// **'Signed in as {username}'**
+  String keelApiSignedInAs(Object username);
+
+  /// No description provided for @keelApiServerValue.
+  ///
+  /// In en, this message translates to:
+  /// **'Server: {host}'**
+  String keelApiServerValue(Object host);
+
+  /// No description provided for @keelApiDeviceValue.
+  ///
+  /// In en, this message translates to:
+  /// **'This machine: {device}'**
+  String keelApiDeviceValue(Object device);
+
+  /// No description provided for @keelApiCredentialsNote.
+  ///
+  /// In en, this message translates to:
+  /// **'The password and the code are sent once and never stored. Only the session\'s refresh token is kept, in a file only your user can read.'**
+  String get keelApiCredentialsNote;
+
+  /// No description provided for @keelApiFailureNotSignedIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in to your Keel API first.'**
+  String get keelApiFailureNotSignedIn;
+
+  /// No description provided for @keelApiFailureInvalidServer.
+  ///
+  /// In en, this message translates to:
+  /// **'Write the full https:// address of your Keel API, without a path.'**
+  String get keelApiFailureInvalidServer;
+
+  /// No description provided for @keelApiFailureUnauthorized.
+  ///
+  /// In en, this message translates to:
+  /// **'Wrong username, password or code, or the session ended. Sign in again.'**
+  String get keelApiFailureUnauthorized;
+
+  /// No description provided for @keelApiFailureForbidden.
+  ///
+  /// In en, this message translates to:
+  /// **'This session cannot do that.'**
+  String get keelApiFailureForbidden;
+
+  /// No description provided for @keelApiFailureBadRequest.
+  ///
+  /// In en, this message translates to:
+  /// **'The server refused the request.'**
+  String get keelApiFailureBadRequest;
+
+  /// No description provided for @keelApiFailureNotFound.
+  ///
+  /// In en, this message translates to:
+  /// **'That no longer exists on the server.'**
+  String get keelApiFailureNotFound;
+
+  /// No description provided for @keelApiFailureConflict.
+  ///
+  /// In en, this message translates to:
+  /// **'That conflicts with what the server already has.'**
+  String get keelApiFailureConflict;
+
+  /// No description provided for @keelApiFailureRateLimited.
+  ///
+  /// In en, this message translates to:
+  /// **'Too many attempts. Wait a few minutes and try again.'**
+  String get keelApiFailureRateLimited;
+
+  /// No description provided for @keelApiFailureServer.
+  ///
+  /// In en, this message translates to:
+  /// **'The server could not answer. Try again in a moment.'**
+  String get keelApiFailureServer;
+
+  /// No description provided for @keelApiFailureNetwork.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not reach the server. Check the address and your network.'**
+  String get keelApiFailureNetwork;
+
+  /// No description provided for @keelApiFailureUnexpected.
+  ///
+  /// In en, this message translates to:
+  /// **'The server answered something Keel cannot read.'**
+  String get keelApiFailureUnexpected;
+
+  /// No description provided for @keelApiFailureNoOnlineNode.
+  ///
+  /// In en, this message translates to:
+  /// **'No node is online to take it.'**
+  String get keelApiFailureNoOnlineNode;
+
+  /// No description provided for @keelApiFailureStalled.
+  ///
+  /// In en, this message translates to:
+  /// **'No node took the request in a minute. Check that keel-server is running.'**
+  String get keelApiFailureStalled;
+
+  /// No description provided for @keelApiFailureNodeFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'The node could not complete it.'**
+  String get keelApiFailureNodeFailed;
+
+  /// No description provided for @keelApiFailureStorage.
+  ///
+  /// In en, this message translates to:
+  /// **'This machine could not keep the session with owner-only permissions, so it was not kept.'**
+  String get keelApiFailureStorage;
+
+  /// No description provided for @keelApiNodesEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No node has enrolled with this server yet.'**
+  String get keelApiNodesEmpty;
+
+  /// No description provided for @keelApiNodeOnline.
+  ///
+  /// In en, this message translates to:
+  /// **'online'**
+  String get keelApiNodeOnline;
+
+  /// No description provided for @keelApiNodeOffline.
+  ///
+  /// In en, this message translates to:
+  /// **'offline'**
+  String get keelApiNodeOffline;
+
+  /// No description provided for @keelApiNodeLastSeen.
+  ///
+  /// In en, this message translates to:
+  /// **'last seen {when}'**
+  String keelApiNodeLastSeen(Object when);
+
+  /// No description provided for @keelApiNodeChat.
+  ///
+  /// In en, this message translates to:
+  /// **'Chat with its Keel AI'**
+  String get keelApiNodeChat;
+
+  /// No description provided for @keelApiTasksEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No tasks here.'**
+  String get keelApiTasksEmpty;
+
+  /// No description provided for @keelApiNewTask.
+  ///
+  /// In en, this message translates to:
+  /// **'New task'**
+  String get keelApiNewTask;
+
+  /// No description provided for @keelApiFilterAll.
+  ///
+  /// In en, this message translates to:
+  /// **'All'**
+  String get keelApiFilterAll;
+
+  /// No description provided for @keelApiStatusTodo.
+  ///
+  /// In en, this message translates to:
+  /// **'Queued'**
+  String get keelApiStatusTodo;
+
+  /// No description provided for @keelApiStatusEvaluating.
+  ///
+  /// In en, this message translates to:
+  /// **'Evaluating'**
+  String get keelApiStatusEvaluating;
+
+  /// No description provided for @keelApiStatusInProgress.
+  ///
+  /// In en, this message translates to:
+  /// **'In progress'**
+  String get keelApiStatusInProgress;
+
+  /// No description provided for @keelApiStatusPaused.
+  ///
+  /// In en, this message translates to:
+  /// **'Paused'**
+  String get keelApiStatusPaused;
+
+  /// No description provided for @keelApiStatusDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get keelApiStatusDone;
+
+  /// No description provided for @keelApiStatusCancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancelled'**
+  String get keelApiStatusCancelled;
+
+  /// No description provided for @keelApiCancelTask.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel task'**
+  String get keelApiCancelTask;
+
+  /// No description provided for @keelApiAnyNode.
+  ///
+  /// In en, this message translates to:
+  /// **'any node'**
+  String get keelApiAnyNode;
+
+  /// No description provided for @keelApiTaskTypeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Type'**
+  String get keelApiTaskTypeLabel;
+
+  /// No description provided for @keelApiTaskTypeHint.
+  ///
+  /// In en, this message translates to:
+  /// **'for example scan_tickets or deploy.run'**
+  String get keelApiTaskTypeHint;
+
+  /// No description provided for @keelApiTaskNodeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Node'**
+  String get keelApiTaskNodeLabel;
+
+  /// No description provided for @keelApiTaskNoOnlineNodes.
+  ///
+  /// In en, this message translates to:
+  /// **'No node is online right now. A task can only go to a node that is online.'**
+  String get keelApiTaskNoOnlineNodes;
+
+  /// No description provided for @keelApiTaskProjectLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Project (optional)'**
+  String get keelApiTaskProjectLabel;
+
+  /// No description provided for @keelApiTaskPayloadLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Payload (JSON)'**
+  String get keelApiTaskPayloadLabel;
+
+  /// No description provided for @keelApiTaskCreate.
+  ///
+  /// In en, this message translates to:
+  /// **'Create task'**
+  String get keelApiTaskCreate;
+
+  /// No description provided for @keelApiDraftMissingType.
+  ///
+  /// In en, this message translates to:
+  /// **'Write the task type.'**
+  String get keelApiDraftMissingType;
+
+  /// No description provided for @keelApiDraftPayloadNotObject.
+  ///
+  /// In en, this message translates to:
+  /// **'The payload has to be a JSON object.'**
+  String get keelApiDraftPayloadNotObject;
+
+  /// No description provided for @keelApiDraftNodeNotOnline.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a node that is online.'**
+  String get keelApiDraftNodeNotOnline;
+
+  /// No description provided for @keelApiTaskSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'Result'**
+  String get keelApiTaskSummary;
+
+  /// No description provided for @keelApiTaskError.
+  ///
+  /// In en, this message translates to:
+  /// **'Error'**
+  String get keelApiTaskError;
+
+  /// No description provided for @keelApiTaskEvents.
+  ///
+  /// In en, this message translates to:
+  /// **'What the node reported'**
+  String get keelApiTaskEvents;
+
+  /// No description provided for @keelApiTaskNoEvents.
+  ///
+  /// In en, this message translates to:
+  /// **'The node has not reported anything yet.'**
+  String get keelApiTaskNoEvents;
+
+  /// No description provided for @keelApiEventMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Message'**
+  String get keelApiEventMessage;
+
+  /// No description provided for @keelApiEventYou.
+  ///
+  /// In en, this message translates to:
+  /// **'You'**
+  String get keelApiEventYou;
+
+  /// No description provided for @keelApiEventStep.
+  ///
+  /// In en, this message translates to:
+  /// **'Step'**
+  String get keelApiEventStep;
+
+  /// No description provided for @keelApiEventDecisionOpened.
+  ///
+  /// In en, this message translates to:
+  /// **'Approval requested'**
+  String get keelApiEventDecisionOpened;
+
+  /// No description provided for @keelApiEventDecisionAnswered.
+  ///
+  /// In en, this message translates to:
+  /// **'Approval answered'**
+  String get keelApiEventDecisionAnswered;
+
+  /// No description provided for @keelApiEventActionApplied.
+  ///
+  /// In en, this message translates to:
+  /// **'Change applied'**
+  String get keelApiEventActionApplied;
+
+  /// No description provided for @keelApiEventActionFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Change failed'**
+  String get keelApiEventActionFailed;
+
+  /// No description provided for @keelApiSessionsEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No node is reporting anything right now.'**
+  String get keelApiSessionsEmpty;
+
+  /// No description provided for @keelApiGroupWaiting.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting on you'**
+  String get keelApiGroupWaiting;
+
+  /// No description provided for @keelApiGroupActive.
+  ///
+  /// In en, this message translates to:
+  /// **'Active sessions'**
+  String get keelApiGroupActive;
+
+  /// No description provided for @keelApiGroupWork.
+  ///
+  /// In en, this message translates to:
+  /// **'Deploys, jobs and other work'**
+  String get keelApiGroupWork;
+
+  /// No description provided for @keelApiGroupFinished.
+  ///
+  /// In en, this message translates to:
+  /// **'Finished or failed'**
+  String get keelApiGroupFinished;
+
+  /// No description provided for @keelApiKindSession.
+  ///
+  /// In en, this message translates to:
+  /// **'Session'**
+  String get keelApiKindSession;
+
+  /// No description provided for @keelApiKindKeelAi.
+  ///
+  /// In en, this message translates to:
+  /// **'Keel AI'**
+  String get keelApiKindKeelAi;
+
+  /// No description provided for @keelApiKindLaunch.
+  ///
+  /// In en, this message translates to:
+  /// **'Launch'**
+  String get keelApiKindLaunch;
+
+  /// No description provided for @keelApiKindDeploy.
+  ///
+  /// In en, this message translates to:
+  /// **'Deploy'**
+  String get keelApiKindDeploy;
+
+  /// No description provided for @keelApiKindJob.
+  ///
+  /// In en, this message translates to:
+  /// **'Job'**
+  String get keelApiKindJob;
+
+  /// No description provided for @keelApiKindTool.
+  ///
+  /// In en, this message translates to:
+  /// **'Tool'**
+  String get keelApiKindTool;
+
+  /// No description provided for @keelApiKindClone.
+  ///
+  /// In en, this message translates to:
+  /// **'Clone'**
+  String get keelApiKindClone;
+
+  /// No description provided for @keelApiKindWork.
+  ///
+  /// In en, this message translates to:
+  /// **'Work'**
+  String get keelApiKindWork;
+
+  /// No description provided for @keelApiAutoApprove.
+  ///
+  /// In en, this message translates to:
+  /// **'approves by itself'**
+  String get keelApiAutoApprove;
+
+  /// No description provided for @keelApiChatTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Keel AI on {node}'**
+  String keelApiChatTitle(Object node);
+
+  /// No description provided for @keelApiChatNoServer.
+  ///
+  /// In en, this message translates to:
+  /// **'No keel-server is online. You can write when one comes back.'**
+  String get keelApiChatNoServer;
+
+  /// No description provided for @keelApiChatServerLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Server'**
+  String get keelApiChatServerLabel;
+
+  /// No description provided for @keelApiChatNew.
+  ///
+  /// In en, this message translates to:
+  /// **'New conversation'**
+  String get keelApiChatNew;
+
+  /// No description provided for @keelApiChatHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Write to Keel AI on the server'**
+  String get keelApiChatHint;
+
+  /// No description provided for @keelApiChatAnswering.
+  ///
+  /// In en, this message translates to:
+  /// **'Keel AI is answering…'**
+  String get keelApiChatAnswering;
+
+  /// No description provided for @keelApiChatStop.
+  ///
+  /// In en, this message translates to:
+  /// **'Stop'**
+  String get keelApiChatStop;
+
+  /// No description provided for @keelApiChatSend.
+  ///
+  /// In en, this message translates to:
+  /// **'Send'**
+  String get keelApiChatSend;
+
+  /// No description provided for @keelApiChatEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'This conversation runs on the server\'s Keel AI, not on this machine.'**
+  String get keelApiChatEmpty;
+
+  /// No description provided for @keelApiOpenTask.
+  ///
+  /// In en, this message translates to:
+  /// **'Open'**
+  String get keelApiOpenTask;
 }
 
 class _AppLocalizationsDelegate

@@ -29,8 +29,11 @@ flutter analyze       # and this must be clean
 flutter run -d macos  # or -d linux
 ```
 
-The database is local (LMDB) and lives in the app support directory. Nothing
-is uploaded anywhere — there is no Keel backend.
+The database is local (LMDB) and lives in the app support directory, and Keel
+works fully local: nothing is uploaded anywhere and no backend is required. The
+only network client is optional — the Keel panel in the rail can sign in to the
+person's own Keel API (`lib/src/integrations/keel_api/`), and nothing goes there
+unless they sign in.
 
 ## The rules that are not negotiable
 

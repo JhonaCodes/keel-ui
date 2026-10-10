@@ -10,7 +10,7 @@ flowchart LR
     SIDE["Sidebar<br>210px"]
     CENTRO["Central area"]
 
-    RIEL -->|"open a panel<br>that closes"| PANELES["Agents · Skills · Workflows<br>Rules · Hooks · Tools · Boards<br>Integrations · Knowledge · Secrets<br>Machine · Backup · Settings<br>Failures"]
+    RIEL -->|"open a panel<br>that closes"| PANELES["Agents · Skills · Workflows<br>Rules · Hooks · Tools · Boards<br>Integrations · Knowledge · Secrets<br>Machine · Keel API · Backup<br>Settings · Failures"]
     RIEL -->|"open an OS window"| KEELAI["Keel AI"]
 
     SIDE --> PROY["Projects"]
@@ -46,9 +46,29 @@ stateDiagram-v2
     [*] --> boards: open project Boards
     boards --> board: pick a board
     [*] --> session: open a session
+    [*] --> remoteTask: follow a Keel API task
+    [*] --> serverChat: talk to a server's Keel AI
 ```
 
 An open project always shows **three sibling sections** in the sidebar — State, Boards, and Sessions —, written with the same widget so they read as equals ([see F32](../features/32-single-navigation.md)). To see this on a real screen, open `../mockup/proyectos-y-requerimientos.html`.
+
+## The Keel API panel
+
+Keel works fully local. The **Keel** button in the rail's bottom group is the
+optional bridge to the person's own Keel API: a panel with **Account** (sign in
+with username, password and authenticator code; the password and code are never
+stored, only the session's refresh token, in an owner-only file), **Nodes**
+(every node enrolled with the server and whether it is online), **Tasks** (the
+queue, a status filter and **New task**, which only offers nodes online now) and
+**Sessions** (what every node reports, grouped as waiting on you, active,
+other work, finished). The button carries a dot: primary while signed in, error
+when the server ended the session.
+
+Like every rail panel it closes: clicking a task opens the `remoteTask` lens,
+which follows that task in the central area and reads it again every few
+seconds while it runs; **Chat with its Keel AI** on an online keel-server opens
+the `serverChat` lens, a conversation with that server's own Keel AI through
+`keelai.*` tasks.
 
 ## Chat 1:1 vs project
 

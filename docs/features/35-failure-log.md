@@ -60,7 +60,8 @@ does not say which of the six projects it was.
 
 ## What it does NOT do
 
-**It sends nothing out.** Keel has no server and no account, and a failure
+**It sends nothing out.** Keel needs no server and no account (the optional
+Keel API connection never carries the failure log), and a failure
 uploaded somewhere is a failure travelling with your projects' paths, your repos'
 names, and sometimes a piece of your code inside. The log lives in the same local
 database as everything else.

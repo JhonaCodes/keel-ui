@@ -1,6 +1,8 @@
 import 'package:reactive_notifier/reactive_notifier.dart';
 
 import 'package:keel_ui/src/modules/agents/viewmodel/agents_viewmodel.dart';
+import 'package:keel_ui/src/modules/keel_remote/viewmodel/remote_task_viewmodel.dart';
+import 'package:keel_ui/src/modules/keel_remote/viewmodel/server_chat_viewmodel.dart';
 import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
 import 'package:keel_ui/src/modules/requirements/viewmodel/requirements_viewmodel.dart';
 import 'package:keel_ui/src/modules/workspace/model/workspace_lens.dart';
@@ -81,6 +83,19 @@ class WorkspaceViewModel extends ViewModel<WorkspaceState> {
     _projects.selectProject(projectId);
     _projects.createSession(projectId);
     _show(WorkspaceLens.session);
+  }
+
+  /// Follows one task of the Keel API in the central area.
+  void openRemoteTask(String taskId) {
+    RemoteTaskService.instance.notifier.follow(taskId);
+    _show(WorkspaceLens.remoteTask);
+  }
+
+  /// Talks to Keel AI on a keel-server node; with [nodeId] null, on the
+  /// first one online.
+  void openServerChat([String? nodeId]) {
+    ServerChatService.instance.notifier.selectNode(nodeId);
+    _show(WorkspaceLens.serverChat);
   }
 
   void _show(WorkspaceLens lens) {

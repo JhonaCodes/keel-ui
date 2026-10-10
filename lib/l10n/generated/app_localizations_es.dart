@@ -1524,7 +1524,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get termsSection1Body =>
-      'Keel es una herramienta de escritorio que trabaja sobre los CLI de agentes que ya tienes instalados en tu máquina. No es un servicio: no hay un servidor de Keel al que te conectes, no hay cuenta que crear y no hay registro. Si apagas internet, Keel sigue abriéndose.\n\nUsar Keel significa aceptar estos términos. Si no estás de acuerdo con alguno, no lo uses.';
+      'Keel es una herramienta de escritorio que trabaja sobre los CLI de agentes que ya tienes instalados en tu máquina. Funciona completo en tu máquina: no hay cuenta de Keel que crear ni registro, y si apagas internet, Keel sigue abriéndose.\n\nDe forma opcional, puedes conectarlo a tu propia Keel API —un servidor que corres tú— para ver tus nodos, encolarles tareas y seguir lo que reportan. Sin ella, Keel funciona igual.\n\nUsar Keel significa aceptar estos términos. Si no estás de acuerdo con alguno, no lo uses.';
 
   @override
   String get termsSection2Title => '2. De quién es';
@@ -1552,14 +1552,14 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get termsSection5Body =>
-      'No te pide nombre, correo, contraseñas ni claves de nada. No hay inicio de sesión. Todo lo que armas —proyectos, agentes, skills, tools, bases de saber, hilos de chat y ajustes— se guarda en tu propia máquina.\n\nLos valores de tus secrets nunca salen en un respaldo: el respaldo lleva solo los nombres, para que del otro lado sepas cuáles completar. La API de trabajos programados escucha únicamente en loopback, o sea que no es alcanzable desde fuera de tu equipo.';
+      'Para funcionar no te pide nombre, correo, contraseñas ni claves de nada. Todo lo que armas —proyectos, agentes, skills, tools, bases de saber, hilos de chat y ajustes— se guarda en tu propia máquina.\n\nSi eliges conectarte a tu propia Keel API, inicias sesión en ESE servidor con su usuario, contraseña y código del autenticador. La contraseña y el código se envían una vez y no se guardan; solo se conserva el token de renovación de la sesión, en un archivo que solo tu usuario puede leer.\n\nLos valores de tus secrets nunca salen en un respaldo: el respaldo lleva solo los nombres, para que del otro lado sepas cuáles completar. La API de trabajos programados escucha únicamente en loopback, o sea que no es alcanzable desde fuera de tu equipo.';
 
   @override
   String get termsSection6Title => '6. Lo único que sí sale de tu máquina';
 
   @override
   String get termsSection6Body =>
-      'Si esta compilación trae configurado un canal de reportes, cuando algo se rompe se envía a ese canal: el mensaje del error, su traza, el archivo de Keel donde ocurrió, el nombre de tu equipo y si la compilación es de desarrollo o de producción.\n\nNo se envía nada más. Ni el contenido de tus chats, ni tus archivos, ni tus secrets, ni qué proyectos tienes. Sirve para una sola cosa: que quien mantiene Keel se entere de que algo falló.';
+      'Si esta compilación trae configurado un canal de reportes, cuando algo se rompe se envía a ese canal: el mensaje del error, su traza, el archivo de Keel donde ocurrió, el nombre de tu equipo y si la compilación es de desarrollo o de producción.\n\nSi conectas Keel a tu propia Keel API, lo que haces desde su panel —iniciar sesión, leer tus nodos, tareas y sesiones, encolar una tarea, escribirle al Keel AI del servidor— viaja a ese servidor, que es tuyo. Nada va ahí si no inicias sesión.\n\nNo se envía nada más. Ni el contenido de tus chats, ni tus archivos, ni tus secrets, ni qué proyectos tienes. El canal de reportes sirve para una sola cosa: que quien mantiene Keel se entere de que algo falló.';
 
   @override
   String get termsSection7Title =>
@@ -2494,6 +2494,330 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get codexFullDiskAccessHelp =>
       'Deja escribir fuera de la carpeta del proyecto. Un chat puede activarlo solo para sí.';
+
+  @override
+  String get keelApiRailTooltipOff =>
+      'Keel API — opcional. Keel funciona completo en esta máquina; inicia sesión para llegar a tu propio servidor.';
+
+  @override
+  String keelApiRailTooltipConnected(Object host, Object username) {
+    return 'Conectado a $host como $username';
+  }
+
+  @override
+  String get keelApiRailTooltipEnded =>
+      'Tu sesión de Keel API terminó. Vuelve a iniciar sesión.';
+
+  @override
+  String get keelApiPanelTitle => 'Keel API';
+
+  @override
+  String get keelApiTabAccount => 'Cuenta';
+
+  @override
+  String get keelApiTabNodes => 'Nodos';
+
+  @override
+  String get keelApiTabTasks => 'Tareas';
+
+  @override
+  String get keelApiTabSessions => 'Sesiones';
+
+  @override
+  String get keelApiIntro =>
+      'Keel funciona completo en esta máquina. Conectarlo a tu propia Keel API es opcional: muestra los nodos inscritos en ella, te deja encolarles tareas y seguir lo que reportan.';
+
+  @override
+  String get keelApiSignInFirst =>
+      'Inicia sesión en la pestaña Cuenta para ver esto.';
+
+  @override
+  String get keelApiRefresh => 'Actualizar';
+
+  @override
+  String get keelApiServerLabel => 'Servidor';
+
+  @override
+  String get keelApiUsernameLabel => 'Usuario';
+
+  @override
+  String get keelApiPasswordLabel => 'Contraseña';
+
+  @override
+  String get keelApiCodeLabel => 'Código del autenticador';
+
+  @override
+  String get keelApiSignIn => 'Iniciar sesión';
+
+  @override
+  String get keelApiSignOut => 'Cerrar sesión';
+
+  @override
+  String keelApiSignedInAs(Object username) {
+    return 'Sesión iniciada como $username';
+  }
+
+  @override
+  String keelApiServerValue(Object host) {
+    return 'Servidor: $host';
+  }
+
+  @override
+  String keelApiDeviceValue(Object device) {
+    return 'Esta máquina: $device';
+  }
+
+  @override
+  String get keelApiCredentialsNote =>
+      'La contraseña y el código se envían una vez y no se guardan. Solo se conserva el token de renovación de la sesión, en un archivo que solo tu usuario puede leer.';
+
+  @override
+  String get keelApiFailureNotSignedIn =>
+      'Primero inicia sesión en tu Keel API.';
+
+  @override
+  String get keelApiFailureInvalidServer =>
+      'Escribe la dirección https:// completa de tu Keel API, sin ruta.';
+
+  @override
+  String get keelApiFailureUnauthorized =>
+      'Usuario, contraseña o código incorrectos, o la sesión terminó. Vuelve a iniciar sesión.';
+
+  @override
+  String get keelApiFailureForbidden => 'Esta sesión no puede hacer eso.';
+
+  @override
+  String get keelApiFailureBadRequest => 'El servidor rechazó el pedido.';
+
+  @override
+  String get keelApiFailureNotFound => 'Eso ya no existe en el servidor.';
+
+  @override
+  String get keelApiFailureConflict =>
+      'Eso choca con lo que el servidor ya tiene.';
+
+  @override
+  String get keelApiFailureRateLimited =>
+      'Demasiados intentos. Espera unos minutos y vuelve a intentarlo.';
+
+  @override
+  String get keelApiFailureServer =>
+      'El servidor no pudo responder. Inténtalo en un momento.';
+
+  @override
+  String get keelApiFailureNetwork =>
+      'No se pudo llegar al servidor. Revisa la dirección y tu red.';
+
+  @override
+  String get keelApiFailureUnexpected =>
+      'El servidor respondió algo que Keel no puede leer.';
+
+  @override
+  String get keelApiFailureNoOnlineNode =>
+      'No hay ningún nodo en línea para tomarlo.';
+
+  @override
+  String get keelApiFailureStalled =>
+      'Ningún nodo tomó el pedido en un minuto. Revisa que keel-server esté corriendo.';
+
+  @override
+  String get keelApiFailureNodeFailed => 'El nodo no pudo completarlo.';
+
+  @override
+  String get keelApiFailureStorage =>
+      'Esta máquina no pudo guardar la sesión con permisos solo para tu usuario, así que no se guardó.';
+
+  @override
+  String get keelApiNodesEmpty =>
+      'Todavía no hay nodos inscritos en este servidor.';
+
+  @override
+  String get keelApiNodeOnline => 'en línea';
+
+  @override
+  String get keelApiNodeOffline => 'sin conexión';
+
+  @override
+  String keelApiNodeLastSeen(Object when) {
+    return 'visto por última vez $when';
+  }
+
+  @override
+  String get keelApiNodeChat => 'Hablar con su Keel AI';
+
+  @override
+  String get keelApiTasksEmpty => 'No hay tareas aquí.';
+
+  @override
+  String get keelApiNewTask => 'Nueva tarea';
+
+  @override
+  String get keelApiFilterAll => 'Todas';
+
+  @override
+  String get keelApiStatusTodo => 'En cola';
+
+  @override
+  String get keelApiStatusEvaluating => 'Evaluando';
+
+  @override
+  String get keelApiStatusInProgress => 'En curso';
+
+  @override
+  String get keelApiStatusPaused => 'Pausada';
+
+  @override
+  String get keelApiStatusDone => 'Terminada';
+
+  @override
+  String get keelApiStatusCancelled => 'Cancelada';
+
+  @override
+  String get keelApiCancelTask => 'Cancelar tarea';
+
+  @override
+  String get keelApiAnyNode => 'cualquier nodo';
+
+  @override
+  String get keelApiTaskTypeLabel => 'Tipo';
+
+  @override
+  String get keelApiTaskTypeHint => 'por ejemplo scan_tickets o deploy.run';
+
+  @override
+  String get keelApiTaskNodeLabel => 'Nodo';
+
+  @override
+  String get keelApiTaskNoOnlineNodes =>
+      'No hay ningún nodo en línea ahora. Una tarea solo puede ir a un nodo en línea.';
+
+  @override
+  String get keelApiTaskProjectLabel => 'Proyecto (opcional)';
+
+  @override
+  String get keelApiTaskPayloadLabel => 'Payload (JSON)';
+
+  @override
+  String get keelApiTaskCreate => 'Crear tarea';
+
+  @override
+  String get keelApiDraftMissingType => 'Escribe el tipo de la tarea.';
+
+  @override
+  String get keelApiDraftPayloadNotObject =>
+      'El payload tiene que ser un objeto JSON.';
+
+  @override
+  String get keelApiDraftNodeNotOnline => 'Elige un nodo que esté en línea.';
+
+  @override
+  String get keelApiTaskSummary => 'Resultado';
+
+  @override
+  String get keelApiTaskError => 'Error';
+
+  @override
+  String get keelApiTaskEvents => 'Lo que reportó el nodo';
+
+  @override
+  String get keelApiTaskNoEvents => 'El nodo todavía no reportó nada.';
+
+  @override
+  String get keelApiEventMessage => 'Mensaje';
+
+  @override
+  String get keelApiEventYou => 'Tú';
+
+  @override
+  String get keelApiEventStep => 'Paso';
+
+  @override
+  String get keelApiEventDecisionOpened => 'Aprobación solicitada';
+
+  @override
+  String get keelApiEventDecisionAnswered => 'Aprobación respondida';
+
+  @override
+  String get keelApiEventActionApplied => 'Cambio aplicado';
+
+  @override
+  String get keelApiEventActionFailed => 'El cambio falló';
+
+  @override
+  String get keelApiSessionsEmpty => 'Ningún nodo está reportando nada ahora.';
+
+  @override
+  String get keelApiGroupWaiting => 'Esperándote';
+
+  @override
+  String get keelApiGroupActive => 'Sesiones activas';
+
+  @override
+  String get keelApiGroupWork => 'Despliegues, jobs y otros procesos';
+
+  @override
+  String get keelApiGroupFinished => 'Terminadas o fallidas';
+
+  @override
+  String get keelApiKindSession => 'Sesión';
+
+  @override
+  String get keelApiKindKeelAi => 'Keel AI';
+
+  @override
+  String get keelApiKindLaunch => 'Lanzamiento';
+
+  @override
+  String get keelApiKindDeploy => 'Despliegue';
+
+  @override
+  String get keelApiKindJob => 'Job';
+
+  @override
+  String get keelApiKindTool => 'Tool';
+
+  @override
+  String get keelApiKindClone => 'Clonado';
+
+  @override
+  String get keelApiKindWork => 'Proceso';
+
+  @override
+  String get keelApiAutoApprove => 'aprueba solo';
+
+  @override
+  String keelApiChatTitle(Object node) {
+    return 'Keel AI en $node';
+  }
+
+  @override
+  String get keelApiChatNoServer =>
+      'No hay ningún keel-server en línea. Podrás escribir cuando vuelva.';
+
+  @override
+  String get keelApiChatServerLabel => 'Servidor';
+
+  @override
+  String get keelApiChatNew => 'Nueva conversación';
+
+  @override
+  String get keelApiChatHint => 'Escríbele a Keel AI en el servidor';
+
+  @override
+  String get keelApiChatAnswering => 'Keel AI está respondiendo…';
+
+  @override
+  String get keelApiChatStop => 'Detener';
+
+  @override
+  String get keelApiChatSend => 'Enviar';
+
+  @override
+  String get keelApiChatEmpty =>
+      'Esta conversación corre en el Keel AI del servidor, no en esta máquina.';
+
+  @override
+  String get keelApiOpenTask => 'Abrir';
 }
 
 /// The translations for Spanish Castilian, as used in Colombia (`es_CO`).
@@ -4016,7 +4340,7 @@ class AppLocalizationsEsCo extends AppLocalizationsEs {
 
   @override
   String get termsSection1Body =>
-      'Keel es una herramienta de escritorio que trabaja sobre los CLI de agentes que ya tienes instalados en tu máquina. No es un servicio: no hay un servidor de Keel al que te conectes, no hay cuenta que crear y no hay registro. Si apagas internet, Keel sigue abriéndose.\n\nUsar Keel significa aceptar estos términos. Si no estás de acuerdo con alguno, no lo uses.';
+      'Keel es una herramienta de escritorio que trabaja sobre los CLI de agentes que ya tienes instalados en tu máquina. Funciona completo en tu máquina: no hay cuenta de Keel que crear ni registro, y si apagas internet, Keel sigue abriéndose.\n\nDe forma opcional, puedes conectarlo a tu propia Keel API —un servidor que corres tú— para ver tus nodos, encolarles tareas y seguir lo que reportan. Sin ella, Keel funciona igual.\n\nUsar Keel significa aceptar estos términos. Si no estás de acuerdo con alguno, no lo uses.';
 
   @override
   String get termsSection2Title => '2. De quién es';
@@ -4044,14 +4368,14 @@ class AppLocalizationsEsCo extends AppLocalizationsEs {
 
   @override
   String get termsSection5Body =>
-      'No te pide nombre, correo, contraseñas ni claves de nada. No hay inicio de sesión. Todo lo que armas —proyectos, agentes, skills, tools, bases de saber, hilos de chat y ajustes— se guarda en tu propia máquina.\n\nLos valores de tus secrets nunca salen en un respaldo: el respaldo lleva solo los nombres, para que del otro lado sepas cuáles completar. La API de trabajos programados escucha únicamente en loopback, o sea que no es alcanzable desde fuera de tu equipo.';
+      'Para funcionar no te pide nombre, correo, contraseñas ni claves de nada. Todo lo que armas —proyectos, agentes, skills, tools, bases de saber, hilos de chat y ajustes— se guarda en tu propia máquina.\n\nSi eliges conectarte a tu propia Keel API, inicias sesión en ESE servidor con su usuario, contraseña y código del autenticador. La contraseña y el código se envían una vez y no se guardan; solo se conserva el token de renovación de la sesión, en un archivo que solo tu usuario puede leer.\n\nLos valores de tus secrets nunca salen en un respaldo: el respaldo lleva solo los nombres, para que del otro lado sepas cuáles completar. La API de trabajos programados escucha únicamente en loopback, o sea que no es alcanzable desde fuera de tu equipo.';
 
   @override
   String get termsSection6Title => '6. Lo único que sí sale de tu máquina';
 
   @override
   String get termsSection6Body =>
-      'Si esta compilación trae configurado un canal de reportes, cuando algo se rompe se envía a ese canal: el mensaje del error, su traza, el archivo de Keel donde ocurrió, el nombre de tu equipo y si la compilación es de desarrollo o de producción.\n\nNo se envía nada más. Ni el contenido de tus chats, ni tus archivos, ni tus secrets, ni qué proyectos tienes. Sirve para una sola cosa: que quien mantiene Keel se entere de que algo falló.';
+      'Si esta compilación trae configurado un canal de reportes, cuando algo se rompe se envía a ese canal: el mensaje del error, su traza, el archivo de Keel donde ocurrió, el nombre de tu equipo y si la compilación es de desarrollo o de producción.\n\nSi conectas Keel a tu propia Keel API, lo que haces desde su panel —iniciar sesión, leer tus nodos, tareas y sesiones, encolar una tarea, escribirle al Keel AI del servidor— viaja a ese servidor, que es tuyo. Nada va ahí si no inicias sesión.\n\nNo se envía nada más. Ni el contenido de tus chats, ni tus archivos, ni tus secrets, ni qué proyectos tienes. El canal de reportes sirve para una sola cosa: que quien mantiene Keel se entere de que algo falló.';
 
   @override
   String get termsSection7Title =>
@@ -4986,4 +5310,328 @@ class AppLocalizationsEsCo extends AppLocalizationsEs {
   @override
   String get codexFullDiskAccessHelp =>
       'Deja escribir fuera de la carpeta del proyecto. Un chat puede activarlo solo para sí.';
+
+  @override
+  String get keelApiRailTooltipOff =>
+      'Keel API — opcional. Keel funciona completo en esta máquina; inicia sesión para llegar a tu propio servidor.';
+
+  @override
+  String keelApiRailTooltipConnected(Object host, Object username) {
+    return 'Conectado a $host como $username';
+  }
+
+  @override
+  String get keelApiRailTooltipEnded =>
+      'Tu sesión de Keel API terminó. Vuelve a iniciar sesión.';
+
+  @override
+  String get keelApiPanelTitle => 'Keel API';
+
+  @override
+  String get keelApiTabAccount => 'Cuenta';
+
+  @override
+  String get keelApiTabNodes => 'Nodos';
+
+  @override
+  String get keelApiTabTasks => 'Tareas';
+
+  @override
+  String get keelApiTabSessions => 'Sesiones';
+
+  @override
+  String get keelApiIntro =>
+      'Keel funciona completo en esta máquina. Conectarlo a tu propia Keel API es opcional: muestra los nodos inscritos en ella, te deja encolarles tareas y seguir lo que reportan.';
+
+  @override
+  String get keelApiSignInFirst =>
+      'Inicia sesión en la pestaña Cuenta para ver esto.';
+
+  @override
+  String get keelApiRefresh => 'Actualizar';
+
+  @override
+  String get keelApiServerLabel => 'Servidor';
+
+  @override
+  String get keelApiUsernameLabel => 'Usuario';
+
+  @override
+  String get keelApiPasswordLabel => 'Contraseña';
+
+  @override
+  String get keelApiCodeLabel => 'Código del autenticador';
+
+  @override
+  String get keelApiSignIn => 'Iniciar sesión';
+
+  @override
+  String get keelApiSignOut => 'Cerrar sesión';
+
+  @override
+  String keelApiSignedInAs(Object username) {
+    return 'Sesión iniciada como $username';
+  }
+
+  @override
+  String keelApiServerValue(Object host) {
+    return 'Servidor: $host';
+  }
+
+  @override
+  String keelApiDeviceValue(Object device) {
+    return 'Esta máquina: $device';
+  }
+
+  @override
+  String get keelApiCredentialsNote =>
+      'La contraseña y el código se envían una vez y no se guardan. Solo se conserva el token de renovación de la sesión, en un archivo que solo tu usuario puede leer.';
+
+  @override
+  String get keelApiFailureNotSignedIn =>
+      'Primero inicia sesión en tu Keel API.';
+
+  @override
+  String get keelApiFailureInvalidServer =>
+      'Escribe la dirección https:// completa de tu Keel API, sin ruta.';
+
+  @override
+  String get keelApiFailureUnauthorized =>
+      'Usuario, contraseña o código incorrectos, o la sesión terminó. Vuelve a iniciar sesión.';
+
+  @override
+  String get keelApiFailureForbidden => 'Esta sesión no puede hacer eso.';
+
+  @override
+  String get keelApiFailureBadRequest => 'El servidor rechazó el pedido.';
+
+  @override
+  String get keelApiFailureNotFound => 'Eso ya no existe en el servidor.';
+
+  @override
+  String get keelApiFailureConflict =>
+      'Eso choca con lo que el servidor ya tiene.';
+
+  @override
+  String get keelApiFailureRateLimited =>
+      'Demasiados intentos. Espera unos minutos y vuelve a intentarlo.';
+
+  @override
+  String get keelApiFailureServer =>
+      'El servidor no pudo responder. Inténtalo en un momento.';
+
+  @override
+  String get keelApiFailureNetwork =>
+      'No se pudo llegar al servidor. Revisa la dirección y tu red.';
+
+  @override
+  String get keelApiFailureUnexpected =>
+      'El servidor respondió algo que Keel no puede leer.';
+
+  @override
+  String get keelApiFailureNoOnlineNode =>
+      'No hay ningún nodo en línea para tomarlo.';
+
+  @override
+  String get keelApiFailureStalled =>
+      'Ningún nodo tomó el pedido en un minuto. Revisa que keel-server esté corriendo.';
+
+  @override
+  String get keelApiFailureNodeFailed => 'El nodo no pudo completarlo.';
+
+  @override
+  String get keelApiFailureStorage =>
+      'Esta máquina no pudo guardar la sesión con permisos solo para tu usuario, así que no se guardó.';
+
+  @override
+  String get keelApiNodesEmpty =>
+      'Todavía no hay nodos inscritos en este servidor.';
+
+  @override
+  String get keelApiNodeOnline => 'en línea';
+
+  @override
+  String get keelApiNodeOffline => 'sin conexión';
+
+  @override
+  String keelApiNodeLastSeen(Object when) {
+    return 'visto por última vez $when';
+  }
+
+  @override
+  String get keelApiNodeChat => 'Hablar con su Keel AI';
+
+  @override
+  String get keelApiTasksEmpty => 'No hay tareas aquí.';
+
+  @override
+  String get keelApiNewTask => 'Nueva tarea';
+
+  @override
+  String get keelApiFilterAll => 'Todas';
+
+  @override
+  String get keelApiStatusTodo => 'En cola';
+
+  @override
+  String get keelApiStatusEvaluating => 'Evaluando';
+
+  @override
+  String get keelApiStatusInProgress => 'En curso';
+
+  @override
+  String get keelApiStatusPaused => 'Pausada';
+
+  @override
+  String get keelApiStatusDone => 'Terminada';
+
+  @override
+  String get keelApiStatusCancelled => 'Cancelada';
+
+  @override
+  String get keelApiCancelTask => 'Cancelar tarea';
+
+  @override
+  String get keelApiAnyNode => 'cualquier nodo';
+
+  @override
+  String get keelApiTaskTypeLabel => 'Tipo';
+
+  @override
+  String get keelApiTaskTypeHint => 'por ejemplo scan_tickets o deploy.run';
+
+  @override
+  String get keelApiTaskNodeLabel => 'Nodo';
+
+  @override
+  String get keelApiTaskNoOnlineNodes =>
+      'No hay ningún nodo en línea ahora. Una tarea solo puede ir a un nodo en línea.';
+
+  @override
+  String get keelApiTaskProjectLabel => 'Proyecto (opcional)';
+
+  @override
+  String get keelApiTaskPayloadLabel => 'Payload (JSON)';
+
+  @override
+  String get keelApiTaskCreate => 'Crear tarea';
+
+  @override
+  String get keelApiDraftMissingType => 'Escribe el tipo de la tarea.';
+
+  @override
+  String get keelApiDraftPayloadNotObject =>
+      'El payload tiene que ser un objeto JSON.';
+
+  @override
+  String get keelApiDraftNodeNotOnline => 'Elige un nodo que esté en línea.';
+
+  @override
+  String get keelApiTaskSummary => 'Resultado';
+
+  @override
+  String get keelApiTaskError => 'Error';
+
+  @override
+  String get keelApiTaskEvents => 'Lo que reportó el nodo';
+
+  @override
+  String get keelApiTaskNoEvents => 'El nodo todavía no reportó nada.';
+
+  @override
+  String get keelApiEventMessage => 'Mensaje';
+
+  @override
+  String get keelApiEventYou => 'Tú';
+
+  @override
+  String get keelApiEventStep => 'Paso';
+
+  @override
+  String get keelApiEventDecisionOpened => 'Aprobación solicitada';
+
+  @override
+  String get keelApiEventDecisionAnswered => 'Aprobación respondida';
+
+  @override
+  String get keelApiEventActionApplied => 'Cambio aplicado';
+
+  @override
+  String get keelApiEventActionFailed => 'El cambio falló';
+
+  @override
+  String get keelApiSessionsEmpty => 'Ningún nodo está reportando nada ahora.';
+
+  @override
+  String get keelApiGroupWaiting => 'Esperándote';
+
+  @override
+  String get keelApiGroupActive => 'Sesiones activas';
+
+  @override
+  String get keelApiGroupWork => 'Despliegues, jobs y otros procesos';
+
+  @override
+  String get keelApiGroupFinished => 'Terminadas o fallidas';
+
+  @override
+  String get keelApiKindSession => 'Sesión';
+
+  @override
+  String get keelApiKindKeelAi => 'Keel AI';
+
+  @override
+  String get keelApiKindLaunch => 'Lanzamiento';
+
+  @override
+  String get keelApiKindDeploy => 'Despliegue';
+
+  @override
+  String get keelApiKindJob => 'Job';
+
+  @override
+  String get keelApiKindTool => 'Tool';
+
+  @override
+  String get keelApiKindClone => 'Clonado';
+
+  @override
+  String get keelApiKindWork => 'Proceso';
+
+  @override
+  String get keelApiAutoApprove => 'aprueba solo';
+
+  @override
+  String keelApiChatTitle(Object node) {
+    return 'Keel AI en $node';
+  }
+
+  @override
+  String get keelApiChatNoServer =>
+      'No hay ningún keel-server en línea. Podrás escribir cuando vuelva.';
+
+  @override
+  String get keelApiChatServerLabel => 'Servidor';
+
+  @override
+  String get keelApiChatNew => 'Nueva conversación';
+
+  @override
+  String get keelApiChatHint => 'Escríbele a Keel AI en el servidor';
+
+  @override
+  String get keelApiChatAnswering => 'Keel AI está respondiendo…';
+
+  @override
+  String get keelApiChatStop => 'Detener';
+
+  @override
+  String get keelApiChatSend => 'Enviar';
+
+  @override
+  String get keelApiChatEmpty =>
+      'Esta conversación corre en el Keel AI del servidor, no en esta máquina.';
+
+  @override
+  String get keelApiOpenTask => 'Abrir';
 }

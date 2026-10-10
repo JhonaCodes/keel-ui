@@ -2,7 +2,7 @@
 
 ## In one sentence
 
-Keel is a desktop app — macOS and Linux x86_64 — that wraps the **local CLI** of Claude and Codex: it runs the same binary you'd use in a terminal, with the same login and the same subscription. An agent can additionally run against an OpenAI-compatible API (OpenRouter, DeepSeek) when its secret is configured. What does not exist is a Keel backend: no proprietary API, no account, nothing to upload. On top of that, the app adds everything needed to coordinate multiple agents, multiple projects, and a large team without one person having to carry the context in their head.
+Keel is a desktop app — macOS and Linux x86_64 — that wraps the **local CLI** of Claude and Codex: it runs the same binary you'd use in a terminal, with the same login and the same subscription. An agent can additionally run against an OpenAI-compatible API (OpenRouter, DeepSeek) when its secret is configured. It works fully local: no backend it depends on, no account to create, nothing it uploads. Optionally, it can connect to your own Keel API — a server you run yourself — to see your nodes, queue tasks for them and follow what they report. On top of that, the app adds everything needed to coordinate multiple agents, multiple projects, and a large team without one person having to carry the context in their head.
 
 What Keel adds is not the model. It is **who your agents are, what each one knows, in what order they speak, what each can touch, and what is written down when they finish**.
 
@@ -72,7 +72,7 @@ It is not a help chat: it has real tools. Ask it "build me a project for the bil
 
 ## What runs underneath
 
-Each agent runs on a real CLI, `claude` or `codex`, with the same session and subscription you'd use in a terminal. Keel builds the prompt, the environment, and the tools for that run, then launches the binary. None of that goes through a Keel server: there is no account, no backend, the database is local (LMDB) and lives in the app's support directory.
+Each agent runs on a real CLI, `claude` or `codex`, with the same session and subscription you'd use in a terminal. Keel builds the prompt, the environment, and the tools for that run, then launches the binary. None of that goes through a Keel server: it needs no account and no backend, and the database is local (LMDB) and lives in the app's support directory. Connecting to your own Keel API is optional and separate — it lets this machine see the nodes enrolled with it, queue tasks for them, follow each task's report and talk to a server's Keel AI, all from the Keel panel in the rail; without it, Keel works exactly the same.
 
 ## Next step
 

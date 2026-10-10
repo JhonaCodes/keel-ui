@@ -26,6 +26,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:keel_core/engine/core_engine.dart';
+import 'package:keel_core/modules/agent_profiles/service/agent_profiles_store.dart';
 import 'package:keel_core/integrations/machine/machine.dart';
 import 'package:keel_core/integrations/node_keel_ai/node_keel_ai.dart';
 import 'package:keel_core/integrations/node_link/node_link.dart';

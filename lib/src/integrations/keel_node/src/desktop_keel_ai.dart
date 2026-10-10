@@ -7,12 +7,13 @@ part of '../keel_node.dart';
 /// A session it starts is the app's `session.start`: the same command on the
 /// same engine ([KeelUiNodeHost.run]), so the session the person had open and
 /// the project they had selected stay as they were. Its turns run on
-/// keel-core's task runner — each in its own isolate, with the CLI keel-core
-/// gives Keel AI — and its tools' token travels in the turn's MCP config
-/// file, never in argv.
+/// keel-core's task runner — each in its own isolate, with the provider of
+/// the `keelai` profile — and its tools' token travels in the turn's MCP
+/// config, never in argv.
 ///
 /// Its conversations live in `<app support>/node_link/keel_ai/`, apart from
-/// this window's own Keel AI chat. It works in the person's home folder, as
+/// this window's own Keel AI chat, but they run on the same `keelai` profile's
+/// provider, model and effort. It works in the person's home folder, as
 /// keel-ui's agents without a project do.
 final class DesktopKeelAi {
   DesktopKeelAi._({
@@ -88,6 +89,9 @@ final class DesktopKeelAi {
             '"${Platform.localHostname}"',
         place: place,
       ),
+      // Its provider, model and effort: this app's `keelai` profile, the
+      // same one this window's own Keel AI runs on.
+      engine: () => AgentProfilesStore.instance.keelAiProfile,
       log: (level, title, detail) =>
           log.add('keelai', title, level: level, detail: detail),
     );

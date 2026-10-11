@@ -89,7 +89,9 @@ class _AssistantWindowState extends State<AssistantWindow> {
                 appBar: AppBar(
                   title: Text(t.assistantWindowTitle),
                   actions: [
-                    if (state.sessions.length > 1)
+                    // Visible con una sola: escondido, no había forma de
+                    // saber que existe una lista de conversaciones.
+                    if (state.sessions.isNotEmpty)
                       _SessionsMenu(
                         sessions: state.sessions,
                         selectedId: state.activeAgentId,

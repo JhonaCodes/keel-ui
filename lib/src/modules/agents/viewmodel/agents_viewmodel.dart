@@ -32,6 +32,7 @@ import 'package:keel_core/modules/agents/model/plan_decision.dart';
 import 'package:keel_core/modules/agents/model/queued_message.dart';
 import 'package:keel_ui/src/modules/agents/viewmodel/model_catalog_viewmodel.dart';
 import 'package:keel_core/modules/agents/repository/agents_repository.dart';
+import 'package:keel_ui/src/modules/agents/repository/agent_records.dart';
 import 'package:keel_core/integrations/decisions_mcp/decisions_mcp_server.dart';
 import 'package:keel_core/integrations/hook_delivery/hook_delivery.dart';
 import 'package:keel_core/integrations/chat_references/chat_references.dart';
@@ -86,8 +87,8 @@ class AgentsViewModel extends ViewModel<AgentsState> {
   /// Guardar de a un agente y de a ráfagas.
   ///
   /// Casi todo lo que pasa acá cambia UN agente: llega un pedazo de texto, se
-  /// marca el modelo, se contesta un permiso. Hacerlo con [_persist]
-  /// reescribía la lista entera —cada agente con todos sus mensajes, y cada
+  /// marca el modelo, se contesta un permiso. Hacerlo con
+  /// `AgentsRepository.save` reescribía la lista entera —cada agente con todos sus mensajes, y cada
   /// mensaje con el contenido completo de los archivos que tocó— con una
   /// llamada FFI bloqueante por registro, sobre el hilo de la interfaz.
   late final _writes = CoalescedWrites(
@@ -120,16 +121,36 @@ class AgentsViewModel extends ViewModel<AgentsState> {
   String get looseAgentWorkingDirectory =>
       Platform.environment['HOME'] ?? Directory.current.path;
 
+  /// Completes once the saved conversations have been read (or failed to).
+  /// Whoever picks a chat for the person —the Keel AI window— waits for it:
+  /// before this, «no conversations» only means «not loaded yet».
+  Future<void> get ready => _ready;
+  late Future<void> _ready;
+
   @override
   void init() {
     updateSilently(const AgentsState());
-    unawaited(_loadPersistedAgents());
+    _ready = _loadPersistedAgents();
   }
 
+  /// Lo que se creó mientras la carga estaba en vuelo se conserva: pisar la
+  /// lista con lo leído hacía desaparecer de la pantalla el chat que la
+  /// ventana de Keel AI acababa de abrir.
   Future<void> _loadPersistedAgents() async {
     try {
-      final agents = await _repository.load();
-      updateState(data.copyWith(agents: agents));
+      final (:agents, :unreadable) = await _repository.loadReadable();
+      if (unreadable > 0) {
+        Log.e('$unreadable saved conversation(s) could not be read; skipped');
+      }
+      final loadedIds = {for (final agent in agents) agent.id};
+      updateState(
+        data.copyWith(
+          agents: [
+            ...agents,
+            ...data.agents.where((agent) => !loadedIds.contains(agent.id)),
+          ],
+        ),
+      );
     } catch (error) {
       Log.e('Failed to load persisted agents', error: error);
     }
@@ -587,9 +608,11 @@ class AgentsViewModel extends ViewModel<AgentsState> {
         ? null
         : data.selectedAgentId;
     updateState(AgentsState(agents: agents, selectedAgentId: selectedAgentId));
-    // Borrar sí necesita reescribir todo: es lo único que saca una clave de
-    // la base, y de paso cancela lo que quedara en la cola de escritura.
-    unawaited(_persist());
+    // Solo SU clave. Reescribir el prefijo entero con lo que había en
+    // memoria borraba también cada conversación que todavía no se había
+    // cargado. Una escritura suya que quedara en cola ya no lo encuentra
+    // (ver `_writes`) y no lo resucita.
+    unawaited(_repository.deleteOne(id));
   }
 
   void deleteMessage(String agentId, DateTime timestamp) {
@@ -1935,13 +1958,6 @@ class AgentsViewModel extends ViewModel<AgentsState> {
         .map((agent) => agent.id == agentId ? transform(agent) : agent)
         .toList();
     updateState(data.copyWith(agents: agents));
-  }
-
-  /// Reescribe la lista completa. Queda para lo que de verdad la necesita:
-  /// borrar un agente, que además tiene que sacar su clave de la base.
-  Future<void> _persist() {
-    _writes.cancelPending();
-    return _repository.save(data.agents);
   }
 }
 

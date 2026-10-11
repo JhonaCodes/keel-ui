@@ -56,6 +56,9 @@ class AssistantWindowBridge {
   }
 
   Future<void> _open() async {
+    // Sin esperar, abrir apenas arranca la app veía «no hay conversaciones»
+    // —no habían llegado todavía— y creaba una encima.
+    await _agents.ready;
     _activeAgentId = _liveActiveAgentId();
     _ensureListening();
     _warmActiveSession();
@@ -155,6 +158,7 @@ class AssistantWindowBridge {
 
     switch (method) {
       case 'attach':
+        await _agents.ready;
         _ensureListening();
         _activeAgentId = _liveActiveAgentId();
         return _encodeWireState();

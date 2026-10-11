@@ -299,6 +299,9 @@ class SystemVaultViewModel extends ViewModel<SystemVaultState> {
       if (written.skipped.isNotEmpty)
         'Afuera por tamaño (más de ${kMaxVaultDocBytes ~/ (1024 * 1024)} MB): '
             '${written.skipped.join(', ')}.',
+      if (written.recoverableByClone.isNotEmpty)
+        'Afuera porque se recuperan clonando su repo: '
+            '${written.recoverableByClone.join(', ')}.',
     ]);
 
     if (remote.isEmpty) {

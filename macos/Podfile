@@ -35,6 +35,33 @@ target 'Runner' do
   end
 end
 
+# flutter_local_db ships one dylib per architecture and its podspec links BOTH
+# into every slice of the universal build, so ld warns twice ("found
+# architecture 'arm64', required architecture 'x86_64'" and the reverse) and
+# drops the mismatched one. Linking each dylib only into its own slice is the
+# same binary, without the warnings. Its loader still needs the library linked
+# (it tries `DynamicLibrary.process()` first), so the flags move, not go.
+LOCAL_DB_DYLIBS = {
+  'arm64' => '-l"offline_first_core_arm64"',
+  'x86_64' => '-l"offline_first_core_x86_64"',
+}.freeze
+
+def link_local_db_per_arch(support_files_dir)
+  Dir.glob(File.join(support_files_dir, '**', '*.xcconfig')).each do |path|
+    lines = File.read(path).lines
+    index = lines.index { |line| line.start_with?('OTHER_LDFLAGS = ') }
+    next unless index && LOCAL_DB_DYLIBS.values.all? { |flag| lines[index].include?(flag) }
+
+    base = LOCAL_DB_DYLIBS.values.reduce(lines[index].chomp) { |line, flag| line.sub(" #{flag}", '') }
+    per_arch = LOCAL_DB_DYLIBS.map do |arch, flag|
+      "#{base.sub('OTHER_LDFLAGS = ', "OTHER_LDFLAGS[arch=#{arch}] = ")} #{flag}\n"
+    end
+    lines[index] = "#{base}\n"
+    lines.insert(index + 1, *per_arch)
+    File.write(path, lines.join)
+  end
+end
+
 post_install do |installer|
   installer.pods_project.targets.each do |target|
     flutter_additional_macos_build_settings(target)
@@ -42,4 +69,5 @@ post_install do |installer|
       config.build_settings['MACOSX_DEPLOYMENT_TARGET'] = '12.0'
     end
   end
+  link_local_db_per_arch(installer.sandbox.target_support_files_root.to_s)
 end

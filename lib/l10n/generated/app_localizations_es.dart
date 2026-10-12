@@ -2894,6 +2894,20 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get keelThisPcProblemUnlinkNotConfirmed =>
       'Esta PC dejó de tomar tareas, pero el servidor no confirmó que quitó el nodo.';
+
+  @override
+  String get settingLaya => 'Laya';
+
+  @override
+  String get descriptionLayaSettings =>
+      'Tu motor de decisión Laya (secrets LAYA_URL y LAYA_API_KEY). Desde la app siempre lo puedes usar.';
+
+  @override
+  String get layaForAgents => 'Laya para los agentes';
+
+  @override
+  String get layaForAgentsHelp =>
+      'Los agentes reciben la tool ask_laya para validar preguntas concretas y cerradas. Apagado: solo la usas tú.';
 }
 
 /// The translations for Spanish Castilian, as used in Colombia (`es_CO`).
@@ -5786,4 +5800,18 @@ class AppLocalizationsEsCo extends AppLocalizationsEs {
   @override
   String get keelThisPcProblemUnlinkNotConfirmed =>
       'Esta PC dejó de tomar tareas, pero el servidor no confirmó que quitó el nodo.';
+
+  @override
+  String get settingLaya => 'Laya';
+
+  @override
+  String get descriptionLayaSettings =>
+      'Tu motor de decisión Laya (secrets LAYA_URL y LAYA_API_KEY). Desde la app siempre lo puedes usar.';
+
+  @override
+  String get layaForAgents => 'Laya para los agentes';
+
+  @override
+  String get layaForAgentsHelp =>
+      'Los agentes reciben la tool ask_laya para validar preguntas concretas y cerradas. Apagado: solo la usas tú.';
 }

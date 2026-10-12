@@ -1627,5 +1627,9 @@
   "keelThisPcRecent": "Recent activity",
   "keelThisPcProblemTokenNotStored": "This machine could not keep the node's token with permissions for your user only, so this PC was not connected.",
   "keelThisPcProblemNotStarted": "The node is enrolled but could not start on this PC. Disconnect it and connect it again.",
-  "keelThisPcProblemUnlinkNotConfirmed": "This PC stopped taking tasks, but the server did not confirm it removed the node."
+  "keelThisPcProblemUnlinkNotConfirmed": "This PC stopped taking tasks, but the server did not confirm it removed the node.",
+  "settingLaya": "Laya",
+  "descriptionLayaSettings": "Your Laya decision engine (secrets LAYA_URL and LAYA_API_KEY). You can always use it from the app.",
+  "layaForAgents": "Laya for agents",
+  "layaForAgentsHelp": "Agents get the ask_laya tool to validate concrete, closed questions. Off: only you use it."
 }

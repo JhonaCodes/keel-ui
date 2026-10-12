@@ -223,6 +223,10 @@ class _ConversationArea extends StatelessWidget {
       );
     }
 
+    // Un proyecto cerrado a mano (volver a tocarlo en la barra) deja el
+    // centro vacío; no cae en el último agente que estuviera abierto.
+    if (workspace.isProjectScoped) return const EmptyChatPlaceholder();
+
     final openAgent = agent;
     if (openAgent == null) return const EmptyChatPlaceholder();
     return ChatView(key: ValueKey(openAgent.id), agent: openAgent);

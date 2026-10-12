@@ -30,6 +30,7 @@ import 'package:keel_ui/src/integrations/assistant_mcp/assistant_mcp_server.dart
 import 'package:keel_ui/src/integrations/jobs_api/jobs_api.dart';
 import 'package:keel_ui/src/integrations/keel_e2e/keel_e2e.dart';
 import 'package:keel_core/integrations/boards_mcp/boards_mcp.dart';
+import 'package:keel_core/integrations/laya_mcp/laya_mcp.dart';
 import 'package:keel_core/integrations/requirements_mcp/requirements_mcp.dart';
 import 'package:keel_core/integrations/roadmap_mcp/roadmap_mcp.dart';
 import 'package:keel_core/integrations/catalog_shape/catalog_shape.dart';
@@ -144,6 +145,7 @@ Future<void> main(List<String> rawArgs) async {
       await RoadmapMcpServer.ensureStarted();
       await RequirementsMcpServer.ensureStarted();
       await BoardsMcpServer.ensureStarted();
+      await LayaMcpServer.ensureStarted();
       await JobsApiService.instance.notifier.start();
       // Optional and never blocking: a session kept from before points the
       // Keel API client at the person's own server. Without one, nothing

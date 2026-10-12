@@ -5042,6 +5042,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'This PC stopped taking tasks, but the server did not confirm it removed the node.'**
   String get keelThisPcProblemUnlinkNotConfirmed;
+
+  /// No description provided for @settingLaya.
+  ///
+  /// In en, this message translates to:
+  /// **'Laya'**
+  String get settingLaya;
+
+  /// No description provided for @descriptionLayaSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Your Laya decision engine (secrets LAYA_URL and LAYA_API_KEY). You can always use it from the app.'**
+  String get descriptionLayaSettings;
+
+  /// No description provided for @layaForAgents.
+  ///
+  /// In en, this message translates to:
+  /// **'Laya for agents'**
+  String get layaForAgents;
+
+  /// No description provided for @layaForAgentsHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Agents get the ask_laya tool to validate concrete, closed questions. Off: only you use it.'**
+  String get layaForAgentsHelp;
 }
 
 class _AppLocalizationsDelegate

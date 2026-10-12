@@ -63,22 +63,6 @@ String rebuildCommand(String root) =>
 /// La salida es la ordenada —la misma que Cmd+Q— para que el respaldo de
 /// cierre alcance a correr.
 Future<void> rebuildAndRelaunch(String root) async {
-  final command = rebuildCommand(root);
-  final script =
-      'tell application "Terminal"\n'
-      '  activate\n'
-      '  do script ${_applescriptString(command)}\n'
-      'end tell';
-
-  final opened = await Process.run('osascript', ['-e', script]);
-  if (opened.exitCode != 0) {
-    Log.e('No pude abrir la Terminal para reconstruir: ${opened.stderr}');
-    return;
-  }
+  if (!await openInTerminal(rebuildCommand(root))) return;
   await ServicesBinding.instance.exitApplication(AppExitType.cancelable);
-}
-
-String _applescriptString(String text) {
-  final escaped = text.replaceAll(r'\', r'\\').replaceAll('"', r'\"');
-  return '"$escaped"';
 }

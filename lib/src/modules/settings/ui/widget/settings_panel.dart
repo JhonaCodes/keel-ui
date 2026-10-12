@@ -76,6 +76,8 @@ class SettingsPanel extends StatelessWidget {
               const SizedBox(height: 24),
               _CodexSection(codex: settings.codex),
               const SizedBox(height: 24),
+              _LayaSection(forAgents: settings.layaForAgents),
+              const SizedBox(height: 24),
               Text(
                 t.settingScheduledJobsApi,
                 style: Theme.of(context).textTheme.labelLarge,
@@ -156,6 +158,34 @@ class _CodexSection extends StatelessWidget {
           subtitle: Text(t.codexFullDiskAccessHelp),
           onChanged: (value) =>
               settings.setCodexSettings(codex.copyWith(fullDiskAccess: value)),
+        ),
+      ],
+    );
+  }
+}
+
+/// Laya: si los agentes la pueden usar. El usuario la usa siempre.
+class _LayaSection extends StatelessWidget {
+  const _LayaSection({required this.forAgents});
+
+  final bool forAgents;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
+    final text = Theme.of(context).textTheme;
+    return Column(
+      crossAxisAlignment: .start,
+      children: [
+        Text(t.settingLaya, style: text.labelLarge),
+        const SizedBox(height: 4),
+        Text(t.descriptionLayaSettings, style: text.bodySmall),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          value: forAgents,
+          title: Text(t.layaForAgents),
+          subtitle: Text(t.layaForAgentsHelp),
+          onChanged: SettingsService.instance.notifier.setLayaForAgents,
         ),
       ],
     );

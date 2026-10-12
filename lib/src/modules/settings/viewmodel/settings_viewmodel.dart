@@ -35,6 +35,9 @@ class SettingsViewModel extends StoreMirrorViewModel<AppSettings> {
   void setCodexSettings(CodexSettings codex) =>
       SettingsStore.instance.setCodexSettings(codex);
 
+  void setLayaForAgents(bool enabled) =>
+      SettingsStore.instance.setLayaForAgents(enabled);
+
   void setExtraToolEnabled(String tool, bool enabled) =>
       SettingsStore.instance.setExtraToolEnabled(tool, enabled);
 }

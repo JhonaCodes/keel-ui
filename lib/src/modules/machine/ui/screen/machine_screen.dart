@@ -3,11 +3,18 @@ import 'package:reactive_notifier/reactive_notifier.dart';
 
 import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/integrations/app_update/app_update.dart';
+import 'package:keel_core/integrations/plan_usage/plan_usage.dart';
 import 'package:keel_core/integrations/machine/machine.dart';
 import 'package:keel_core/integrations/usage_ledger/usage_ledger_data.dart';
 import 'package:keel_ui/src/integrations/usage_ledger/usage_ledger.dart';
+import 'package:keel_ui/src/core/ui/confirm_card.dart';
+import 'package:keel_ui/src/modules/machine/model/plan_accounts_state.dart';
 import 'package:keel_ui/src/modules/machine/model/machine_snapshot.dart';
+import 'package:keel_ui/src/modules/machine/ui/widget/plan_account_form.dart';
+import 'package:keel_ui/src/modules/machine/ui/widget/plan_account_usage.dart';
+import 'package:keel_ui/src/modules/machine/ui/widget/machine_metric.dart';
 import 'package:keel_ui/src/modules/machine/ui/widget/usage_bars.dart';
+import 'package:keel_ui/src/modules/machine/viewmodel/plan_accounts_viewmodel.dart';
 import 'package:keel_ui/src/modules/machine/viewmodel/machine_viewmodel.dart';
 
 /// Qué tenés instalado, cuánto gastó Keel y cómo está el fierro.
@@ -40,8 +47,7 @@ class _MachineScreenState extends State<MachineScreen> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: TextButton.icon(
-              onPressed: () =>
-                  MachineService.instance.notifier.refreshServices(force: true),
+              onPressed: MachineService.instance.notifier.checkAgain,
               icon: const Icon(Icons.refresh, size: 16),
               label: const Text('Revisar de nuevo'),
             ),
@@ -71,6 +77,8 @@ class _MachineScreenState extends State<MachineScreen> {
             const SizedBox(height: 10),
             _Note(AppLocalizations.of(context)!.messageDetectionNotIntegration),
 
+            const _PlanAccounts(),
+
             const _Usage(),
 
             _Head('Fierro', trailing: 'ahora mismo'),
@@ -78,6 +86,115 @@ class _MachineScreenState extends State<MachineScreen> {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Las cuentas de Claude, Codex y OpenRouter: cuánto lleva cada una, cuál
+/// usan los turnos de cada proveedor, y su sesión.
+class _PlanAccounts extends StatelessWidget {
+  const _PlanAccounts();
+
+  @override
+  Widget build(BuildContext context) {
+    return ReactiveViewModelBuilder<PlanAccountsViewModel, PlanAccountsState>(
+      viewmodel: PlanAccountsService.instance.notifier,
+      build: (state, viewmodel, keep) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const _Head('Cuentas', trailing: 'consumo del plan · en uso'),
+          if (!state.loaded)
+            const _Loading()
+          else
+            for (final provider in PlanProvider.values)
+              if (state.accountsOf(provider) case final accounts
+                  when accounts.isNotEmpty) ...[
+                _ProviderHead(provider.label),
+                for (final usage in accounts)
+                  PlanAccountUsage(
+                    usage: usage,
+                    active: state.isActive(usage.account),
+                    busy: state.isBusy(usage.account),
+                    onUse: provider.hasAccounts
+                        ? () => viewmodel.use(usage.account)
+                        : null,
+                    onSignIn: provider.hasAccounts
+                        ? () => viewmodel.signIn(usage.account)
+                        : null,
+                    onSignOut: provider.hasAccounts
+                        ? () => _confirmSignOut(context, viewmodel, usage)
+                        : null,
+                    onRemove: usage.account.isDefault
+                        ? null
+                        : () => _confirmRemove(context, viewmodel, usage),
+                  ),
+                if (provider.hasAccounts)
+                  PlanAccountForm(
+                    provider: provider,
+                    onAdd: (name) => viewmodel.addAccount(provider, name),
+                  ),
+                const SizedBox(height: 14),
+              ],
+          if (state.notice.isNotEmpty) ...[
+            _Note(state.notice),
+            const SizedBox(height: 6),
+          ],
+          const _Note(
+            'Claude y Codex se leen de su CLI, como /usage, y no gastan '
+            'turnos; OpenRouter, de su API con la clave de la bóveda. Marca '
+            'la cuenta que usan los turnos de cada proveedor: el riel '
+            'muestra el consumo de esa.',
+          ),
+        ],
+      ),
+    );
+  }
+
+  static Future<void> _confirmSignOut(
+    BuildContext context,
+    PlanAccountsViewModel viewmodel,
+    PlanUsage usage,
+  ) async {
+    final confirmed = await confirmWithCard(
+      context,
+      title: 'Cerrar la sesión de «${usage.account.name}»',
+      body: usage.identity.isEmpty ? null : usage.identity,
+      reassurance: 'La cuenta queda en la lista y vuelve a entrar con un clic.',
+      confirmLabel: 'Cerrar sesión',
+    );
+    if (confirmed) await viewmodel.signOut(usage.account);
+  }
+
+  static Future<void> _confirmRemove(
+    BuildContext context,
+    PlanAccountsViewModel viewmodel,
+    PlanUsage usage,
+  ) async {
+    final confirmed = await confirmWithCard(
+      context,
+      title: 'Quitar la cuenta «${usage.account.name}»',
+      details: [(lead: usage.account.configDir, rest: ' se borra')],
+      monospaceDetails: true,
+      reassurance:
+          'Cierra su sesión en esta máquina; la cuenta del proveedor no se '
+          'toca, y la configuración compartida tampoco: son enlaces.',
+      confirmLabel: 'Quitar',
+      destructive: true,
+    );
+    if (confirmed) await viewmodel.remove(usage.account);
+  }
+}
+
+class _ProviderHead extends StatelessWidget {
+  const _ProviderHead(this.label);
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 4, bottom: 4),
+      child: Text(label, style: Theme.of(context).textTheme.titleSmall),
     );
   }
 }
@@ -246,7 +363,7 @@ class _Hardware extends StatelessWidget {
         Row(
           children: [
             Expanded(
-              child: _Metric(
+              child: MachineMetric(
                 label: 'Procesador',
                 value: machine.cpu.replaceFirst('Apple ', ''),
                 detail: '${machine.cores} núcleos',
@@ -254,7 +371,7 @@ class _Hardware extends StatelessWidget {
             ),
             const SizedBox(width: 9),
             Expanded(
-              child: _Metric(
+              child: MachineMetric(
                 label: 'Carga',
                 value: machine.load.toStringAsFixed(2).replaceAll('.', ','),
                 detail:
@@ -264,7 +381,7 @@ class _Hardware extends StatelessWidget {
             ),
             const SizedBox(width: 9),
             Expanded(
-              child: _Metric(
+              child: MachineMetric(
                 label: 'Memoria',
                 value: _gigabytes(machine.memoryUsedBytes),
                 detail: 'de ${_gigabytes(machine.memoryTotalBytes)} GB',
@@ -273,7 +390,7 @@ class _Hardware extends StatelessWidget {
             ),
             const SizedBox(width: 9),
             Expanded(
-              child: _Metric(
+              child: MachineMetric(
                 label: 'Keel',
                 value: '$running',
                 detail: running == 1 ? 'turno corriendo' : 'turnos corriendo',
@@ -350,80 +467,6 @@ class _Hardware extends StatelessWidget {
 
   String _gigabytes(int bytes) =>
       (bytes / 1073741824).toStringAsFixed(1).replaceAll('.', ',');
-}
-
-class _Metric extends StatelessWidget {
-  const _Metric({
-    required this.label,
-    required this.value,
-    required this.detail,
-    this.ratio,
-  });
-
-  final String label;
-  final String value;
-  final String detail;
-  final double? ratio;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.fromLTRB(13, 11, 13, 12),
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerLow,
-        border: Border.all(color: scheme.outlineVariant),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label.toUpperCase(),
-            style: TextStyle(
-              fontFamily: 'monospace',
-              fontSize: 9.5,
-              letterSpacing: 0.9,
-              color: scheme.outline,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text.rich(
-            TextSpan(
-              children: [
-                TextSpan(text: value),
-                TextSpan(
-                  text: '  $detail',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: scheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontFamily: 'monospace',
-              fontSize: 17,
-              letterSpacing: -0.3,
-            ),
-          ),
-          if (ratio case final value?) ...[
-            const SizedBox(height: 9),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(2),
-              child: LinearProgressIndicator(
-                value: value,
-                minHeight: 3,
-                backgroundColor: scheme.outlineVariant,
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
 }
 
 class _ServiceRow extends StatelessWidget {

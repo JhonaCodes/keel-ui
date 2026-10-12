@@ -9,6 +9,7 @@ import 'package:keel_ui/src/modules/agent_profiles/viewmodel/agent_profiles_view
 import 'package:keel_ui/src/modules/skills/ui/widget/skill_multi_select.dart';
 import 'package:keel_core/modules/workflows/model/workflow.dart';
 import 'package:keel_ui/src/modules/workflows/viewmodel/workflows_viewmodel.dart';
+import 'package:keel_ui/src/modules/laya/viewmodel/laya_forms_viewmodel.dart';
 
 Future<void> openWorkflowFormScreen(BuildContext context, {Workflow? initial}) {
   return showFormPanel<void>(
@@ -58,6 +59,8 @@ class _WorkflowFormScreenState extends State<WorkflowFormScreen> {
   late int _maxSessionCostUsd =
       widget.initial?.policy.maxSessionCostUsd.round() ??
       kDefaultMaxSessionCostUsd.round();
+  late String _layaForm = widget.initial?.policy.layaFormName ?? '';
+  late bool _layaGate = widget.initial?.policy.layaGate ?? false;
   late List<String> _skills = [...?widget.initial?.policy.requiredSkillNames];
   late List<WorkflowCapability> _capabilities = [
     ...(widget.initial?.capabilities.isNotEmpty == true
@@ -110,6 +113,8 @@ class _WorkflowFormScreenState extends State<WorkflowFormScreen> {
       maxSubagents: _maxSubagents,
       maxReviewCycles: _maxReviewCycles,
       maxSessionCostUsd: _maxSessionCostUsd.toDouble(),
+      layaFormName: _layaForm,
+      layaGate: _layaGate && _layaForm.isNotEmpty,
     );
     final workflows = WorkflowsService.instance.notifier;
     final initial = widget.initial;
@@ -291,6 +296,13 @@ class _WorkflowFormScreenState extends State<WorkflowFormScreen> {
             label: _maxSessionCostUsd == 0 ? '∞' : '$_maxSessionCostUsd',
             onChanged: (value) =>
                 setState(() => _maxSessionCostUsd = value.round()),
+          ),
+          const SizedBox(height: 12),
+          WorkflowLayaCheckField(
+            formName: _layaForm,
+            gate: _layaGate,
+            onFormChanged: (name) => setState(() => _layaForm = name),
+            onGateChanged: (gate) => setState(() => _layaGate = gate),
           ),
           if (_error != null) ...[
             const SizedBox(height: 12),
@@ -687,3 +699,74 @@ String _kindLabel(WorkflowKind kind, AppLocalizations? t) => switch (kind) {
   WorkflowKind.migration => t?.workflowKindMigration ?? 'Migración',
   WorkflowKind.roadmap => 'Formato de tareas',
 };
+
+/// El chequeo de Laya del workflow: un formulario que se pregunta cuando un
+/// nodo cierra «done», con lo que reportó, y si es gate.
+class WorkflowLayaCheckField extends StatelessWidget {
+  const WorkflowLayaCheckField({
+    super.key,
+    required this.formName,
+    required this.gate,
+    required this.onFormChanged,
+    required this.onGateChanged,
+  });
+
+  final String formName;
+  final bool gate;
+  final ValueChanged<String> onFormChanged;
+  final ValueChanged<bool> onGateChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    return ReactiveViewModelBuilder<LayaFormsViewModel, LayaFormsState>(
+      viewmodel: LayaFormsService.instance.notifier,
+      build: (state, viewmodel, keep) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Chequeo de Laya', style: text.labelLarge),
+          const SizedBox(height: 4),
+          Text(
+            'Un formulario de Laya que se pregunta cada vez que un nodo '
+            'cierra «done», con lo que reportó (campos summary, files, '
+            'artifacts, node, workflow, project). Las respuestas quedan en el '
+            'hilo de la sesión.',
+            style: text.bodySmall,
+          ),
+          const SizedBox(height: 8),
+          DropdownButtonFormField<String>(
+            initialValue: state.forms.any((form) => form.name == formName)
+                ? formName
+                : '',
+            isExpanded: true,
+            decoration: const InputDecoration(
+              isDense: true,
+              labelText: 'Formulario',
+              border: OutlineInputBorder(),
+            ),
+            items: [
+              const DropdownMenuItem(value: '', child: Text('Sin chequeo')),
+              for (final form in state.forms)
+                DropdownMenuItem(
+                  value: form.name,
+                  child: Text(form.name, overflow: TextOverflow.ellipsis),
+                ),
+            ],
+            onChanged: (name) => onFormChanged(name ?? ''),
+          ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            value: gate && formName.isNotEmpty,
+            title: const Text('Que sea un gate'),
+            subtitle: const Text(
+              'Si una pregunta sí/no sale «no» con confianza, el nodo vuelve a '
+              'pendiente con ese hallazgo. Escribe las preguntas para que «sí» '
+              'sea lo bueno.',
+            ),
+            onChanged: formName.isEmpty ? null : onGateChanged,
+          ),
+        ],
+      ),
+    );
+  }
+}

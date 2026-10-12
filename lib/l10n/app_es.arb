@@ -1301,5 +1301,9 @@
   "keelThisPcRecent": "Actividad reciente",
   "keelThisPcProblemTokenNotStored": "Esta máquina no pudo guardar el token del nodo con permisos solo para tu usuario, así que esta PC no quedó conectada.",
   "keelThisPcProblemNotStarted": "El nodo está inscrito, pero no pudo arrancar en esta PC. Desconéctalo y vuelve a conectarlo.",
-  "keelThisPcProblemUnlinkNotConfirmed": "Esta PC dejó de tomar tareas, pero el servidor no confirmó que quitó el nodo."
+  "keelThisPcProblemUnlinkNotConfirmed": "Esta PC dejó de tomar tareas, pero el servidor no confirmó que quitó el nodo.",
+  "settingLaya": "Laya",
+  "descriptionLayaSettings": "Tu motor de decisión Laya (secrets LAYA_URL y LAYA_API_KEY). Desde la app siempre lo puedes usar.",
+  "layaForAgents": "Laya para los agentes",
+  "layaForAgentsHelp": "Los agentes reciben la tool ask_laya para validar preguntas concretas y cerradas. Apagado: solo la usas tú."
 }

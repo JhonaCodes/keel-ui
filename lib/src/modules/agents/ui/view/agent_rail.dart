@@ -19,6 +19,10 @@ import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
 import 'package:keel_ui/src/modules/requirements/viewmodel/requirements_viewmodel.dart';
 import 'package:keel_ui/src/modules/settings/ui/widget/settings_panel.dart';
 import 'package:keel_ui/src/modules/workspace/model/running_work.dart';
+import 'package:keel_ui/src/modules/laya/model/laya_state.dart';
+import 'package:keel_ui/src/modules/laya/ui/screen/laya_chat_panel.dart';
+import 'package:keel_ui/src/modules/laya/viewmodel/laya_viewmodel.dart';
+import 'package:keel_ui/src/modules/machine/ui/widget/plan_usage_rail.dart';
 
 /// Ancho de la columna. Sale del texto más largo que tiene que entrar con
 /// [_railLabelStyle], no al revés: el rail es lo más angosto que puede ser sin
@@ -123,6 +127,13 @@ class _AgentRailState extends State<AgentRail> {
                       tooltip: t.navAssistantTooltip,
                       onPressed: () => AssistantWindowBridge.instance.open(),
                     ),
+                    // Laya, solo si la bóveda la tiene: el mini chat para
+                    // preguntarle algo cerrado.
+                    _LayaRailButton(
+                      onPressed: () =>
+                          _open('laya', () => openLayaChatPanel(context)),
+                      selected: _openPanel == 'laya',
+                    ),
                     const SizedBox(height: 12),
                     // Orden por uso real, no por jerarquía del modelo. Arriba lo que
                     // se abre todos los días; abajo lo que se configura una vez y se
@@ -213,6 +224,12 @@ class _AgentRailState extends State<AgentRail> {
             // canal de reportes, que es donde alguien puede hacer algo con
             // ellas. Ver `reportToDiscord`.
             if (kDebugMode) const _FaultsRailButton(),
+            // El consumo de la cuenta en uso de cada proveedor, siempre a la
+            // vista: para saberlo no hace falta abrir Máquina. Un clic la abre
+            // igual, porque ahí se elige la cuenta y se inicia sesión.
+            PlanUsageRail(
+              onPressed: () => _open('machine', widget.onOpenMachine),
+            ),
             _MachineRailButton(
               onPressed: () => _open('machine', widget.onOpenMachine),
               selected: _openPanel == 'machine',
@@ -535,6 +552,30 @@ class _MachineRailButton extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+}
+
+/// Laya en el riel: aparece cuando la bóveda tiene su URL y su clave.
+class _LayaRailButton extends StatelessWidget {
+  const _LayaRailButton({required this.onPressed, this.selected = false});
+
+  final VoidCallback onPressed;
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    return ReactiveViewModelBuilder<LayaViewModel, LayaState>(
+      viewmodel: LayaService.instance.notifier,
+      build: (state, viewmodel, keep) => state.configured
+          ? _RailButton(
+              label: 'Laya',
+              icon: Icons.bolt_outlined,
+              tooltip: 'Preguntarle a Laya',
+              onPressed: onPressed,
+              selected: selected,
+            )
+          : const SizedBox.shrink(),
     );
   }
 }

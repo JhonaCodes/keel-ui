@@ -2878,4 +2878,18 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get keelThisPcProblemUnlinkNotConfirmed =>
       'This PC stopped taking tasks, but the server did not confirm it removed the node.';
+
+  @override
+  String get settingLaya => 'Laya';
+
+  @override
+  String get descriptionLayaSettings =>
+      'Your Laya decision engine (secrets LAYA_URL and LAYA_API_KEY). You can always use it from the app.';
+
+  @override
+  String get layaForAgents => 'Laya for agents';
+
+  @override
+  String get layaForAgentsHelp =>
+      'Agents get the ask_laya tool to validate concrete, closed questions. Off: only you use it.';
 }

@@ -27,6 +27,7 @@ import 'package:keel_ui/src/core/ui/app_locale.dart';
 import 'package:keel_ui/src/core/ui/app_theme.dart';
 import 'package:keel_ui/src/integrations/app_update/app_update.dart';
 import 'package:keel_ui/src/integrations/assistant_mcp/assistant_mcp_server.dart';
+import 'package:keel_ui/src/integrations/catalog_bridge/catalog_bridge.dart';
 import 'package:keel_ui/src/integrations/jobs_api/jobs_api.dart';
 import 'package:keel_ui/src/integrations/keel_e2e/keel_e2e.dart';
 import 'package:keel_core/integrations/boards_mcp/boards_mcp.dart';
@@ -139,6 +140,11 @@ Future<void> main(List<String> rawArgs) async {
       await seedRoadmapFormatWorkflow();
       await seedE2eDeviceWorkflow();
       await AssistantMcpServer.start();
+      // Deja escrito dónde escuchar el catálogo de ESTA instancia, para que
+      // un cliente MCP de escritorio ajeno (ChatGPT) pueda alcanzarlo. Va
+      // después de `KeelCoreRuntime.start`, que es quien levanta el
+      // servidor: acá solo se espera a que tenga puerto y se publica.
+      await CatalogBridgeService.instance.notifier.start();
       await UserToolsMcpServer.start();
       await ContextMcpServer.start();
       await SessionPlanMcpServer.ensureStarted();

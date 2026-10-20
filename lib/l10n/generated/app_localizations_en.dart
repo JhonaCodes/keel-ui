@@ -490,6 +490,27 @@ class AppLocalizationsEn extends AppLocalizations {
   String get buttonRegenerateToken => 'Regenerate token';
 
   @override
+  String get buttonCheckAgain => 'Check again';
+
+  @override
+  String get settingChatGptCatalog => 'Catalog for ChatGPT desktop';
+
+  @override
+  String get descriptionChatGptCatalog =>
+      'Paste this into ChatGPT desktop so it can read and edit your catalog — skills, rules, workflows, projects, knowledge. It works on the catalog itself; it cannot open sessions or spend model credit. Keel has to be open.';
+
+  @override
+  String get messageCatalogBridgeNotRunning =>
+      'The catalog is not being served from this window.';
+
+  @override
+  String get messageCatalogWorkerMissing =>
+      'The worker is not built yet on this machine. Run scripts/build_catalog_mcp_worker.sh and check again.';
+
+  @override
+  String get messageCopiedToClipboard => 'Copied';
+
+  @override
   String get buttonViewLocked => 'View locked…';
 
   @override

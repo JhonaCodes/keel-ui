@@ -939,6 +939,42 @@ abstract class AppLocalizations {
   /// **'Regenerate token'**
   String get buttonRegenerateToken;
 
+  /// No description provided for @buttonCheckAgain.
+  ///
+  /// In en, this message translates to:
+  /// **'Check again'**
+  String get buttonCheckAgain;
+
+  /// No description provided for @settingChatGptCatalog.
+  ///
+  /// In en, this message translates to:
+  /// **'Catalog for ChatGPT desktop'**
+  String get settingChatGptCatalog;
+
+  /// No description provided for @descriptionChatGptCatalog.
+  ///
+  /// In en, this message translates to:
+  /// **'Paste this into ChatGPT desktop so it can read and edit your catalog — skills, rules, workflows, projects, knowledge. It works on the catalog itself; it cannot open sessions or spend model credit. Keel has to be open.'**
+  String get descriptionChatGptCatalog;
+
+  /// No description provided for @messageCatalogBridgeNotRunning.
+  ///
+  /// In en, this message translates to:
+  /// **'The catalog is not being served from this window.'**
+  String get messageCatalogBridgeNotRunning;
+
+  /// No description provided for @messageCatalogWorkerMissing.
+  ///
+  /// In en, this message translates to:
+  /// **'The worker is not built yet on this machine. Run scripts/build_catalog_mcp_worker.sh and check again.'**
+  String get messageCatalogWorkerMissing;
+
+  /// No description provided for @messageCopiedToClipboard.
+  ///
+  /// In en, this message translates to:
+  /// **'Copied'**
+  String get messageCopiedToClipboard;
+
   /// No description provided for @buttonViewLocked.
   ///
   /// In en, this message translates to:

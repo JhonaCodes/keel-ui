@@ -491,6 +491,27 @@ class AppLocalizationsEs extends AppLocalizations {
   String get buttonRegenerateToken => 'Regenerar token';
 
   @override
+  String get buttonCheckAgain => 'Volver a mirar';
+
+  @override
+  String get settingChatGptCatalog => 'Catálogo para ChatGPT desktop';
+
+  @override
+  String get descriptionChatGptCatalog =>
+      'Pega esto en ChatGPT desktop para que pueda leer y editar tu catálogo — skills, reglas, workflows, proyectos, saber. Trabaja sobre el catálogo; no puede abrir sesiones ni gastar saldo de modelos. Keel tiene que estar abierto.';
+
+  @override
+  String get messageCatalogBridgeNotRunning =>
+      'El catálogo no se está sirviendo desde esta ventana.';
+
+  @override
+  String get messageCatalogWorkerMissing =>
+      'El worker todavía no está compilado en esta máquina. Corre scripts/build_catalog_mcp_worker.sh y vuelve a mirar.';
+
+  @override
+  String get messageCopiedToClipboard => 'Copiado';
+
+  @override
   String get buttonViewLocked => 'Ver bloqueados…';
 
   @override
@@ -3395,6 +3416,27 @@ class AppLocalizationsEsCo extends AppLocalizationsEs {
 
   @override
   String get buttonRegenerateToken => 'Regenerar token';
+
+  @override
+  String get buttonCheckAgain => 'Volver a mirar';
+
+  @override
+  String get settingChatGptCatalog => 'Catálogo para ChatGPT desktop';
+
+  @override
+  String get descriptionChatGptCatalog =>
+      'Pega esto en ChatGPT desktop para que pueda leer y editar tu catálogo — skills, reglas, workflows, proyectos, saber. Trabaja sobre el catálogo; no puede abrir sesiones ni gastar saldo de modelos. Keel tiene que estar abierto.';
+
+  @override
+  String get messageCatalogBridgeNotRunning =>
+      'El catálogo no se está sirviendo desde esta ventana.';
+
+  @override
+  String get messageCatalogWorkerMissing =>
+      'El worker todavía no está compilado en esta máquina. Corre scripts/build_catalog_mcp_worker.sh y vuelve a mirar.';
+
+  @override
+  String get messageCopiedToClipboard => 'Copiado';
 
   @override
   String get buttonViewLocked => 'Ver bloqueados…';

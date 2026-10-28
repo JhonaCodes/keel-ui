@@ -3,6 +3,7 @@ import 'package:reactive_notifier/reactive_notifier.dart';
 
 import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/core/ui/form_panel.dart';
+import 'package:keel_ui/src/integrations/catalog_bridge/catalog_bridge.dart';
 import 'package:keel_ui/src/integrations/jobs_api/jobs_api.dart';
 import 'package:keel_core/core/services/external_link_service.dart';
 import 'package:keel_ui/src/modules/catalog_locks/ui/screen/catalog_locks_screen.dart';
@@ -76,6 +77,8 @@ class SettingsPanel extends StatelessWidget {
               const SizedBox(height: 24),
               _CodexSection(codex: settings.codex),
               const SizedBox(height: 24),
+              _LayaSection(forAgents: settings.layaForAgents),
+              const SizedBox(height: 24),
               Text(
                 t.settingScheduledJobsApi,
                 style: Theme.of(context).textTheme.labelLarge,
@@ -87,6 +90,8 @@ class SettingsPanel extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               const _JobsApiInfo(),
+              const SizedBox(height: 24),
+              const ChatGptCatalogSection(),
               const SizedBox(height: 24),
               Text(
                 t.labelLockedElements,
@@ -156,6 +161,34 @@ class _CodexSection extends StatelessWidget {
           subtitle: Text(t.codexFullDiskAccessHelp),
           onChanged: (value) =>
               settings.setCodexSettings(codex.copyWith(fullDiskAccess: value)),
+        ),
+      ],
+    );
+  }
+}
+
+/// Laya: si los agentes la pueden usar. El usuario la usa siempre.
+class _LayaSection extends StatelessWidget {
+  const _LayaSection({required this.forAgents});
+
+  final bool forAgents;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
+    final text = Theme.of(context).textTheme;
+    return Column(
+      crossAxisAlignment: .start,
+      children: [
+        Text(t.settingLaya, style: text.labelLarge),
+        const SizedBox(height: 4),
+        Text(t.descriptionLayaSettings, style: text.bodySmall),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          value: forAgents,
+          title: Text(t.layaForAgents),
+          subtitle: Text(t.layaForAgentsHelp),
+          onChanged: SettingsService.instance.notifier.setLayaForAgents,
         ),
       ],
     );

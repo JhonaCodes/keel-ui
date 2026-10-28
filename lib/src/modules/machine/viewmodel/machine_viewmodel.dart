@@ -5,6 +5,7 @@ import 'package:reactive_notifier/reactive_notifier.dart';
 
 import 'package:keel_core/integrations/machine/machine.dart';
 import 'package:keel_ui/src/modules/machine/model/machine_snapshot.dart';
+import 'package:keel_ui/src/modules/machine/viewmodel/plan_accounts_viewmodel.dart';
 
 class MachineViewModel extends ViewModel<MachineSnapshot> {
   MachineViewModel() : super(const MachineSnapshot());
@@ -48,6 +49,15 @@ class MachineViewModel extends ViewModel<MachineSnapshot> {
   void dispose() {
     stopWatching();
     super.dispose();
+  }
+
+  /// El botón «Revisar de nuevo»: los CLIs sin cacheo y el consumo de las
+  /// cuentas.
+  Future<void> checkAgain() async {
+    await (
+      refreshServices(force: true),
+      PlanAccountsService.instance.notifier.refresh(),
+    ).wait;
   }
 
   /// Busca los CLIs. Con [force] ignora el cacheo — es el botón de la

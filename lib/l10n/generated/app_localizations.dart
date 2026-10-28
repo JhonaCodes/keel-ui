@@ -939,6 +939,42 @@ abstract class AppLocalizations {
   /// **'Regenerate token'**
   String get buttonRegenerateToken;
 
+  /// No description provided for @buttonCheckAgain.
+  ///
+  /// In en, this message translates to:
+  /// **'Check again'**
+  String get buttonCheckAgain;
+
+  /// No description provided for @settingChatGptCatalog.
+  ///
+  /// In en, this message translates to:
+  /// **'Catalog for ChatGPT desktop'**
+  String get settingChatGptCatalog;
+
+  /// No description provided for @descriptionChatGptCatalog.
+  ///
+  /// In en, this message translates to:
+  /// **'Paste this into ChatGPT desktop so it can read and edit your catalog — skills, rules, workflows, projects, knowledge. It works on the catalog itself; it cannot open sessions or spend model credit. Keel has to be open.'**
+  String get descriptionChatGptCatalog;
+
+  /// No description provided for @messageCatalogBridgeNotRunning.
+  ///
+  /// In en, this message translates to:
+  /// **'The catalog is not being served from this window.'**
+  String get messageCatalogBridgeNotRunning;
+
+  /// No description provided for @messageCatalogWorkerMissing.
+  ///
+  /// In en, this message translates to:
+  /// **'The worker is not built yet on this machine. Run scripts/build_catalog_mcp_worker.sh and check again.'**
+  String get messageCatalogWorkerMissing;
+
+  /// No description provided for @messageCopiedToClipboard.
+  ///
+  /// In en, this message translates to:
+  /// **'Copied'**
+  String get messageCopiedToClipboard;
+
   /// No description provided for @buttonViewLocked.
   ///
   /// In en, this message translates to:
@@ -5042,6 +5078,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'This PC stopped taking tasks, but the server did not confirm it removed the node.'**
   String get keelThisPcProblemUnlinkNotConfirmed;
+
+  /// No description provided for @settingLaya.
+  ///
+  /// In en, this message translates to:
+  /// **'Laya'**
+  String get settingLaya;
+
+  /// No description provided for @descriptionLayaSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Your Laya decision engine (secrets LAYA_URL and LAYA_API_KEY). You can always use it from the app.'**
+  String get descriptionLayaSettings;
+
+  /// No description provided for @layaForAgents.
+  ///
+  /// In en, this message translates to:
+  /// **'Laya for agents'**
+  String get layaForAgents;
+
+  /// No description provided for @layaForAgentsHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Agents get the ask_laya tool to validate concrete, closed questions. Off: only you use it.'**
+  String get layaForAgentsHelp;
 }
 
 class _AppLocalizationsDelegate

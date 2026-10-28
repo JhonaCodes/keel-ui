@@ -27,9 +27,11 @@ import 'package:keel_ui/src/core/ui/app_locale.dart';
 import 'package:keel_ui/src/core/ui/app_theme.dart';
 import 'package:keel_ui/src/integrations/app_update/app_update.dart';
 import 'package:keel_ui/src/integrations/assistant_mcp/assistant_mcp_server.dart';
+import 'package:keel_ui/src/integrations/catalog_bridge/catalog_bridge.dart';
 import 'package:keel_ui/src/integrations/jobs_api/jobs_api.dart';
 import 'package:keel_ui/src/integrations/keel_e2e/keel_e2e.dart';
 import 'package:keel_core/integrations/boards_mcp/boards_mcp.dart';
+import 'package:keel_core/integrations/laya_mcp/laya_mcp.dart';
 import 'package:keel_core/integrations/requirements_mcp/requirements_mcp.dart';
 import 'package:keel_core/integrations/roadmap_mcp/roadmap_mcp.dart';
 import 'package:keel_core/integrations/catalog_shape/catalog_shape.dart';
@@ -49,6 +51,7 @@ import 'package:keel_core/modules/assistant/model/assistant_window_arguments.dar
 import 'package:keel_ui/src/modules/assistant/model/keelai_seed.dart';
 import 'package:keel_core/modules/projects/model/roadmap_format_skill.dart';
 import 'package:keel_ui/src/modules/workflows/model/e2e_device_workflow.dart';
+import 'package:keel_ui/src/modules/assistant/service/assistant_window_boot.dart';
 import 'package:keel_ui/src/modules/assistant/service/assistant_window_bridge.dart';
 import 'package:keel_ui/src/modules/assistant/ui/screen/assistant_window.dart';
 import 'package:keel_ui/src/modules/keel_remote/service/desktop_node_quit_hook.dart';
@@ -75,10 +78,7 @@ Future<void> main(List<String> rawArgs) async {
       _showWhenPainted(windowController);
 
     case AssistantWindowArguments.id:
-      // Sin base en este engine, y dicho explícitamente: los ViewModels que
-      // toque esta ventana (el de settings, vía el font scale de las
-      // burbujas) tienen que leer "no hay nada guardado", no reventar.
-      LocalDatabase.markUnavailable();
+      await prepareAssistantEngine();
       runApp(const AssistantWindow());
       _showWhenPainted(windowController);
 
@@ -138,12 +138,18 @@ Future<void> main(List<String> rawArgs) async {
       await seedRoadmapFormatWorkflow();
       await seedE2eDeviceWorkflow();
       await AssistantMcpServer.start();
+      // Deja escrito dónde escuchar el catálogo de ESTA instancia, para que
+      // un cliente MCP de escritorio ajeno (ChatGPT) pueda alcanzarlo. Va
+      // después de `KeelCoreRuntime.start`, que es quien levanta el
+      // servidor: acá solo se espera a que tenga puerto y se publica.
+      await CatalogBridgeService.instance.notifier.start();
       await UserToolsMcpServer.start();
       await ContextMcpServer.start();
       await SessionPlanMcpServer.ensureStarted();
       await RoadmapMcpServer.ensureStarted();
       await RequirementsMcpServer.ensureStarted();
       await BoardsMcpServer.ensureStarted();
+      await LayaMcpServer.ensureStarted();
       await JobsApiService.instance.notifier.start();
       // Optional and never blocking: a session kept from before points the
       // Keel API client at the person's own server. Without one, nothing

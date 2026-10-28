@@ -18,6 +18,7 @@ import 'package:keel_ui/src/modules/requirements/viewmodel/requirements_viewmode
 import 'package:keel_core/modules/roadmap/model/task_claim.dart';
 import 'package:keel_ui/src/modules/roadmap/viewmodel/task_claims_viewmodel.dart';
 import 'package:keel_ui/src/modules/workspace/viewmodel/workspace_viewmodel.dart';
+import 'package:keel_ui/src/modules/laya/ui/widget/laya_task_review.dart';
 
 /// Cada cuánto se vuelve a leer la carpeta como piso.
 ///
@@ -110,6 +111,10 @@ class _ProjectStateViewState extends State<ProjectStateView> {
           children: [
             _Header(project: widget.project, readAt: _readAt, radar: radar),
             const Divider(height: 1),
+            // Laya, cuando la bóveda la tiene: qué tareas están demoradas y
+            // qué hacer con cada una. Solo con roadmap, que es lo que lee.
+            if (radar.hasRoadmap)
+              LayaTaskReview(projectPath: widget.project.workingDirectory),
             Expanded(
               child: radar.hasRoadmap
                   ? _Radar(radar: radar, project: widget.project, now: now)

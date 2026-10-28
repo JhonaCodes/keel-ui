@@ -243,6 +243,61 @@ Future<(bool, String)> _runKeelAiTool(
 ) async {
   final arguments = request.arguments ?? const <String, Object?>{};
   switch (request.name) {
+    case 'create_laya_form':
+      final forms = LayaFormsService.instance.notifier;
+      final created = forms.createFromSpec(
+        Map<String, Object?>.from(arguments),
+        createdBy: 'keel-ai',
+      );
+      final form = created.form;
+      if (form == null) {
+        return (false, 'No lo guardé: ${created.problem}.');
+      }
+      // El panel de Laya lo abre directo la próxima vez que se abre.
+      LayaService.instance.notifier.focusForm(form.id);
+      return (
+        true,
+        'Guardé el formulario «${form.name}» (${form.questions.length} '
+            'preguntas). Está en el botón Laya del riel › Formularios.',
+      );
+
+    case 'list_laya_forms':
+      final state = LayaFormsService.instance.notifier.data;
+      return (
+        true,
+        jsonEncode([
+          for (final form in state.forms)
+            {
+              ...form.toJson(),
+              if (state.runs[form.id] case final run?) 'lastRun': run.toJson(),
+            },
+        ]),
+      );
+
+    case 'ask_laya_form':
+      final forms = LayaFormsService.instance.notifier;
+      final name = (arguments['name'] as String? ?? '').trim();
+      final form = forms.formNamed(name);
+      if (form == null) return (false, 'No hay un formulario «$name».');
+      final raw = arguments['values'];
+      final run = await forms.ask(form, {
+        if (raw is Map)
+          for (final MapEntry(:key, :value) in raw.entries) '$key': '$value',
+      });
+      if (run.error.isNotEmpty) return (false, run.error);
+      return (
+        true,
+        jsonEncode([for (final answer in run.answers) answer.toJson()]),
+      );
+
+    case 'delete_laya_form':
+      final forms = LayaFormsService.instance.notifier;
+      final name = (arguments['name'] as String? ?? '').trim();
+      final form = forms.formNamed(name);
+      if (form == null) return (false, 'No hay un formulario «$name».');
+      forms.delete(form.id);
+      return (true, 'Borré el formulario «${form.name}».');
+
     case 'create_skill':
       final result = executeSkillAction(
         CreateSkillAction(
@@ -560,6 +615,8 @@ Future<(bool, String)> _runKeelAiTool(
           maxReplans: _boundedReplanLimit(arguments['max_replans']),
           maxSubagents: _boundedSubagentLimit(arguments['max_subagents']),
           maxReviewCycles: _boundedReviewCycles(arguments['max_review_cycles']),
+          layaFormName: (arguments['laya_form'] as String?)?.trim(),
+          layaGate: arguments['laya_gate'] as bool?,
         ),
         skillNames: arguments['skills'] == null
             ? null
@@ -697,6 +754,26 @@ Future<(bool, String)> _runKeelAiTool(
           buildsRoadmap: arguments['builds_roadmap'] as bool?,
         ),
       );
+      // El chequeo de Laya no es parte de la acción de alta: se aplica sobre
+      // el workflow recién creado, igual que haría update_workflow.
+      final layaForm = (arguments['laya_form'] as String?)?.trim() ?? '';
+      if (result.ok && layaForm.isNotEmpty) {
+        final workflows = WorkflowsService.instance.notifier;
+        final created = workflows.data.workflows
+            .where((entry) => entry.name == arguments['name'])
+            .firstOrNull;
+        if (created != null) {
+          workflows.updateWorkflow(
+            created.id,
+            name: created.name,
+            whenToApply: created.whenToApply,
+            policy: created.policy.copyWith(
+              layaFormName: layaForm,
+              layaGate: arguments['laya_gate'] as bool? ?? false,
+            ),
+          );
+        }
+      }
       return (result.ok, result.message);
 
     case 'create_project':

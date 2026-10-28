@@ -491,6 +491,27 @@ class AppLocalizationsEs extends AppLocalizations {
   String get buttonRegenerateToken => 'Regenerar token';
 
   @override
+  String get buttonCheckAgain => 'Volver a mirar';
+
+  @override
+  String get settingChatGptCatalog => 'Catálogo para ChatGPT desktop';
+
+  @override
+  String get descriptionChatGptCatalog =>
+      'Pega esto en ChatGPT desktop para que pueda leer y editar tu catálogo — skills, reglas, workflows, proyectos, saber. Trabaja sobre el catálogo; no puede abrir sesiones ni gastar saldo de modelos. Keel tiene que estar abierto.';
+
+  @override
+  String get messageCatalogBridgeNotRunning =>
+      'El catálogo no se está sirviendo desde esta ventana.';
+
+  @override
+  String get messageCatalogWorkerMissing =>
+      'El worker todavía no está compilado en esta máquina. Corre scripts/build_catalog_mcp_worker.sh y vuelve a mirar.';
+
+  @override
+  String get messageCopiedToClipboard => 'Copiado';
+
+  @override
   String get buttonViewLocked => 'Ver bloqueados…';
 
   @override
@@ -2894,6 +2915,20 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get keelThisPcProblemUnlinkNotConfirmed =>
       'Esta PC dejó de tomar tareas, pero el servidor no confirmó que quitó el nodo.';
+
+  @override
+  String get settingLaya => 'Laya';
+
+  @override
+  String get descriptionLayaSettings =>
+      'Tu motor de decisión Laya (secrets LAYA_URL y LAYA_API_KEY). Desde la app siempre lo puedes usar.';
+
+  @override
+  String get layaForAgents => 'Laya para los agentes';
+
+  @override
+  String get layaForAgentsHelp =>
+      'Los agentes reciben la tool ask_laya para validar preguntas concretas y cerradas. Apagado: solo la usas tú.';
 }
 
 /// The translations for Spanish Castilian, as used in Colombia (`es_CO`).
@@ -3383,6 +3418,27 @@ class AppLocalizationsEsCo extends AppLocalizationsEs {
   String get buttonRegenerateToken => 'Regenerar token';
 
   @override
+  String get buttonCheckAgain => 'Volver a mirar';
+
+  @override
+  String get settingChatGptCatalog => 'Catálogo para ChatGPT desktop';
+
+  @override
+  String get descriptionChatGptCatalog =>
+      'Pega esto en ChatGPT desktop para que pueda leer y editar tu catálogo — skills, reglas, workflows, proyectos, saber. Trabaja sobre el catálogo; no puede abrir sesiones ni gastar saldo de modelos. Keel tiene que estar abierto.';
+
+  @override
+  String get messageCatalogBridgeNotRunning =>
+      'El catálogo no se está sirviendo desde esta ventana.';
+
+  @override
+  String get messageCatalogWorkerMissing =>
+      'El worker todavía no está compilado en esta máquina. Corre scripts/build_catalog_mcp_worker.sh y vuelve a mirar.';
+
+  @override
+  String get messageCopiedToClipboard => 'Copiado';
+
+  @override
   String get buttonViewLocked => 'Ver bloqueados…';
 
   @override
@@ -5786,4 +5842,18 @@ class AppLocalizationsEsCo extends AppLocalizationsEs {
   @override
   String get keelThisPcProblemUnlinkNotConfirmed =>
       'Esta PC dejó de tomar tareas, pero el servidor no confirmó que quitó el nodo.';
+
+  @override
+  String get settingLaya => 'Laya';
+
+  @override
+  String get descriptionLayaSettings =>
+      'Tu motor de decisión Laya (secrets LAYA_URL y LAYA_API_KEY). Desde la app siempre lo puedes usar.';
+
+  @override
+  String get layaForAgents => 'Laya para los agentes';
+
+  @override
+  String get layaForAgentsHelp =>
+      'Los agentes reciben la tool ask_laya para validar preguntas concretas y cerradas. Apagado: solo la usas tú.';
 }

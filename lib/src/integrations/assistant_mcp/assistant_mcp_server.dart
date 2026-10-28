@@ -20,6 +20,8 @@ import 'package:keel_ui/src/modules/hooks/viewmodel/hooks_viewmodel.dart';
 import 'package:keel_ui/src/integrations/system_vault/system_vault.dart';
 import 'package:keel_core/modules/agent_profiles/model/agent_profile.dart';
 import 'package:keel_ui/src/modules/boards/viewmodel/boards_viewmodel.dart';
+import 'package:keel_ui/src/modules/laya/viewmodel/laya_forms_viewmodel.dart';
+import 'package:keel_ui/src/modules/laya/viewmodel/laya_viewmodel.dart';
 import 'package:keel_core/modules/agents/model/agent_provider.dart';
 import 'package:keel_core/modules/agents/model/chat_message.dart';
 import 'package:keel_core/modules/agents/model/permission_request.dart';

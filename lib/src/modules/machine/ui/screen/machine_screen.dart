@@ -10,9 +10,11 @@ import 'package:keel_ui/src/integrations/usage_ledger/usage_ledger.dart';
 import 'package:keel_ui/src/core/ui/confirm_card.dart';
 import 'package:keel_ui/src/modules/machine/model/plan_accounts_state.dart';
 import 'package:keel_ui/src/modules/machine/model/machine_snapshot.dart';
+import 'package:keel_ui/src/modules/machine/model/machine_tab.dart';
 import 'package:keel_ui/src/modules/machine/ui/widget/plan_account_form.dart';
 import 'package:keel_ui/src/modules/machine/ui/widget/plan_account_usage.dart';
 import 'package:keel_ui/src/modules/machine/ui/widget/machine_metric.dart';
+import 'package:keel_ui/src/modules/machine/ui/widget/machine_tabs.dart';
 import 'package:keel_ui/src/modules/machine/ui/widget/usage_bars.dart';
 import 'package:keel_ui/src/modules/machine/viewmodel/plan_accounts_viewmodel.dart';
 import 'package:keel_ui/src/modules/machine/viewmodel/machine_viewmodel.dart';
@@ -40,51 +42,75 @@ class _MachineScreenState extends State<MachineScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(AppLocalizations.of(context)!.pageTitleMachineTitle),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: TextButton.icon(
-              onPressed: MachineService.instance.notifier.checkAgain,
-              icon: const Icon(Icons.refresh, size: 16),
-              label: const Text('Revisar de nuevo'),
-            ),
+    return MachineTabs(
+      title: AppLocalizations.of(context).pageTitleMachineTitle,
+      actions: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: TextButton.icon(
+            onPressed: MachineService.instance.notifier.checkAgain,
+            icon: const Icon(Icons.refresh, size: 16),
+            label: const Text('Revisar de nuevo'),
           ),
+        ),
+      ],
+      pages: const {
+        MachineTab.accounts: _PlanAccounts(),
+        MachineTab.usage: _Usage(),
+        MachineTab.installed: _Installed(),
+        MachineTab.hardware: _Equipment(),
+      },
+    );
+  }
+}
+
+/// Lo que corre en esta máquina: la versión de Keel y los CLIs que encontró.
+class _Installed extends StatelessWidget {
+  const _Installed();
+
+  @override
+  Widget build(BuildContext context) {
+    return ReactiveViewModelBuilder<MachineViewModel, MachineSnapshot>(
+      viewmodel: MachineService.instance.notifier,
+      build: (snapshot, viewmodel, keep) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Primero Keel: «¿qué estoy corriendo?» es la pregunta de esta
+          // pestaña, y la única que además tiene algo para hacer al respecto.
+          const KeelVersionSection(),
+          _Head(
+            'Servicios',
+            trailing: snapshot.services.isEmpty
+                ? null
+                : '${snapshot.supportedCount} con adaptador',
+          ),
+          if (snapshot.probing && snapshot.services.isEmpty)
+            const _Loading()
+          else
+            for (final service in snapshot.services)
+              _ServiceRow(service: service),
+          const SizedBox(height: 10),
+          _Note(AppLocalizations.of(context).messageDetectionNotIntegration),
         ],
       ),
-      body: ReactiveViewModelBuilder<MachineViewModel, MachineSnapshot>(
-        viewmodel: MachineService.instance.notifier,
-        build: (snapshot, viewmodel, keep) => ListView(
-          padding: const EdgeInsets.fromLTRB(22, 16, 22, 32),
-          children: [
-            // Primero Keel: la pregunta "¿qué estoy corriendo?" es de esta
-            // pantalla igual que las otras tres, y es la única que además
-            // tiene algo para hacer al respecto.
-            const KeelVersionSection(),
-            _Head(
-              'Servicios',
-              trailing: snapshot.services.isEmpty
-                  ? null
-                  : '${snapshot.supportedCount} con adaptador',
-            ),
-            if (snapshot.probing && snapshot.services.isEmpty)
-              const _Loading()
-            else
-              for (final service in snapshot.services)
-                _ServiceRow(service: service),
-            const SizedBox(height: 10),
-            _Note(AppLocalizations.of(context)!.messageDetectionNotIntegration),
+    );
+  }
+}
 
-            const _PlanAccounts(),
+/// El fierro, ahora mismo.
+class _Equipment extends StatelessWidget {
+  const _Equipment();
 
-            const _Usage(),
-
-            _Head('Fierro', trailing: 'ahora mismo'),
-            _Hardware(machine: snapshot.machine),
-          ],
-        ),
+  @override
+  Widget build(BuildContext context) {
+    return ReactiveViewModelBuilder<MachineViewModel, MachineSnapshot>(
+      viewmodel: MachineService.instance.notifier,
+      build: (snapshot, viewmodel, keep) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const _Head('Fierro', trailing: 'ahora mismo'),
+          _Hardware(machine: snapshot.machine),
+        ],
       ),
     );
   }
@@ -217,7 +243,7 @@ class _Usage extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _Head(
-              AppLocalizations.of(context)!.labelConsumption,
+              AppLocalizations.of(context).labelConsumption,
               trailing: total == 0 ? null : '${_tokens(total)} tokens',
             ),
             UsageBars(days: days, models: models),
@@ -233,7 +259,7 @@ class _Usage extends StatelessWidget {
             ],
             const SizedBox(height: 18),
             if (engines.isEmpty)
-              _Note(AppLocalizations.of(context)!.messageNoConsumptionYet)
+              _Note(AppLocalizations.of(context).messageNoConsumptionYet)
             else ...[
               _EngineTable(engines: engines),
               const SizedBox(height: 10),
@@ -281,10 +307,7 @@ class _EngineTable extends StatelessWidget {
             Text('TURNOS', style: head),
             Text('ENTRADA', style: head),
             Text('SALIDA', style: head),
-            Text(
-              AppLocalizations.of(context)!.labelCacheReadShort,
-              style: head,
-            ),
+            Text(AppLocalizations.of(context).labelCacheReadShort, style: head),
           ],
         ),
         for (final engine in engines)
@@ -316,7 +339,7 @@ class _EngineTable extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 7),
                   child: Text(
-                    AppLocalizations.of(context)!.messageNoTokenCount,
+                    AppLocalizations.of(context).messageNoTokenCount,
                     style: cell.copyWith(color: scheme.outline),
                   ),
                 )
@@ -375,7 +398,7 @@ class _Hardware extends StatelessWidget {
                 label: 'Carga',
                 value: machine.load.toStringAsFixed(2).replaceAll('.', ','),
                 detail:
-                    'de ${AppLocalizations.of(context)!.labelCoresShort(machine.cores)}',
+                    'de ${AppLocalizations.of(context).labelCoresShort(machine.cores)}',
                 ratio: machine.loadRatio,
               ),
             ),
@@ -524,7 +547,7 @@ class _ServiceRow extends StatelessWidget {
             child: Text(
               service.installed
                   ? service.path
-                  : AppLocalizations.of(context)!.messageNotInPath,
+                  : AppLocalizations.of(context).messageNotInPath,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(

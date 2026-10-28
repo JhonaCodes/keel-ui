@@ -51,6 +51,7 @@ import 'package:keel_core/modules/assistant/model/assistant_window_arguments.dar
 import 'package:keel_ui/src/modules/assistant/model/keelai_seed.dart';
 import 'package:keel_core/modules/projects/model/roadmap_format_skill.dart';
 import 'package:keel_ui/src/modules/workflows/model/e2e_device_workflow.dart';
+import 'package:keel_ui/src/modules/assistant/service/assistant_window_boot.dart';
 import 'package:keel_ui/src/modules/assistant/service/assistant_window_bridge.dart';
 import 'package:keel_ui/src/modules/assistant/ui/screen/assistant_window.dart';
 import 'package:keel_ui/src/modules/keel_remote/service/desktop_node_quit_hook.dart';
@@ -77,10 +78,7 @@ Future<void> main(List<String> rawArgs) async {
       _showWhenPainted(windowController);
 
     case AssistantWindowArguments.id:
-      // Sin base en este engine, y dicho explícitamente: los ViewModels que
-      // toque esta ventana (el de settings, vía el font scale de las
-      // burbujas) tienen que leer "no hay nada guardado", no reventar.
-      LocalDatabase.markUnavailable();
+      await prepareAssistantEngine();
       runApp(const AssistantWindow());
       _showWhenPainted(windowController);
 

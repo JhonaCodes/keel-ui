@@ -167,7 +167,7 @@ void main() {
     bool active(PlanAccount account) => account.isDefault;
     await _surface(
       tester,
-      const Size(70, 330),
+      const Size(72, 330),
       Padding(
         padding: const EdgeInsets.fromLTRB(6, 8, 6, 6),
         child: Column(
@@ -175,7 +175,6 @@ void main() {
             PlanUsageRailProvider(
               provider: PlanProvider.claude,
               expanded: true,
-              foldable: true,
               accounts: _claude,
               isActive: active,
               onToggle: () {},
@@ -184,8 +183,7 @@ void main() {
             PlanUsageRailProvider(
               provider: PlanProvider.codex,
               expanded: false,
-              foldable: true,
-              accounts: [_codex[0]],
+              accounts: const [],
               isActive: active,
               onToggle: () {},
               onPressed: () {},
@@ -193,7 +191,6 @@ void main() {
             PlanUsageRailProvider(
               provider: PlanProvider.openRouter,
               expanded: true,
-              foldable: false,
               accounts: const [_openRouter],
               isActive: (_) => false,
               onToggle: () {},

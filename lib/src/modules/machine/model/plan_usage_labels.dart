@@ -8,9 +8,13 @@ abstract final class PlanUsageLabels {
   static String percent(double? value) =>
       value == null ? '—' : '${value.round()} %';
 
-  /// El porcentaje sin el signo, para el riel donde no entra.
-  static String shortPercent(double? value) =>
-      value == null ? '—' : '${value.round()}';
+  /// El porcentaje sin el signo, para el anillo del riel: hasta tres cifras
+  /// tal cual, y desde mil en miles ("1k"), que en el anillo no entra más.
+  static String shortPercent(double? value) {
+    if (value == null) return '—';
+    final rounded = value.round();
+    return rounded < 1000 ? '$rounded' : '${rounded ~/ 1000}k';
+  }
 
   static double? ratio(double? value) =>
       value == null ? null : (value / 100).clamp(0, 1).toDouble();

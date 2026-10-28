@@ -27,10 +27,10 @@ import 'package:keel_ui/src/modules/machine/ui/widget/plan_usage_rail.dart';
 /// Ancho de la columna. Sale del texto más largo que tiene que entrar con
 /// [_railLabelStyle], no al revés: el rail es lo más angosto que puede ser sin
 /// cortar un nombre.
-const _railWidth = 70.0;
+const _railWidth = 72.0;
 
 /// La letra del rail es chica a propósito. Es lo que permite que el nombre
-/// entre entero en 70 puntos: con la fuente por defecto haría falta casi el
+/// entre entero en 72 puntos: con la fuente por defecto haría falta casi el
 /// doble de ancho para lo mismo, y el rail se comería el chat.
 const _railLabelStyle = TextStyle(
   fontSize: 9,

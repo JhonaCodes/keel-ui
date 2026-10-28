@@ -29,8 +29,8 @@ class PlanAccountsState {
   /// El resultado de la última acción, para quien la pidió.
   final String notice;
 
-  /// Los proveedores plegados en el riel: ahí muestran solo la cuenta en
-  /// uso. Desplegado, que es lo normal, se ven todas.
+  /// Los proveedores plegados en el riel: ahí queda solo su nombre.
+  /// Desplegado, que es lo normal, se ven todas sus cuentas.
   final Set<PlanProvider> collapsed;
 
   bool isActive(PlanAccount account) =>
@@ -52,26 +52,32 @@ class PlanAccountsState {
     return installed ? accounts : const [];
   }
 
-  /// Lo que muestra el riel, por proveedor: todas sus cuentas, o solo la
-  /// que está en uso si el proveedor está plegado. La en uso va primero.
+  /// Lo que muestra el riel, por proveedor: todas sus cuentas con la en uso
+  /// primero, o ninguna si está plegado. Igual para todos, tengan una cuenta
+  /// o varias: plegar siempre hace lo mismo.
+  ///
+  /// Solo las cuentas con consumo que mostrar. Una sin sesión, o cuya lectura
+  /// falló, no dice nada en el riel: se ve y se arregla en Máquina. Un
+  /// proveedor sin ninguna así no aparece.
   List<({PlanProvider provider, bool expanded, List<PlanUsage> accounts})>
   get rail => [
     for (final provider in PlanProvider.values)
-      if (accountsOf(provider) case final accounts when accounts.isNotEmpty)
+      if ([
+            for (final u in accountsOf(provider))
+              if (u.ok) u,
+          ]
+          case final accounts when accounts.isNotEmpty)
         (
           provider: provider,
           expanded: !collapsed.contains(provider),
-          accounts: [
-            ...accounts.where((u) => isActive(u.account)),
-            if (!collapsed.contains(provider) || !provider.hasAccounts)
-              ...accounts.where((u) => !isActive(u.account)),
-          ],
+          accounts: collapsed.contains(provider)
+              ? const []
+              : [
+                  ...accounts.where((u) => isActive(u.account)),
+                  ...accounts.where((u) => !isActive(u.account)),
+                ],
         ),
   ];
-
-  /// Si [provider] tiene más de una cuenta: solo entonces tiene algo que
-  /// plegar en el riel.
-  bool hasSeveral(PlanProvider provider) => accountsOf(provider).length > 1;
 
   PlanAccountsState copyWith({
     List<PlanUsage>? usage,

@@ -954,13 +954,13 @@ abstract class AppLocalizations {
   /// No description provided for @settingGptMcp.
   ///
   /// In en, this message translates to:
-  /// **'GPT MCP · this PC'**
+  /// **'GPT MCP'**
   String get settingGptMcp;
 
   /// No description provided for @descriptionGptMcp.
   ///
   /// In en, this message translates to:
-  /// **'ChatGPT works on this PC through keel-api, with every Keel tool. It only reaches the folders you grant here, and you approve what it asks for.'**
+  /// **'ChatGPT works on this PC or on your server through keel-api, with every Keel tool. It only reaches the folders you grant here, and you approve what it asks for.'**
   String get descriptionGptMcp;
 
   /// No description provided for @labelGptMcpNotStarted.
@@ -1040,6 +1040,54 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Add folder'**
   String get buttonGptMcpAddFolder;
+
+  /// No description provided for @labelGptMcpThisPc.
+  ///
+  /// In en, this message translates to:
+  /// **'This PC'**
+  String get labelGptMcpThisPc;
+
+  /// No description provided for @labelGptMcpServer.
+  ///
+  /// In en, this message translates to:
+  /// **'Server'**
+  String get labelGptMcpServer;
+
+  /// No description provided for @labelGptMcpBrowseIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Folders in {path}'**
+  String labelGptMcpBrowseIn(String path);
+
+  /// No description provided for @buttonGptMcpUp.
+  ///
+  /// In en, this message translates to:
+  /// **'Up'**
+  String get buttonGptMcpUp;
+
+  /// No description provided for @messageGptMcpNoSubfolders.
+  ///
+  /// In en, this message translates to:
+  /// **'No subfolders here.'**
+  String get messageGptMcpNoSubfolders;
+
+  /// No description provided for @labelGptMcpNone.
+  ///
+  /// In en, this message translates to:
+  /// **'No access'**
+  String get labelGptMcpNone;
+
+  /// No description provided for @hintGptMcpNewFolder.
+  ///
+  /// In en, this message translates to:
+  /// **'New folder for GPT, inside the folder shown'**
+  String get hintGptMcpNewFolder;
+
+  /// No description provided for @buttonGptMcpCreateFolder.
+  ///
+  /// In en, this message translates to:
+  /// **'Create and grant'**
+  String get buttonGptMcpCreateFolder;
 
   /// No description provided for @descriptionChatGptCatalog.
   ///

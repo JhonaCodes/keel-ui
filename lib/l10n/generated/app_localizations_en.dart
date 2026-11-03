@@ -496,11 +496,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingChatGptCatalog => 'Catalog for ChatGPT desktop';
 
   @override
-  String get settingGptMcp => 'GPT MCP · this PC';
+  String get settingGptMcp => 'GPT MCP';
 
   @override
   String get descriptionGptMcp =>
-      'ChatGPT works on this PC through keel-api, with every Keel tool. It only reaches the folders you grant here, and you approve what it asks for.';
+      'ChatGPT works on this PC or on your server through keel-api, with every Keel tool. It only reaches the folders you grant here, and you approve what it asks for.';
 
   @override
   String get labelGptMcpNotStarted => 'GPT MCP is not running';
@@ -542,6 +542,33 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get buttonGptMcpAddFolder => 'Add folder';
+
+  @override
+  String get labelGptMcpThisPc => 'This PC';
+
+  @override
+  String get labelGptMcpServer => 'Server';
+
+  @override
+  String labelGptMcpBrowseIn(String path) {
+    return 'Folders in $path';
+  }
+
+  @override
+  String get buttonGptMcpUp => 'Up';
+
+  @override
+  String get messageGptMcpNoSubfolders => 'No subfolders here.';
+
+  @override
+  String get labelGptMcpNone => 'No access';
+
+  @override
+  String get hintGptMcpNewFolder =>
+      'New folder for GPT, inside the folder shown';
+
+  @override
+  String get buttonGptMcpCreateFolder => 'Create and grant';
 
   @override
   String get descriptionChatGptCatalog =>

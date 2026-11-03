@@ -258,8 +258,8 @@
   "buttonRegenerateToken": "Regenerate token",
   "buttonCheckAgain": "Check again",
   "settingChatGptCatalog": "Catalog for ChatGPT desktop",
-  "settingGptMcp": "GPT MCP · this PC",
-  "descriptionGptMcp": "ChatGPT works on this PC through keel-api, with every Keel tool. It only reaches the folders you grant here, and you approve what it asks for.",
+  "settingGptMcp": "GPT MCP",
+  "descriptionGptMcp": "ChatGPT works on this PC or on your server through keel-api, with every Keel tool. It only reaches the folders you grant here, and you approve what it asks for.",
   "labelGptMcpNotStarted": "GPT MCP is not running",
   "messageGptMcpTokenMissing": "Paste this PC's relay token into the secret GPT_MCP_RELAY_TOKEN_PC (Secrets) to connect.",
   "labelGptMcpOff": "Off: ChatGPT cannot reach this PC",
@@ -273,6 +273,21 @@
   "labelGptMcpWrite": "Read and write",
   "buttonGptMcpApprove": "Approve",
   "buttonGptMcpAddFolder": "Add folder",
+  "labelGptMcpThisPc": "This PC",
+  "labelGptMcpServer": "Server",
+  "labelGptMcpBrowseIn": "Folders in {path}",
+  "@labelGptMcpBrowseIn": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "buttonGptMcpUp": "Up",
+  "messageGptMcpNoSubfolders": "No subfolders here.",
+  "labelGptMcpNone": "No access",
+  "hintGptMcpNewFolder": "New folder for GPT, inside the folder shown",
+  "buttonGptMcpCreateFolder": "Create and grant",
   "descriptionChatGptCatalog": "Paste this into ChatGPT desktop so it can read and edit your catalog — skills, rules, workflows, projects, knowledge. It works on the catalog itself; it cannot open sessions or spend model credit. Keel has to be open.",
   "messageCatalogBridgeNotRunning": "The catalog is not being served from this window.",
   "messageCatalogWorkerMissing": "The worker is not built yet on this machine. Run scripts/build_catalog_mcp_worker.sh and check again.",

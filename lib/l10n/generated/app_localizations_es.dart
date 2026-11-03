@@ -497,11 +497,11 @@ class AppLocalizationsEs extends AppLocalizations {
   String get settingChatGptCatalog => 'Catálogo para ChatGPT desktop';
 
   @override
-  String get settingGptMcp => 'GPT MCP · este PC';
+  String get settingGptMcp => 'GPT MCP';
 
   @override
   String get descriptionGptMcp =>
-      'ChatGPT trabaja en este PC a través de keel-api, con todas las herramientas de Keel. Solo llega a las carpetas que habilites aquí, y tú apruebas lo que pida.';
+      'ChatGPT trabaja en este PC o en tu servidor a través de keel-api, con todas las herramientas de Keel. Solo llega a las carpetas que habilites aquí, y tú apruebas lo que pida.';
 
   @override
   String get labelGptMcpNotStarted => 'GPT MCP no está corriendo';
@@ -543,6 +543,33 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get buttonGptMcpAddFolder => 'Agregar carpeta';
+
+  @override
+  String get labelGptMcpThisPc => 'Este PC';
+
+  @override
+  String get labelGptMcpServer => 'Servidor';
+
+  @override
+  String labelGptMcpBrowseIn(String path) {
+    return 'Carpetas en $path';
+  }
+
+  @override
+  String get buttonGptMcpUp => 'Subir';
+
+  @override
+  String get messageGptMcpNoSubfolders => 'No hay subcarpetas aquí.';
+
+  @override
+  String get labelGptMcpNone => 'Sin acceso';
+
+  @override
+  String get hintGptMcpNewFolder =>
+      'Nueva carpeta para GPT, dentro de la carpeta mostrada';
+
+  @override
+  String get buttonGptMcpCreateFolder => 'Crear y dar acceso';
 
   @override
   String get descriptionChatGptCatalog =>
@@ -3472,11 +3499,11 @@ class AppLocalizationsEsCo extends AppLocalizationsEs {
   String get settingChatGptCatalog => 'Catálogo para ChatGPT desktop';
 
   @override
-  String get settingGptMcp => 'GPT MCP · este PC';
+  String get settingGptMcp => 'GPT MCP';
 
   @override
   String get descriptionGptMcp =>
-      'ChatGPT trabaja en este PC a través de keel-api, con todas las herramientas de Keel. Solo llega a las carpetas que habilites aquí, y tú apruebas lo que pida.';
+      'ChatGPT trabaja en este PC o en tu servidor a través de keel-api, con todas las herramientas de Keel. Solo llega a las carpetas que habilites aquí, y tú apruebas lo que pida.';
 
   @override
   String get labelGptMcpNotStarted => 'GPT MCP no está corriendo';
@@ -3518,6 +3545,33 @@ class AppLocalizationsEsCo extends AppLocalizationsEs {
 
   @override
   String get buttonGptMcpAddFolder => 'Agregar carpeta';
+
+  @override
+  String get labelGptMcpThisPc => 'Este PC';
+
+  @override
+  String get labelGptMcpServer => 'Servidor';
+
+  @override
+  String labelGptMcpBrowseIn(String path) {
+    return 'Carpetas en $path';
+  }
+
+  @override
+  String get buttonGptMcpUp => 'Subir';
+
+  @override
+  String get messageGptMcpNoSubfolders => 'No hay subcarpetas aquí.';
+
+  @override
+  String get labelGptMcpNone => 'Sin acceso';
+
+  @override
+  String get hintGptMcpNewFolder =>
+      'Nueva carpeta para GPT, dentro de la carpeta mostrada';
+
+  @override
+  String get buttonGptMcpCreateFolder => 'Crear y dar acceso';
 
   @override
   String get descriptionChatGptCatalog =>

@@ -951,6 +951,96 @@ abstract class AppLocalizations {
   /// **'Catalog for ChatGPT desktop'**
   String get settingChatGptCatalog;
 
+  /// No description provided for @settingGptMcp.
+  ///
+  /// In en, this message translates to:
+  /// **'GPT MCP · this PC'**
+  String get settingGptMcp;
+
+  /// No description provided for @descriptionGptMcp.
+  ///
+  /// In en, this message translates to:
+  /// **'ChatGPT works on this PC through keel-api, with every Keel tool. It only reaches the folders you grant here, and you approve what it asks for.'**
+  String get descriptionGptMcp;
+
+  /// No description provided for @labelGptMcpNotStarted.
+  ///
+  /// In en, this message translates to:
+  /// **'GPT MCP is not running'**
+  String get labelGptMcpNotStarted;
+
+  /// No description provided for @messageGptMcpTokenMissing.
+  ///
+  /// In en, this message translates to:
+  /// **'Paste this PC\'s relay token into the secret GPT_MCP_RELAY_TOKEN_PC (Secrets) to connect.'**
+  String get messageGptMcpTokenMissing;
+
+  /// No description provided for @labelGptMcpOff.
+  ///
+  /// In en, this message translates to:
+  /// **'Off: ChatGPT cannot reach this PC'**
+  String get labelGptMcpOff;
+
+  /// No description provided for @labelGptMcpConnecting.
+  ///
+  /// In en, this message translates to:
+  /// **'On, connecting…'**
+  String get labelGptMcpConnecting;
+
+  /// No description provided for @labelGptMcpConnected.
+  ///
+  /// In en, this message translates to:
+  /// **'On and connected'**
+  String get labelGptMcpConnected;
+
+  /// No description provided for @labelGptMcpChatUrl.
+  ///
+  /// In en, this message translates to:
+  /// **'ChatGPT connector'**
+  String get labelGptMcpChatUrl;
+
+  /// No description provided for @labelGptMcpRequests.
+  ///
+  /// In en, this message translates to:
+  /// **'Access requests'**
+  String get labelGptMcpRequests;
+
+  /// No description provided for @labelGptMcpFolders.
+  ///
+  /// In en, this message translates to:
+  /// **'Granted folders'**
+  String get labelGptMcpFolders;
+
+  /// No description provided for @messageGptMcpNoFolders.
+  ///
+  /// In en, this message translates to:
+  /// **'No folders yet: nothing is reachable until you add one.'**
+  String get messageGptMcpNoFolders;
+
+  /// No description provided for @labelGptMcpRead.
+  ///
+  /// In en, this message translates to:
+  /// **'Read'**
+  String get labelGptMcpRead;
+
+  /// No description provided for @labelGptMcpWrite.
+  ///
+  /// In en, this message translates to:
+  /// **'Read and write'**
+  String get labelGptMcpWrite;
+
+  /// No description provided for @buttonGptMcpApprove.
+  ///
+  /// In en, this message translates to:
+  /// **'Approve'**
+  String get buttonGptMcpApprove;
+
+  /// No description provided for @buttonGptMcpAddFolder.
+  ///
+  /// In en, this message translates to:
+  /// **'Add folder'**
+  String get buttonGptMcpAddFolder;
+
   /// No description provided for @descriptionChatGptCatalog.
   ///
   /// In en, this message translates to:

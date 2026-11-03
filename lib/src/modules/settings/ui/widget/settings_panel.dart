@@ -4,6 +4,7 @@ import 'package:reactive_notifier/reactive_notifier.dart';
 import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/core/ui/form_panel.dart';
 import 'package:keel_ui/src/integrations/catalog_bridge/catalog_bridge.dart';
+import 'package:keel_ui/src/integrations/gpt_mcp_node/gpt_mcp_node.dart';
 import 'package:keel_ui/src/integrations/jobs_api/jobs_api.dart';
 import 'package:keel_core/core/services/external_link_service.dart';
 import 'package:keel_ui/src/modules/catalog_locks/ui/screen/catalog_locks_screen.dart';
@@ -92,6 +93,8 @@ class SettingsPanel extends StatelessWidget {
               const _JobsApiInfo(),
               const SizedBox(height: 24),
               const ChatGptCatalogSection(),
+              const SizedBox(height: 24),
+              const GptMcpSection(),
               const SizedBox(height: 24),
               Text(
                 t.labelLockedElements,

@@ -360,9 +360,11 @@ packages:
   keel_core:
     dependency: "direct main"
     description:
-      path: "../keel-core"
-      relative: true
-    source: path
+      path: "."
+      ref: main
+      resolved-ref: bacc8022d37b0b39430722b54e9ae687a4f850d0
+      url: "git@github.com:JhonaCodes/keel-core.git"
+    source: git
     version: "0.1.0"
   keel_e2e_panel:
     dependency: "direct main"
@@ -450,6 +452,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.13.0"
+  mcp_dart:
+    dependency: transitive
+    description:
+      name: mcp_dart
+      sha256: af0b2e25412f70440c881314a0b70a56ef87fd090b3eb71f31c356313096e6f5
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.4.3"
   mcpe2e:
     dependency: "direct main"
     description:

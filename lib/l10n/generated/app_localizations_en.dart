@@ -496,6 +496,54 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingChatGptCatalog => 'Catalog for ChatGPT desktop';
 
   @override
+  String get settingGptMcp => 'GPT MCP · this PC';
+
+  @override
+  String get descriptionGptMcp =>
+      'ChatGPT works on this PC through keel-api, with every Keel tool. It only reaches the folders you grant here, and you approve what it asks for.';
+
+  @override
+  String get labelGptMcpNotStarted => 'GPT MCP is not running';
+
+  @override
+  String get messageGptMcpTokenMissing =>
+      'Paste this PC\'s relay token into the secret GPT_MCP_RELAY_TOKEN_PC (Secrets) to connect.';
+
+  @override
+  String get labelGptMcpOff => 'Off: ChatGPT cannot reach this PC';
+
+  @override
+  String get labelGptMcpConnecting => 'On, connecting…';
+
+  @override
+  String get labelGptMcpConnected => 'On and connected';
+
+  @override
+  String get labelGptMcpChatUrl => 'ChatGPT connector';
+
+  @override
+  String get labelGptMcpRequests => 'Access requests';
+
+  @override
+  String get labelGptMcpFolders => 'Granted folders';
+
+  @override
+  String get messageGptMcpNoFolders =>
+      'No folders yet: nothing is reachable until you add one.';
+
+  @override
+  String get labelGptMcpRead => 'Read';
+
+  @override
+  String get labelGptMcpWrite => 'Read and write';
+
+  @override
+  String get buttonGptMcpApprove => 'Approve';
+
+  @override
+  String get buttonGptMcpAddFolder => 'Add folder';
+
+  @override
   String get descriptionChatGptCatalog =>
       'Paste this into ChatGPT desktop so it can read and edit your catalog — skills, rules, workflows, projects, knowledge. It works on the catalog itself; it cannot open sessions or spend model credit. Keel has to be open.';
 

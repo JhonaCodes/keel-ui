@@ -572,6 +572,10 @@ class AppLocalizationsEs extends AppLocalizations {
   String get buttonGptMcpCreateFolder => 'Crear y dar acceso';
 
   @override
+  String get buttonGptMcpOpenPanel =>
+      'Abrir el panel web (este PC y el servidor)';
+
+  @override
   String get descriptionChatGptCatalog =>
       'Pega esto en ChatGPT desktop para que pueda leer y editar tu catálogo — skills, reglas, workflows, proyectos, saber. Trabaja sobre el catálogo; no puede abrir sesiones ni gastar saldo de modelos. Keel tiene que estar abierto.';
 
@@ -3572,6 +3576,10 @@ class AppLocalizationsEsCo extends AppLocalizationsEs {
 
   @override
   String get buttonGptMcpCreateFolder => 'Crear y dar acceso';
+
+  @override
+  String get buttonGptMcpOpenPanel =>
+      'Abrir el panel web (este PC y el servidor)';
 
   @override
   String get descriptionChatGptCatalog =>

@@ -1089,6 +1089,12 @@ abstract class AppLocalizations {
   /// **'Create and grant'**
   String get buttonGptMcpCreateFolder;
 
+  /// No description provided for @buttonGptMcpOpenPanel.
+  ///
+  /// In en, this message translates to:
+  /// **'Open the web panel (this PC and the server)'**
+  String get buttonGptMcpOpenPanel;
+
   /// No description provided for @descriptionChatGptCatalog.
   ///
   /// In en, this message translates to:

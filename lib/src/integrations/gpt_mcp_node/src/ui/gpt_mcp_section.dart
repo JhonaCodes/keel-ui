@@ -59,12 +59,39 @@ class _GptMcpPcPanel extends StatelessWidget {
   Widget build(BuildContext context) =>
       ReactiveViewModelBuilder<GptMcpNodeViewModel, GptMcpNodeState>(
         viewmodel: GptMcpNodeService.instance.notifier,
-        build: (state, viewmodel, keep) => _GptMcpNodePanel(
-          state: state,
-          actions: viewmodel,
-          canPickLocally: true,
+        build: (state, viewmodel, keep) => Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if ((state.status?.panelUrl ?? '').isNotEmpty)
+              _GptMcpOpenPanelButton(onOpen: viewmodel.openPanel),
+            _GptMcpNodePanel(
+              state: state,
+              actions: viewmodel,
+              canPickLocally: true,
+            ),
+          ],
         ),
       );
+}
+
+/// The web panel: this PC and the server, with the whole folder tree.
+class _GptMcpOpenPanelButton extends StatelessWidget {
+  const _GptMcpOpenPanelButton({required this.onOpen});
+
+  final Future<void> Function() onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: OutlinedButton.icon(
+        icon: const Icon(Icons.open_in_browser, size: 18),
+        label: Text(t.buttonGptMcpOpenPanel),
+        onPressed: onOpen,
+      ),
+    );
+  }
 }
 
 class _GptMcpServerPanel extends StatelessWidget {

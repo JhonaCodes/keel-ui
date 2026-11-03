@@ -288,6 +288,7 @@
   "labelGptMcpNone": "No access",
   "hintGptMcpNewFolder": "New folder for GPT, inside the folder shown",
   "buttonGptMcpCreateFolder": "Create and grant",
+  "buttonGptMcpOpenPanel": "Open the web panel (this PC and the server)",
   "descriptionChatGptCatalog": "Paste this into ChatGPT desktop so it can read and edit your catalog — skills, rules, workflows, projects, knowledge. It works on the catalog itself; it cannot open sessions or spend model credit. Keel has to be open.",
   "messageCatalogBridgeNotRunning": "The catalog is not being served from this window.",
   "messageCatalogWorkerMissing": "The worker is not built yet on this machine. Run scripts/build_catalog_mcp_worker.sh and check again.",

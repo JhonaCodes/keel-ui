@@ -79,3 +79,26 @@ class GptMcpServerRepository {
     }
   }
 }
+
+/// The server as a machine of the owner's web panel: every call is one
+/// `gpt.*` task on the online server node.
+class GptMcpServerRemote implements GptMcpRemote {
+  const GptMcpServerRemote();
+
+  GptMcpServerRepository get _repository => const GptMcpServerRepository();
+
+  @override
+  String get label => 'Servidor';
+
+  @override
+  Future<Result<Map<String, dynamic>, String>> run(
+    String type,
+    Map<String, Object?> payload,
+  ) async {
+    final node = await _repository.serverNodeId();
+    return node.when(
+      ok: (id) => _repository.run(id, type, payload),
+      err: (message) async => Err(message),
+    );
+  }
+}

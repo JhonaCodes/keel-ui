@@ -571,6 +571,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get buttonGptMcpCreateFolder => 'Create and grant';
 
   @override
+  String get buttonGptMcpOpenPanel =>
+      'Open the web panel (this PC and the server)';
+
+  @override
   String get descriptionChatGptCatalog =>
       'Paste this into ChatGPT desktop so it can read and edit your catalog — skills, rules, workflows, projects, knowledge. It works on the catalog itself; it cannot open sessions or spend model credit. Keel has to be open.';
 

@@ -1,6 +1,8 @@
 part of '../gpt_mcp_node.dart';
 
-class GptMcpNodeViewModel extends ViewModel<GptMcpNodeState> {
+/// GPT MCP of this PC, in process.
+class GptMcpNodeViewModel extends ViewModel<GptMcpNodeState>
+    implements GptMcpNodeActions {
   GptMcpNodeViewModel() : super(const GptMcpNodeState());
 
   /// The secret that holds this PC's relay token (keel-api
@@ -54,26 +56,61 @@ class GptMcpNodeViewModel extends ViewModel<GptMcpNodeState> {
 
   /// Re-reads the node's status, grants and requests; only a real change
   /// rebuilds the section.
+  @override
   Future<void> refresh() async {
     final node = GptMcpNode.instance;
     if (!node.isStarted) return;
     final token = await SecretsStore.instance.resolveValue(tokenSecret);
+    final base = await node.access.base();
+    final tree = await node.access.tree(
+      data.browsePath.isEmpty ? null : data.browsePath,
+    );
     final next = data.copyWith(
       status: node.status(),
       grants: await node.access.grants(),
       requests: await node.access.requests(),
       tokenMissing: token == null || token.trim().isEmpty,
+      base: base,
+      browsePath: tree.when(ok: (t) => t.path, err: (_) => base),
+      folders: tree.when(ok: (t) => t.folders, err: (_) => const []),
     );
     if (next != data) updateState(next);
   }
 
+  @override
+  Future<void> browse(String? folder) async {
+    if (!GptMcpNode.instance.isStarted) return;
+    final tree = await GptMcpNode.instance.access.tree(folder);
+    tree.when(
+      ok: (t) => updateState(
+        data.copyWith(browsePath: t.path, folders: t.folders, clearError: true),
+      ),
+      err: (failure) => updateState(data.copyWith(error: failure.message)),
+    );
+  }
+
+  @override
+  Future<void> createFolder(String folder, GptAccessMode mode) async {
+    if (!GptMcpNode.instance.isStarted) return;
+    final result = await GptMcpNode.instance.access.createFolder(
+      data.folderPath(folder),
+      mode,
+    );
+    result.when(
+      ok: (_) => updateState(data.copyWith(clearError: true)),
+      err: (failure) => updateState(data.copyWith(error: failure.message)),
+    );
+    await refresh();
+  }
+
+  @override
   Future<void> setEnabled(bool enabled) async {
     if (!GptMcpNode.instance.isStarted) return;
     await GptMcpNode.instance.setEnabled(enabled);
     await refresh();
   }
 
-  /// Grants [folder] with [mode], or removes its grant when [mode] is null.
+  @override
   Future<void> setGrant(String folder, GptAccessMode? mode) async {
     if (!GptMcpNode.instance.isStarted) return;
     final result = await GptMcpNode.instance.access.setGrant(folder, mode);
@@ -84,6 +121,7 @@ class GptMcpNodeViewModel extends ViewModel<GptMcpNodeState> {
     await refresh();
   }
 
+  @override
   Future<void> decide(String requestId, GptAccessDecision decision) async {
     if (!GptMcpNode.instance.isStarted) return;
     final result = await GptMcpNode.instance.access.decide(requestId, decision);

@@ -16,6 +16,11 @@ class GptMcpNodeViewModel extends ViewModel<GptMcpNodeState>
   /// The owner's web panel, the same port the first GPT MCP used.
   static const _panelPort = 3334;
 
+  /// The chat's own folder on this PC, where it creates its projects, and
+  /// the Keel project registered on it. Other folders it asks for.
+  static const _workspaceDir = '/Volumes/Data/GPT-Workspace';
+  static const _workspaceProject = 'gpt-workspace';
+
   Timer? _ticker;
 
   @override
@@ -39,6 +44,10 @@ class GptMcpNodeViewModel extends ViewModel<GptMcpNodeState>
           apiOrigin: KeelAccountState.defaultOrigin,
           relayToken: () => SecretsStore.instance.resolveValue(tokenSecret),
           panelPort: _panelPort,
+          workspaceDir: Directory(_workspaceDir).existsSync()
+              ? _workspaceDir
+              : null,
+          workspaceProject: _workspaceProject,
         ),
       );
     } on Object catch (error) {

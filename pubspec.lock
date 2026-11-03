@@ -362,7 +362,7 @@ packages:
     description:
       path: "."
       ref: main
-      resolved-ref: fcaf0549dc79f6564cf7e0651e6f63615ff6f770
+      resolved-ref: f43e56e0dea7537e0b1723c737af0e506d69778f
       url: "git@github.com:JhonaCodes/keel-core.git"
     source: git
     version: "0.1.0"

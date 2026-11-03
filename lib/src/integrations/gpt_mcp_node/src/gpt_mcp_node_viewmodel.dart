@@ -13,6 +13,9 @@ class GptMcpNodeViewModel extends ViewModel<GptMcpNodeState>
   static const _preferredBase = '/Volumes/Data';
   static const _refreshEvery = Duration(seconds: 3);
 
+  /// The owner's web panel, the same port the first GPT MCP used.
+  static const _panelPort = 3334;
+
   Timer? _ticker;
 
   @override
@@ -26,6 +29,8 @@ class GptMcpNodeViewModel extends ViewModel<GptMcpNodeState>
     final base = Directory(_preferredBase).existsSync()
         ? _preferredBase
         : (Platform.environment['HOME'] ?? '/');
+    // The web panel also manages the server, through keel-api.
+    GptMcpNode.instance.registerRemote('server', const GptMcpServerRemote());
     try {
       await GptMcpNode.instance.start(
         GptMcpConfig(
@@ -33,6 +38,7 @@ class GptMcpNodeViewModel extends ViewModel<GptMcpNodeState>
           baseDir: base,
           apiOrigin: KeelAccountState.defaultOrigin,
           relayToken: () => SecretsStore.instance.resolveValue(tokenSecret),
+          panelPort: _panelPort,
         ),
       );
     } on Object catch (error) {
@@ -101,6 +107,17 @@ class GptMcpNodeViewModel extends ViewModel<GptMcpNodeState>
       err: (failure) => updateState(data.copyWith(error: failure.message)),
     );
     await refresh();
+  }
+
+  /// Opens the web panel in the default browser.
+  Future<void> openPanel() async {
+    final url = data.status?.panelUrl ?? '';
+    if (url.isEmpty) return;
+    final opener = Platform.isMacOS ? 'open' : 'xdg-open';
+    final result = await Process.run(opener, [url]);
+    if (result.exitCode != 0) {
+      updateState(data.copyWith(error: 'Could not open $url'));
+    }
   }
 
   @override

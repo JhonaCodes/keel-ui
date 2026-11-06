@@ -5,6 +5,7 @@ part of '../assistant_mcp_server.dart';
 /// changing transport and scope in the same step would be hard to diagnose
 /// if something broke.
 final List<Tool> keelAiTools = _withCatalogChangeParameters([
+  ..._layaFormTools,
   Tool(
     name: 'list_locked_items',
     description: 'Lista el registro persistente de elementos bloqueados.',
@@ -515,6 +516,19 @@ final List<Tool> keelAiTools = _withCatalogChangeParameters([
         ),
         'max_replans': Schema.int(
           description: 'Máximo de reformulaciones, de 0 a $kMaxReplans.',
+        ),
+        'laya_form': Schema.string(
+          description:
+              'Opcional: el nombre de un formulario de Laya que se pregunta '
+              'cada vez que un nodo cierra «done», con lo que reportó como '
+              'evidencia (campos summary, files, artifacts, node, workflow, '
+              'project). Las respuestas quedan en el hilo. Vacío lo quita.',
+        ),
+        'laya_gate': Schema.bool(
+          description:
+              'Con laya_form: si una pregunta sí/no de ese formulario sale '
+              '«no» con confianza, el nodo vuelve a pendiente (como un '
+              'NO-GO). Escribí las preguntas para que «sí» sea lo bueno.',
         ),
         'max_subagents': Schema.int(
           description:
@@ -1048,6 +1062,19 @@ final List<Tool> keelAiTools = _withCatalogChangeParameters([
         'max_replans': Schema.int(
           description: 'Máximo de reformulaciones, de 0 a $kMaxReplans.',
         ),
+        'laya_form': Schema.string(
+          description:
+              'Opcional: el nombre de un formulario de Laya que se pregunta '
+              'cada vez que un nodo cierra «done», con lo que reportó como '
+              'evidencia (campos summary, files, artifacts, node, workflow, '
+              'project). Las respuestas quedan en el hilo. Vacío lo quita.',
+        ),
+        'laya_gate': Schema.bool(
+          description:
+              'Con laya_form: si una pregunta sí/no de ese formulario sale '
+              '«no» con confianza, el nodo vuelve a pendiente (como un '
+              'NO-GO). Escribí las preguntas para que «sí» sea lo bueno.',
+        ),
         'max_subagents': Schema.int(
           description:
               'Máximo de subagentes de lectura/verificación que cada NODO '
@@ -1379,4 +1406,100 @@ List<Tool> _withCatalogChangeParameters(List<Tool> tools) => [
           required: tool.inputSchema.required,
         ),
       ),
+];
+
+/// Laya forms: saved sets of closed questions about named evidence, that
+/// the person fills and asks from the Laya panel (and from the phone).
+final List<Tool> _layaFormTools = [
+  Tool(
+    name: 'create_laya_form',
+    description:
+        'Crea (o reemplaza, si ya hay uno con ese nombre) un FORMULARIO de '
+        'Laya: un conjunto de preguntas CERRADAS sobre campos de evidencia con '
+        'nombre, que el usuario completa y le pregunta a Laya desde el panel '
+        'Laya › Formularios (y desde el celular). Usalo cuando el usuario '
+        'quiera consultar o validar algo concreto y repetible: «¿esta tarea '
+        'está demorada?», «¿qué tipo de ticket es?», «¿este log es un fallo '
+        'de auth?». Laya NO genera texto: contesta sí/no (`yesNo`), una entre '
+        'opciones (`choice`, cada opción con una descripción: Laya compara '
+        'la evidencia contra la descripción) o un nivel (`score`, poco '
+        'fiable: evitalo). Escribí el texto de las preguntas, las opciones y '
+        'los nombres de los campos EN INGLÉS; el nombre y la descripción del '
+        'formulario, en el idioma del usuario. Después decile dónde está.',
+    inputSchema: ObjectSchema(
+      properties: {
+        'name': Schema.string(description: 'Nombre del formulario.'),
+        'description': Schema.string(
+          description: 'Para qué sirve, en una línea.',
+        ),
+        'fields': Schema.list(
+          description:
+              'Los campos de evidencia que el usuario completa: '
+              '[{"name": "log", "hint": "pegá el log"}].',
+          items: ObjectSchema(
+            properties: {'name': Schema.string(), 'hint': Schema.string()},
+            required: ['name'],
+          ),
+        ),
+        'questions': Schema.list(
+          description:
+              'Las preguntas, en orden: [{"id": "auth", "kind": "yesNo", '
+              '"text": "Is this an authentication failure?"}]. Para choice: '
+              '"options": [{"name": "bug", "description": "something that '
+              'worked is broken"}], al menos dos. Para score: "levels": '
+              '["low", "high"], de menor a mayor.',
+          items: ObjectSchema(
+            properties: {
+              'id': Schema.string(),
+              'kind': Schema.string(description: 'yesNo, choice o score.'),
+              'text': Schema.string(),
+              'options': Schema.list(
+                items: ObjectSchema(
+                  properties: {
+                    'name': Schema.string(),
+                    'description': Schema.string(),
+                  },
+                ),
+              ),
+              'levels': Schema.list(items: Schema.string()),
+            },
+            required: ['text'],
+          ),
+        ),
+      },
+      required: ['name', 'questions'],
+    ),
+  ),
+  Tool(
+    name: 'list_laya_forms',
+    description:
+        'Lista los formularios de Laya guardados: nombre, para qué sirven, '
+        'sus campos y preguntas, y la última respuesta de cada uno.',
+    inputSchema: ObjectSchema(properties: {}),
+  ),
+  Tool(
+    name: 'ask_laya_form',
+    description:
+        'Completa un formulario de Laya con los valores dados y le pregunta. '
+        'Usalo cuando el usuario te pase los datos y quiera la respuesta ya. '
+        'Devuelve, por pregunta, la respuesta, sus probabilidades y la '
+        'confianza; por debajo de 0.5 Laya no sabe.',
+    inputSchema: ObjectSchema(
+      properties: {
+        'name': Schema.string(description: 'Nombre del formulario.'),
+        'values': ObjectSchema(
+          description: 'Los valores por nombre de campo: {"log": "..."}.',
+        ),
+      },
+      required: ['name'],
+    ),
+  ),
+  Tool(
+    name: 'delete_laya_form',
+    description: 'Borra un formulario de Laya por nombre.',
+    inputSchema: ObjectSchema(
+      properties: {'name': Schema.string(description: 'Nombre.')},
+      required: ['name'],
+    ),
+  ),
 ];

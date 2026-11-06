@@ -3,6 +3,7 @@ import 'package:reactive_notifier/reactive_notifier.dart';
 
 import 'package:keel_ui/src/modules/sidebar_layout/model/sidebar_layout.dart';
 import 'package:keel_ui/src/modules/sidebar_layout/ui/widget/sidebar_drop_zone.dart';
+import 'package:keel_ui/src/modules/sidebar_layout/ui/widget/sidebar_group_band.dart';
 import 'package:keel_ui/src/modules/sidebar_layout/ui/widget/sidebar_group_row.dart';
 import 'package:keel_ui/src/modules/sidebar_layout/viewmodel/sidebar_layout_viewmodel.dart';
 
@@ -23,6 +24,7 @@ class SidebarSectionList<T> extends StatelessWidget {
     this.belowBuilder,
     this.selectedId,
     this.runningIds = const {},
+    this.bands = false,
   });
 
   final SidebarSectionKind kind;
@@ -49,6 +51,10 @@ class SidebarSectionList<T> extends StatelessWidget {
   /// Los ítems que están trabajando ahora. El encabezado de un grupo suma
   /// los suyos: plegado, es lo único que queda para decirlo.
   final Set<String> runningIds;
+
+  /// Los grupos se dibujan como bandas —etiquetas de lado a lado, que viven
+  /// aunque estén vacías— en vez de como filas. Es lo de Proyectos.
+  final bool bands;
 
   @override
   Widget build(BuildContext context) {
@@ -106,26 +112,58 @@ class SidebarSectionList<T> extends StatelessWidget {
                       label: slot.name,
                       onDropped: (draggedId, spot) =>
                           dropped(draggedId, slot.id, spot),
-                      child: SidebarGroupRow(
-                        group: slot,
-                        onToggle: () => layout.toggleGroup(
-                          kind,
-                          slot.id,
-                          presentIds: present,
-                        ),
-                        onRename: (name) => layout.renameGroup(
-                          kind,
-                          slot.id,
-                          name,
-                          presentIds: present,
-                        ),
-                        onUngroup: () =>
-                            layout.ungroup(kind, slot.id, presentIds: present),
-                        containsSelection: slot.memberIds.contains(selectedId),
-                        runningCount: slot.memberIds
-                            .where(runningIds.contains)
-                            .length,
-                      ),
+                      child: bands
+                          ? SidebarGroupBand(
+                              group: slot,
+                              renameNow: layout.consumeJustCreated(slot.id),
+                              onToggle: () => layout.toggleGroup(
+                                kind,
+                                slot.id,
+                                presentIds: present,
+                              ),
+                              onRename: (name) => layout.renameGroup(
+                                kind,
+                                slot.id,
+                                name,
+                                presentIds: present,
+                              ),
+                              onRemove: () => layout.ungroup(
+                                kind,
+                                slot.id,
+                                presentIds: present,
+                              ),
+                              containsSelection: slot.memberIds.contains(
+                                selectedId,
+                              ),
+                              runningCount: slot.memberIds
+                                  .where(runningIds.contains)
+                                  .length,
+                            )
+                          : SidebarGroupRow(
+                              group: slot,
+                              onToggle: () => layout.toggleGroup(
+                                kind,
+                                slot.id,
+                                presentIds: present,
+                              ),
+                              onRename: (name) => layout.renameGroup(
+                                kind,
+                                slot.id,
+                                name,
+                                presentIds: present,
+                              ),
+                              onUngroup: () => layout.ungroup(
+                                kind,
+                                slot.id,
+                                presentIds: present,
+                              ),
+                              containsSelection: slot.memberIds.contains(
+                                selectedId,
+                              ),
+                              runningCount: slot.memberIds
+                                  .where(runningIds.contains)
+                                  .length,
+                            ),
                     ),
                     // Plegado, se sigue mostrando lo que está abierto —y solo
                     // eso—, como hace Slack: plegar es dejar de mirar el
@@ -133,10 +171,12 @@ class SidebarSectionList<T> extends StatelessWidget {
                     if (slot.collapsed)
                       for (final memberId in slot.memberIds)
                         if (memberId == selectedId)
-                          itemRow(memberId, indented: true),
+                          itemRow(memberId, indented: !bands),
+                    if (!slot.collapsed && slot.memberIds.isEmpty && bands)
+                      const SidebarGroupBandEmpty(),
                     if (!slot.collapsed)
                       for (final memberId in slot.memberIds)
-                        itemRow(memberId, indented: true),
+                        itemRow(memberId, indented: !bands),
                   ],
                 ),
               },

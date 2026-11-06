@@ -361,6 +361,8 @@ class ProjectsViewModel extends StoreMirrorViewModel<ProjectsState> {
 
   void selectProject(String id) => ProjectsStore.instance.selectProject(id);
 
+  void clearSelectedProject() => ProjectsStore.instance.clearSelectedProject();
+
   void selectSession(String projectId, String sessionId) =>
       ProjectsStore.instance.selectSession(projectId, sessionId);
 

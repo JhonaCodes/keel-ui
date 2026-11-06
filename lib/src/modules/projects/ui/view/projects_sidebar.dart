@@ -14,6 +14,8 @@ import 'package:keel_ui/src/modules/requirements/viewmodel/requirements_viewmode
 import 'package:reactive_notifier/reactive_notifier.dart';
 
 import 'package:keel_core/modules/agents/model/agent.dart';
+import 'package:keel_core/modules/catalog_locks/model/catalog_lock.dart';
+import 'package:keel_ui/src/modules/catalog_locks/viewmodel/catalog_locks_viewmodel.dart';
 import 'package:keel_ui/src/modules/agents/model/agent_icon_colors.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/agent_status_icon.dart';
 import 'package:keel_ui/src/modules/agents/ui/widget/use_agent_panel.dart';
@@ -21,6 +23,8 @@ import 'package:keel_ui/src/modules/agents/viewmodel/agents_viewmodel.dart';
 import 'package:keel_ui/src/modules/boards/ui/widget/boards_group.dart';
 import 'package:keel_core/modules/projects/model/project.dart';
 import 'package:keel_core/modules/projects/model/session.dart';
+import 'package:keel_ui/src/modules/projects/ui/screen/project_form_screen.dart';
+import 'package:keel_ui/src/modules/projects/ui/widget/project_delete_dialog.dart';
 import 'package:keel_ui/src/modules/projects/ui/widget/session_plan_list.dart';
 import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
 import 'package:keel_ui/src/core/ui/running_dot.dart';
@@ -118,6 +122,10 @@ class _SidebarListState extends State<_SidebarList> {
               label: AppLocalizations.of(context).sidebarSectionProjects,
               onAdd: widget.onNewProject,
               onManage: widget.onManageProjects,
+              onNewGroup: () => layout.createGroup(
+                SidebarSectionKind.project,
+                presentIds: [for (final project in state.projects) project.id],
+              ),
             ),
           ),
           if (state.projects.isEmpty)
@@ -137,17 +145,28 @@ class _SidebarListState extends State<_SidebarList> {
                 ? state.selectedProjectId
                 : null,
             runningIds: runningProjectIds(state.projects),
-            rowBuilder: (project) => _ProjectRow(
-              project: project,
-              selected:
+            bands: true,
+            rowBuilder: (project) {
+              final selected =
                   workspace.isProjectScoped &&
-                  state.selectedProjectId == project.id,
-              onTap: () => navigator.openProject(project.id),
-            ),
+                  state.selectedProjectId == project.id;
+              return _ProjectRow(
+                project: project,
+                selected: selected,
+                presentIds: [for (final p in state.projects) p.id],
+                // Tocar el abierto lo cierra, como un canal en Slack: la
+                // barra lo pliega y deja de crecer.
+                onTap: () => selected
+                    ? navigator.closeProject()
+                    : navigator.openProject(project.id),
+              );
+            },
             // Las secciones del proyecto abierto cuelgan de su fila pero no
             // se arrastran con ella: no son ítems de la lista, son las
             // partes del proyecto.
-            belowBuilder: (project) => state.selectedProjectId != project.id
+            belowBuilder: (project) =>
+                !workspace.isProjectScoped ||
+                    state.selectedProjectId != project.id
                 ? const SizedBox.shrink()
                 : Column(
                     mainAxisSize: MainAxisSize.min,
@@ -275,11 +294,11 @@ class _SessionsSection extends StatelessWidget {
           selected: onSessions,
           expanded: expanded,
           onToggle: onToggle,
-          // Sin ninguna abierta lleva igual al lente de sesiones, que es
-          // donde está el botón para abrir una. Un click que no hace nada
-          // porque no hay nada es peor que uno que te muestra por qué.
+          // Sin ninguna abierta despliega la lista, que es donde está
+          // «Nueva sesión». Antes creaba una vacía en el acto: un click para
+          // mirar llenaba la barra de sesiones que nadie pidió.
           onTap: () => active == null
-              ? navigator.openNewSession(project.id)
+              ? onToggle()
               : navigator.openSession(project.id, active),
           // Plegada, la cabecera es lo único que queda de las sesiones: si
           // alguna trabaja, tiene que decirlo acá.
@@ -438,11 +457,16 @@ class _GroupHead extends StatelessWidget {
     required this.label,
     required this.onAdd,
     required this.onManage,
+    required this.onNewGroup,
   });
 
   final String label;
   final VoidCallback onAdd;
   final VoidCallback onManage;
+
+  /// Crea una banda: una etiqueta para separar proyectos (trabajo,
+  /// personal…).
+  final VoidCallback onNewGroup;
 
   @override
   Widget build(BuildContext context) {
@@ -461,6 +485,13 @@ class _GroupHead extends StatelessWidget {
                 color: scheme.outline,
               ),
             ),
+          ),
+          IconButton(
+            tooltip: 'Nuevo grupo de proyectos',
+            icon: const Icon(Icons.create_new_folder_outlined, size: 15),
+            constraints: const BoxConstraints.tightFor(width: 28, height: 28),
+            padding: EdgeInsets.zero,
+            onPressed: onNewGroup,
           ),
           IconButton(
             tooltip: AppLocalizations.of(context).sidebarTooltipManageProjects,
@@ -486,11 +517,15 @@ class _ProjectRow extends StatefulWidget {
   const _ProjectRow({
     required this.project,
     required this.selected,
+    required this.presentIds,
     required this.onTap,
   });
 
   final Project project;
   final bool selected;
+
+  /// Los proyectos que existen: la disposición los necesita para mover.
+  final List<String> presentIds;
   final VoidCallback onTap;
 
   /// Cuántas de sus sesiones están corriendo un turno.
@@ -512,12 +547,109 @@ class _ProjectRowState extends State<_ProjectRow> {
     super.dispose();
   }
 
+  /// El menú del click derecho: abrir o cerrar, renombrar, editar, mover
+  /// entre grupos y eliminar. Sale donde apuntaste.
+  Future<void> _openMenu(Offset position) async {
+    final overlay = Overlay.of(context).context.findRenderObject();
+    if (overlay is! RenderBox) return;
+    final layout = SidebarLayoutService.instance.notifier;
+    const kind = SidebarSectionKind.project;
+    final current = layout.groupOf(kind, project.id);
+    final groups = layout.groupsOf(kind);
+    final locked = CatalogLocksService.instance.notifier.isLocked(
+      CatalogLockKind.project,
+      project.name,
+    );
+
+    final choice = await showMenu<_ProjectAction>(
+      context: context,
+      position: RelativeRect.fromRect(
+        position & Size.zero,
+        Offset.zero & overlay.size,
+      ),
+      items: [
+        PopupMenuItem(
+          value: const _ProjectAction(_ProjectVerb.toggle),
+          child: Text(selected ? 'Cerrar' : 'Abrir'),
+        ),
+        const PopupMenuItem(
+          value: _ProjectAction(_ProjectVerb.rename),
+          child: Text('Renombrar'),
+        ),
+        PopupMenuItem(
+          value: const _ProjectAction(_ProjectVerb.edit),
+          enabled: !locked,
+          child: const Text('Editar…'),
+        ),
+        const PopupMenuDivider(),
+        for (final group in groups)
+          if (group.id != current?.id)
+            PopupMenuItem(
+              value: _ProjectAction(_ProjectVerb.moveTo, group.id),
+              child: Text('Mover a «${group.name}»'),
+            ),
+        const PopupMenuItem(
+          value: _ProjectAction(_ProjectVerb.newGroup),
+          child: Text('Nuevo grupo con este proyecto'),
+        ),
+        if (current != null)
+          PopupMenuItem(
+            value: const _ProjectAction(_ProjectVerb.ungroup),
+            child: Text('Sacar de «${current.name}»'),
+          ),
+        const PopupMenuDivider(),
+        PopupMenuItem(
+          value: const _ProjectAction(_ProjectVerb.delete),
+          enabled: !locked,
+          child: Text(
+            locked ? 'Eliminar (bloqueado en el catálogo)' : 'Eliminar…',
+            style: TextStyle(
+              color: locked ? null : Theme.of(context).colorScheme.error,
+            ),
+          ),
+        ),
+      ],
+    );
+    if (!mounted || choice == null) return;
+
+    switch (choice.verb) {
+      case _ProjectVerb.toggle:
+        widget.onTap();
+      case _ProjectVerb.rename:
+        _rename.start();
+      case _ProjectVerb.edit:
+        await openProjectFormScreen(context, initial: project);
+      case _ProjectVerb.moveTo:
+        await layout.moveToGroup(
+          kind,
+          project.id,
+          choice.groupId!,
+          presentIds: widget.presentIds,
+        );
+      case _ProjectVerb.newGroup:
+        await layout.createGroup(
+          kind,
+          presentIds: widget.presentIds,
+          itemId: project.id,
+        );
+      case _ProjectVerb.ungroup:
+        await layout.moveToRoot(
+          kind,
+          project.id,
+          presentIds: widget.presentIds,
+        );
+      case _ProjectVerb.delete:
+        if (mounted) await confirmAndDeleteProject(context, project);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return InkWell(
       onTap: widget.onTap,
       onDoubleTap: _rename.start,
+      onSecondaryTapDown: (details) => _openMenu(details.globalPosition),
       child: Container(
         decoration: BoxDecoration(
           color: selected ? scheme.surfaceContainerHighest : null,
@@ -766,4 +898,21 @@ class _StateRow extends StatelessWidget {
           : Icon(Icons.warning_amber_rounded, size: 13, color: scheme.error),
     );
   }
+}
+
+enum _ProjectVerb { toggle, rename, edit, moveTo, newGroup, ungroup, delete }
+
+/// Lo que se eligió en el menú de un proyecto; [groupId] solo para mover.
+class _ProjectAction {
+  const _ProjectAction(this.verb, [this.groupId]);
+
+  final _ProjectVerb verb;
+  final String? groupId;
+
+  @override
+  bool operator ==(Object other) =>
+      other is _ProjectAction && other.verb == verb && other.groupId == groupId;
+
+  @override
+  int get hashCode => Object.hash(verb, groupId);
 }

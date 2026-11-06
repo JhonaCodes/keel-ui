@@ -20,7 +20,12 @@ final class DesktopNodeRuntime {
   /// another kind of node runs, refused before they can reach this PC's
   /// sessions, and Keel AI's chat ([keelAi], null while it is not running).
   static List<NodeTaskHandler> handlersFor(NodeKeelAiChat? Function() keelAi) =>
-      [const ServerOnlyTasks(), NodeKeelAiTasks(keelAi: keelAi)];
+      [
+        const ServerOnlyTasks(),
+        NodeKeelAiTasks(keelAi: keelAi),
+        // Laya forms from the phone, answered with this PC's vault.
+        const LayaFormTasks(),
+      ];
 
   static const String folderName = 'node_link';
   static const String tasksFileName = 'tasks.json';

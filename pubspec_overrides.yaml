@@ -1,0 +1,3 @@
+dependency_overrides:
+  keel_core:
+    path: ../keel-core

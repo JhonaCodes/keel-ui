@@ -38,16 +38,19 @@ class WorkspaceViewModel extends ViewModel<WorkspaceState> {
 
   /// Abrir un proyecto lo deja donde lo dejaste: en su sesión si tenía una
   /// abierta, y si no en su estado.
+  /// Abre un proyecto en su Estado. Nunca en una sesión: entrar a un
+  /// proyecto es mirarlo, no retomar ni empezar trabajo, y saltar a la
+  /// sesión activa —o a una vacía— llenaba la barra de sesiones sin pedirlo.
   void openProject(String projectId) {
     _projects.selectProject(projectId);
-    final project = _projects.data.projects
-        .where((entry) => entry.id == projectId)
-        .firstOrNull;
-    _show(
-      project?.activeSessionId == null
-          ? WorkspaceLens.projectState
-          : WorkspaceLens.session,
-    );
+    _show(WorkspaceLens.projectState);
+  }
+
+  /// Cierra el proyecto abierto, como volver a tocar un canal en Slack: la
+  /// barra lo pliega y el centro queda vacío.
+  void closeProject() {
+    _projects.clearSelectedProject();
+    _show(WorkspaceLens.projectState);
   }
 
   void openProjectState(String projectId) {

@@ -490,6 +490,106 @@ class AppLocalizationsEn extends AppLocalizations {
   String get buttonRegenerateToken => 'Regenerate token';
 
   @override
+  String get buttonCheckAgain => 'Check again';
+
+  @override
+  String get settingChatGptCatalog => 'Catalog for ChatGPT desktop';
+
+  @override
+  String get settingGptMcp => 'GPT MCP';
+
+  @override
+  String get descriptionGptMcp =>
+      'ChatGPT works on this PC or on your server through keel-api, with every Keel tool. It only reaches the folders you grant here, and you approve what it asks for.';
+
+  @override
+  String get labelGptMcpNotStarted => 'GPT MCP is not running';
+
+  @override
+  String get messageGptMcpTokenMissing =>
+      'Paste this PC\'s relay token into the secret GPT_MCP_RELAY_TOKEN_PC (Secrets) to connect.';
+
+  @override
+  String get labelGptMcpOff => 'Off: ChatGPT cannot reach this PC';
+
+  @override
+  String get labelGptMcpConnecting => 'On, connecting…';
+
+  @override
+  String get labelGptMcpConnected => 'On and connected';
+
+  @override
+  String get labelGptMcpChatUrl => 'ChatGPT connector';
+
+  @override
+  String get labelGptMcpRequests => 'Access requests';
+
+  @override
+  String get labelGptMcpFolders => 'Granted folders';
+
+  @override
+  String get messageGptMcpNoFolders =>
+      'No folders yet: nothing is reachable until you add one.';
+
+  @override
+  String get labelGptMcpRead => 'Read';
+
+  @override
+  String get labelGptMcpWrite => 'Read and write';
+
+  @override
+  String get buttonGptMcpApprove => 'Approve';
+
+  @override
+  String get buttonGptMcpAddFolder => 'Add folder';
+
+  @override
+  String get labelGptMcpThisPc => 'This PC';
+
+  @override
+  String get labelGptMcpServer => 'Server';
+
+  @override
+  String labelGptMcpBrowseIn(String path) {
+    return 'Folders in $path';
+  }
+
+  @override
+  String get buttonGptMcpUp => 'Up';
+
+  @override
+  String get messageGptMcpNoSubfolders => 'No subfolders here.';
+
+  @override
+  String get labelGptMcpNone => 'No access';
+
+  @override
+  String get hintGptMcpNewFolder =>
+      'New folder for GPT, inside the folder shown';
+
+  @override
+  String get buttonGptMcpCreateFolder => 'Create and grant';
+
+  @override
+  String get buttonGptMcpOpenPanel =>
+      'Open the web panel (this PC and the server)';
+
+  @override
+  String get descriptionChatGptCatalog =>
+      'Paste this into ChatGPT desktop so it can read and edit your catalog — skills, rules, workflows, projects, knowledge. It works on the catalog itself; it cannot open sessions or spend model credit. Keel has to be open.';
+
+  @override
+  String get messageCatalogBridgeNotRunning =>
+      'The catalog is not being served from this window.';
+
+  @override
+  String get messageCatalogWorkerMissing =>
+      'The worker is not built yet on this machine. Run scripts/build_catalog_mcp_worker.sh and check again.';
+
+  @override
+  String get messageCopiedToClipboard => 'Copied';
+
+  @override
   String get buttonViewLocked => 'View locked…';
 
   @override
@@ -2878,4 +2978,18 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get keelThisPcProblemUnlinkNotConfirmed =>
       'This PC stopped taking tasks, but the server did not confirm it removed the node.';
+
+  @override
+  String get settingLaya => 'Laya';
+
+  @override
+  String get descriptionLayaSettings =>
+      'Your Laya decision engine (secrets LAYA_URL and LAYA_API_KEY). You can always use it from the app.';
+
+  @override
+  String get layaForAgents => 'Laya for agents';
+
+  @override
+  String get layaForAgentsHelp =>
+      'Agents get the ask_laya tool to validate concrete, closed questions. Off: only you use it.';
 }

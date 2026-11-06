@@ -39,6 +39,7 @@ import 'package:keel_ui/src/modules/agents/ui/widget/chat_reference_composer_fie
 import 'package:keel_ui/src/modules/projects/ui/widget/workflow_progress_panel.dart';
 import 'package:keel_ui/src/modules/projects/viewmodel/projects_viewmodel.dart';
 import 'package:keel_core/modules/workflows/model/workflow.dart';
+import 'package:keel_core/modules/workflows/model/workflow_evaluation.dart';
 import 'package:keel_ui/src/modules/workflows/ui/screen/workflow_picker_panel.dart';
 import 'package:keel_ui/src/modules/workflows/viewmodel/workflows_viewmodel.dart';
 import 'package:keel_ui/src/modules/workspace/viewmodel/workspace_viewmodel.dart';

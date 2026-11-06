@@ -19,10 +19,31 @@ enum SidebarDropSpot { before, after, into }
 /// que un proyecto o una sesión.
 const kDefaultSidebarGroupName = 'Grupo';
 
+/// El nombre con el que nace una banda de proyectos creada con el botón.
+const kDefaultProjectBandName = 'Nuevo grupo';
+
 class SidebarLayoutViewModel extends ViewModel<SidebarLayoutState> {
   SidebarLayoutViewModel() : super(const SidebarLayoutState());
 
   final _repository = SidebarLayoutRepository();
+
+  /// En Proyectos los grupos son BANDAS: etiquetas que el usuario crea a
+  /// propósito (trabajo, personal…), así que viven aunque queden vacías o
+  /// con un solo proyecto. En las otras secciones un grupo sigue naciendo de
+  /// juntar dos cosas y se deshace solo cuando ya no agrupa nada.
+  static bool keepsGroups(SidebarSectionKind kind) =>
+      kind == SidebarSectionKind.project;
+
+  /// La banda recién creada, para que su fila entre directo a renombrarse.
+  /// No es estado: se consume una vez y no se dibuja.
+  String? _justCreatedGroupId;
+
+  /// True una sola vez, para la banda que se acaba de crear.
+  bool consumeJustCreated(String groupId) {
+    if (_justCreatedGroupId != groupId) return false;
+    _justCreatedGroupId = null;
+    return true;
+  }
 
   Future<void>? _ready;
   Future<void> get ready => _ready ??= _load();
@@ -71,9 +92,10 @@ class SidebarLayoutViewModel extends ViewModel<SidebarLayoutState> {
             for (final id in memberIds)
               if (remaining.remove(id)) id,
           ];
-          // Un grupo que se quedó sin nada que mostrar no se dibuja. No se
-          // borra acá —esto no escribe—: lo limpia la próxima operación.
-          if (members.isNotEmpty) {
+          // Un grupo que se quedó sin nada que mostrar no se dibuja —salvo
+          // una banda, que es una etiqueta—. No se borra acá —esto no
+          // escribe—: lo limpia la próxima operación.
+          if (members.isNotEmpty || keepsGroups(kind)) {
             slots.add(slot.copyWith(memberIds: members));
           }
       }
@@ -111,7 +133,7 @@ class SidebarLayoutViewModel extends ViewModel<SidebarLayoutState> {
   }) async {
     if (draggedId == targetId) return;
     final slots = [...slotsFor(kind, presentIds)];
-    final dragged = _takeOut(slots, draggedId);
+    final dragged = _takeOut(slots, draggedId, keepGroups: keepsGroups(kind));
     if (dragged == null) return;
 
     if (spot == SidebarDropSpot.into) {
@@ -137,11 +159,54 @@ class SidebarLayoutViewModel extends ViewModel<SidebarLayoutState> {
   }) async {
     if (groupOf(kind, itemId) == null) return;
     final slots = [...slotsFor(kind, presentIds)];
-    final taken = _takeOut(slots, itemId);
+    final taken = _takeOut(slots, itemId, keepGroups: keepsGroups(kind));
     if (taken == null) return;
     slots.add(taken);
     await _store(kind, slots);
   }
+
+  /// Crea una banda vacía al final de [kind], o con [itemId] adentro, y la
+  /// deja lista para renombrarse. Devuelve su id.
+  Future<String> createGroup(
+    SidebarSectionKind kind, {
+    required Iterable<String> presentIds,
+    String? itemId,
+  }) async {
+    final slots = [...slotsFor(kind, presentIds)];
+    if (itemId != null) {
+      _takeOut(slots, itemId, keepGroups: keepsGroups(kind));
+    }
+    final group = SidebarGroupSlot(
+      id: generateUuidV4(),
+      name: kDefaultProjectBandName,
+      memberIds: [?itemId],
+    );
+    slots.add(group);
+    _justCreatedGroupId = group.id;
+    await _store(kind, slots);
+    return group.id;
+  }
+
+  /// Mueve [itemId] al final de la banda [groupId].
+  Future<void> moveToGroup(
+    SidebarSectionKind kind,
+    String itemId,
+    String groupId, {
+    required Iterable<String> presentIds,
+  }) async {
+    if (groupOf(kind, itemId)?.id == groupId) return;
+    final slots = [...slotsFor(kind, presentIds)];
+    final taken = _takeOut(slots, itemId, keepGroups: keepsGroups(kind));
+    if (taken == null) return;
+    _insertInto(slots, itemId, groupId);
+    await _store(kind, slots);
+  }
+
+  /// Las bandas de [kind], para el menú «Mover a…».
+  List<SidebarGroupSlot> groupsOf(SidebarSectionKind kind) => [
+    for (final slot in data.layoutOf(kind).slots)
+      if (slot is SidebarGroupSlot) slot,
+  ];
 
   /// Deshace el grupo: sus miembros quedan sueltos, en el mismo lugar y en el
   /// mismo orden en que estaban adentro.
@@ -208,7 +273,13 @@ class SidebarLayoutViewModel extends ViewModel<SidebarLayoutState> {
   /// que sobra vuelve a la raíz EN EL LUGAR del grupo. Un grupo nace de
   /// juntar dos cosas; con una sola adentro ya no agrupa nada, y quedaría
   /// como el resto de una mudanza en vez de como una decisión.
-  static SidebarSlot? _takeOut(List<SidebarSlot> slots, String id) {
+  ///
+  /// Con [keepGroups] —las bandas— el grupo se queda aunque quede vacío.
+  static SidebarSlot? _takeOut(
+    List<SidebarSlot> slots,
+    String id, {
+    bool keepGroups = false,
+  }) {
     for (var i = 0; i < slots.length; i++) {
       final slot = slots[i];
       if (slot is SidebarItemSlot && slot.itemId == id) {
@@ -221,7 +292,9 @@ class SidebarLayoutViewModel extends ViewModel<SidebarLayoutState> {
             for (final member in slot.memberIds)
               if (member != id) member,
           ];
-          if (members.isEmpty) {
+          if (keepGroups) {
+            slots[i] = slot.copyWith(memberIds: members);
+          } else if (members.isEmpty) {
             slots.removeAt(i);
           } else if (members.length == 1) {
             slots[i] = SidebarItemSlot(members.single);

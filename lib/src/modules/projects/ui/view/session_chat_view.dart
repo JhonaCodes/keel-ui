@@ -1399,10 +1399,15 @@ class _WorkflowChip extends StatelessWidget {
   final Session session;
   final Workflow? workflow;
 
+  /// En modo automático el workflow todavía no está elegido: el hilo puede
+  /// tener el pedido y el aviso del evaluador, pero ningún paso corrido.
+  bool get _isAuto => session.workflowId == kAutoWorkflowId;
+
   /// Cambiarlo con pasos ya corridos dejaría medio hilo hecho por una fila
   /// de agentes y la otra mitad por otra, y el `3/7` contando sobre una
-  /// escala que esa sesión nunca usó.
-  bool get _canChange => session.messages.isEmpty;
+  /// escala que esa sesión nunca usó. La excepción es el modo automático:
+  /// si el evaluador no pudo elegir, esto es lo que la sesión espera.
+  bool get _canChange => session.messages.isEmpty || _isAuto;
 
   Future<void> _pick(BuildContext context) async {
     final t = AppLocalizations.of(context);
@@ -1413,6 +1418,7 @@ class _WorkflowChip extends StatelessWidget {
       currentId: session.workflowId,
       title: t.labelWhichWorkflowRuns,
       note: t.messageWhichWorkflowRunsNote,
+      allowAuto: true,
     );
     if (picked == null) return;
     projects.setSessionWorkflow(project.id, session.id, picked);
@@ -1421,14 +1427,18 @@ class _WorkflowChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final name = workflow?.name ?? 'sin workflow';
+    // En automático no hay workflow que resolver todavía, y eso NO es el
+    // error que pinta `sin workflow`: es el estado normal de una sesión que
+    // espera su turno de evaluación.
+    final missing = workflow == null && !_isAuto;
+    final name = _isAuto ? 'automático' : (workflow?.name ?? 'sin workflow');
     final label = Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
       decoration: BoxDecoration(
         color: scheme.surfaceContainerHigh,
         borderRadius: BorderRadius.circular(6),
         border: Border.all(
-          color: workflow == null ? scheme.error : scheme.outlineVariant,
+          color: missing ? scheme.error : scheme.outlineVariant,
           width: 0.5,
         ),
       ),
@@ -1436,9 +1446,9 @@ class _WorkflowChip extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            Icons.account_tree_outlined,
+            _isAuto ? Icons.auto_awesome_outlined : Icons.account_tree_outlined,
             size: 13,
-            color: workflow == null ? scheme.error : scheme.outline,
+            color: missing ? scheme.error : scheme.outline,
           ),
           const SizedBox(width: 6),
           // Con una tercera pestaña (E2E) y un nombre largo, el grupo entero
@@ -1452,9 +1462,7 @@ class _WorkflowChip extends StatelessWidget {
               style: TextStyle(
                 fontFamily: 'monospace',
                 fontSize: 11,
-                color: workflow == null
-                    ? scheme.error
-                    : scheme.onSurfaceVariant,
+                color: missing ? scheme.error : scheme.onSurfaceVariant,
               ),
             ),
           ),

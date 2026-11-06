@@ -47,3 +47,7 @@ app.*.map.json
 # Credenciales de compilación (webhook de Discord). Nunca al repositorio.
 keel_secrets.json
 /test/goldens/failures/
+
+# Override local de desarrollo (p. ej. apuntar keel_core a un worktree).
+# Nunca se commitea: convertiria la dependencia git en una ruta de disco.
+pubspec_overrides.yaml

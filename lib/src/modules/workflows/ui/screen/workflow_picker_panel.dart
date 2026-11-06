@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:keel_ui/src/core/ui/form_panel.dart';
 import 'package:keel_core/modules/workflows/model/workflow.dart';
+import 'package:keel_core/modules/workflows/model/workflow_evaluation.dart';
 
 /// Elegir con qué workflow adaptativo corre algo. Devuelve el id, o null si
 /// te fuiste.
@@ -10,12 +11,16 @@ import 'package:keel_core/modules/workflows/model/workflow.dart';
 /// carpeta de tareas, resolver un ticket, evaluar un requerimiento— y cada
 /// uno quiere otra fila de agentes. Acá es donde `whenToApply` por fin sirve
 /// para algo: se escribía, se guardaba y no lo leía nadie para decidir.
+/// Con [allowAuto], arriba de la lista aparece «Automático»: no es un
+/// workflow sino el modo en que el workflow lo elige un turno de evaluación
+/// a partir del pedido. Devuelve [kAutoWorkflowId].
 Future<String?> openWorkflowPicker(
   BuildContext context, {
   required List<Workflow> options,
   required String currentId,
   required String title,
   required String note,
+  bool allowAuto = false,
 }) {
   return showFormPanel<String>(
     context,
@@ -25,6 +30,7 @@ Future<String?> openWorkflowPicker(
       currentId: currentId,
       title: title,
       note: note,
+      allowAuto: allowAuto,
     ),
   );
 }
@@ -35,12 +41,14 @@ class _WorkflowPicker extends StatelessWidget {
     required this.currentId,
     required this.title,
     required this.note,
+    required this.allowAuto,
   });
 
   final List<Workflow> options;
   final String currentId;
   final String title;
   final String note;
+  final bool allowAuto;
 
   @override
   Widget build(BuildContext context) {
@@ -60,6 +68,11 @@ class _WorkflowPicker extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 14),
+          if (allowAuto)
+            _AutoOption(
+              current: currentId == kAutoWorkflowId,
+              onPick: () => Navigator.of(context).pop(kAutoWorkflowId),
+            ),
           for (final workflow in options)
             _Option(
               workflow: workflow,
@@ -77,6 +90,84 @@ class _WorkflowPicker extends StatelessWidget {
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+/// «Automático»: la fila que no es un workflow sino el modo en que se elige
+/// uno. Va primera porque es la que resuelve el caso más común —no saber
+/// cuál de los cinco corresponde— sin leer los cinco `whenToApply`.
+class _AutoOption extends StatelessWidget {
+  const _AutoOption({required this.current, required this.onPick});
+
+  final bool current;
+  final VoidCallback onPick;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Material(
+        color: scheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(8),
+        child: InkWell(
+          onTap: onPick,
+          borderRadius: BorderRadius.circular(8),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 11),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: current ? scheme.primary : scheme.outlineVariant,
+                width: current ? 1 : 0.5,
+              ),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(top: 1, right: 8),
+                  child: Icon(
+                    Icons.auto_awesome_outlined,
+                    size: 14,
+                    color: current ? scheme.primary : scheme.outline,
+                  ),
+                ),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'automático',
+                        style: TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: 12.5,
+                          color: current ? scheme.primary : scheme.onSurface,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Lo elige un turno de evaluación a partir del pedido, '
+                        'entre los de abajo, antes de que la sesión arranque. '
+                        'Si después resulta más grande, relanza solo con el '
+                        'que corresponda.',
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          height: 1.4,
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (current) Icon(Icons.check, size: 16, color: scheme.primary),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

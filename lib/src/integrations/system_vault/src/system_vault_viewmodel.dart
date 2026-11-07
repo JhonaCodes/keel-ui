@@ -197,6 +197,49 @@ class SystemVaultViewModel extends ViewModel<SystemVaultState> {
     _initialized = true;
     updateSilently(const SystemVaultState());
     unawaited(refreshStatus());
+    _followCatalog();
+  }
+
+  /// Cuánto se espera después del último cambio del catálogo antes de
+  /// respaldar solo: editar una skill son varios guardados seguidos, y
+  /// respaldar en cada uno sería subir lo mismo muchas veces.
+  static const _autoBackupDelay = Duration(seconds: 90);
+
+  Timer? _autoBackup;
+
+  /// Lo que se crea o cambia en el catálogo —skills, workflows, reglas,
+  /// hooks, tools, MCP, agentes, bases de saber— se respalda solo al vault
+  /// un rato después del último cambio, y keel-server lo toma de ahí sin que
+  /// nadie lo pida. Proyectos y sesiones quedan afuera: cambian con cada
+  /// turno, y el respaldo manual los sigue llevando.
+  void _followCatalog() {
+    for (final changes in <Stream<Object?>>[
+      SkillsStore.instance.changes,
+      WorkflowsStore.instance.changes,
+      RulesStore.instance.changes,
+      HooksStore.instance.changes,
+      ToolsStore.instance.changes,
+      McpServersStore.instance.changes,
+      AgentProfilesStore.instance.changes,
+      KnowledgeStore.instance.changes,
+    ]) {
+      changes.listen((_) => _scheduleAutoBackup());
+    }
+  }
+
+  void _scheduleAutoBackup() {
+    _autoBackup?.cancel();
+    _autoBackup = Timer(_autoBackupDelay, () {
+      final settings = SettingsService.instance.notifier.data;
+      // Sin vault con remoto no hay adónde subir: se respalda a mano.
+      if (settings.vaultPath.trim().isEmpty ||
+          settings.vaultRepoUrl.trim().isEmpty) {
+        return;
+      }
+      // Una operación del vault en curso: se reintenta después de ella.
+      if (data.busy) return _scheduleAutoBackup();
+      unawaited(backup());
+    });
   }
 
   /// La carpeta del vault, o null si el usuario todavía no eligió ninguna.

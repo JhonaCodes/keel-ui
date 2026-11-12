@@ -2980,6 +2980,30 @@ class AppLocalizationsEn extends AppLocalizations {
       'This PC stopped taking tasks, but the server did not confirm it removed the node.';
 
   @override
+  String get keelThisPcPairOpen => 'Connect with a code';
+
+  @override
+  String get keelThisPcPairTitle => 'Connect with a code';
+
+  @override
+  String get keelThisPcPairIntro =>
+      'In the Keel app, open «Conectar otro nodo» › «Mac o PC» and type here the code it shows you. It expires in ten minutes and works once. This PC does not need to be signed in.';
+
+  @override
+  String get keelThisPcPairCodeLabel => '6-digit code';
+
+  @override
+  String get keelThisPcPairSubmit => 'Connect';
+
+  @override
+  String get keelThisPcProblemPairingCodeMalformed =>
+      'Type the six digits of the code the Keel app shows.';
+
+  @override
+  String get keelThisPcProblemPairingCodeRefused =>
+      'The code is not valid or has expired. Ask the Keel app for a new one.';
+
+  @override
   String get settingLaya => 'Laya';
 
   @override

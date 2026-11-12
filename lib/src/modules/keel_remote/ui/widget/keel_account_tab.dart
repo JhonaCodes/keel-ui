@@ -33,7 +33,10 @@ class KeelAccountTab extends StatelessWidget {
             else
               _SignInForm(account: account),
             const SizedBox(height: 8),
-            DesktopNodeCard(signedIn: account.isSignedIn),
+            DesktopNodeCard(
+              signedIn: account.isSignedIn,
+              origin: account.origin,
+            ),
           ],
         );
       },

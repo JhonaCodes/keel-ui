@@ -360,9 +360,11 @@ packages:
   keel_core:
     dependency: "direct main"
     description:
-      path: "../keel-core"
-      relative: true
-    source: path
+      path: "."
+      ref: main
+      resolved-ref: "2906120ae4f986a5012528b4b7f800c5d614a29d"
+      url: "git@github.com:JhonaCodes/keel-core.git"
+    source: git
     version: "0.1.0"
   keel_e2e_panel:
     dependency: "direct main"

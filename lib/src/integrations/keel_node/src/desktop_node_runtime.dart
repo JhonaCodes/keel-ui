@@ -18,13 +18,17 @@ final class DesktopNodeRuntime {
 
   /// The task types this PC takes besides the link's own: the ones only
   /// another kind of node runs, refused before they can reach this PC's
-  /// sessions, and Keel AI's chat ([keelAi], null while it is not running).
+  /// sessions, Keel AI's chat ([keelAi], null while it is not running),
+  /// Laya forms and the node commands ([DesktopNodeAdmin]).
   static List<NodeTaskHandler> handlersFor(NodeKeelAiChat? Function() keelAi) =>
       [
         const ServerOnlyTasks(),
         NodeKeelAiTasks(keelAi: keelAi),
         // Laya forms from the phone, answered with this PC's vault.
         const LayaFormTasks(),
+        // The phone's commands about this node (`node.*`): its log and
+        // projects; update, restart and deploys refused with why.
+        NodeAdminTasks(const DesktopNodeAdmin()),
       ];
 
   static const String folderName = 'node_link';

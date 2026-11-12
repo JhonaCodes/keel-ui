@@ -1,7 +1,7 @@
 part of '../keel_node.dart';
 
 /// One line of [NodeMemoryLog].
-final class NodeMemoryLine implements NodeLogLine {
+final class NodeMemoryLine implements NodeCountedLogLine {
   const NodeMemoryLine({
     required this.id,
     required this.at,
@@ -26,6 +26,7 @@ final class NodeMemoryLine implements NodeLogLine {
   final String detail;
 
   /// How many times it happened in a row (a poll that finds nothing).
+  @override
   final int count;
 
   factory NodeMemoryLine.fromJson(Map<String, dynamic> json) => NodeMemoryLine(
@@ -89,7 +90,10 @@ final class NodeMemoryLine implements NodeLogLine {
 /// it and moves to the end, as keel-server's activity log does, so a poll
 /// that keeps finding nothing is one line.
 final class NodeMemoryLog implements NodeLinkLog {
-  NodeMemoryLog({this.capacity = 120, this.onChange});
+  NodeMemoryLog({this.capacity = defaultCapacity, this.onChange});
+
+  /// How many lines it keeps unless told otherwise.
+  static const int defaultCapacity = 120;
 
   final int capacity;
 

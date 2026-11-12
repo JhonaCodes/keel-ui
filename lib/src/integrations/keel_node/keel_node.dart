@@ -14,6 +14,9 @@
 ///   this PC's sessions is keel-core's [NodeAutoApprove].
 /// - [ServerOnlyTasks]: the task types only keel-server runs, refused here at
 ///   once.
+/// - [DesktopNodeAdmin]: this PC under the phone's node commands (`node.*`):
+///   its log and projects answered, update, restart and deploys refused
+///   with why.
 /// - [NodeMemoryLog]: the link's recent lines, in memory, for the Keel
 ///   panel's status.
 ///
@@ -29,6 +32,7 @@ import 'package:keel_core/engine/core_engine.dart';
 import 'package:keel_core/modules/agent_profiles/service/agent_profiles_store.dart';
 import 'package:keel_core/integrations/laya_forms_tasks/laya_form_tasks.dart';
 import 'package:keel_core/integrations/machine/machine.dart';
+import 'package:keel_core/integrations/node_admin_tasks/node_admin_tasks.dart';
 import 'package:keel_core/integrations/node_keel_ai/node_keel_ai.dart';
 import 'package:keel_core/integrations/node_link/node_link.dart';
 import 'package:keel_core/modules/projects/model/project.dart';
@@ -43,6 +47,7 @@ import 'package:result_controller/result_controller.dart';
 import 'package:keel_ui/src/integrations/keel_api/keel_api.dart';
 
 part 'src/desktop_keel_ai.dart';
+part 'src/desktop_node_admin.dart';
 part 'src/desktop_node_identity.dart';
 part 'src/desktop_node_runtime.dart';
 part 'src/desktop_node_snapshot.dart';

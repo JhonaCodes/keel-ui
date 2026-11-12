@@ -32,6 +32,10 @@ final class DesktopNodeSnapshot {
         'total': sessions.length,
       },
       'version': ?await _appVersion(),
+      // What the phone's node commands refuse here, so the app shows those
+      // actions off with why. No `latest`: the Mac is not updated from the
+      // phone.
+      'actions': const DesktopNodeAdmin().statusActions(),
     };
   }
 

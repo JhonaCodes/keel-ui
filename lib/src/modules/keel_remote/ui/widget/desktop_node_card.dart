@@ -4,23 +4,32 @@ import 'package:reactive_notifier/reactive_notifier.dart';
 import 'package:keel_ui/l10n/generated/app_localizations.dart';
 import 'package:keel_ui/src/modules/keel_remote/model/desktop_node_state.dart';
 import 'package:keel_ui/src/modules/keel_remote/ui/keel_remote_presentation.dart';
+import 'package:keel_ui/src/modules/keel_remote/ui/screen/node_pairing_panel.dart';
 import 'package:keel_ui/src/modules/keel_remote/ui/widget/keel_remote_parts.dart';
 import 'package:keel_ui/src/modules/keel_remote/viewmodel/desktop_node_viewmodel.dart';
 
-/// «Esta PC como nodo»: connecting this PC to the Keel API as a node, how
-/// its link is doing, and the way out.
+/// «Esta PC como nodo»: connecting this PC to the Keel API as a node — with
+/// the person's session, or with a code from the Keel app — how its link is
+/// doing, and the way out.
 class DesktopNodeCard extends StatelessWidget {
-  const DesktopNodeCard({super.key, required this.signedIn});
+  const DesktopNodeCard({
+    super.key,
+    required this.signedIn,
+    required this.origin,
+  });
 
-  /// Connecting takes the person's session; disconnecting does not need it.
+  /// Connecting with the session takes it; connecting with a code and
+  /// disconnecting do not.
   final bool signedIn;
+
+  /// The server a code is first offered for: the account's.
+  final String origin;
 
   @override
   Widget build(BuildContext context) {
     return ReactiveViewModelBuilder<DesktopNodeViewModel, DesktopNodeState>(
       viewmodel: DesktopNodeService.instance.notifier,
       build: (node, viewmodel, keep) {
-        if (!node.shownWith(signedIn: signedIn)) return const SizedBox.shrink();
         final t = AppLocalizations.of(context);
         final problem = node.problem;
         final failure = node.failure;
@@ -43,7 +52,8 @@ class DesktopNodeCard extends StatelessWidget {
                       _NodeIntro(text: t.keelThisPcIntro),
                     const SizedBox(height: 12),
                     KeelLoadingBar(loading: node.isBusy),
-                    if (problem != null) _NodeProblem(problem: problem),
+                    if (problem != null)
+                      DesktopNodeProblemLine(problem: problem),
                     if (failure != null) KeelFailureText(failure: failure),
                     const SizedBox(height: 10),
                     Align(
@@ -51,6 +61,7 @@ class DesktopNodeCard extends StatelessWidget {
                       child: _NodeAction(
                         node: node,
                         signedIn: signedIn,
+                        origin: origin,
                         viewmodel: viewmodel,
                       ),
                     ),
@@ -170,8 +181,8 @@ class _NodeLogRow extends StatelessWidget {
 }
 
 /// What went wrong on this PC's side, in the error colour.
-class _NodeProblem extends StatelessWidget {
-  const _NodeProblem({required this.problem});
+class DesktopNodeProblemLine extends StatelessWidget {
+  const DesktopNodeProblemLine({super.key, required this.problem});
 
   final DesktopNodeProblem problem;
 
@@ -190,16 +201,19 @@ class _NodeProblem extends StatelessWidget {
   }
 }
 
-/// «Conectar esta PC como nodo», or «Desconectar» once it is one.
+/// «Conectar con un código» and «Conectar esta PC como nodo», or
+/// «Desconectar» once it is one.
 class _NodeAction extends StatelessWidget {
   const _NodeAction({
     required this.node,
     required this.signedIn,
+    required this.origin,
     required this.viewmodel,
   });
 
   final DesktopNodeState node;
   final bool signedIn;
+  final String origin;
   final DesktopNodeViewModel viewmodel;
 
   @override
@@ -212,10 +226,24 @@ class _NodeAction extends StatelessWidget {
         label: Text(t.keelThisPcDisconnect),
       );
     }
-    return FilledButton.icon(
-      onPressed: signedIn && node.canConnect ? viewmodel.connect : null,
-      icon: const Icon(Icons.computer, size: 16),
-      label: Text(t.keelThisPcConnect),
+    return Wrap(
+      alignment: WrapAlignment.end,
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        OutlinedButton.icon(
+          onPressed: node.canConnect
+              ? () => openNodePairingPanel(context, origin: origin)
+              : null,
+          icon: const Icon(Icons.pin, size: 16),
+          label: Text(t.keelThisPcPairOpen),
+        ),
+        FilledButton.icon(
+          onPressed: signedIn && node.canConnect ? viewmodel.connect : null,
+          icon: const Icon(Icons.computer, size: 16),
+          label: Text(t.keelThisPcConnect),
+        ),
+      ],
     );
   }
 }

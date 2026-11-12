@@ -78,10 +78,22 @@ link). **Connect this PC as a node** enrolls `<hostname>-desktop` with the
 signed-in session; the `knt_` token it answers is kept in `keel_node.json`, an
 owner-only (0600) file in app support written the same way as the session file,
 and the node runs with that token from then on — not with the person's session,
-so it keeps working while the account renews or ends. The card shows the node
-id, the last task check and status report, the tasks taken and the link's
-recent lines; **Disconnect** stops the link, unlinks the node
-(`DELETE /v1/keel-bot/nodes/{id}`) and deletes the token file.
+so it keeps working while the account renews or ends. **Connect with a code**
+does the same without a session: it opens a side panel with the server
+(the account's to start with) and the six-digit pairing code the Keel app
+shows under «Conectar otro nodo» › «Mac o PC», and enrolls with an unsigned
+`POST /v1/keel-bot/nodes/enroll {pairing_code, kind: desktop, id, label}`; a
+wrong, used or expired code (`401`) says so, and the panel closes once the
+token is kept. The card is shown signed in or not, so a code can always be
+used. It shows the node id, the last task check and status report, the tasks
+taken and the link's recent lines; **Disconnect** stops the link, unlinks the
+node (`DELETE /v1/keel-bot/nodes/{id}`) and deletes the token file.
+
+The node's status carries the home volume's `disk_total_kb` and
+`disk_used_kb` (size minus available, from `df -kP $HOME`), with the keys
+keel-server uses. The Dokploy and domain commands (`node.env`,
+`node.env_set`, `node.env_unset`, `node.redeploy`, `node.cloudflare`) are
+refused here with why; `node.catalog` and `node.catalog_item` are answered.
 
 The node runs in the main window only. It starts with the app when the token
 file exists, resumes reporting the tasks it followed (`node_link/tasks.json`),

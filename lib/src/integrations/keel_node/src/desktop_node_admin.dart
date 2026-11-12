@@ -4,7 +4,11 @@ part of '../keel_node.dart';
 /// (its in-memory lines) and `node.projects`, and refuses, with why, what
 /// only a server does from the phone — installing a release, restarting,
 /// deploys — and the work only keel-server runs (deploys, jobs, launches),
-/// so the app shows those actions off instead of hiding them.
+/// so the app shows those actions off instead of hiding them. The commands
+/// over the Dokploy apps and the domains (`node.env*`, `node.redeploy`,
+/// `node.cloudflare`) are refused by keel-core's default
+/// ([NodeAdminHost.managesApps] false, with [NodeAdminHost.noAppsReason]);
+/// `node.catalog` and `node.catalog_item` are answered.
 final class DesktopNodeAdmin extends NodeAdminHost {
   const DesktopNodeAdmin();
 

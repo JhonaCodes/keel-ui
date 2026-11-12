@@ -198,19 +198,14 @@ extension DesktopNodeProblemText on DesktopNodeProblem {
     DesktopNodeProblem.notStarted => t.keelThisPcProblemNotStarted,
     DesktopNodeProblem.unlinkNotConfirmed =>
       t.keelThisPcProblemUnlinkNotConfirmed,
+    DesktopNodeProblem.pairingCodeMalformed =>
+      t.keelThisPcProblemPairingCodeMalformed,
+    DesktopNodeProblem.pairingCodeRefused =>
+      t.keelThisPcProblemPairingCodeRefused,
   };
 }
 
 extension DesktopNodeStateText on DesktopNodeState {
-  /// Whether the Account tab shows the node: always while signed in, and
-  /// while this PC is a node — or just stopped being one — so it can always
-  /// be stopped and what happened is read.
-  bool shownWith({required bool signedIn}) =>
-      signedIn ||
-      status != DesktopNodeStatus.off ||
-      problem != null ||
-      failure != null;
-
   /// `Última consulta de tareas: HTTP 200 · 18:42`.
   String pollLine(AppLocalizations t, DateTime now) =>
       t.keelThisPcLastPoll(_callText(lastPoll, t, now));

@@ -34,6 +34,38 @@ class KeelNodesRepository {
     },
   )).map(KeelNodeEnrollment.fromJson);
 
+  /// Enrolls this keel-ui as a `desktop` node at [origin] with the
+  /// six-digit pairing [code] the person issued from the Keel app, without
+  /// a session: an unsigned request on a one-off client, so the account's
+  /// session — signed in or not, to whichever server — is never involved.
+  /// keel-api answers `401` to a code that is wrong, used or expired, and
+  /// `429` after five failures from one address.
+  ///
+  /// `DesktopNodeViewModel.connectWithCode` calls it; from then on the node
+  /// runs with the token it answers, as after [enrollDesktop].
+  Future<Result<KeelNodeEnrollment, KeelApiFailure>> enrollWithCode({
+    required String origin,
+    required String code,
+    required String id,
+    required String label,
+  }) async {
+    final client = KeelApiClient()..point(origin);
+    try {
+      return (await client.postObject(
+        KeelApiPaths.enrollNode,
+        body: <String, dynamic>{
+          'pairing_code': code,
+          'id': id,
+          'kind': KeelNode.desktopKind,
+          'label': label,
+        },
+        signed: false,
+      )).map(KeelNodeEnrollment.fromJson);
+    } finally {
+      client.close();
+    }
+  }
+
   /// Unlinks node [id] with the person's session (`204`): its token stops
   /// working at once and it leaves the node list. Tasks bound to it keep
   /// their state on the server.

@@ -2,7 +2,8 @@ part of '../keel_node.dart';
 
 /// How this PC is doing, as the node reports it to keel-api when it starts
 /// and every 30 s ([NodeStatusReporter]), in the shape the Keel app reads
-/// (`kind`, `uptime_sec`, `sessions`, and what the machine tells).
+/// (`kind`, `uptime_sec`, `sessions`, and what the machine and its home
+/// disk tell).
 ///
 /// The machine is read by keel-core's machine integration, with macOS's own
 /// commands (`sysctl`, `vm_stat`); where it cannot be read — Linux, or a
@@ -27,6 +28,7 @@ final class DesktopNodeSnapshot {
       'uptime_sec': DateTime.now().difference(_startedAt).inSeconds,
       'cpu_count': Platform.numberOfProcessors,
       ...await _machine(),
+      ...await _disk(),
       'sessions': {
         'running': sessions.where((s) => s.status == 'running').length,
         'total': sessions.length,
@@ -71,6 +73,36 @@ final class DesktopNodeSnapshot {
       };
     } on ProcessException catch (error) {
       Log.d('keel_node: the machine could not be read: ${error.message}');
+      return const {};
+    }
+  }
+
+  /// The home volume's size and how much of it is taken, in KB, with the
+  /// keys keel-server's status uses (`disk_total_kb`, `disk_used_kb`), from
+  /// `df -kP <home>`. Taken is the size minus what is available: on macOS
+  /// the volumes of one disk share its space, and the home volume's own
+  /// `Used` leaves out the system's. Nothing when it cannot be read.
+  static Future<Map<String, Object?>> _disk() async {
+    final home = Platform.environment['HOME'] ?? '';
+    if (home.isEmpty) return const {};
+    try {
+      final df = await Process.run('df', ['-kP', home]);
+      if (df.exitCode != 0) return const {};
+      final fields = '${df.stdout}'
+          .trim()
+          .split('\n')
+          .last
+          .split(RegExp(r'\s+'));
+      if (fields.length < 4) return const {};
+      final total = int.tryParse(fields[1]);
+      final available = int.tryParse(fields[3]);
+      if (total == null || available == null || total <= 0) return const {};
+      return {
+        'disk_total_kb': total,
+        'disk_used_kb': (total - available).clamp(0, total),
+      };
+    } on ProcessException catch (error) {
+      Log.d('keel_node: the disk could not be read: ${error.message}');
       return const {};
     }
   }

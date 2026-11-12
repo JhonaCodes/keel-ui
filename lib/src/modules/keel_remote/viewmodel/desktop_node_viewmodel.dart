@@ -8,22 +8,28 @@ import 'package:result_controller/result_controller.dart';
 import 'package:keel_ui/src/integrations/keel_api/keel_api.dart';
 import 'package:keel_ui/src/integrations/keel_node/keel_node.dart';
 import 'package:keel_ui/src/modules/keel_remote/model/desktop_node_state.dart';
+import 'package:keel_ui/src/modules/keel_remote/model/keel_node.dart';
 import 'package:keel_ui/src/modules/keel_remote/repository/keel_nodes_repository.dart';
+import 'package:keel_ui/src/modules/keel_remote/viewmodel/keel_account_viewmodel.dart';
 
 /// This PC as a keel-api node (`kind: desktop`): connecting it with the
-/// person's session, the node running with its own token, and disconnecting
-/// it.
+/// person's session or with a pairing code from the Keel app, the node
+/// running with its own token, and disconnecting it.
 ///
-/// Connecting enrolls `<hostname>-desktop` with the signed-in session and
-/// keeps the `knt_` token it answers in the owner-only node file; from then
-/// on the node runs with that token, not with the person's session, and
-/// starts again by itself with the app ([resume]). Only the main window
-/// runs it.
+/// Connecting enrolls `<hostname>-desktop` — with the signed-in session
+/// ([connect]) or with a six-digit code and no session ([connectWithCode])
+/// — and keeps the `knt_` token it answers in the owner-only node file;
+/// from then on the node runs with that token, not with the person's
+/// session, and starts again by itself with the app ([resume]). Only the
+/// main window runs it.
 class DesktopNodeViewModel extends ViewModel<DesktopNodeState> {
   DesktopNodeViewModel() : super(const DesktopNodeState());
 
   /// How many of the link's lines the panel shows.
   static const int recentLines = 8;
+
+  /// A pairing code: six digits.
+  static final RegExp _pairingCode = RegExp(r'^\d{6}$');
 
   KeelNodesRepository get _nodes => const KeelNodesRepository();
   KeelNodeCredentialsStore get _store =>
@@ -73,31 +79,106 @@ class DesktopNodeViewModel extends ViewModel<DesktopNodeState> {
       case Err(:final error):
         updateState(DesktopNodeState(failure: error));
       case Ok(data: final enrollment):
-        final credentials = KeelNodeCredentials(
-          origin: origin,
-          nodeId: enrollment.id.isEmpty ? nodeId : enrollment.id,
-          token: enrollment.token,
-        );
-        if (!credentials.isComplete) {
-          await _nodes.unlink(credentials.nodeId);
-          updateState(
-            const DesktopNodeState(
-              failure: KeelApiFailure(kind: KeelApiFailureKind.unexpected),
-            ),
-          );
-          return;
-        }
-        if (!await _store.write(credentials)) {
-          // A token that cannot be kept owner-only is not kept at all, and
-          // the node it opened is unlinked again.
-          await _nodes.unlink(credentials.nodeId);
-          updateState(
-            const DesktopNodeState(problem: DesktopNodeProblem.tokenNotStored),
-          );
-          return;
-        }
-        await _start(credentials);
+        await _adopt(enrollment, origin: origin, nodeId: nodeId);
     }
+  }
+
+  /// Enrolls this PC at [origin] with the six-digit pairing [code] issued
+  /// from the Keel app (`Conectar otro nodo › Mac o PC`), without a
+  /// session, and starts the node. Whether this PC was enrolled and its
+  /// token kept; what went wrong is in the state.
+  Future<bool> connectWithCode({
+    required String origin,
+    required String code,
+  }) async {
+    if (!data.canConnect) return false;
+    final server = KeelApiClient.normalizeOrigin(origin);
+    if (!KeelAccountViewModel.isValidOrigin(server)) {
+      updateState(
+        const DesktopNodeState(
+          failure: KeelApiFailure(kind: KeelApiFailureKind.invalidServer),
+        ),
+      );
+      return false;
+    }
+    final digits = pairingCodeOf(code);
+    if (digits == null) {
+      updateState(
+        const DesktopNodeState(
+          problem: DesktopNodeProblem.pairingCodeMalformed,
+        ),
+      );
+      return false;
+    }
+    final hostname = Platform.localHostname;
+    final nodeId = DesktopNodeIdentity.idFor(hostname);
+    updateState(
+      DesktopNodeState(status: DesktopNodeStatus.connecting, nodeId: nodeId),
+    );
+    final enrolled = await _nodes.enrollWithCode(
+      origin: server,
+      code: digits,
+      id: nodeId,
+      label: DesktopNodeIdentity.labelFor(hostname),
+    );
+    if (isDisposed) return false;
+    if (enrolled case Err(:final error)) {
+      // keel-api answers 401 to a code that is wrong, used or expired.
+      updateState(
+        error.kind == KeelApiFailureKind.unauthorized
+            ? const DesktopNodeState(
+                problem: DesktopNodeProblem.pairingCodeRefused,
+              )
+            : DesktopNodeState(failure: error),
+      );
+      return false;
+    }
+    return _adopt(
+      (enrolled as Ok<KeelNodeEnrollment, KeelApiFailure>).data,
+      origin: server,
+      nodeId: nodeId,
+    );
+  }
+
+  /// [code] without the spaces the Keel app shows it with (`482 913`), or
+  /// null when it is not six digits.
+  static String? pairingCodeOf(String code) {
+    final digits = code.replaceAll(RegExp(r'\s'), '');
+    return _pairingCode.hasMatch(digits) ? digits : null;
+  }
+
+  /// Keeps the token [enrollment] carries in the owner-only node file and
+  /// starts the node with it. A token that is incomplete or cannot be kept
+  /// owner-only is not kept at all, and the node it opened is unlinked
+  /// again. Whether it was kept.
+  Future<bool> _adopt(
+    KeelNodeEnrollment enrollment, {
+    required String origin,
+    required String nodeId,
+  }) async {
+    final credentials = KeelNodeCredentials(
+      origin: origin,
+      nodeId: enrollment.id.isEmpty ? nodeId : enrollment.id,
+      token: enrollment.token,
+    );
+    if (!credentials.isComplete) {
+      await _nodes.unlink(credentials.nodeId);
+      updateState(
+        const DesktopNodeState(
+          failure: KeelApiFailure(kind: KeelApiFailureKind.unexpected),
+        ),
+      );
+      return false;
+    }
+    if (!await _store.write(credentials)) {
+      await _nodes.unlink(credentials.nodeId);
+      updateState(
+        const DesktopNodeState(problem: DesktopNodeProblem.tokenNotStored),
+      );
+      return false;
+    }
+    await _start(credentials);
+    return true;
   }
 
   /// Stops the node, unlinks it with the person's session and forgets its

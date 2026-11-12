@@ -38,7 +38,13 @@ enum DesktopNodeProblem {
 
   /// This PC stopped taking tasks, but the server did not confirm it
   /// unlinked the node.
-  unlinkNotConfirmed;
+  unlinkNotConfirmed,
+
+  /// The pairing code typed is not six digits.
+  pairingCodeMalformed,
+
+  /// keel-api refused the pairing code: wrong, already used or expired.
+  pairingCodeRefused;
 
   static DesktopNodeProblem? fromName(String? name) =>
       values.where((problem) => problem.name == name).firstOrNull;

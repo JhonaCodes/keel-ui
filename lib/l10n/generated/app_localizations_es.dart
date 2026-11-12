@@ -2996,6 +2996,30 @@ class AppLocalizationsEs extends AppLocalizations {
       'Esta PC dejó de tomar tareas, pero el servidor no confirmó que quitó el nodo.';
 
   @override
+  String get keelThisPcPairOpen => 'Conectar con un código';
+
+  @override
+  String get keelThisPcPairTitle => 'Conectar con un código';
+
+  @override
+  String get keelThisPcPairIntro =>
+      'En la app de Keel, abre «Conectar otro nodo» › «Mac o PC» y escribe aquí el código que te muestra. Vence en diez minutos y sirve una sola vez. No hace falta iniciar sesión en esta PC.';
+
+  @override
+  String get keelThisPcPairCodeLabel => 'Código de 6 dígitos';
+
+  @override
+  String get keelThisPcPairSubmit => 'Conectar';
+
+  @override
+  String get keelThisPcProblemPairingCodeMalformed =>
+      'Escribe los seis dígitos del código que muestra la app de Keel.';
+
+  @override
+  String get keelThisPcProblemPairingCodeRefused =>
+      'El código no es válido o ya venció. Pide uno nuevo en la app de Keel.';
+
+  @override
   String get settingLaya => 'Laya';
 
   @override
@@ -6000,6 +6024,30 @@ class AppLocalizationsEsCo extends AppLocalizationsEs {
   @override
   String get keelThisPcProblemUnlinkNotConfirmed =>
       'Esta PC dejó de tomar tareas, pero el servidor no confirmó que quitó el nodo.';
+
+  @override
+  String get keelThisPcPairOpen => 'Conectar con un código';
+
+  @override
+  String get keelThisPcPairTitle => 'Conectar con un código';
+
+  @override
+  String get keelThisPcPairIntro =>
+      'En la app de Keel, abre «Conectar otro nodo» › «Mac o PC» y escribe aquí el código que te muestra. Vence en diez minutos y sirve una sola vez. No hace falta iniciar sesión en esta PC.';
+
+  @override
+  String get keelThisPcPairCodeLabel => 'Código de 6 dígitos';
+
+  @override
+  String get keelThisPcPairSubmit => 'Conectar';
+
+  @override
+  String get keelThisPcProblemPairingCodeMalformed =>
+      'Escribe los seis dígitos del código que muestra la app de Keel.';
+
+  @override
+  String get keelThisPcProblemPairingCodeRefused =>
+      'El código no es válido o ya venció. Pide uno nuevo en la app de Keel.';
 
   @override
   String get settingLaya => 'Laya';

@@ -41,6 +41,10 @@ class KeelApiClient {
     _tokens = null;
   }
 
+  /// Ends this client's connections: a one-off client is closed once it
+  /// answered.
+  void close() => _http.close();
+
   /// [origin] trimmed and without a trailing slash, so joining a path never
   /// doubles it.
   static String normalizeOrigin(String origin) {

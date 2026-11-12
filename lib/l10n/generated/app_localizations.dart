@@ -5223,6 +5223,48 @@ abstract class AppLocalizations {
   /// **'This PC stopped taking tasks, but the server did not confirm it removed the node.'**
   String get keelThisPcProblemUnlinkNotConfirmed;
 
+  /// No description provided for @keelThisPcPairOpen.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect with a code'**
+  String get keelThisPcPairOpen;
+
+  /// No description provided for @keelThisPcPairTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect with a code'**
+  String get keelThisPcPairTitle;
+
+  /// No description provided for @keelThisPcPairIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'In the Keel app, open «Conectar otro nodo» › «Mac o PC» and type here the code it shows you. It expires in ten minutes and works once. This PC does not need to be signed in.'**
+  String get keelThisPcPairIntro;
+
+  /// No description provided for @keelThisPcPairCodeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'6-digit code'**
+  String get keelThisPcPairCodeLabel;
+
+  /// No description provided for @keelThisPcPairSubmit.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect'**
+  String get keelThisPcPairSubmit;
+
+  /// No description provided for @keelThisPcProblemPairingCodeMalformed.
+  ///
+  /// In en, this message translates to:
+  /// **'Type the six digits of the code the Keel app shows.'**
+  String get keelThisPcProblemPairingCodeMalformed;
+
+  /// No description provided for @keelThisPcProblemPairingCodeRefused.
+  ///
+  /// In en, this message translates to:
+  /// **'The code is not valid or has expired. Ask the Keel app for a new one.'**
+  String get keelThisPcProblemPairingCodeRefused;
+
   /// No description provided for @settingLaya.
   ///
   /// In en, this message translates to:

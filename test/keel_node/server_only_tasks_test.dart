@@ -213,6 +213,8 @@ final class _AnsweringKeelAi implements NodeKeelAiChat {
     required String askId,
     String? conversationId,
     bool freshConversation = false,
+    String? model,
+    NodeKeelAiTurnMcp? extraMcp,
   }) async {
     asked.add(text);
     return Ok((conversationId: conversationId ?? 'new', reply: reply));

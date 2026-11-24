@@ -428,7 +428,8 @@ final List<Tool> keelAiTools = _withCatalogChangeParameters([
         'Reemplaza el contenido de una skill que ya existe (para crearla '
         'usá create_skill). El contenido se sustituye entero: leelo antes '
         'con get_item si querés conservar parte. Las asignaciones a agentes '
-        'se mantienen porque van por nombre.',
+        'se mantienen porque van por nombre. Con `global` se marca o se '
+        'desmarca como skill global; si se omite, la marca no cambia.',
     inputSchema: ObjectSchema(
       properties: {
         'name': Schema.string(description: 'Nombre de la skill a actualizar.'),
@@ -437,6 +438,13 @@ final List<Tool> keelAiTools = _withCatalogChangeParameters([
           description:
               'Renombrar (opcional). OJO: los agentes la referencian por '
               'nombre, así que renombrar rompe las asignaciones existentes.',
+        ),
+        'global': Schema.bool(
+          description:
+              'Opcional. true = skill GLOBAL: la reciben todos los agentes '
+              'en cada turno sin asignarla. false = solo la reciben los '
+              'agentes que la tengan asignada. Omitido = conserva la marca '
+              'actual.',
         ),
       },
       required: ['name', 'content'],

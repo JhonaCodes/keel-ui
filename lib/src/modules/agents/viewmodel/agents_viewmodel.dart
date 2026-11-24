@@ -63,6 +63,15 @@ import 'package:keel_core/modules/tools/model/tool.dart';
 import 'package:keel_ui/src/modules/tools/viewmodel/tools_viewmodel.dart';
 import 'package:keel_core/shared/shared.dart';
 
+/// What a 1:1 turn reads through `keel-context`: its MCP entry, the manifest
+/// that goes in the prompt when everything is on demand, and the skills the
+/// prompt only names when just the skills are.
+typedef _ChatContext = ({
+  Map<String, dynamic>? entry,
+  String? manifest,
+  List<TurnContextItem> onDemandSkills,
+});
+
 class AgentsViewModel extends ViewModel<AgentsState> {
   AgentsViewModel() : super(const AgentsState());
 
@@ -878,9 +887,7 @@ class AgentsViewModel extends ViewModel<AgentsState> {
         : null;
     final profileTools = _resolveProfileTools(target.profileId);
     final contextItems = _profileContextItems(target.profileId);
-    final context = ContextMcpServer.servesProvider(target.provider.alias)
-        ? ContextMcpServer.register(contextItems)
-        : null;
+    final context = await _registerChatContext(target, contextItems);
     final toolsEntry = profileTools.isEmpty
         ? null
         : UserToolsMcpServer.mcpServerEntryFor(
@@ -898,7 +905,7 @@ class AgentsViewModel extends ViewModel<AgentsState> {
     final mcpServers = <String, dynamic>{
       'keelai-actions': ?keelAiEntry,
       kUserToolsMcpServerKey: ?toolsEntry,
-      kContextMcpServerKey: ?context?.entry,
+      kContextMcpServerKey: ?context.entry,
       for (final server in externalServers)
         server.name: server.toMcpServerEntry(externalSecretValues),
     };
@@ -943,7 +950,8 @@ class AgentsViewModel extends ViewModel<AgentsState> {
         additionalSystemPrompt: _resolveProfileSystemPrompt(
           target.profileId,
           contextItems,
-          context?.manifest,
+          context.manifest,
+          context.onDemandSkills,
         ),
         extraAllowedTools: [
           ...SettingsService.instance.notifier.data.extraAllowedTools,
@@ -953,7 +961,7 @@ class AgentsViewModel extends ViewModel<AgentsState> {
             ...profileTools.map(
               (tool) => '$kUserToolsMcpToolPrefix${tool.name}',
             ),
-          if (context != null) ...kContextMcpToolNames,
+          if (context.entry != null) ...kContextMcpToolNames,
           // Server-level grant: every tool an external MCP exposes.
           ...externalServers.map((server) => 'mcp__${server.name}'),
         ],
@@ -1740,12 +1748,57 @@ class AgentsViewModel extends ViewModel<AgentsState> {
     return items;
   }
 
+  /// Registers what [target]'s turn reads on demand. In
+  /// [LlmOnDemandContext.full] everything in [items] goes through
+  /// `keel-context` and the prompt carries its manifest. In
+  /// [LlmOnDemandContext.skillsOnly] only the profile's non-global skills do
+  /// (the global ones are the `required` skill items), under one scope per
+  /// chat: the URL, and with it the MCP config and the live process, stays
+  /// the same from one message to the next.
+  Future<_ChatContext> _registerChatContext(
+    Agent target,
+    List<TurnContextItem> items,
+  ) async {
+    switch (ContextMcpServer.contextModeFor(target.provider.alias)) {
+      case LlmOnDemandContext.full:
+        final registration = ContextMcpServer.register(items);
+        return (
+          entry: registration?.entry,
+          manifest: registration?.manifest,
+          onDemandSkills: const <TurnContextItem>[],
+        );
+      case LlmOnDemandContext.skillsOnly:
+        final skills = [
+          for (final item in items)
+            if (item.kind == 'skill' && !item.required) item,
+        ];
+        if (skills.isEmpty) {
+          return (
+            entry: null,
+            manifest: null,
+            onDemandSkills: const <TurnContextItem>[],
+          );
+        }
+        await ContextMcpServer.start();
+        final registration =
+            ContextMcpServer.register(skills, scope: 'chat/${target.id}') ??
+            (throw StateError('keel-context did not start'));
+        return (
+          entry: registration.entry,
+          manifest: null,
+          onDemandSkills: skills,
+        );
+    }
+  }
+
   /// The system prompt of a 1:1 turn. With [manifest] the model reads
-  /// [context] on demand; without it, [context] goes inline.
+  /// [context] on demand; without it, [context] goes inline except
+  /// [onDemandSkills], which the prompt only names.
   String? _resolveProfileSystemPrompt(
     String? profileId,
     List<TurnContextItem> context,
     String? manifest,
+    List<TurnContextItem> onDemandSkills,
   ) {
     final profile = profileId == null
         ? null
@@ -1756,13 +1809,26 @@ class AgentsViewModel extends ViewModel<AgentsState> {
         profile != null &&
         _resolveProfileMcpServers(profile.id).any(isGithubMcpServer);
     if (manifest == null) {
+      final onDemandIds = {for (final item in onDemandSkills) item.id};
+      final available = availableSkillsPrompt([
+        for (final item in onDemandSkills)
+          (
+            id: item.id,
+            name: item.name,
+            content: item.content,
+            required: item.required,
+          ),
+      ]);
       // Knowledge goes last, after everything stable: its text carries each
       // base's document count, so it changes whenever an agent writes one,
       // and whatever came after it would fall out of the cached prefix.
       final combined = composeTurnSystemPrompt(
         stablePrompt: [
           for (final item in context)
-            if (item.kind != _knowledgeContextKind) item.content,
+            if (item.kind != _knowledgeContextKind &&
+                !onDemandIds.contains(item.id))
+              item.content,
+          if (available.isNotEmpty) available,
           if (usesGithubMcp) kGithubMcpPrompt,
         ].join('\n\n'),
         knowledge: [

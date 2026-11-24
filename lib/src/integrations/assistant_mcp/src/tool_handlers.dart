@@ -522,6 +522,9 @@ Future<(bool, String)> _runKeelAiTool(
             ? (arguments['new_name'] as String).trim()
             : skill.name,
         content: arguments['content'] as String,
+        // Omitted keeps the current mark: a new parameter must not change
+        // what existing callers get.
+        isGlobal: arguments['global'] as bool?,
       );
       return (error == null, error ?? 'Actualicé la skill "${skill.name}".');
 

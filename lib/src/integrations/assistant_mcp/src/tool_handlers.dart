@@ -1888,24 +1888,7 @@ Session? _sessionOf(Project project, String idOrTitle) {
 
 ({Project project, Session session, ChatMessage message, int index})?
 _locateMessage(SessionMessageReference reference) {
-  final project = ProjectsService.instance.notifier.data.projects
-      .where((entry) => entry.id == reference.projectId)
-      .firstOrNull;
-  if (project == null) return null;
-  final session = project.sessions
-      .where((entry) => entry.id == reference.sessionId)
-      .firstOrNull;
-  if (session == null) return null;
-  final index = session.messages.indexWhere(
-    (entry) => entry.id == reference.messageId,
-  );
-  if (index < 0) return null;
-  return (
-    project: project,
-    session: session,
-    message: session.messages[index],
-    index: index,
-  );
+  return reference.locateIn(ProjectsService.instance.notifier.data.projects);
 }
 
 String _threadLine(
